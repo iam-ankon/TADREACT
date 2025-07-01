@@ -190,10 +190,11 @@ const AddSupplier = () => {
       transition: 'all 0.2s',
       '&:hover': {
         backgroundColor: '#f3f4f6'
-      }
+      },
+       width: '120px',
     },
     submitButton: {
-      padding: '0.5rem 1.25rem',
+      padding: '6px 12px',
       border: '1px solid transparent',
       borderRadius: '0.375rem',
       fontSize: '0.875rem',
@@ -204,7 +205,8 @@ const AddSupplier = () => {
       transition: 'background-color 0.2s',
       '&:hover': {
         backgroundColor: '#1d4ed8'
-      }
+      },
+       width: '120px',
     },
     flexRow: {
       display: 'flex',

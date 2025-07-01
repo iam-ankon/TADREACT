@@ -53,7 +53,7 @@ const Supplier = () => {
                 <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>Supplier Management</h1>
 
                 {/* Search + Add */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
                     <input
                         type="text"
                         placeholder="Search suppliers..."
@@ -61,7 +61,7 @@ const Supplier = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
                             flexGrow: 1,
-                            padding: '0.5rem 1rem',
+                            padding: '1rem',
                             borderRadius: '8px',
                             border: '1px solid #d1d5db',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
@@ -74,7 +74,7 @@ const Supplier = () => {
                             color: '#fff',
                             border: 'none',
                             borderRadius: '8px',
-                            padding: '0.5rem 1.2rem',
+                            padding: '0.5rem',
                             cursor: 'pointer',
                             fontWeight: 'bold',
                             boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
@@ -122,7 +122,7 @@ const Supplier = () => {
                                 filteredSuppliers.map((supplier, idx) => (
                                     <tr key={supplier.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
                                         <td style={{ padding: '1rem', color: '#374151' }}>{supplier.vendor_id}</td>
-                                        <td style={{ padding: '1rem', fontWeight: '500', color: '#111827' }} onClick={() => navigate(`/suppliers/${supplier.id}`)}>{supplier.name}</td>
+                                        <td style={{ padding: '1rem', fontWeight: '500', color: '#2563eb' }} onClick={() => navigate(`/suppliers/${supplier.id}`)}>{supplier.name}</td>
                                         <td style={{ padding: '1rem', color: '#4b5563' }}>{supplier.vendor_type}</td>
                                         <td style={{ padding: '1rem', color: '#4b5563' }}>{supplier.email}</td>
                                         <td style={{ padding: '1rem' }}>
@@ -143,7 +143,7 @@ const Supplier = () => {
                                                 {supplier.agreement_status || 'N/A'}
                                             </span>
                                         </td>
-                                        <td style={{ padding: '1rem' }}>
+                                        <td style={{ padding: '0.1rem' }}>
                                             <button
                                                 onClick={() => navigate(`/edit/suppliers/${supplier.id}`)}
                                                 style={{

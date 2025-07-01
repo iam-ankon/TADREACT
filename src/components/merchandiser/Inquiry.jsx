@@ -123,7 +123,7 @@ const Inquiry = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#eef2f7' }}>
-                {['Inquiry No','Fabrication','Order Request', 'Order Quantity', 'Pro. Shipment Date','Target Price','Confirmed Price', 'Status', 'Actions'].map((title, index) => (
+                {['Inquiry No','Fabrication', 'Order Quantity', 'Pro. Shipment Date','Target Price','Confirmed Price', 'Status', 'Actions'].map((title, index) => (
                   <th key={index} style={{
                     padding: '14px',
                     fontSize: '15px',
@@ -142,7 +142,6 @@ const Inquiry = () => {
                   <tr key={inquiry.id} style={{ borderBottom: '1px solid #eee', backgroundColor: '#fff' }}>
                     <td style={{ padding: '14px', fontSize: '15px', textAlign: 'center' }}>{inquiry.inquiry_no}</td>
                     <td style={{ padding: '14px', fontSize: '15px', textAlign: 'center' }}>{inquiry.fabrication?.fabrication || '-'}</td>
-                    <td style={{ padding: '14px', fontSize: '15px', textAlign: 'center' }}>{inquiry.order_no}</td>
                     <td style={{ padding: '14px', fontSize: '15px', textAlign: 'center' }}>{inquiry.order_quantity}</td>
                     <td style={{ padding: '14px', fontSize: '15px', textAlign: 'center' }}>{inquiry.proposed_shipment_date}</td>
                     <td style={{ padding: '14px', fontSize: '15px', textAlign: 'center' }}>{inquiry.target_price}</td>

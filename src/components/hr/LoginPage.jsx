@@ -70,7 +70,7 @@ const LoginPage = () => {
         localStorage.setItem("token", data.token);
         setUsername("");
         setPassword("");
-        navigate("/dashboard");
+        navigate("/hr-work");
       } else {
         setError(data.error || "Login failed. Please try again.");
       }
