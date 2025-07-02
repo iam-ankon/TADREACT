@@ -48,7 +48,9 @@ const NewAppraisal = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await axios.get("http://119.148.12.1:8000/api/hrms/api/employees/");
+        const response = await axios.get(
+          "http://119.148.12.1:8000/api/hrms/api/employees/"
+        );
         setEmployees(response.data);
       } catch (error) {
         console.error("Error fetching employees:", error);
@@ -63,11 +65,13 @@ const NewAppraisal = () => {
 
     try {
       // Find the selected employee from the employees list
-      const selectedEmployee = employees.find(emp => emp.employee_id === selectedEmployeeId);
+      const selectedEmployee = employees.find(
+        (emp) => emp.employee_id === selectedEmployeeId
+      );
 
       if (selectedEmployee) {
         // Update form data with employee details
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           employee_id: selectedEmployee.employee_id,
           name: selectedEmployee.name,
@@ -83,8 +87,6 @@ const NewAppraisal = () => {
       console.error("Error fetching employee details:", error);
     }
   };
-
-
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -148,17 +150,13 @@ const NewAppraisal = () => {
     }
   };
 
-
-
   const mainContentStyle = {
     flex: 1,
-    padding: "30px",
-
     margin: "0 auto",
   };
 
   const formContainerStyle = {
-    backgroundColor: "#f4f5f7",
+    backgroundColor: "#A7D5E1",
     borderRadius: "8px",
     boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
     padding: "20px",
@@ -271,10 +269,17 @@ const NewAppraisal = () => {
   const buttonHoverStyle = {
     backgroundColor: "#005a9e",
   };
+  const containerStyle = {
+    backgroundColor: "#A7D5E1",
+    width: "100%",
+    overflowY: "auto",
+    padding: "2px",
+    fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+  };
 
   return (
-    <div style={{ backgroundColor: "#f9fafb", minHeight: "100vh", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
-      <div style={{ display: "flex" }}>
+    <div style={containerStyle}>
+      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
         <Sidebars />
         <div style={{ flex: 1, overflow: "auto" }}>
           <div style={mainContentStyle}>
@@ -312,7 +317,7 @@ const NewAppraisal = () => {
                             fontSize: "14px",
                             fontWeight: "500",
                             color: "#374151",
-                            marginBottom: "4px"
+                            marginBottom: "4px",
                           }}
                         >
                           Employee Name
@@ -332,19 +337,20 @@ const NewAppraisal = () => {
                             boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
                             transition: "all 0.2s ease",
                             appearance: "none",
-                            backgroundImage: "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")",
+                            backgroundImage:
+                              "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")",
                             backgroundRepeat: "no-repeat",
                             backgroundPosition: "right 10px center",
                             backgroundSize: "16px",
                             cursor: "pointer",
                             ":hover": {
-                              borderColor: "#9ca3af"
+                              borderColor: "#9ca3af",
                             },
                             ":focus": {
                               outline: "none",
                               borderColor: "#3b82f6",
-                              boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)"
-                            }
+                              boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                            },
                           }}
                         >
                           <option value="">-- Select Employee --</option>
@@ -353,7 +359,8 @@ const NewAppraisal = () => {
                               key={employee.employee_id}
                               value={employee.employee_id}
                             >
-                              {employee.name} ({employee.employee_id}) - {employee.designation}
+                              {employee.name} ({employee.employee_id}) -{" "}
+                              {employee.designation}
                             </option>
                           ))}
                         </select>
@@ -467,7 +474,9 @@ const NewAppraisal = () => {
                   </div>
                   {/* Performance and Salary Details Section */}
 
-                  <h3 style={sectionTitleStyle}>Performance and Salary Details</h3>
+                  <h3 style={sectionTitleStyle}>
+                    Performance and Salary Details
+                  </h3>
                   <div style={formGridStyle}>
                     <div style={fieldContainerStyle}>
                       <div style={labelContainerStyle}>
@@ -488,7 +497,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={fieldContainerStyle}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="expected_performance" style={labelStyle}>
+                        <label
+                          htmlFor="expected_performance"
+                          style={labelStyle}
+                        >
                           EXPECTED PERFORMANCE
                         </label>
                       </div>
@@ -556,7 +568,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={fieldContainerStyle}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="proposed_designation" style={labelStyle}>
+                        <label
+                          htmlFor="proposed_designation"
+                          style={labelStyle}
+                        >
                           PROPOSED DESIGNATION
                         </label>
                       </div>
@@ -575,7 +590,13 @@ const NewAppraisal = () => {
                   {/* Recommendations */}
                   <div style={{ gridColumn: "span 2", marginTop: "20px" }}>
                     <h3 style={{ marginBottom: "15px" }}>Recommendations</h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "15px" }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, 1fr)",
+                        gap: "15px",
+                      }}
+                    >
                       <div style={checkboxContainerStyle}>
                         <input
                           type="checkbox"
@@ -617,7 +638,6 @@ const NewAppraisal = () => {
                       </div>
                     </div>
                   </div>
-
                 </div>
 
                 {/* Appraisal Details Section */}
@@ -662,7 +682,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={fieldContainerStyle}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="performance_in_meetings" style={labelStyle}>
+                        <label
+                          htmlFor="performance_in_meetings"
+                          style={labelStyle}
+                        >
                           PERFORMANCE IN MEETINGS (1-5)
                         </label>
                       </div>
@@ -682,7 +705,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="performance_description" style={labelStyle}>
+                        <label
+                          htmlFor="performance_description"
+                          style={labelStyle}
+                        >
                           PERFORMANCE DESCRIPTION
                         </label>
                       </div>
@@ -698,7 +724,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={fieldContainerStyle}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="communication_skills" style={labelStyle}>
+                        <label
+                          htmlFor="communication_skills"
+                          style={labelStyle}
+                        >
                           COMMUNICATION SKILLS (1-5)
                         </label>
                       </div>
@@ -718,7 +747,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="communication_description" style={labelStyle}>
+                        <label
+                          htmlFor="communication_description"
+                          style={labelStyle}
+                        >
                           COMMUNICATION DESCRIPTION
                         </label>
                       </div>
@@ -754,7 +786,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="reliability_description" style={labelStyle}>
+                        <label
+                          htmlFor="reliability_description"
+                          style={labelStyle}
+                        >
                           RELIABILITY DESCRIPTION
                         </label>
                       </div>
@@ -790,7 +825,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="initiative_description" style={labelStyle}>
+                        <label
+                          htmlFor="initiative_description"
+                          style={labelStyle}
+                        >
                           INITIATIVE DESCRIPTION
                         </label>
                       </div>
@@ -826,7 +864,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="stress_management_description" style={labelStyle}>
+                        <label
+                          htmlFor="stress_management_description"
+                          style={labelStyle}
+                        >
                           STRESS MANAGEMENT DESCRIPTION
                         </label>
                       </div>
@@ -862,7 +903,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="co_operation_description" style={labelStyle}>
+                        <label
+                          htmlFor="co_operation_description"
+                          style={labelStyle}
+                        >
                           CO-OPERATION DESCRIPTION
                         </label>
                       </div>
@@ -898,7 +942,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="leadership_description" style={labelStyle}>
+                        <label
+                          htmlFor="leadership_description"
+                          style={labelStyle}
+                        >
                           LEADERSHIP DESCRIPTION
                         </label>
                       </div>
@@ -934,7 +981,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="discipline_description" style={labelStyle}>
+                        <label
+                          htmlFor="discipline_description"
+                          style={labelStyle}
+                        >
                           DISCIPLINE DESCRIPTION
                         </label>
                       </div>
@@ -950,7 +1000,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={fieldContainerStyle}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="ethical_considerations" style={labelStyle}>
+                        <label
+                          htmlFor="ethical_considerations"
+                          style={labelStyle}
+                        >
                           ETHICAL CONSIDERATIONS (1-5)
                         </label>
                       </div>
@@ -970,7 +1023,10 @@ const NewAppraisal = () => {
                     </div>
                     <div style={{ gridColumn: "span 1" }}>
                       <div style={labelContainerStyle}>
-                        <label htmlFor="ethical_considerations_description" style={labelStyle}>
+                        <label
+                          htmlFor="ethical_considerations_description"
+                          style={labelStyle}
+                        >
                           ETHICAL CONSIDERATIONS DESCRIPTION
                         </label>
                       </div>
@@ -984,20 +1040,22 @@ const NewAppraisal = () => {
                         />
                       </div>
                     </div>
-
-
                   </div>
                 </div>
-
-
 
                 {/* Submit Button */}
                 <div style={buttonContainerStyle}>
                   <button
                     type="submit"
                     style={buttonStyle}
-                    onMouseEnter={(e) => (e.target.style.backgroundColor = buttonHoverStyle.backgroundColor)}
-                    onMouseLeave={(e) => (e.target.style.backgroundColor = buttonStyle.backgroundColor)}
+                    onMouseEnter={(e) =>
+                      (e.target.style.backgroundColor =
+                        buttonHoverStyle.backgroundColor)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.target.style.backgroundColor =
+                        buttonStyle.backgroundColor)
+                    }
                   >
                     Submit Appraisal
                   </button>

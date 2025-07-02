@@ -124,7 +124,7 @@ const styles = {
   wrapper: {
     display: "flex",
     minHeight: "100vh",
-    background: "#f8f9fb",
+    background: "#A7D5E1",
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
 
