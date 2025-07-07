@@ -115,7 +115,7 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#DCEEF3",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    
   },
   content: {
     flex: 1,

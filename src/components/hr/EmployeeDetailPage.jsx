@@ -2,9 +2,21 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getEmployeeById } from "../../api/employeeApi";
-import axios from 'axios';
-import Sidebars from './sidebars';
-import { FaEdit, FaArrowLeft, FaPrint, FaUserTie, FaBuilding, FaMoneyBillWave, FaEnvelope, FaPhone, FaCalendarAlt, FaMapMarkerAlt, FaStar } from "react-icons/fa";
+import axios from "axios";
+import Sidebars from "./sidebars";
+import {
+  FaEdit,
+  FaArrowLeft,
+  FaPrint,
+  FaUserTie,
+  FaBuilding,
+  FaMoneyBillWave,
+  FaEnvelope,
+  FaPhone,
+  FaCalendarAlt,
+  FaMapMarkerAlt,
+  FaStar,
+} from "react-icons/fa";
 
 const EmployeeDetailPage = () => {
   const { id } = useParams();
@@ -35,7 +47,9 @@ const EmployeeDetailPage = () => {
         const names = [];
         for (const customerId of employee.customer) {
           try {
-            const response = await axios.get(`http://119.148.12.1:8000/api/hrms/api/customers/${customerId}/`);
+            const response = await axios.get(
+              `http://119.148.12.1:8000/api/hrms/api/customers/${customerId}/`
+            );
             names.push(response.data.customer_name);
           } catch (error) {
             console.error(`Error fetching customer ${customerId}`, error);
@@ -52,14 +66,14 @@ const EmployeeDetailPage = () => {
   }, [employee]);
 
   const handlePrint = () => {
-    const printWindow = window.open('', '', 'width=800,height=600');
+    const printWindow = window.open("", "", "width=800,height=600");
     printWindow.document.write(`
       <html>
         <head>
           <title>Employee Details</title>
           <style>
             body {
-              font-family: Arial, sans-serif;
+              
               margin: 20px;
               color: #333;
             }
@@ -152,8 +166,14 @@ const EmployeeDetailPage = () => {
             
             <div class="profile-section">
               <div class="profile-images">
-                <img src="${employee.image1}" alt="Employee" class="profile-image" />
-                ${employee.image2 ? `<img src="${employee.image2}" alt="Employee Secondary" class="profile-image" />` : ''}
+                <img src="${
+                  employee.image1
+                }" alt="Employee" class="profile-image" />
+                ${
+                  employee.image2
+                    ? `<img src="${employee.image2}" alt="Employee Secondary" class="profile-image" />`
+                    : ""
+                }
               </div>
               
               <div class="basic-info">
@@ -189,7 +209,9 @@ const EmployeeDetailPage = () => {
                 </div>
                 <div class="detail-row">
                   <span>Customers:</span>
-                  <span>${customerNames.length > 0 ? customerNames.join(", ") : "N/A"}</span>
+                  <span>${
+                    customerNames.length > 0 ? customerNames.join(", ") : "N/A"
+                  }</span>
                 </div>
               </div>
 
@@ -245,7 +267,7 @@ const EmployeeDetailPage = () => {
         </body>
       </html>
     `);
-    
+
     printWindow.document.close();
     setTimeout(() => {
       printWindow.focus();
@@ -254,23 +276,25 @@ const EmployeeDetailPage = () => {
     }, 500);
   };
 
-  if (!employee) return  ;
+  if (!employee) return;
   if (loading) return <div className="loading-spinner">Loading...</div>;
- 
 
   return (
     <div className="employee-detail-container">
-      <div className="sidebar-wrapper">
-        <Sidebars />
-        <div className="content-wrapper">
-          <div className="employee-detail-card">
+      <Sidebars />
+      <div className="content-wrapper">
+        <div className="employee-detail-card">
+          <div style={{ maxHeight: "calc(95vh - 100px)", overflowY: "auto" }}>
             <div className="employee-header">
               <h2>
                 <FaUserTie className="header-icon" />
                 Employee Details
               </h2>
               <div className="action-buttons">
-                <button onClick={() => navigate(`/edit-employee/${id}`)} className="btn-edit">
+                <button
+                  onClick={() => navigate(`/edit-employee/${id}`)}
+                  className="btn-edit"
+                >
                   <FaEdit /> Edit
                 </button>
                 <button onClick={() => navigate(-1)} className="btn-back">
@@ -286,24 +310,38 @@ const EmployeeDetailPage = () => {
               {/* <div className="print-header">
                 <h2>Employee Details</h2>
               </div> */}
-              
+
               <div className="profile-section">
                 <div className="profile-images">
-                  <img src={employee.image1} alt="Employee" className="profile-image" />
-                  {employee.image2 && <img src={employee.image2} alt="Employee Secondary" className="profile-image" />}
+                  <img
+                    src={employee.image1}
+                    alt="Employee"
+                    className="profile-image"
+                  />
+                  {employee.image2 && (
+                    <img
+                      src={employee.image2}
+                      alt="Employee Secondary"
+                      className="profile-image"
+                    />
+                  )}
                 </div>
-                
+
                 <div className="basic-info">
                   <h3>{employee.name}</h3>
                   <p className="designation">{employee.designation}</p>
                   <p className="department">{employee.department}</p>
-                  <p className="employee-id">Employee ID: {employee.employee_id}</p>
+                  <p className="employee-id">
+                    Employee ID: {employee.employee_id}
+                  </p>
                 </div>
               </div>
 
               <div className="detail-sections">
                 <div className="detail-section">
-                  <h4><FaBuilding /> Company Information</h4>
+                  <h4>
+                    <FaBuilding /> Company Information
+                  </h4>
                   <div className="detail-row">
                     <span>Company:</span>
                     <span>{employee.company_name || employee.company}</span>
@@ -326,12 +364,18 @@ const EmployeeDetailPage = () => {
                   </div>
                   <div className="detail-row">
                     <span>Customers:</span>
-                    <span>{customerNames.length > 0 ? customerNames.join(", ") : "N/A"}</span>
+                    <span>
+                      {customerNames.length > 0
+                        ? customerNames.join(", ")
+                        : "N/A"}
+                    </span>
                   </div>
                 </div>
 
                 <div className="detail-section">
-                  <h4><FaEnvelope /> Contact Information</h4>
+                  <h4>
+                    <FaEnvelope /> Contact Information
+                  </h4>
                   <div className="detail-row email-row">
                     <span>Email:</span>
                     <span>{employee.email}</span>
@@ -351,7 +395,9 @@ const EmployeeDetailPage = () => {
                 </div>
 
                 <div className="detail-section">
-                  <h4><FaMapMarkerAlt /> Address Information</h4>
+                  <h4>
+                    <FaMapMarkerAlt /> Address Information
+                  </h4>
                   <div className="detail-row">
                     <span>Mailing Address:</span>
                     <span>{employee.mail_address}</span>
@@ -363,7 +409,9 @@ const EmployeeDetailPage = () => {
                 </div>
 
                 <div className="detail-section">
-                  <h4><FaCalendarAlt /> Personal Information</h4>
+                  <h4>
+                    <FaCalendarAlt /> Personal Information
+                  </h4>
                   <div className="detail-row">
                     <span>Date of Birth:</span>
                     <span>{employee.date_of_birth}</span>
@@ -387,8 +435,8 @@ const EmployeeDetailPage = () => {
         .employee-detail-container {
           display: flex;
           min-height: 100vh;
-          background-color: #A7D5E1;
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background-color: #a7d5e1;
+          font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         }
 
         .sidebar-wrapper {
@@ -403,7 +451,7 @@ const EmployeeDetailPage = () => {
         }
 
         .employee-detail-card {
-          background: #DCEEF3;
+          background: #dceef3;
           border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           padding: 2rem;
@@ -533,7 +581,7 @@ const EmployeeDetailPage = () => {
         }
 
         .detail-section {
-          background: #A7D5E1;
+          background: #a7d5e1;
           border-radius: 8px;
           padding: 1.2rem;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);

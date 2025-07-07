@@ -114,7 +114,7 @@ const FinanceProvision = () => {
       display: "flex",
       minHeight: "100vh",
       backgroundColor: "#f9fafb",
-      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      
     },
     mainContent: {
       flex: 1,

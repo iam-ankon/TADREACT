@@ -89,7 +89,6 @@ const AddTermination = () => {
                     flex-direction: column;
                     padding: 40px;
                     background-color: #f4f7fc;
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                     align-items: center;
                 }
                 .card { 
@@ -98,7 +97,7 @@ const AddTermination = () => {
                     border-radius: 8px; 
                     width: 400px; 
                     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    
                 }
                 .header { 
                     text-align: center; 

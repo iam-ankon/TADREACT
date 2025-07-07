@@ -490,7 +490,7 @@ const Interviews = () => {
         <head>
           <style>
             body {
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              
               line-height: 1.2;
               color: #333;
               background-color: #fff;
@@ -671,7 +671,7 @@ const Interviews = () => {
         <head>
           <style>
             body {
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              
               line-height: 1.2;
               color: #333;
               background-color: #fff;
@@ -853,7 +853,7 @@ const Interviews = () => {
       overflowX: "hidden",
       display: "flex",
       height: "100vh",
-      fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+      
     },
     sidebar: {
       width: "280px",
@@ -988,7 +988,7 @@ const Interviews = () => {
       backgroundColor: "#fff",
       border: "1px solid #ccc",
       borderRadius: "8px",
-      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      
       lineHeight: "1.6",
       color: "#333",
     },

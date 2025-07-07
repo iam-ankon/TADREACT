@@ -53,7 +53,7 @@ export default function AddAgents() {
     <div style={{
       display: "flex",
       minHeight: "100vh",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      
       backgroundColor: '#A7D5E1',
     }}>
       {/* Sidebar */}

@@ -84,7 +84,7 @@ const EditAppraisal = () => {
         display: "flex",
         height: "100vh",
         overflow: "hidden",
-        fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+        
       }}
     >
       {/* Fixed Sidebar */}
@@ -488,7 +488,7 @@ const styles = {
   container: {
     width: "70%",
     margin: "30px auto",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    
     background: "#f3f3f3",
     padding: "20px",
     borderRadius: "8px",
@@ -539,7 +539,7 @@ const containerStyle = {
   width: "100%",
   overflowY: "auto",
   padding: "2px",
-  fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+  
 };
 
 export default EditAppraisal;

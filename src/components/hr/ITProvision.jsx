@@ -84,7 +84,7 @@ const ITProvision = () => {
   const containerStyle = {
     display: "flex",
     height: "100vh",
-    fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+    
     backgroundColor: "#f4f6f9",
     minHeight: "100vh",
   };
@@ -235,7 +235,7 @@ const ITProvision = () => {
           padding: 40px;
           background-color: #f4f7fc;
           min-height: 100vh;
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          
         }
 
         .heading {

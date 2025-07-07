@@ -60,20 +60,14 @@ const DashboardPage = ({ isSidebarOpen }) => {
       style={{
         display: "flex",
         minHeight: "100vh",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-
-        
       }}
     >
       <Sidebar />
       <div
         style={{
-          
-          
-          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
           flex: 1,
           padding: "2rem",
-          backgroundColor: '#A7D5E1',
+          backgroundColor: "#A7D5E1",
         }}
       >
         <h2
@@ -132,7 +126,6 @@ const DashboardPage = ({ isSidebarOpen }) => {
                   type={index === 0 ? "doughnut" : index === 1 ? "line" : "bar"}
                   data={staticChartData[index]}
                   options={{
-                    
                     maintainAspectRatio: true,
                   }}
                   style={{ width: "100%", height: "100%" }}

@@ -89,7 +89,7 @@ const LoginPage = () => {
           
           body {
             margin: 0;
-            font-family: 'Lato', sans-serif;
+            
           }
 
           .header {

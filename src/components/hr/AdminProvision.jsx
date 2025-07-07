@@ -97,7 +97,7 @@ const AdminProvision = () => {
   const containerStyle = {
     display: "flex",
     height: "100vh",
-    fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+    
     backgroundColor: "#f4f6f9",
   };
 
@@ -265,7 +265,7 @@ const AdminProvision = () => {
           flex-direction: column;
           padding: 30px;
           background-color: #f4f7fc;
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          
           align-items: center;
         }
         .heading {

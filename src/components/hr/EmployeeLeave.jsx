@@ -8,7 +8,7 @@ const EmployeeLeave = () => {
     const [filteredLeaves, setFilteredLeaves] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
-
+    const employeesPerPage = 4;
     const [nameSearch, setNameSearch] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -204,7 +204,7 @@ const styles = {
         display: "flex",
         minHeight: "100vh",
         backgroundColor: "#f9fafb",
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+       
     },
 };
 const cellStyle = {

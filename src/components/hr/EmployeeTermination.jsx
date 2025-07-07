@@ -10,7 +10,7 @@ const EmployeeTermination = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const employeesPerPage = 5; // Keep employees per page as 5
+  const employeesPerPage = 4; // Keep employees per page as 5
 
   useEffect(() => {
     fetchEmployees();
@@ -65,7 +65,7 @@ const EmployeeTermination = () => {
   const styles = {
     container: {
       display: "flex",
-      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      
       minHeight: "100vh",
     },
     content: {

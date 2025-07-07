@@ -26,7 +26,7 @@ const EditSupplier = () => {
             display: 'flex',
             minHeight: '100vh',
             backgroundColor: '#f3f4f6',
-            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            
         },
         contentContainer: {
             flex: 1,

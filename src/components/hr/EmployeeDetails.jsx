@@ -10,7 +10,7 @@ const EmployeeDetails = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const employeesPerPage = 10;
+  const employeesPerPage = 4;
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -121,7 +121,7 @@ const EmployeeDetails = () => {
 
   return (
     <div className="employee-list-container">
-      <div className="sidebar-wrapper">
+      
         <Sidebars />
         <div className="content-wrapper">
           <div className="employee-list-card">
@@ -225,24 +225,20 @@ const EmployeeDetails = () => {
             )}
           </div>
         </div>
-      </div>
+     
 
       <style jsx>{`
         .employee-list-container {
           display: flex;
           min-height: 100vh;
           background-color: #A7D5E1;
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .sidebar-wrapper {
-          display: flex;
-          width: 100%;
+          overflow: hidden;
+          
         }
 
         .content-wrapper {
           flex: 1;
-          padding: 2rem;
+          padding: 1rem;
           overflow-y: auto;
         }
 
@@ -250,7 +246,7 @@ const EmployeeDetails = () => {
           background: #DCEEF3;
           border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          padding: 2rem;
+          padding: 1rem;
           max-width: 1200px;
           margin: 0 auto;
         }
@@ -259,9 +255,9 @@ const EmployeeDetails = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1rem;
           border-bottom: 1px solid #eaeaea;
-          padding-bottom: 1rem;
+          padding-bottom: 0.5rem;
         }
 
         .employee-header h2 {
@@ -291,6 +287,8 @@ const EmployeeDetails = () => {
         .btn-add {
           background-color:rgb(75, 154, 214);
           color: white;
+          margin-bottom: 1rem;
+          padding-bottom: 0.5rem;
         }
 
         .btn-add:hover {

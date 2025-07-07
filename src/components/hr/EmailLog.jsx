@@ -96,7 +96,7 @@ const styles = {
   container: {
     display: "flex",
     height: "100vh",
-    fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+    
   },
   sidebar: {
     width: '230px',

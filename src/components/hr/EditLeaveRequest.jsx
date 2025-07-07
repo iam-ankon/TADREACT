@@ -58,7 +58,7 @@ const EditLeaveRequest = () => {
 
     const containerStyle = {
         display: 'flex',
-        fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+        
         backgroundColor: "#DCEEF3",
         minHeight: '100vh',
     };
@@ -141,12 +141,13 @@ const EditLeaveRequest = () => {
         <div style={containerStyle}>
             <div style={{ display: 'flex' }}>
                 <Sidebars />
-                <div style={{ flex: 1, overflow: 'auto' }}>
-                    {/* Your page content here */}
-                </div>
+
             </div>
+            
             <div style={mainContentStyle}>
+                
                 <div style={formContainerStyle}>
+                    <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
                     <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>Edit Leave Request</h2>
 
                     <div style={sectionContainerStyle}>
@@ -284,6 +285,7 @@ const EditLeaveRequest = () => {
                         </button>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

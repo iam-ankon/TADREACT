@@ -45,7 +45,7 @@ export default function AddBuyer() {
         display: 'flex',
         minHeight: '100vh',
         backgroundColor: '#A7D5E1',
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+        
       }}
     >
       <Sidebar />
@@ -163,7 +163,7 @@ export default function AddBuyer() {
                     placeholder={placeholder}
                     value={form[field]}
                     onChange={handleChange}
-                    required={field === "name" || field === "email"}
+                    required={false}
                     style={{
                       padding: '12px 16px 12px 40px',
                       border: '1px solid #d1d5db',

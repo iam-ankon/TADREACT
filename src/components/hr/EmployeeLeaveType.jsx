@@ -73,7 +73,7 @@ const EmployeeLeaveTypes = () => {
 
     const containerStyle = {
         display: 'flex',
-        fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
+      
         backgroundColor: '#A7D5E1',
         minHeight: '100vh',
     };
