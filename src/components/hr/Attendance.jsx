@@ -180,7 +180,7 @@ const Attendance = () => {
       display: 'flex',
       minHeight: '100vh',
       backgroundColor: '#A7D5E1',
-      fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif'
+     
     }}>
       {/* Sidebar */}
       <div style={{ display: 'flex' }}>

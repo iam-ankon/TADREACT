@@ -214,7 +214,7 @@ const CVEdit = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    required
+                    
                     style={styles.input}
                   />
                 </div>
@@ -225,7 +225,7 @@ const CVEdit = () => {
                     name="position_for"
                     value={formData.position_for}
                     onChange={handleChange}
-                    required
+                    
                     style={styles.input}
                   />
                 </div>
@@ -236,7 +236,7 @@ const CVEdit = () => {
                     name="age"
                     value={formData.age}
                     onChange={handleChange}
-                    required
+                    
                     style={styles.input}
                   />
                 </div>
@@ -257,7 +257,7 @@ const CVEdit = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    required
+                    
                     style={styles.input}
                   />
                 </div>
@@ -268,7 +268,7 @@ const CVEdit = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    required
+                   
                     style={styles.input}
                   />
                 </div>

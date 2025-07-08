@@ -436,7 +436,7 @@ const EmployeeDetailPage = () => {
           display: flex;
           min-height: 100vh;
           background-color: #a7d5e1;
-          font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+          
         }
 
         .sidebar-wrapper {
