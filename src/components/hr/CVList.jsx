@@ -120,7 +120,7 @@ const CVList = () => {
     },
     td: {
       padding: "5px",
-      cursor: "pointer",
+      
       backgroundColor: "#A7D5E1",
       fontSize: "0.9rem",
       borderBottom: "2px solid #e5e7eb",
