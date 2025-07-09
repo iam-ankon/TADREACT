@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const API_URL = "http://119.148.12.1:8000/api/hrms/api/employees/";
 
@@ -10,7 +10,7 @@ const EmployeeTermination = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const employeesPerPage = 4; // Keep employees per page as 5
+  const employeesPerPage = 5; // Keep employees per page as 5
 
   useEffect(() => {
     fetchEmployees();
@@ -35,7 +35,9 @@ const EmployeeTermination = () => {
     if (window.confirm("Are you sure you want to delete this employee?")) {
       try {
         await axios.delete(`${API_URL}${employeeId}/`);
-        setEmployees(employees.filter((employee) => employee.id !== employeeId));
+        setEmployees(
+          employees.filter((employee) => employee.id !== employeeId)
+        );
       } catch (error) {
         console.error("Error deleting employee:", error);
       }
@@ -54,7 +56,10 @@ const EmployeeTermination = () => {
 
   const indexOfLastEmployee = currentPage * employeesPerPage;
   const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
-  const currentEmployees = filteredEmployees.slice(indexOfFirstEmployee, indexOfLastEmployee);
+  const currentEmployees = filteredEmployees.slice(
+    indexOfFirstEmployee,
+    indexOfLastEmployee
+  );
 
   const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
 
@@ -65,15 +70,18 @@ const EmployeeTermination = () => {
   const styles = {
     container: {
       display: "flex",
-      
+      backgroundColor: "#A7D5E1",
       minHeight: "100vh",
     },
     content: {
       flex: 1,
-      padding: "20px",
-      backgroundColor: "#f4f4f4",
+      padding: "2.5rem",
+      
       borderRadius: "8px",
-      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+      
+      padding: "1.5rem",
+      maxWidth: "1500px",
+      margin: "0 auto",
     },
     header: {
       display: "flex",
@@ -99,7 +107,7 @@ const EmployeeTermination = () => {
       display: "flex",
       alignItems: "center",
       transition: "background-color 0.3s",
-      ':hover': { backgroundColor: '#0056b3' },
+      ":hover": { backgroundColor: "#0056b3" },
     },
     table: {
       width: "100%",
@@ -133,7 +141,7 @@ const EmployeeTermination = () => {
       backgroundColor: "#dc3545",
       color: "white",
       border: "none",
-      ':hover': { backgroundColor: '#c82333' },
+      ":hover": { backgroundColor: "#c82333" },
     },
     paginationStyle: {
       display: "flex",
@@ -148,7 +156,7 @@ const EmployeeTermination = () => {
       cursor: "pointer",
       backgroundColor: "#fff",
       transition: "background-color 0.3s",
-      ':hover': { backgroundColor: '#f0f0f0' },
+      ":hover": { backgroundColor: "#f0f0f0" },
     },
     activePageButtonStyle: {
       backgroundColor: "#007bff",
@@ -164,7 +172,10 @@ const EmployeeTermination = () => {
         <div style={styles.header}>
           <h2>Employee Termination</h2>
           <button style={styles.printButton} onClick={handlePrint}>
-            <span role="img" aria-label="print">🖨️</span> Print List
+            <span role="img" aria-label="print">
+              🖨️
+            </span>{" "}
+            Print List
           </button>
         </div>
 
@@ -197,7 +208,9 @@ const EmployeeTermination = () => {
                   cursor: "pointer",
                   transition: "background-color 0.3s",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#eef6ff")}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#eef6ff")
+                }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.backgroundColor =
                     index % 2 === 0 ? "#f9f9f9" : "#ffffff")
@@ -221,7 +234,10 @@ const EmployeeTermination = () => {
                       navigate(`/attachments/${employee.id}`);
                     }}
                   >
-                    <span role="img" aria-label="attachment">📎</span> Attachment
+                    <span role="img" aria-label="attachment">
+                      📎
+                    </span>{" "}
+                    Attachment
                   </button>
                   <button
                     style={{
@@ -230,7 +246,10 @@ const EmployeeTermination = () => {
                     }}
                     onClick={(e) => handleDelete(e, employee.id)}
                   >
-                    <span role="img" aria-label="delete">🗑️</span> Delete
+                    <span role="img" aria-label="delete">
+                      🗑️
+                    </span>{" "}
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -238,15 +257,21 @@ const EmployeeTermination = () => {
           </tbody>
         </table>
         <div style={styles.paginationStyle}>
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-            <button
-              key={pageNumber}
-              onClick={() => handlePageChange(pageNumber)}
-              style={currentPage === pageNumber ? styles.activePageButtonStyle : styles.pageButtonStyle}
-            >
-              {pageNumber}
-            </button>
-          ))}
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+            (pageNumber) => (
+              <button
+                key={pageNumber}
+                onClick={() => handlePageChange(pageNumber)}
+                style={
+                  currentPage === pageNumber
+                    ? styles.activePageButtonStyle
+                    : styles.pageButtonStyle
+                }
+              >
+                {pageNumber}
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>

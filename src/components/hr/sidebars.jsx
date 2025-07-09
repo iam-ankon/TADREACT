@@ -41,6 +41,8 @@ const Sidebar = () => {
     transition: "width 0.3s ease",
     position: "relative",
     overflow: "hidden",
+    flexShrink: 0, // ✅ FIXED: was incorrect (you used CSS syntax with a semicolon)
+    minWidth: "75px", // ✅ Prevents shrinking too small when zoomed out
   };
 
   const headerStyle = {
@@ -116,7 +118,11 @@ const Sidebar = () => {
     { to: "/employees", icon: <FiUsers />, label: "Employees" },
     { to: "/attendance", icon: <FiClock />, label: "Attendance" },
     { to: "/employee_leave", icon: <FiCalendar />, label: "Leave Management" },
-    { to: "/performanse_appraisal", icon: <FiCalendar />, label: "Performance Appraisal" },
+    {
+      to: "/performanse_appraisal",
+      icon: <FiCalendar />,
+      label: "Performance Appraisal",
+    },
     { to: "/finance-provision", icon: <FiDollarSign />, label: "Finance" },
     { to: "/employee-termination", icon: <FiLogOut />, label: "Termination" },
     { to: "/letter-send", icon: <FiSend />, label: "Send Letters" },
@@ -128,7 +134,11 @@ const Sidebar = () => {
     <div style={sidebarStyle}>
       <div style={headerStyle}>
         <span>{isOpen ? "HR Dashboard" : "HR"}</span>
-        <button onClick={toggleSidebar} style={toggleButtonStyle} title="Toggle Sidebar">
+        <button
+          onClick={toggleSidebar}
+          style={toggleButtonStyle}
+          title="Toggle Sidebar"
+        >
           {isOpen ? <FiChevronLeft /> : <FiChevronLeft />}
         </button>
       </div>

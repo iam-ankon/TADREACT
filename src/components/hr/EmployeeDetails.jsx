@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmployees, deleteEmployee } from "../../api/employeeApi";
-import Sidebars from './sidebars';
-import { FaPlus, FaPrint, FaTrash, FaPaperclip, FaSearch } from "react-icons/fa";
+import Sidebars from "./sidebars";
+import {
+  FaPlus,
+  FaPrint,
+  FaTrash,
+  FaPaperclip,
+  FaSearch,
+} from "react-icons/fa";
 
 const EmployeeDetails = () => {
   const [employees, setEmployees] = useState([]);
@@ -45,7 +51,7 @@ const EmployeeDetails = () => {
   };
 
   const handlePrint = () => {
-    const printWindow = window.open('', '', 'width=800,height=600');
+    const printWindow = window.open("", "", "width=800,height=600");
     printWindow.document.write(`
       <html>
         <head>
@@ -74,16 +80,20 @@ const EmployeeDetails = () => {
               </tr>
             </thead>
             <tbody>
-              ${filteredEmployees.map(employee => `
+              ${filteredEmployees
+                .map(
+                  (employee) => `
                 <tr>
-                  <td>${employee.employee_id || ''}</td>
-                  <td>${employee.name || ''}</td>
-                  <td>${employee.designation || ''}</td>
-                  <td>${employee.department || ''}</td>
-                  <td>${employee.company_name || ''}</td>
-                  <td>${employee.salary ? '$' + employee.salary : ''}</td>
+                  <td>${employee.employee_id || ""}</td>
+                  <td>${employee.name || ""}</td>
+                  <td>${employee.designation || ""}</td>
+                  <td>${employee.department || ""}</td>
+                  <td>${employee.company_name || ""}</td>
+                  <td>${employee.salary ? "$" + employee.salary : ""}</td>
                 </tr>
-              `).join('')}
+              `
+                )
+                .join("")}
             </tbody>
           </table>
           <div class="print-footer">
@@ -100,7 +110,6 @@ const EmployeeDetails = () => {
     }, 500);
   };
 
-
   const filteredEmployees = employees.filter(
     (employee) =>
       employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -112,138 +121,140 @@ const EmployeeDetails = () => {
 
   const indexOfLastEmployee = currentPage * employeesPerPage;
   const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
-  const currentEmployees = filteredEmployees.slice(indexOfFirstEmployee, indexOfLastEmployee);
+  const currentEmployees = filteredEmployees.slice(
+    indexOfFirstEmployee,
+    indexOfLastEmployee
+  );
   const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
 
   const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
 
-  
-
   return (
     <div className="employee-list-container">
-      
-        <Sidebars />
-        <div className="content-wrapper">
-          <div className="employee-list-card">
-            <div className="employee-header">
-              <h2>Employee Directory</h2>
-              <div className="action-buttons">
-                <button 
-                  onClick={() => navigate("/add-employee")} 
-                  className="btn-add"
-                >
-                  <FaPlus /> Add Employee
-                </button>
-                <button 
-                  onClick={handlePrint} 
-                  className="btn-print"
-                >
-                  <FaPrint /> Print
-                </button>
-              </div>
+      <Sidebars />
+      <div className="content-wrapper">
+        <div className="employee-list-card">
+          <div className="employee-header">
+            <h2>Employee Directory</h2>
+            <div className="action-buttons">
+              <button
+                onClick={() => navigate("/add-employee")}
+                className="btn-add"
+              >
+                <FaPlus /> Add Employee
+              </button>
+              <button onClick={handlePrint} className="btn-print">
+                <FaPrint /> Print
+              </button>
             </div>
+          </div>
 
-            <div className="search-container">
-              <div className="search-input">
-                <FaSearch className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search employees..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+          <div className="search-container">
+            <div className="search-input">
+              <FaSearch className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search employees..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
+          </div>
 
-            <div className="table-responsive">
-              <table className="employee-table">
-                <thead>
-                  <tr>
-                    <th>Employee ID</th>
-                    <th>Name</th>
-                    <th>Designation</th>
-                    <th>Department</th>
-                    <th>Company</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentEmployees.length > 0 ? (
-                    currentEmployees.map((employee) => (
-                      <tr 
-                        key={employee.id} 
-                        onClick={() => handleRowClick(employee.id)}
-                        className="employee-row"
-                      >
-                        <td>{employee.employee_id}</td>
-                        <td>{employee.name}</td>
-                        <td>{employee.designation}</td>
-                        <td>{employee.department}</td>
-                        <td>{employee.company_name}</td>
-                        <td className="action-buttons-cell">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/employee/${employee.id}/attachments`);
-                            }}
-                            className="btn-attachment"
-                          >
-                            <FaPaperclip /> Attach
-                          </button>
-                          <button
-                            onClick={(e) => handleDelete(employee.id, e)}
-                            className="btn-delete"
-                          >
-                            <FaTrash /> Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="7" className="no-results">
-                        No employees found matching your search criteria
+          <div className="table-responsive">
+            <table className="employee-table">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Name</th>
+                  <th>Designation</th>
+                  <th>Department</th>
+                  <th>Company</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentEmployees.length > 0 ? (
+                  currentEmployees.map((employee) => (
+                    <tr
+                      key={employee.id}
+                      onClick={() => handleRowClick(employee.id)}
+                      className="employee-row"
+                    >
+                      <td>{employee.employee_id}</td>
+                      <td>{employee.name}</td>
+                      <td>{employee.designation}</td>
+                      <td>{employee.department}</td>
+                      <td>{employee.company_name}</td>
+                      <td className="action-buttons-cell">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/employee/${employee.id}/attachments`);
+                          }}
+                          className="btn-attachment"
+                        >
+                          <FaPaperclip /> Attach
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(employee.id, e)}
+                          className="btn-delete"
+                        >
+                          <FaTrash /> Delete
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="no-results">
+                      No employees found matching your search criteria
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-            {totalPages > 1 && (
-              <div className="pagination">
-                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+          {totalPages > 1 && (
+            <div className="pagination">
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                (pageNumber) => (
                   <button
                     key={pageNumber}
                     onClick={() => handlePageChange(pageNumber)}
-                    className={`page-btn ${currentPage === pageNumber ? 'active' : ''}`}
+                    className={`page-btn ${
+                      currentPage === pageNumber ? "active" : ""
+                    }`}
                   >
                     {pageNumber}
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+                )
+              )}
+            </div>
+          )}
         </div>
-     
+      </div>
 
       <style jsx>{`
         .employee-list-container {
           display: flex;
           min-height: 100vh;
-          background-color: #A7D5E1;
+          background-color: #a7d5e1;
           overflow: hidden;
           
+          justify-content: center;
         }
 
         .content-wrapper {
           flex: 1;
-          padding: 1rem;
+          padding: 5rem;
           overflow-y: auto;
+          margin: 0 auto;
         }
 
         .employee-list-card {
-          background: #DCEEF3;
+          background: #dceef3;
           border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           padding: 1rem;
@@ -285,7 +296,7 @@ const EmployeeDetails = () => {
         }
 
         .btn-add {
-          background-color:rgb(75, 154, 214);
+          background-color: rgb(75, 154, 214);
           color: white;
           margin-bottom: 1rem;
           padding-bottom: 0.5rem;
@@ -348,13 +359,12 @@ const EmployeeDetails = () => {
         }
 
         .employee-table th {
-          background-color:rgb(95, 145, 183);
+          background-color: rgb(95, 145, 183);
           color: white;
           padding: 1rem;
           text-align: left;
           font-weight: 600;
           position: sticky;
-          
         }
 
         .employee-table td {
@@ -465,7 +475,9 @@ const EmployeeDetails = () => {
             display: none;
           }
 
-          .action-buttons, .btn-delete, .btn-attachment {
+          .action-buttons,
+          .btn-delete,
+          .btn-attachment {
             display: none !important;
           }
 
@@ -479,7 +491,8 @@ const EmployeeDetails = () => {
             font-size: 12px;
           }
 
-          .employee-table th, .employee-table td {
+          .employee-table th,
+          .employee-table td {
             padding: 0.5rem;
           }
         }
