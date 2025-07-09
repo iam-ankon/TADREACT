@@ -76,10 +76,7 @@ const EmployeeTermination = () => {
     content: {
       flex: 1,
       padding: "2.5rem",
-      
       borderRadius: "8px",
-      
-      padding: "1.5rem",
       maxWidth: "1500px",
       margin: "0 auto",
     },
