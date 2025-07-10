@@ -13,30 +13,19 @@ import {
 const CVList = () => {
   const [cvs, setCvs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const cvsPerPage = 4;
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchCVs = async () => {
-      try {
-        const response = await axios.get(
-          "http://119.148.12.1:8000/api/hrms/api/CVAdd/"
-        );
-        setCvs(response.data);
-      } catch (error) {
-        console.error("Error fetching CVs:", error);
-      }
-    };
-
-    fetchCVs();
+    axios
+      .get("http://119.148.12.1:8000/api/hrms/api/CVAdd/")
+      .then((res) => setCvs(res.data))
+      .catch((err) => console.error("Error fetching CVs:", err));
   }, []);
 
   const handleDelete = async (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this CV?"
-    );
-    if (confirmDelete) {
+    if (window.confirm("Are you sure you want to delete this CV?")) {
       try {
         await axios.delete(
           `http://119.148.12.1:8000/api/hrms/api/CVAdd/${id}/`
@@ -48,144 +37,7 @@ const CVList = () => {
     }
   };
 
-  const handleEdit = (id) => {
-    navigate(`/cv-edit/${id}`);
-  };
-
-  const styles = {
-    container: {
-      display: "flex",
-      minHeight: "100vh",
-      backgroundColor: "#DCEEF3",
-      justifyContent: "center", // Align sidebar to the left
-       // Align content to the top
-    },
-    mainContent: {
-      padding: "1.5rem",
-      flex: 1,
-      maxWidth: "1200px",
-      margin: "0 auto",
-    },
-    header: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: "15px",
-    },
-    buttonContainer: {
-      display: "flex",
-      gap: "8px",
-    },
-    searchInput: {
-      padding: "8px",
-      marginBottom: "15px",
-      width: "250px",
-      border: "1px solid #ddd",
-      borderRadius: "4px",
-      boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
-      display: "flex",
-      alignItems: "center",
-    },
-    searchInputField: {
-      border: "none",
-      flexGrow: "1",
-      padding: "0",
-      outline: "none",
-      backgroundColor: "#DCEEF3",
-    },
-    addButton: {
-      padding: "10px 15px",
-      backgroundColor: "#006DAA",
-      color: "white",
-      border: "none",
-      cursor: "pointer",
-      borderRadius: "4px",
-      textDecoration: "none", // Added to remove underline
-    },
-    table: {
-      width: "100%",
-      borderCollapse: "collapse",
-      marginTop: "8px",
-      boxShadow: "0 3px 6px rgba(0, 0, 0, 0.1)",
-      borderRadius: "6px",
-      overflow: "hidden",
-      backgroundColor: "white",
-    },
-    th: {
-      color: "white",
-      padding: "10px",
-      textAlign: "left",
-      fontWeight: "600",
-      backgroundColor: "#63B0E3",
-    },
-    td: {
-      padding: "5px",
-      
-      backgroundColor: "#A7D5E1",
-      fontSize: "0.9rem",
-      borderBottom: "2px solid #e5e7eb",
-    },
-    tr: {
-      "&:nth-child(even)": {
-        backgroundColor: "#f2f2f2",
-      },
-      "&:hover": {
-        backgroundColor: "#e6e6e6",
-      },
-    },
-    actionButton: {
-      marginRight: "5px",
-      padding: "8px 10px",
-      cursor: "pointer",
-      border: "none",
-      borderRadius: "53px",
-      marginBottom: "5px",
-    },
-    editButton: {
-      backgroundColor: "#5bc0de",
-      color: "white",
-    },
-    deleteButton: {
-      backgroundColor: "#d9534f",
-      color: "white",
-    },
-    viewCVLink: {
-      color: "#0078D4",
-      fontWeight: "600",
-      fontSize: "0.9rem",
-      textDecoration: "none", // Added to remove underline
-    },
-    barcodeButton: {
-      backgroundColor: "#28a745",
-      color: "white",
-      fontSize: "0.85rem",
-      textDecoration: "none", // Added to remove underline
-      padding: "8px 10px",
-      borderRadius: "53px",
-
-      alignItems: "center",
-      gap: "3px",
-    },
-    pagination: {
-      display: "flex",
-      justifyContent: "center",
-      marginTop: "15px",
-    },
-    pageButton: {
-      padding: "8px 10px",
-      margin: "3px",
-      border: "1px solid #ddd",
-      borderRadius: "4px",
-      cursor: "pointer",
-      backgroundColor: "white",
-      boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
-      fontSize: "0.85rem",
-    },
-    activePageButton: {
-      backgroundColor: "#0078D4",
-      color: "white",
-    },
-  };
+  const handleEdit = (id) => navigate(`/cv-edit/${id}`);
 
   const filteredCvs = cvs.filter((cv) =>
     cv.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -194,112 +46,268 @@ const CVList = () => {
   const indexOfLastCv = currentPage * cvsPerPage;
   const indexOfFirstCv = indexOfLastCv - cvsPerPage;
   const currentCvs = filteredCvs.slice(indexOfFirstCv, indexOfLastCv);
-
   const totalPages = Math.ceil(filteredCvs.length / cvsPerPage);
-
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
 
   return (
     <div style={styles.container}>
-      <div>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-      </div>
-      <div style={styles.mainContent}>
-        <div style={styles.header}>
-          <h2>All CVs</h2>
-          <div style={styles.buttonContainer}>
-            <Link to="/cv-add" style={styles.addButton}>
-              Add CV
-            </Link>
+        <div style={styles.mainContent}>
+          <h2 style={styles.heading}>All CVs</h2>
+
+          {/* Search and Add CV */}
+          <div style={responsiveStyles.responsiveFlex}>
+            <div style={responsiveStyles.responsiveColumn}>
+              <label style={labelStyle}>Search by Name:</label>
+              <div style={styles.searchBox}>
+                <FaSearch />
+                <input
+                  type="text"
+                  placeholder="Enter name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <div style={responsiveStyles.responsiveColumn}>
+              <Link to="/cv-add" style={btnStyle("#0078D4")}>
+                Add CV
+              </Link>
+            </div>
           </div>
-        </div>
-        <div style={styles.searchInput}>
-          <FaSearch />
-          <input
-            type="text"
-            style={styles.searchInputField}
-            placeholder="Search by Name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>Position For</th>
-              <th style={styles.th}>Age</th>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Phone</th>
-              <th style={styles.th}>Reference</th>
-              <th style={styles.th}>CV File</th>
-              <th style={styles.th}>QRcode</th>
-              <th style={styles.th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentCvs.map((cv) => (
-              <tr key={cv.id} style={styles.tr}>
-                <td style={styles.td}>{cv.name}</td>
-                <td style={styles.td}>{cv.position_for}</td>
-                <td style={styles.td}>{cv.age}</td>
-                <td style={styles.td}>{cv.email}</td>
-                <td style={styles.td}>{cv.phone}</td>
-                <td style={styles.td}>{cv.reference}</td>
-                <td style={styles.td}>
-                  <a
-                    href={cv.cv_file}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={styles.viewCVLink}
-                  >
-                    <FaFilePdf /> View CV
-                  </a>
-                </td>
-                <td style={styles.td}>
-                  <Link to={`/cv-detail/${cv.id}`} style={styles.barcodeButton}>
-                    <FaBarcode />
-                  </Link>
-                </td>
-                <td style={styles.td}>
-                  <button
-                    style={{ ...styles.actionButton, ...styles.editButton }}
-                    onClick={() => handleEdit(cv.id)}
-                  >
-                    <FaEdit />
-                  </button>
-                  <button
-                    style={{ ...styles.actionButton, ...styles.deleteButton }}
-                    onClick={() => handleDelete(cv.id)}
-                  >
-                    <FaTrash />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div style={styles.pagination}>
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-            (pageNumber) => (
-              <button
-                key={pageNumber}
-                onClick={() => handlePageChange(pageNumber)}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === pageNumber && styles.activePageButton),
-                }}
-              >
-                {pageNumber}
-              </button>
-            )
-          )}
+
+          {/* Table Wrapper */}
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={{ backgroundColor: "#e1e9f3" }}>
+                  <th style={cellStyle}>Name</th>
+                  <th style={cellStyle}>Position</th>
+                  <th style={cellStyle}>Age</th>
+                  <th style={cellStyle}>Email</th>
+                  <th style={cellStyle}>Phone</th>
+                  <th style={cellStyle}>Reference</th>
+                  <th style={cellStyle}>CV</th>
+                  <th style={cellStyle}>QR Code</th>
+                  <th style={cellStyle}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentCvs.length > 0 ? (
+                  currentCvs.map((cv) => (
+                    <tr key={cv.id}>
+                      <td style={cellStyle}>{cv.name}</td>
+                      <td style={cellStyle}>{cv.position_for}</td>
+                      <td style={cellStyle}>{cv.age}</td>
+                      <td style={cellStyle}>{cv.email}</td>
+                      <td style={cellStyle}>{cv.phone}</td>
+                      <td style={cellStyle}>{cv.reference}</td>
+                      <td style={cellStyle}>
+                        <a
+                          href={cv.cv_file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={linkStyle}
+                        >
+                          <FaFilePdf /> View
+                        </a>
+                      </td>
+                      <td style={cellStyle}>
+                        <Link to={`/cv-detail/${cv.id}`} style={linkStyle}>
+                          <FaBarcode />
+                        </Link>
+                      </td>
+                      <td style={cellStyle}>
+                        <button
+                          onClick={() => handleEdit(cv.id)}
+                          style={{
+                            ...actionButton,
+                            backgroundColor: "#ffaa00",
+                          }}
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(cv.id)}
+                          style={{
+                            ...actionButton,
+                            backgroundColor: "#ff4d4d",
+                          }}
+                        >
+                          <FaTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="9"
+                      style={{ ...cellStyle, textAlign: "center" }}
+                    >
+                      No CVs found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div style={styles.pagination}>
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+              (page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  style={{
+                    ...styles.pageButton,
+                    ...(currentPage === page && styles.activePageButton),
+                  }}
+                >
+                  {page}
+                </button>
+              )
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
+};
+
+// =====================
+// Styles
+// =====================
+const styles = {
+  container: {
+    display: "flex",
+    minHeight: "100vh",
+    backgroundColor: "#A7D5E1",
+    flexDirection: "column",
+  },
+  mainContent: {
+    padding: "2rem",
+    flex: 1,
+    width: "10%",
+    boxSizing: "border-box",
+  },
+  heading: {
+    color: "#0078D4",
+    borderBottom: "1px solid #ccc",
+    paddingBottom: "10px",
+    marginBottom: "20px",
+  },
+  searchBox: {
+    display: "flex",
+    alignItems: "center",
+    border: "1px solid #d1dbe8",
+    borderRadius: "4px",
+    padding: "5px 10px",
+    backgroundColor: "#fff",
+  },
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+    marginTop: "15px",
+    backgroundColor: "#fff",
+    borderRadius: "6px",
+    boxShadow: "0 0 10px rgba(0,0,0,0.05)",
+  },
+  table: {
+    width: "100%",
+    minWidth: "1000px", // ensures scroll for portrait
+    borderCollapse: "collapse",
+    fontFamily: "Segoe UI, sans-serif",
+    fontSize: "14px",
+  },
+  pagination: {
+    display: "flex",
+    justifyContent: "center",
+    marginTop: "15px",
+    flexWrap: "wrap",
+  },
+  pageButton: {
+    padding: "8px 10px",
+    margin: "3px",
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    cursor: "pointer",
+    backgroundColor: "white",
+  },
+  activePageButton: {
+    backgroundColor: "#0078D4",
+    color: "white",
+  },
+};
+
+const responsiveStyles = {
+  responsiveFlex: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "15px",
+    alignItems: "flex-end",
+    marginBottom: "20px",
+  },
+  responsiveColumn: {
+    flex: "1 1 200px",
+    minWidth: "200px",
+  },
+};
+
+const cellStyle = {
+  border: "1px solid #d1dbe8",
+  padding: "10px",
+  textAlign: "center",
+};
+
+const labelStyle = {
+  display: "block",
+  marginBottom: "5px",
+  fontWeight: "bold",
+};
+
+const inputStyle = {
+  border: "none",
+  outline: "none",
+  padding: "6px",
+  marginLeft: "8px",
+  flex: 1,
+};
+
+const btnStyle = (bgColor) => ({
+  backgroundColor: bgColor,
+  color: "white",
+  padding: "10px 20px",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  textAlign: "center",
+  textDecoration: "none",
+  display: "inline-block",
+  width: "100%",
+  maxWidth: "200px",
+});
+
+const actionButton = {
+  color: "white",
+  padding: "5px 10px",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  marginRight: "8px",
+};
+
+const linkStyle = {
+  color: "#0078D4",
+  textDecoration: "none",
+  fontWeight: "bold",
+  fontSize: "0.9rem",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
 };
 
 export default CVList;

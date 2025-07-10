@@ -8,20 +8,26 @@ const API_URL = "http://119.148.12.1:8000/api/hrms/api/employees/";
 const EmployeeTermination = () => {
   const [employees, setEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const employeesPerPage = 5; // Keep employees per page as 5
+  const employeesPerPage = 4;
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchEmployees();
+    axios
+      .get(API_URL)
+      .then((res) => setEmployees(res.data))
+      .catch((err) => console.error("Error fetching employees:", err));
   }, []);
 
-  const fetchEmployees = async () => {
-    try {
-      const response = await axios.get(API_URL);
-      setEmployees(response.data);
-    } catch (error) {
-      console.error("Error fetching employees:", error);
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this employee?")) {
+      try {
+        await axios.delete(`${API_URL}${id}/`);
+        setEmployees(employees.filter((emp) => emp.id !== id));
+      } catch (error) {
+        console.error("Error deleting employee:", error);
+      }
     }
   };
 
@@ -29,250 +35,254 @@ const EmployeeTermination = () => {
     navigate(`/employee/${id}`);
   };
 
-  const handleDelete = async (e, employeeId) => {
-    e.stopPropagation();
-
-    if (window.confirm("Are you sure you want to delete this employee?")) {
-      try {
-        await axios.delete(`${API_URL}${employeeId}/`);
-        setEmployees(
-          employees.filter((employee) => employee.id !== employeeId)
-        );
-      } catch (error) {
-        console.error("Error deleting employee:", error);
-      }
-    }
-  };
-
   const filteredEmployees = employees.filter(
-    (employee) =>
-      employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.employee_id.toString().includes(searchTerm)
+    (emp) =>
+      emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.employee_id?.toString().includes(searchTerm)
   );
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const indexOfLastEmployee = currentPage * employeesPerPage;
-  const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
-  const currentEmployees = filteredEmployees.slice(
-    indexOfFirstEmployee,
-    indexOfLastEmployee
-  );
-
+  const indexOfLast = currentPage * employeesPerPage;
+  const indexOfFirst = indexOfLast - employeesPerPage;
+  const currentEmployees = filteredEmployees.slice(indexOfFirst, indexOfLast);
   const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
 
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
-  const styles = {
-    container: {
-      display: "flex",
-      backgroundColor: "#A7D5E1",
-      minHeight: "100vh",
-    },
-    content: {
-      flex: 1,
-      padding: "2.5rem",
-      borderRadius: "8px",
-      maxWidth: "1500px",
-      margin: "0 auto",
-    },
-    header: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: "20px",
-    },
-    searchInput: {
-      padding: "10px",
-      marginBottom: "15px",
-      width: "300px",
-      border: "1px solid #ccc",
-      borderRadius: "5px",
-      backgroundColor: "#fff",
-    },
-    printButton: {
-      padding: "10px 15px",
-      backgroundColor: "#007bff",
-      color: "#fff",
-      border: "none",
-      borderRadius: "5px",
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      transition: "background-color 0.3s",
-      ":hover": { backgroundColor: "#0056b3" },
-    },
-    table: {
-      width: "100%",
-      borderCollapse: "collapse",
-      marginTop: "10px",
-      borderRadius: "8px",
-      overflow: "hidden",
-      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-      backgroundColor: "#fff",
-    },
-    th: {
-      backgroundColor: "#007bff",
-      color: "white",
-      padding: "12px 10px",
-      textAlign: "left",
-    },
-    td: {
-      padding: "12px 10px",
-      textAlign: "left",
-      verticalAlign: "middle",
-    },
-    actionButton: {
-      marginRight: "5px",
-      padding: "8px 12px",
-      borderRadius: "4px",
-      fontSize: "14px",
-      cursor: "pointer",
-      transition: "background-color 0.3s",
-    },
-    deleteButton: {
-      backgroundColor: "#dc3545",
-      color: "white",
-      border: "none",
-      ":hover": { backgroundColor: "#c82333" },
-    },
-    paginationStyle: {
-      display: "flex",
-      justifyContent: "center",
-      marginTop: "20px",
-    },
-    pageButtonStyle: {
-      padding: "8px 12px",
-      margin: "0 5px",
-      border: "1px solid #ccc",
-      borderRadius: "4px",
-      cursor: "pointer",
-      backgroundColor: "#fff",
-      transition: "background-color 0.3s",
-      ":hover": { backgroundColor: "#f0f0f0" },
-    },
-    activePageButtonStyle: {
-      backgroundColor: "#007bff",
-      color: "#fff",
-      border: "1px solid #007bff",
-    },
-  };
+  const handlePrint = () => window.print();
 
   return (
     <div style={styles.container}>
-      <Sidebars />
-      <div style={styles.content}>
-        <div style={styles.header}>
-          <h2>Employee Termination</h2>
-          <button style={styles.printButton} onClick={handlePrint}>
-            <span role="img" aria-label="print">
-              🖨️
-            </span>{" "}
-            Print List
-          </button>
-        </div>
+      <div style={{ display: "flex" }}>
+        <Sidebars />
+        <div style={styles.mainContent}>
+          <h2 style={styles.heading}>Employee Termination</h2>
 
-        <input
-          type="text"
-          placeholder="Search by Name or ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={styles.searchInput}
-        />
+          {/* Search and Print */}
+          <div style={responsiveStyles.responsiveFlex}>
+            <div style={responsiveStyles.responsiveColumn}>
+              <label style={labelStyle}>Search by Name or ID:</label>
+              <div style={styles.searchBox}>
+                🔍
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
 
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Employee ID</th>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>Designation</th>
-              <th style={styles.th}>Department</th>
-              <th style={styles.th}>Company</th>
-              <th style={styles.th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentEmployees.map((employee, index) => (
-              <tr
-                key={employee.id}
-                onClick={() => handleRowClick(employee.id)}
-                style={{
-                  backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#ffffff",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#eef6ff")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    index % 2 === 0 ? "#f9f9f9" : "#ffffff")
-                }
-              >
-                <td style={styles.td}>{employee.employee_id}</td>
-                <td style={styles.td}>{employee.name}</td>
-                <td style={styles.td}>{employee.designation}</td>
-                <td style={styles.td}>{employee.department}</td>
-                <td style={styles.td}>{employee.company_name}</td>
-                <td style={{ ...styles.td, display: "flex", gap: "5px" }}>
-                  <button
-                    style={{
-                      ...styles.actionButton,
-                      backgroundColor: "#007bff",
-                      color: "white",
-                      border: "none",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/attachments/${employee.id}`);
-                    }}
-                  >
-                    <span role="img" aria-label="attachment">
-                      📎
-                    </span>{" "}
-                    Attachment
-                  </button>
-                  <button
-                    style={{
-                      ...styles.actionButton,
-                      ...styles.deleteButton,
-                    }}
-                    onClick={(e) => handleDelete(e, employee.id)}
-                  >
-                    <span role="img" aria-label="delete">
-                      🗑️
-                    </span>{" "}
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div style={styles.paginationStyle}>
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-            (pageNumber) => (
-              <button
-                key={pageNumber}
-                onClick={() => handlePageChange(pageNumber)}
-                style={
-                  currentPage === pageNumber
-                    ? styles.activePageButtonStyle
-                    : styles.pageButtonStyle
-                }
-              >
-                {pageNumber}
+            <div style={responsiveStyles.responsiveColumn}>
+              <button onClick={handlePrint} style={btnStyle("#0078D4")}>
+                🖨️ Print List
               </button>
-            )
-          )}
+            </div>
+          </div>
+
+          {/* Table */}
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={{ backgroundColor: "#e1e9f3" }}>
+                  <th style={cellStyle}>Employee ID</th>
+                  <th style={cellStyle}>Name</th>
+                  <th style={cellStyle}>Designation</th>
+                  <th style={cellStyle}>Department</th>
+                  <th style={cellStyle}>Company</th>
+                  <th style={cellStyle}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentEmployees.length > 0 ? (
+                  currentEmployees.map((emp, index) => (
+                    <tr
+                      key={emp.id}
+                      onClick={() => handleRowClick(emp.id)}
+                      style={{
+                        backgroundColor: index % 2 === 0 ? "#f9f9f9" : "#fff",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#eef6ff")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.backgroundColor =
+                          index % 2 === 0 ? "#f9f9f9" : "#fff")
+                      }
+                    >
+                      <td style={cellStyle}>{emp.employee_id}</td>
+                      <td style={cellStyle}>{emp.name}</td>
+                      <td style={cellStyle}>{emp.designation}</td>
+                      <td style={cellStyle}>{emp.department}</td>
+                      <td style={cellStyle}>{emp.company_name}</td>
+                      <td style={cellStyle}>
+                        <button
+                          style={{ ...actionButton, backgroundColor: "#0078D4" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/attachments/${emp.id}`);
+                          }}
+                        >
+                          📎
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(e, emp.id)}
+                          style={{ ...actionButton, backgroundColor: "#ff4d4d" }}
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" style={{ ...cellStyle, textAlign: "center" }}>
+                      No employees found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div style={styles.pagination}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === page && styles.activePageButton),
+                }}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
+};
+
+// ========= Styles =========
+const styles = {
+  container: {
+    display: "flex",
+    minHeight: "100vh",
+    backgroundColor: "#A7D5E1",
+    flexDirection: "column",
+  },
+  mainContent: {
+    padding: "2rem",
+    flex: 1,
+    width: "10%",
+    boxSizing: "border-box",
+  },
+  heading: {
+    color: "#0078D4",
+    borderBottom: "1px solid #ccc",
+    paddingBottom: "10px",
+    marginBottom: "20px",
+  },
+  searchBox: {
+    display: "flex",
+    alignItems: "center",
+    border: "1px solid #d1dbe8",
+    borderRadius: "4px",
+    padding: "5px 10px",
+    backgroundColor: "#fff",
+  },
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+    marginTop: "15px",
+    backgroundColor: "#fff",
+    borderRadius: "6px",
+    boxShadow: "0 0 10px rgba(0,0,0,0.05)",
+  },
+  table: {
+    width: "100%",
+    minWidth: "1000px",
+    borderCollapse: "collapse",
+    fontFamily: "Segoe UI, sans-serif",
+    fontSize: "14px",
+  },
+  pagination: {
+    display: "flex",
+    justifyContent: "center",
+    marginTop: "15px",
+    flexWrap: "wrap",
+  },
+  pageButton: {
+    padding: "8px 10px",
+    margin: "3px",
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    cursor: "pointer",
+    backgroundColor: "white",
+  },
+  activePageButton: {
+    backgroundColor: "#0078D4",
+    color: "white",
+  },
+};
+
+const responsiveStyles = {
+  responsiveFlex: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "15px",
+    alignItems: "flex-end",
+    marginBottom: "20px",
+  },
+  responsiveColumn: {
+    flex: "1 1 200px",
+    minWidth: "200px",
+  },
+};
+
+const cellStyle = {
+  border: "1px solid #d1dbe8",
+  padding: "10px",
+  textAlign: "center",
+};
+
+const labelStyle = {
+  display: "block",
+  marginBottom: "5px",
+  fontWeight: "bold",
+};
+
+const inputStyle = {
+  border: "none",
+  outline: "none",
+  padding: "6px",
+  marginLeft: "8px",
+  flex: 1,
+};
+
+const btnStyle = (bgColor) => ({
+  backgroundColor: bgColor,
+  color: "white",
+  padding: "10px 20px",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  textAlign: "center",
+  display: "inline-block",
+  width: "100%",
+  maxWidth: "200px",
+});
+
+const actionButton = {
+  color: "white",
+  padding: "6px 10px",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  marginRight: "8px",
+  fontSize: "14px",
 };
 
 export default EmployeeTermination;

@@ -7,11 +7,10 @@ const EmployeeLeave = () => {
   const [leaves, setLeaves] = useState([]);
   const [filteredLeaves, setFilteredLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-  const employeesPerPage = 4;
   const [nameSearch, setNameSearch] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     axios
@@ -68,42 +67,16 @@ const EmployeeLeave = () => {
 
   return (
     <div style={styles.container}>
-      {/* Sidebar */}
       <div style={{ display: "flex" }}>
         <Sidebars />
       </div>
 
-      {/* Main Content */}
-      <div
-        style={{
-          marginLeft: "2px",
-          padding: "2rem",
-          flex: 1,
-          maxWidth: "1500px",
-          margin: "0 auto",
-        }}
-      >
-        <h2
-          style={{
-            color: "#0078D4",
-            borderBottom: "1px solid #ccc",
-            paddingBottom: "10px",
-          }}
-        >
-          Employee Leave Records
-        </h2>
+      <div style={styles.mainContent}>
+        <h2 style={styles.heading}>Employee Leave Records</h2>
 
-        {/* Search */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "15px",
-            marginBottom: "20px",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ flex: 1, minWidth: "200px" }}>
+        {/* Search Filters */}
+        <div style={responsiveStyles.responsiveFlex}>
+          <div style={responsiveStyles.responsiveColumn}>
             <label style={labelStyle}>Search by Name:</label>
             <input
               type="text"
@@ -113,7 +86,8 @@ const EmployeeLeave = () => {
               style={inputStyle}
             />
           </div>
-          <div style={{ flex: 1, minWidth: "200px" }}>
+
+          <div style={responsiveStyles.responsiveColumn}>
             <label style={labelStyle}>Start Date:</label>
             <input
               type="date"
@@ -122,7 +96,8 @@ const EmployeeLeave = () => {
               style={inputStyle}
             />
           </div>
-          <div style={{ flex: 1, minWidth: "200px" }}>
+
+          <div style={responsiveStyles.responsiveColumn}>
             <label style={labelStyle}>End Date:</label>
             <input
               type="date"
@@ -131,6 +106,7 @@ const EmployeeLeave = () => {
               style={inputStyle}
             />
           </div>
+
           <button
             onClick={() => {
               setNameSearch("");
@@ -143,15 +119,8 @@ const EmployeeLeave = () => {
           </button>
         </div>
 
-        {/* Buttons */}
-        <div
-          style={{
-            display: "flex",
-            gap: "15px",
-            marginBottom: "20px",
-            flexWrap: "wrap",
-          }}
-        >
+        {/* Action Buttons */}
+        <div style={styles.buttonGroup}>
           <button
             onClick={() => navigate("/add-leave-request")}
             style={btnStyle("#0078D4")}
@@ -173,84 +142,131 @@ const EmployeeLeave = () => {
         </div>
 
         {/* Table */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginTop: "20px",
-            fontFamily: "Segoe UI, sans-serif",
-            fontSize: "14px",
-          }}
-        >
-          <thead>
-            <tr style={{ backgroundColor: "#e1e9f3" }}>
-              <th style={cellStyle}>Employee</th>
-              <th style={cellStyle}>Leave Type</th>
-              <th style={cellStyle}>Start Date</th>
-              <th style={cellStyle}>End Date</th>
-              <th style={cellStyle}>Reason</th>
-              <th style={cellStyle}>Status</th>
-              <th style={cellStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLeaves.length > 0 ? (
-              filteredLeaves.map((leave) => (
-                <tr
-                  key={leave.id}
-                  style={{ backgroundColor: "#fff", cursor: "pointer" }}
-                  onClick={() => handleRowClick(leave.id)}
-                >
-                  <td style={cellStyle}>{leave.employee_name}</td>
-                  <td style={cellStyle}>
-                    {leave.leave_type.replace(/_/g, " ")}
-                  </td>
-                  <td style={cellStyle}>{leave.start_date}</td>
-                  <td style={cellStyle}>{leave.end_date}</td>
-                  <td style={cellStyle}>{leave.reason || "N/A"}</td>
-                  <td style={cellStyle}>{leave.status}</td>
-                  <td style={cellStyle}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(leave.id);
-                      }}
-                      style={{ ...actionButton, backgroundColor: "#ff4d4d" }}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/edit-leave-request/${leave.id}`);
-                      }}
-                      style={{ ...actionButton, backgroundColor: "#ffaa00" }}
-                    >
-                      Edit
-                    </button>
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr style={{ backgroundColor: "#e1e9f3" }}>
+                <th style={cellStyle}>Employee</th>
+                <th style={cellStyle}>Leave Type</th>
+                <th style={cellStyle}>Start Date</th>
+                <th style={cellStyle}>End Date</th>
+                <th style={cellStyle}>Reason</th>
+                <th style={cellStyle}>Status</th>
+                <th style={cellStyle}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLeaves.length > 0 ? (
+                filteredLeaves.map((leave) => (
+                  <tr
+                    key={leave.id}
+                    style={{ backgroundColor: "#fff", cursor: "pointer" }}
+                    onClick={() => handleRowClick(leave.id)}
+                  >
+                    <td style={cellStyle}>{leave.employee_name}</td>
+                    <td style={cellStyle}>
+                      {leave.leave_type.replace(/_/g, " ")}
+                    </td>
+                    <td style={cellStyle}>{leave.start_date}</td>
+                    <td style={cellStyle}>{leave.end_date}</td>
+                    <td style={cellStyle}>{leave.reason || "N/A"}</td>
+                    <td style={cellStyle}>{leave.status}</td>
+                    <td style={cellStyle}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(leave.id);
+                        }}
+                        style={{ ...actionButton, backgroundColor: "#ff4d4d" }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/edit-leave-request/${leave.id}`);
+                        }}
+                        style={{ ...actionButton, backgroundColor: "#ffaa00" }}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" style={{ ...cellStyle, textAlign: "center" }}>
+                    No leave records found.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" style={{ ...cellStyle, textAlign: "center" }}>
-                  No leave records found matching your criteria
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
+
+// ========================
+// Styles
+// ========================
 const styles = {
   container: {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#A7D5E1",
+   
+  },
+  mainContent: {
+    padding: "2rem",
+    flex: 1,
+    width: "10%",
+    boxSizing: "border-box",
+  },
+  heading: {
+    color: "#0078D4",
+    borderBottom: "1px solid #ccc",
+    paddingBottom: "10px",
+    marginBottom: "20px",
+  },
+  buttonGroup: {
+    display: "flex",
+    gap: "15px",
+    marginBottom: "20px",
+    flexWrap: "wrap",
+  },
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+    marginTop: "15px",
+    backgroundColor: "#fff",
+    borderRadius: "6px",
+    boxShadow: "0 0 10px rgba(0,0,0,0.05)",
+  },
+  table: {
+    width: "100%",
+    minWidth: "1000px", // ensures scroll for portrait
+    borderCollapse: "collapse",
+    fontFamily: "Segoe UI, sans-serif",
+    fontSize: "14px",
   },
 };
+
+const responsiveStyles = {
+  responsiveFlex: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "15px",
+    marginBottom: "20px",
+    alignItems: "flex-end",
+  },
+  responsiveColumn: {
+    flex: "1 1 200px",
+    minWidth: "200px",
+  },
+};
+
 const cellStyle = {
   border: "1px solid #d1dbe8",
   padding: "10px",
@@ -278,6 +294,7 @@ const clearButtonStyle = {
   border: "none",
   borderRadius: "4px",
   cursor: "pointer",
+  height: "38px",
 };
 
 const btnStyle = (bgColor) => ({
@@ -296,7 +313,7 @@ const actionButton = {
   border: "none",
   borderRadius: "5px",
   cursor: "pointer",
-  marginRight: "10px",
+  marginRight: "8px",
 };
 
 export default EmployeeLeave;

@@ -242,15 +242,15 @@ const EmployeeDetails = () => {
           min-height: 100vh;
           background-color: #a7d5e1;
           overflow: hidden;
-          
           justify-content: center;
+          align-items: center;
         }
 
         .content-wrapper {
           flex: 1;
-          padding: 5rem;
+          padding: 2rem;
           overflow-y: auto;
-          margin: 0 auto;
+          justify-content: center;
         }
 
         .employee-list-card {
@@ -258,8 +258,8 @@ const EmployeeDetails = () => {
           border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           padding: 1rem;
-          max-width: 1200px;
           margin: 0 auto;
+          max-width: 1400px;
         }
 
         .employee-header {
@@ -280,15 +280,16 @@ const EmployeeDetails = () => {
         .action-buttons {
           display: flex;
           gap: 0.8rem;
+          align-items: center;
+          justify-content: center;
         }
 
         .action-buttons button {
-          padding: 0.6rem 1rem;
-          border: none;
           border-radius: 6px;
           cursor: pointer;
           font-weight: 600;
           display: flex;
+          justify-content: center;
           align-items: center;
           gap: 0.5rem;
           transition: all 0.2s;
@@ -354,23 +355,23 @@ const EmployeeDetails = () => {
         .employee-table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 1rem;
+          margin-top: 0.1rem;
           font-size: 0.95rem;
         }
 
         .employee-table th {
           background-color: rgb(95, 145, 183);
           color: white;
-          padding: 1rem;
-          text-align: left;
+          padding: 0.5rem;
+          text-align: center;
           font-weight: 600;
-          position: sticky;
         }
 
         .employee-table td {
-          padding: 1rem;
+          padding: 0.5rem;
           border-bottom: 1px solid #eee;
           color: #333;
+          text-align: center;
         }
 
         .employee-row {
@@ -389,11 +390,12 @@ const EmployeeDetails = () => {
         .action-buttons-cell {
           display: flex;
           gap: 0.5rem;
+          
+          margin-top: 1rem;
+          justify-content: center;
         }
 
         .action-buttons-cell button {
-          padding: 0.4rem 0.8rem;
-          border: none;
           border-radius: 4px;
           cursor: pointer;
           font-weight: 500;
@@ -402,7 +404,6 @@ const EmployeeDetails = () => {
           gap: 0.3rem;
           transition: all 0.2s;
           font-size: 0.85rem;
-          margin-top: 0.5rem;
         }
 
         .btn-attachment {

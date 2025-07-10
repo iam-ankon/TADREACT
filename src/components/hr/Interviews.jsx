@@ -152,7 +152,7 @@ const Interviews = () => {
   useEffect(() => {
     if (formData.interview_mark || formData.interview_result) {
       setShowPopup(true);
-      const timer = setTimeout(() => setShowPopup(false), 3000);
+      const timer = setTimeout(() => setShowPopup(false), 1000);
       return () => clearTimeout(timer);
     }
   }, [formData.interview_mark, formData.interview_result]);
@@ -883,6 +883,7 @@ const Interviews = () => {
       flexWrap: "wrap",
       gap: "20px",
       marginBottom: "15px",
+      
     },
     formGroup: {
       flex: "1 1 200px",
@@ -961,6 +962,7 @@ const Interviews = () => {
       display: "flex",
       alignItems: "center",
       gap: "10px",
+      justifyContent: "space-between",
     },
     scoreLabel: {
       minWidth: "150px",
@@ -1073,8 +1075,16 @@ const Interviews = () => {
                     }}
                     onClick={() => {
                       setSelectedInterview(interview);
-                      setFormData({ ...interview });
-                      setActiveTab("edit");
+                      setFormData({
+                        ...interview,
+                        interview_date: interview.interview_date
+                          ? new Date(interview.interview_date)
+                              .toISOString()
+                              .slice(0, 16)
+                          : "",
+                      });
+
+                      setActiveTab("details");
                     }}
                   >
                     <div style={{ fontWeight: "500" }}>{interview.name}</div>
@@ -1924,8 +1934,8 @@ const Interviews = () => {
           <div
             style={{
               position: "fixed",
-              top: "20px",
-              right: "20px",
+              top: "100px",
+              right: "50px",
               padding: "15px 20px",
               backgroundColor: "#27ae60",
               color: "white",
