@@ -198,6 +198,7 @@ const CVEdit = () => {
     <div style={styles.container}>
       <Sidebars />
       <div style={styles.content}>
+        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
         {isLoading ? (
           <div style={styles.loadingContainer}>
             <p style={styles.loadingText}>Loading CV details...</p>
@@ -313,6 +314,7 @@ const CVEdit = () => {
             </form>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

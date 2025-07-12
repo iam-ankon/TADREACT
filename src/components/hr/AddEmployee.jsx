@@ -9,6 +9,7 @@ const AddEmployee = () => {
   const { name, position_for, email, phone } = location.state || {};
 
   const [formData, setFormData] = useState({
+    device_user_id: "",
     employee_id: "",
     name: name || "",
     designation: position_for || "",
@@ -122,6 +123,7 @@ const AddEmployee = () => {
       );
       setSuccessMessage("Employee saved successfully!");
       setFormData({
+        device_user_id: "",
         employee_id: "",
         name: "",
         designation: "",
@@ -303,6 +305,7 @@ const AddEmployee = () => {
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
         <form onSubmit={handleSubmit} style={styles.form}>
           {[
+            { name: "device_user_id", label: "Device User ID" },
             { name: "employee_id", label: "Employee ID", required: true },
             { name: "name", label: "Name", required: true },
             { name: "designation", label: "Designation", required: true },

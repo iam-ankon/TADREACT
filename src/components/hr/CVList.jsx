@@ -52,7 +52,12 @@ const CVList = () => {
     <div style={styles.container}>
       <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={styles.mainContent}>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          {/* Your page content here */}
+        </div>
+      </div>
+      <div style={styles.mainContent}>
+        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
           <h2 style={styles.heading}>All CVs</h2>
 
           {/* Search and Add CV */}
@@ -186,13 +191,13 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#A7D5E1",
-    flexDirection: "column",
   },
   mainContent: {
     padding: "2rem",
     flex: 1,
     width: "10%",
     boxSizing: "border-box",
+    overflowY: "auto",
   },
   heading: {
     color: "#0078D4",

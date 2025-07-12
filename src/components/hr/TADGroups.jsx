@@ -51,31 +51,6 @@ const styles = {
     height: "100vh",
     
   },
-  sidebar: {
-    width: "230px",
-    backgroundColor: "#f3f6fb",
-    height: "100vh",
-    padding: "20px 15px",
-    boxShadow: "2px 0 5px rgba(0, 0, 0, 0.05)",
-  },
-  sidebarHeader: {
-    fontSize: "20px",
-    fontWeight: "bold",
-    marginBottom: "20px",
-    color: "#0078D4",
-  },
-  sidebarLink: {
-    display: "block",
-    padding: "10px",
-    margin: "5px 0",
-    textDecoration: "none",
-    color: "#333",
-    borderRadius: "6px",
-    transition: "0.3s",
-  },
-  sidebarLinkHover: {
-    backgroundColor: "#e1eaff",
-  },
   outlookContainer: {
     flex: 1,
     backgroundColor: '#f3f6fb',

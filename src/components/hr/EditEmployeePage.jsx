@@ -10,6 +10,7 @@ const EditEmployeePage = () => {
   const navigate = useNavigate();
 
   const [employee, setEmployee] = useState({
+    device_user_id: "", // Added device_user_id field
     employee_id: "",
     name: "",
     designation: "",
@@ -194,6 +195,7 @@ const EditEmployeePage = () => {
             }}
           >
             {[
+              { name: "device_user_id", label: "Device User ID" }, // Added device_user_id field
               { name: "employee_id", label: "Employee ID" },
               { name: "name", label: "Name" },
               { name: "designation", label: "Designation" },

@@ -40,15 +40,18 @@ export const getAttendance = () => api.get('attendance/');
 export const getAttendanceById = (id) => api.get(`attendance/${id}/`);
 export const updateAttendance = (id, data) => api.put(`attendance/${id}/`, data);
 export const deleteAttendance = (id) => api.delete(`attendance/${id}/`);
+export const deleteAllAttendance = () => api.delete('attendance/delete_all/'); // New function
+
 export const addAttendance = (data) => {
-  console.log('Sending attendance data:', data);
   return api.post('attendance/', {
     employee: data.employee,
     check_in: data.check_in,
     check_out: data.check_out,
+    office_start_time: data.office_start_time, // Added this field
     attendance_delay: data.attendance_delay,
   });
 };
+
 
 // ========== INTERVIEWS ==========
 export const getInterviews = () => api.get('interviews/');

@@ -72,6 +72,7 @@ const EmployeeLeave = () => {
       </div>
 
       <div style={styles.mainContent}>
+        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
         <h2 style={styles.heading}>Employee Leave Records</h2>
 
         {/* Search Filters */}
@@ -204,6 +205,7 @@ const EmployeeLeave = () => {
           </table>
         </div>
       </div>
+    </div>
     </div>
   );
 };

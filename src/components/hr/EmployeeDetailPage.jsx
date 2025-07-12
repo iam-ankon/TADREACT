@@ -363,6 +363,10 @@ const EmployeeDetailPage = () => {
                     <span>{employee.reporting_leader}</span>
                   </div>
                   <div className="detail-row">
+                    <span> Device ID:</span>
+                    <span>{employee.device_user_id || "N/A"}</span>
+                  </div>
+                  <div className="detail-row">
                     <span>Customers:</span>
                     <span>
                       {customerNames.length > 0

@@ -9,7 +9,7 @@ const EmployeeTermination = () => {
   const [employees, setEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const employeesPerPage = 4;
+  const employeesPerPage = 5;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,7 +52,12 @@ const EmployeeTermination = () => {
     <div style={styles.container}>
       <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={styles.mainContent}>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          {/* Your page content here */}
+        </div>
+      </div>
+      <div style={styles.mainContent}>
+        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
           <h2 style={styles.heading}>Employee Termination</h2>
 
           {/* Search and Print */}
@@ -116,7 +121,10 @@ const EmployeeTermination = () => {
                       <td style={cellStyle}>{emp.company_name}</td>
                       <td style={cellStyle}>
                         <button
-                          style={{ ...actionButton, backgroundColor: "#0078D4" }}
+                          style={{
+                            ...actionButton,
+                            backgroundColor: "#0078D4",
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/attachments/${emp.id}`);
@@ -126,7 +134,10 @@ const EmployeeTermination = () => {
                         </button>
                         <button
                           onClick={(e) => handleDelete(e, emp.id)}
-                          style={{ ...actionButton, backgroundColor: "#ff4d4d" }}
+                          style={{
+                            ...actionButton,
+                            backgroundColor: "#ff4d4d",
+                          }}
                         >
                           🗑️
                         </button>
@@ -135,7 +146,10 @@ const EmployeeTermination = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" style={{ ...cellStyle, textAlign: "center" }}>
+                    <td
+                      colSpan="6"
+                      style={{ ...cellStyle, textAlign: "center" }}
+                    >
                       No employees found.
                     </td>
                   </tr>
@@ -171,13 +185,14 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#A7D5E1",
-    flexDirection: "column",
+    margin: "auto",
   },
   mainContent: {
     padding: "2rem",
     flex: 1,
     width: "10%",
     boxSizing: "border-box",
+    overflowY: "auto",
   },
   heading: {
     color: "#0078D4",

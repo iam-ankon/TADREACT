@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const PerformanseAppraisal = () => {
   const [appraisals, setAppraisals] = useState([]);
-  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const appraisalsPerPage = 5;
+  const [searchQuery, setSearchQuery] = useState("");
+  const appraisalsPerPage = 6
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAppraisals();
@@ -15,7 +16,9 @@ const PerformanseAppraisal = () => {
 
   const fetchAppraisals = async () => {
     try {
-      const response = await axios.get("http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/");
+      const response = await axios.get(
+        "http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/"
+      );
       setAppraisals(response.data);
     } catch (error) {
       console.error("Error fetching appraisals:", error);
@@ -26,188 +29,207 @@ const PerformanseAppraisal = () => {
     event.stopPropagation();
     if (window.confirm("Are you sure you want to delete this appraisal?")) {
       try {
-        await axios.delete(`http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`);
-        setAppraisals(appraisals.filter((appraisal) => appraisal.id !== id));
+        await axios.delete(
+          `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`
+        );
+        setAppraisals(appraisals.filter((a) => a.id !== id));
       } catch (error) {
         console.error("Error deleting appraisal:", error);
       }
     }
   };
 
-  const indexOfLastAppraisal = currentPage * appraisalsPerPage;
-  const indexOfFirstAppraisal = indexOfLastAppraisal - appraisalsPerPage;
-  const currentAppraisals = appraisals.slice(indexOfFirstAppraisal, indexOfLastAppraisal);
-  const totalPages = Math.ceil(appraisals.length / appraisalsPerPage);
+  const filteredAppraisals = appraisals.filter(
+    (appraisal) =>
+      appraisal.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      appraisal.employee_id?.toString().includes(searchQuery)
+  );
 
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
+  const indexOfLast = currentPage * appraisalsPerPage;
+  const indexOfFirst = indexOfLast - appraisalsPerPage;
+  const currentAppraisals = filteredAppraisals.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(filteredAppraisals.length / appraisalsPerPage);
 
   return (
-    <div style={styles.wrapper}>
-      {/* Sidebar */}
-      <div style={{ display: 'flex' }}>
+    <div style={styles.container}>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          {/* Your page content here */}
-        </div>
-      </div>
+        <div style={styles.mainContent}>
+          <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
+          <h2 style={styles.heading}>Performance Appraisal</h2>
 
-      {/* Main Content */}
-      <div style={styles.container}>
-        <h2 style={styles.title}>Performance Appraisal</h2>
-
-        <Link to="/add-newAppraisal">
-          <button style={styles.addButton}>+ Add New Appraisal</button>
-        </Link>
-
-        <div style={styles.cardsWrapper}>
-          {currentAppraisals.map((appraisal) => (
-            <div
-              key={appraisal.id}
-              style={styles.card}
-              onClick={() => navigate(`/appraisal-details/${appraisal.id}`)}
-            >
-              <div style={styles.cardTop}>
-                <div><strong>Employee ID:</strong> {appraisal.employee_id}</div>
-                <div><strong>Name:</strong> {appraisal.name}</div>
-              </div>
-              <div style={styles.cardMiddle}>
-                <div><strong>Designation:</strong> {appraisal.designation}</div>
-                <div><strong>Department:</strong> {appraisal.department}</div>
-              </div>
-              <div style={styles.cardBottom}>
-                <div><strong>Last Increment:</strong> {appraisal.last_increment_date}</div>
-                <div><strong>Last Promotion:</strong> {appraisal.last_promotion_date}</div>
-              </div>
-              <div style={styles.cardActions}>
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    navigate(`/edit-appraisal/${appraisal.id}`);
-                  }}
-                  style={styles.editButton}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={(event) => handleDelete(appraisal.id, event)}
-                  style={styles.deleteButton}
-                >
-                  Delete
-                </button>
+          <div style={responsiveStyles.responsiveFlex}>
+            <div style={responsiveStyles.responsiveColumn}>
+              <label style={labelStyle}>Search by Name or ID:</label>
+              <div style={styles.searchBox}>
+                🔍
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={inputStyle}
+                />
               </div>
             </div>
-          ))}
+
+            <div style={responsiveStyles.responsiveColumn}>
+              <Link to="/add-newAppraisal" style={btnStyle("#0078D4")}>
+                + Add New Appraisal
+              </Link>
+            </div>
+          </div>
+
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={{ backgroundColor: "#e1e9f3" }}>
+                  <th style={cellStyle}>Employee ID</th>
+                  <th style={cellStyle}>Name</th>
+                  <th style={cellStyle}>Designation</th>
+                  <th style={cellStyle}>Department</th>
+                  <th style={cellStyle}>Last Increment</th>
+                  <th style={cellStyle}>Last Promotion</th>
+                  <th style={cellStyle}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentAppraisals.length > 0 ? (
+                  currentAppraisals.map((appraisal) => (
+                    <tr
+                      key={appraisal.id}
+                      onClick={() =>
+                        navigate(`/appraisal-details/${appraisal.id}`)
+                      }
+                      style={{
+                        backgroundColor: "#fff",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#eef6ff")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#fff")
+                      }
+                    >
+                      <td style={cellStyle}>{appraisal.employee_id}</td>
+                      <td style={cellStyle}>{appraisal.name}</td>
+                      <td style={cellStyle}>{appraisal.designation}</td>
+                      <td style={cellStyle}>{appraisal.department}</td>
+                      <td style={cellStyle}>{appraisal.last_increment_date}</td>
+                      <td style={cellStyle}>{appraisal.last_promotion_date}</td>
+                      <td style={cellStyle}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/edit-appraisal/${appraisal.id}`);
+                          }}
+                          style={{
+                            ...actionButton,
+                            backgroundColor: "#28a745",
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(appraisal.id, e)}
+                          style={{
+                            ...actionButton,
+                            backgroundColor: "#dc3545",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="7"
+                      style={{ ...cellStyle, textAlign: "center" }}
+                    >
+                      No appraisal records found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={styles.pagination}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === page && styles.activePageButton),
+                }}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
         </div>
-        {/* Pagination */}
-        <div style={styles.pagination}>
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-            <button
-              key={pageNumber}
-              onClick={() => handlePageChange(pageNumber)}
-              style={{
-                ...styles.pageButton,
-                ...(currentPage === pageNumber && styles.activePageButton),
-              }}
-            >
-              {pageNumber}
-            </button>
-          ))}
-        </div>
+      </div>
       </div>
     </div>
   );
 };
 
+// ========== STYLES ==========
 const styles = {
-  wrapper: {
+  container: {
     display: "flex",
     minHeight: "100vh",
-    background: "#A7D5E1",
-    
+    backgroundColor: "#A7D5E1",
+    flexDirection: "column",
   },
-
-  container: {
+  mainContent: {
+    padding: "2rem",
     flex: 1,
-    padding: "40px",
+    width: "10%",
+    boxSizing: "border-box",
   },
-  title: {
-    textAlign: "center",
-    color: "#333",
-    fontSize: "28px",
-    marginBottom: "30px",
+  heading: {
+    color: "#0078D4",
+    borderBottom: "1px solid #ccc",
+    paddingBottom: "10px",
+    marginBottom: "20px",
   },
-  addButton: {
-    background: "#0078D4",
-    color: "white",
-    padding: "10px 20px",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "bold",
-    display: "block",
-    margin: "0 auto 30px",
-    fontSize: "16px",
-  },
-  cardsWrapper: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-    gap: "20px",
-  },
-  card: {
-    backgroundColor: "#fff",
-    padding: "20px",
-    borderRadius: "10px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-    transition: "all 0.3s",
-    cursor: "pointer",
-  },
-  cardTop: {
-    marginBottom: "10px",
-    fontSize: "16px",
-  },
-  cardMiddle: {
-    marginBottom: "10px",
-    fontSize: "15px",
-    color: "#555",
-  },
-  cardBottom: {
-    fontSize: "14px",
-    color: "#666",
-    marginBottom: "15px",
-  },
-  cardActions: {
+  searchBox: {
     display: "flex",
-    justifyContent: "flex-end",
-    gap: "10px",
-  },
-  editButton: {
-    background: "#28a745",
-    color: "#fff",
-    border: "none",
-    padding: "6px 12px",
+    alignItems: "center",
+    border: "1px solid #d1dbe8",
     borderRadius: "4px",
-    fontSize: "14px",
-    cursor: "pointer",
+    padding: "5px 10px",
+    backgroundColor: "#fff",
   },
-  deleteButton: {
-    background: "#dc3545",
-    color: "#fff",
-    border: "none",
-    padding: "6px 12px",
-    borderRadius: "4px",
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+    marginTop: "15px",
+    backgroundColor: "#fff",
+    borderRadius: "6px",
+    boxShadow: "0 0 10px rgba(0,0,0,0.05)",
+  },
+  table: {
+    width: "100%",
+    minWidth: "1000px",
+    borderCollapse: "collapse",
+    fontFamily: "Segoe UI, sans-serif",
     fontSize: "14px",
-    cursor: "pointer",
   },
   pagination: {
     display: "flex",
     justifyContent: "center",
-    marginTop: "20px",
+    marginTop: "15px",
+    flexWrap: "wrap",
   },
   pageButton: {
-    padding: "8px 12px",
-    margin: "0 5px",
+    padding: "8px 10px",
+    margin: "3px",
     border: "1px solid #ddd",
     borderRadius: "4px",
     cursor: "pointer",
@@ -218,28 +240,63 @@ const styles = {
     color: "white",
   },
 };
-const sidebarStyle = {
-  width: "235px",
-  backgroundColor: "#f3f6fb",
-  padding: "20px 15px",
-  boxShadow: "2px 0 5px rgba(0, 0, 0, 0.05)",
-  flexShrink: 0
+
+const responsiveStyles = {
+  responsiveFlex: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "15px",
+    alignItems: "flex-end",
+    marginBottom: "20px",
+  },
+  responsiveColumn: {
+    flex: "1 1 200px",
+    minWidth: "200px",
+  },
 };
 
-const sidebarHeaderStyle = {
-  fontSize: "20px",
-  fontWeight: "bold",
-  marginBottom: "20px",
-  color: "#0078D4"
-};
-
-const sidebarLinkStyle = {
+const labelStyle = {
   display: "block",
-  padding: "10px",
-  margin: "5px 0",
-  textDecoration: "none",
-  color: "#333",
-  borderRadius: "6px",
-  transition: "0.3s"
+  marginBottom: "5px",
+  fontWeight: "bold",
 };
+
+const inputStyle = {
+  border: "none",
+  outline: "none",
+  padding: "6px",
+  marginLeft: "8px",
+  flex: 1,
+};
+
+const btnStyle = (bgColor) => ({
+  backgroundColor: bgColor,
+  color: "white",
+  padding: "10px 20px",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  textAlign: "center",
+  textDecoration: "none",
+  display: "inline-block",
+  width: "100%",
+  maxWidth: "200px",
+});
+
+const cellStyle = {
+  border: "1px solid #d1dbe8",
+  padding: "10px",
+  textAlign: "center",
+};
+
+const actionButton = {
+  color: "white",
+  padding: "6px 10px",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  marginRight: "8px",
+  fontSize: "14px",
+};
+
 export default PerformanseAppraisal;

@@ -16,7 +16,7 @@ const EmployeeDetails = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const employeesPerPage = 4;
+  const employeesPerPage = 5;
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -134,6 +134,7 @@ const EmployeeDetails = () => {
       <Sidebars />
       <div className="content-wrapper">
         <div className="employee-list-card">
+          <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
           <div className="employee-header">
             <h2>Employee Directory</h2>
             <div className="action-buttons">
@@ -235,6 +236,7 @@ const EmployeeDetails = () => {
           )}
         </div>
       </div>
+      </div>
 
       <style jsx>{`
         .employee-list-container {
@@ -243,7 +245,7 @@ const EmployeeDetails = () => {
           background-color: #a7d5e1;
           overflow: hidden;
           justify-content: center;
-          align-items: center;
+          
         }
 
         .content-wrapper {
@@ -446,13 +448,9 @@ const EmployeeDetails = () => {
           transition: all 0.2s;
         }
 
-        .page-btn:hover {
-          background-color: #f0f0f0;
-        }
-
         .page-btn.active {
           background-color: #0078d4;
-          color: white;
+         
           border-color: #0078d4;
         }
 
