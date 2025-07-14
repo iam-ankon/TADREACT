@@ -187,7 +187,7 @@ const EditAppraisal = () => {
                 />
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Job Knowledge</label>
+                <label style={styles.label}>Job Knowledge (1-5)</label>
                 <input
                   type="text"
                   name="job_knowledge"
@@ -207,7 +207,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Performance in Meetings</label>
+                <label style={styles.label}>Performance in Meetings (1-5)</label>
                 <input
                   type="text"
                   name="performance_in_meetings"
@@ -226,7 +226,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Communication Skills</label>
+                <label style={styles.label}>Communication Skills (1-5)</label>
                 <input
                   type="text"
                   name="communication_skills"
@@ -245,7 +245,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Reliability</label>
+                <label style={styles.label}>Reliability (1-5)</label>
                 <input
                   type="text"
                   name="reliability"
@@ -264,7 +264,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Initiative</label>
+                <label style={styles.label}>Initiative (1-5)</label>
                 <input
                   type="text"
                   name="initiative"
@@ -283,7 +283,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Stress Management</label>
+                <label style={styles.label}>Stress Management (1-5)</label>
                 <input
                   type="text"
                   name="stress_management"
@@ -304,7 +304,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Co-operation</label>
+                <label style={styles.label}>Co-operation (1-5)</label>
                 <input
                   type="text"
                   name="co_operation"
@@ -323,7 +323,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Leadership</label>
+                <label style={styles.label}>Leadership (1-5)</label>
                 <input
                   type="text"
                   name="leadership"
@@ -342,7 +342,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Discipline</label>
+                <label style={styles.label}>Discipline (1-5)</label>
                 <input
                   type="text"
                   name="discipline"
@@ -361,7 +361,7 @@ const EditAppraisal = () => {
                 ></textarea>
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Ethical Considerations</label>
+                <label style={styles.label}>Ethical Considerations (1-5)</label>
                 <input
                   type="text"
                   name="ethical_considerations"
