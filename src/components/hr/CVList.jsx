@@ -14,7 +14,7 @@ const CVList = () => {
   const [cvs, setCvs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const cvsPerPage = 4;
+  const cvsPerPage = 10;
   const navigate = useNavigate();
 
   useEffect(() => {

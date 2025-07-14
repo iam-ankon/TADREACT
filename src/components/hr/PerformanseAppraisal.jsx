@@ -7,7 +7,7 @@ const PerformanseAppraisal = () => {
   const [appraisals, setAppraisals] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const appraisalsPerPage = 6
+  const appraisalsPerPage = 10; // Adjust as needed
   const navigate = useNavigate();
 
   useEffect(() => {

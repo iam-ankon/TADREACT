@@ -84,7 +84,6 @@ const EditAppraisal = () => {
         display: "flex",
         height: "100vh",
         overflow: "hidden",
-        
       }}
     >
       {/* Fixed Sidebar */}
@@ -414,23 +413,21 @@ const EditAppraisal = () => {
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Performance</label>
-                <input
-                  type="text"
+                <textarea
                   name="performance"
                   value={formData.performance || ""}
                   onChange={handleChange}
-                  style={styles.input}
-                />
+                  style={{ ...styles.input, minHeight: "80px" }} // Added minHeight for better visibility
+                ></textarea>
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Expected Performance</label>
-                <input
-                  type="text"
+                <textarea
                   name="expected_performance"
                   value={formData.expected_performance || ""}
                   onChange={handleChange}
-                  style={styles.input}
-                />
+                  style={{ ...styles.input, minHeight: "80px" }} // Added minHeight for better visibility
+                ></textarea>
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Present Salary</label>
@@ -488,7 +485,7 @@ const styles = {
   container: {
     width: "70%",
     margin: "30px auto",
-    
+
     background: "#f3f3f3",
     padding: "20px",
     borderRadius: "8px",
@@ -539,7 +536,6 @@ const containerStyle = {
   width: "100%",
   overflowY: "auto",
   padding: "2px",
-  
 };
 
 export default EditAppraisal;

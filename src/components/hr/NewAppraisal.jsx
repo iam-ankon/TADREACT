@@ -446,7 +446,7 @@ const NewAppraisal = () => {
                   <label htmlFor="performance" style={labelStyle}>
                     Performance
                   </label>
-                  <input
+                  <textarea
                     type="text"
                     id="performance"
                     name="performance"
@@ -460,7 +460,7 @@ const NewAppraisal = () => {
                   <label htmlFor="expected_performance" style={labelStyle}>
                     Expected Performance
                   </label>
-                  <input
+                  <textarea
                     type="text"
                     id="expected_performance"
                     name="expected_performance"

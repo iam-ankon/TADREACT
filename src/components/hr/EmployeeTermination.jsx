@@ -9,7 +9,7 @@ const EmployeeTermination = () => {
   const [employees, setEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const employeesPerPage = 5;
+  const employeesPerPage = 10;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -64,7 +64,9 @@ const EmployeeTermination = () => {
           <div style={responsiveStyles.responsiveFlex}>
             <div style={responsiveStyles.responsiveColumn}>
               <label style={labelStyle}>Search by Name or ID:</label>
-              <div style={styles.searchBox}>
+              <div style={{ ...styles.searchBox }}>
+                {" "}
+                {/* Remove bottom margin */}
                 🔍
                 <input
                   type="text"
@@ -76,7 +78,12 @@ const EmployeeTermination = () => {
               </div>
             </div>
 
-            <div style={responsiveStyles.responsiveColumn}>
+            <div
+              style={{
+                ...responsiveStyles.responsiveColumn,
+                alignItems: "center",
+              }}
+            >
               <button onClick={handlePrint} style={btnStyle("#0078D4")}>
                 🖨️ Print List
               </button>
@@ -197,16 +204,17 @@ const styles = {
   heading: {
     color: "#0078D4",
     borderBottom: "1px solid #ccc",
-    paddingBottom: "10px",
-    marginBottom: "20px",
+    paddingBottom: "1px",
+    marginBottom: "2px",
   },
   searchBox: {
     display: "flex",
     alignItems: "center",
     border: "1px solid #d1dbe8",
     borderRadius: "4px",
-    padding: "5px 10px",
+    padding: "1px 10px",
     backgroundColor: "#fff",
+    
   },
   tableWrapper: {
     width: "100%",
@@ -246,16 +254,17 @@ const styles = {
 const responsiveStyles = {
   responsiveFlex: {
     display: "flex",
-    flexWrap: "wrap",
-    gap: "15px",
-    alignItems: "flex-end",
-    marginBottom: "20px",
   },
   responsiveColumn: {
-    flex: "1 1 200px",
-    minWidth: "200px",
+    flex: "1",  // Changed from 45% to auto for better flexibility
+    display: "flex",
+    
+      // Remove bottom margin
   },
 };
+
+// Make sure your searchBox style doesn't have margin-bottom
+
 
 const cellStyle = {
   border: "1px solid #d1dbe8",

@@ -83,6 +83,7 @@ const Interviews = () => {
   // Fetch candidate data from URL params or location state
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
+    const interviewId = queryParams.get("interview_id");
 
     if (queryParams.has("name") || queryParams.has("id")) {
       const candidateId = queryParams.get("id");
@@ -123,6 +124,28 @@ const Interviews = () => {
       }));
     } else if (id) {
       fetchCandidateData(id);
+    }
+
+    if (interviewId) {
+      // 👇 Fetch interview data by ID
+      axios
+        .get(`${API_URL}${interviewId}/`)
+        .then((res) => {
+          const interview = res.data;
+          setSelectedInterview(interview);
+          setFormData({
+            ...interview,
+            interview_date: interview.interview_date
+              ? new Date(interview.interview_date).toISOString().slice(0, 16)
+              : "",
+          });
+        })
+        .catch((err) => {
+          console.error("Failed to load interview from URL:", err);
+        });
+
+      // Remove the query param from the URL after loading
+      navigate(location.pathname, { replace: true });
     }
   }, [location, id, navigate]);
 
@@ -883,10 +906,11 @@ const Interviews = () => {
       flexWrap: "wrap",
       gap: "20px",
       marginBottom: "15px",
-      
     },
     formGroup: {
-      flex: "1 1 200px",
+      flex: "1", // Equal distribution
+      minWidth: "200px", // Prevent squeezing
+      margin: "0 8px",
     },
     label: {
       display: "block",
@@ -1193,6 +1217,10 @@ const Interviews = () => {
                           ).toLocaleString()}
                         </div>
                       </div>
+                      <dev style={styles.formGroup}>
+                        <span style={styles.label}>Position</span>
+                        <div>{selectedInterview.position_for}</div>
+                      </dev>
                       <div style={styles.formGroup}>
                         <span style={styles.label}>Place</span>
                         <div>{selectedInterview.place}</div>

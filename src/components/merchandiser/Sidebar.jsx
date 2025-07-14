@@ -135,7 +135,7 @@ const Sidebar = () => {
   return (
     <div style={sidebarStyle}>
       <div style={headerStyle}>
-        <span>{isOpen ? "Dashboard" : "M"}</span>
+        <span>{isOpen ? "Merchandiser" : "M"}</span>
         <button onClick={toggleSidebar} style={toggleButtonStyle}>
           {isOpen ? <FiChevronLeft /> : <FiChevronLeft />}
         </button>
