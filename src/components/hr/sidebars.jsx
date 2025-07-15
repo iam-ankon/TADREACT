@@ -133,7 +133,7 @@ const Sidebar = () => {
   return (
     <div style={sidebarStyle}>
       <div style={headerStyle}>
-        <span>{isOpen ? "HR Dashboard" : "HR"}</span>
+        <span>{isOpen ? "HR Dashboard" : "H"}</span>
         <button
           onClick={toggleSidebar}
           style={toggleButtonStyle}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
+import { FaArrowDown } from "react-icons/fa";
 
 const API_URL = "http://119.148.12.1:8000/api/hrms/api/interviews/";
 
@@ -823,6 +824,38 @@ const Interviews = () => {
   const handleSelectedAsEmployee = (interview) =>
     navigate("/add-employee", { state: interview });
 
+  const getArrowStage = () => {
+    const hasCandidateInfo =
+      formData.name &&
+      formData.position_for &&
+      formData.email &&
+      formData.phone;
+
+    const hasEvaluation =
+      formData.education ||
+      formData.job_knowledge ||
+      formData.work_experience ||
+      formData.communication ||
+      formData.personality ||
+      formData.potential ||
+      formData.general_knowledge ||
+      formData.assertiveness;
+
+    const hasFinalRemarks = formData.final_selection_remarks?.trim();
+
+    const letterSent = formData.letter_sent; // Optional if you're tracking it
+
+    const immediateRecruitment = formData.immediate_recruitment;
+
+    // ⬅️ Priority logic
+    if (immediateRecruitment) return "create_employee";
+    if (letterSent) return "create_employee";
+    if (hasFinalRemarks) return "send_offer";
+    if (hasEvaluation) return "send_md";
+    if (hasCandidateInfo) return "invite";
+    return "";
+  };
+
   // Styles
   const styles = {
     container: {
@@ -1381,36 +1414,99 @@ const Interviews = () => {
                     >
                       Print Interview
                     </button>
-                    <button
-                      style={{ ...styles.button, backgroundColor: "#9b59b6" }}
-                      onClick={() => handleInviteMail(selectedInterview)}
-                    >
-                      Invite for Interview
-                    </button>
-                    <button
-                      style={{
-                        ...styles.button,
-                        backgroundColor: "#f39c12",
-                        color: "white",
-                      }}
-                      onClick={() => handleSendMail(selectedInterview)}
-                    >
-                      Send to MD Sir
-                    </button>
-                    <button
-                      style={{ ...styles.button, backgroundColor: "#1abc9c" }}
-                      onClick={() => handleLetterSend(selectedInterview)}
-                    >
-                      Send Offer Letter
-                    </button>
-                    <button
-                      style={{ ...styles.button, backgroundColor: "#27ae60" }}
-                      onClick={() =>
-                        handleSelectedAsEmployee(selectedInterview)
-                      }
-                    >
-                      Create Employee
-                    </button>
+                    {/* Invite for Interview */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "invite" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-25px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#9b59b6",
+                            fontSize: "20px",
+                          }}
+                        />
+                      )}
+                      <button
+                        style={{ ...styles.button, backgroundColor: "#9b59b6" }}
+                        onClick={() => handleInviteMail(selectedInterview)}
+                      >
+                        Invite for Interview
+                      </button>
+                    </div>
+
+                    {/* Send to MD Sir */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "send_md" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-25px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#f39c12",
+                            fontSize: "20px",
+                          }}
+                        />
+                      )}
+                      <button
+                        style={{
+                          ...styles.button,
+                          backgroundColor: "#f39c12",
+                          color: "white",
+                        }}
+                        onClick={() => handleSendMail(selectedInterview)}
+                      >
+                        Send to MD Sir
+                      </button>
+                    </div>
+
+                    {/* Send Offer Letter */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "send_offer" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-25px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#1abc9c",
+                            fontSize: "20px",
+                          }}
+                        />
+                      )}
+                      <button
+                        style={{ ...styles.button, backgroundColor: "#1abc9c" }}
+                        onClick={() => handleLetterSend(selectedInterview)}
+                      >
+                        Send Offer Letter
+                      </button>
+                    </div>
+
+                    {/* Create Employee */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "create_employee" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-25px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#27ae60",
+                            fontSize: "20px",
+                          }}
+                        />
+                      )}
+                      <button
+                        style={{ ...styles.button, backgroundColor: "#27ae60" }}
+                        onClick={() =>
+                          handleSelectedAsEmployee(selectedInterview)
+                        }
+                      >
+                        Create Employee
+                      </button>
+                    </div>
                     <button
                       style={{ ...styles.button, ...styles.buttonDanger }}
                       onClick={() => handleDelete(selectedInterview.id)}

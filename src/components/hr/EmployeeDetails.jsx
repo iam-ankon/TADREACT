@@ -195,13 +195,13 @@ const EmployeeDetails = () => {
                           }}
                           className="btn-attachment"
                         >
-                          <FaPaperclip /> Attach
+                          <FaPaperclip /> 
                         </button>
                         <button
                           onClick={(e) => handleDelete(employee.id, e)}
                           className="btn-delete"
                         >
-                          <FaTrash /> Delete
+                          <FaTrash />
                         </button>
                       </td>
                     </tr>
@@ -245,7 +245,6 @@ const EmployeeDetails = () => {
           background-color: #a7d5e1;
           overflow: hidden;
           justify-content: center;
-          
         }
 
         .content-wrapper {
@@ -296,13 +295,13 @@ const EmployeeDetails = () => {
           gap: 0.5rem;
           transition: all 0.2s;
           font-size: 0.9rem;
+          padding: 0.5rem 1rem;
+          border: none;
         }
 
         .btn-add {
           background-color: rgb(75, 154, 214);
           color: white;
-          margin-bottom: 1rem;
-          padding-bottom: 0.5rem;
         }
 
         .btn-add:hover {
@@ -358,25 +357,27 @@ const EmployeeDetails = () => {
           width: 100%;
           border-collapse: collapse;
           margin-top: 0.1rem;
-          font-size: 0.95rem;
         }
 
         .employee-table th {
           background-color: rgb(95, 145, 183);
           color: white;
-          padding: 0.5rem;
+          padding: 0.4rem 0.5rem;
           text-align: center;
           font-weight: 600;
+          font-size: 0.85rem;
         }
 
         .employee-table td {
-          padding: 0.5rem;
+          padding: 0.3rem 0.5rem;
           border-bottom: 1px solid #eee;
           color: #333;
           text-align: center;
+          font-size: 0.85rem;
         }
 
         .employee-row {
+          height: 36px;
           transition: background-color 0.2s;
         }
 
@@ -391,9 +392,8 @@ const EmployeeDetails = () => {
 
         .action-buttons-cell {
           display: flex;
-          gap: 0.5rem;
-          
-          margin-top: 1rem;
+          gap: 0.3rem;
+          padding: 0.2rem;
           justify-content: center;
         }
 
@@ -403,9 +403,17 @@ const EmployeeDetails = () => {
           font-weight: 500;
           display: flex;
           align-items: center;
-          gap: 0.3rem;
+          justify-content: center;
           transition: all 0.2s;
-          font-size: 0.85rem;
+          padding: 0.2rem 0.4rem;
+          font-size: 0.75rem;
+          border: none;
+          width: 28px;
+          height: 28px;
+        }
+
+        .action-buttons-cell button svg {
+          font-size: 0.75rem;
         }
 
         .btn-attachment {
@@ -450,7 +458,7 @@ const EmployeeDetails = () => {
 
         .page-btn.active {
           background-color: #0078d4;
-         
+          color: white;
           border-color: #0078d4;
         }
 
