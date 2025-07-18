@@ -52,6 +52,25 @@ const Interviews = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
 
+  const [offerLetterSent, setOfferLetterSent] = useState(false);
+
+  const checkOfferLetterSent = async (email) => {
+    try {
+      const res = await axios.get(
+        "http://119.148.12.1:8000/api/hrms/api/check_offer_letter/",
+        {
+          params: { email },
+        }
+      );
+      const isSent = res.data?.offer_letter_sent === true;
+      setOfferLetterSent(isSent);
+      console.log("✅ Offer letter sent result for", email, "=>", isSent);
+    } catch (error) {
+      console.error("❌ Error checking offer letter status:", error);
+      setOfferLetterSent(false);
+    }
+  };
+
   // Calculate interview mark and result
   const calculateInterviewMark = (formData) => {
     let score = 0;
@@ -104,6 +123,11 @@ const Interviews = () => {
         ...urlData,
       }));
 
+      // ✅ check if offer letter was sent
+      if (urlData.email) {
+        checkOfferLetterSent(urlData.email);
+      }
+
       if (
         candidateId &&
         (!urlData.name || !urlData.position_for || !urlData.email)
@@ -123,6 +147,11 @@ const Interviews = () => {
         phone: location.state.phone || "",
         reference: location.state.reference || "",
       }));
+
+      // ✅ check here too
+      if (location.state.email) {
+        checkOfferLetterSent(location.state.email);
+      }
     } else if (id) {
       fetchCandidateData(id);
     }
@@ -140,15 +169,26 @@ const Interviews = () => {
               ? new Date(interview.interview_date).toISOString().slice(0, 16)
               : "",
           });
+
+          // ✅ also check here
+          if (interview.email) {
+            checkOfferLetterSent(interview.email);
+          }
         })
         .catch((err) => {
           console.error("Failed to load interview from URL:", err);
         });
 
-      // Remove the query param from the URL after loading
       navigate(location.pathname, { replace: true });
     }
   }, [location, id, navigate]);
+
+  useEffect(() => {
+    if (formData?.email) {
+      console.log("⏳ Checking offer letter for email:", formData.email);
+      checkOfferLetterSent(formData.email);
+    }
+  }, [formData.email]);
 
   // Fetch candidate data from API
   const fetchCandidateData = async (candidateId) => {
@@ -841,19 +881,63 @@ const Interviews = () => {
       formData.general_knowledge ||
       formData.assertiveness;
 
-    const hasFinalRemarks = formData.final_selection_remarks?.trim();
+    const hasFinalSelectionRemarks = formData.final_selection_remarks;
 
-    const letterSent = formData.letter_sent; // Optional if you're tracking it
-
-    const immediateRecruitment = formData.immediate_recruitment;
-
-    // ⬅️ Priority logic
-    if (immediateRecruitment) return "create_employee";
-    if (letterSent) return "create_employee";
-    if (hasFinalRemarks) return "send_offer";
+    if (formData.no_good) return "delete_interview";
+    if (offerLetterSent) return "create_employee"; // ✅ Important
+    if (hasFinalSelectionRemarks) return "send_offer";
     if (hasEvaluation) return "send_md";
     if (hasCandidateInfo) return "invite";
     return "";
+  };
+
+  const isButtonDisabled = (buttonStage) => {
+    const currentStage = getArrowStage();
+    // Enable only the button that matches the current stage, disable others
+    return currentStage !== buttonStage;
+  };
+
+  // Get result badge style based on interview result
+  const getResultBadgeStyle = (result) => {
+    switch (result) {
+      case "Poor":
+        return { ...styles.resultBadge, ...styles.resultPoor };
+      case "Adequate":
+        return { ...styles.resultBadge, ...styles.resultAdequate };
+      case "Good":
+        return { ...styles.resultBadge, ...styles.resultGood };
+      case "Outstanding":
+        return { ...styles.resultBadge, ...styles.resultOutstanding };
+      default:
+        return styles.resultBadge;
+    }
+  };
+
+  // Fetch interviews on component mount
+  useEffect(() => {
+    fetchInterviews();
+  }, []);
+
+  const handleCheckboxChange = (e) => {
+    const { name, checked } = e.target;
+
+    setFormData((prev) => {
+      // If this checkbox is being checked, uncheck all others
+      if (checked) {
+        return {
+          ...prev,
+          immediate_recruitment: name === "immediate_recruitment",
+          on_hold: name === "on_hold",
+          no_good: name === "no_good",
+          [name]: checked,
+        };
+      }
+      // If being unchecked, leave as is
+      return {
+        ...prev,
+        [name]: checked,
+      };
+    });
   };
 
   // Styles
@@ -880,7 +964,6 @@ const Interviews = () => {
       border: "none",
       borderRadius: "4px",
 
-      color: "white",
       outline: "none",
     },
     button: {
@@ -1053,28 +1136,11 @@ const Interviews = () => {
       alignItems: "center",
       height: "100px",
     },
+    disabledButton: {
+      opacity: 0.5,
+      cursor: "not-allowed",
+    },
   };
-
-  // Get result badge style based on interview result
-  const getResultBadgeStyle = (result) => {
-    switch (result) {
-      case "Poor":
-        return { ...styles.resultBadge, ...styles.resultPoor };
-      case "Adequate":
-        return { ...styles.resultBadge, ...styles.resultAdequate };
-      case "Good":
-        return { ...styles.resultBadge, ...styles.resultGood };
-      case "Outstanding":
-        return { ...styles.resultBadge, ...styles.resultOutstanding };
-      default:
-        return styles.resultBadge;
-    }
-  };
-
-  // Fetch interviews on component mount
-  useEffect(() => {
-    fetchInterviews();
-  }, []);
 
   return (
     <div style={styles.container}>
@@ -1117,11 +1183,19 @@ const Interviews = () => {
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
               {interviews
-                .filter((interview) =>
-                  interview.name
-                    .toLowerCase()
-                    .includes(searchQuery.toLowerCase())
-                )
+                .filter((interview) => {
+                  const searchLower = searchQuery.toLowerCase();
+                  return (
+                    interview.name.toLowerCase().includes(searchLower) ||
+                    (interview.position_for &&
+                      interview.position_for
+                        .toLowerCase()
+                        .includes(searchLower)) ||
+                    (interview.email &&
+                      interview.email.toLowerCase().includes(searchLower)) ||
+                    (interview.phone && interview.phone.includes(searchQuery))
+                  );
+                })
                 .map((interview) => (
                   <li
                     key={interview.id}
@@ -1391,7 +1465,7 @@ const Interviews = () => {
                     </div>
 
                     <div style={{ marginTop: "15px" }}>
-                      <span style={styles.label}>Final Selection Remarks</span>
+                      <span style={styles.label}>Final Selection Remarks (MD Sir)</span>
                       <div
                         style={{
                           padding: "10px",
@@ -1429,14 +1503,19 @@ const Interviews = () => {
                         />
                       )}
                       <button
-                        style={{ ...styles.button, backgroundColor: "#9b59b6" }}
+                        disabled={isButtonDisabled("invite")}
+                        style={{
+                          ...styles.button,
+                          backgroundColor: "#9b59b6",
+                          ...(isButtonDisabled("invite") &&
+                            styles.disabledButton),
+                        }}
                         onClick={() => handleInviteMail(selectedInterview)}
                       >
                         Invite for Interview
                       </button>
                     </div>
 
-                    {/* Send to MD Sir */}
                     <div style={{ position: "relative" }}>
                       {getArrowStage() === "send_md" && (
                         <FaArrowDown
@@ -1451,10 +1530,13 @@ const Interviews = () => {
                         />
                       )}
                       <button
+                        disabled={isButtonDisabled("send_md")}
                         style={{
                           ...styles.button,
                           backgroundColor: "#f39c12",
                           color: "white",
+                          ...(isButtonDisabled("send_md") &&
+                            styles.disabledButton),
                         }}
                         onClick={() => handleSendMail(selectedInterview)}
                       >
@@ -1462,7 +1544,6 @@ const Interviews = () => {
                       </button>
                     </div>
 
-                    {/* Send Offer Letter */}
                     <div style={{ position: "relative" }}>
                       {getArrowStage() === "send_offer" && (
                         <FaArrowDown
@@ -1477,14 +1558,19 @@ const Interviews = () => {
                         />
                       )}
                       <button
-                        style={{ ...styles.button, backgroundColor: "#1abc9c" }}
+                        disabled={isButtonDisabled("send_offer")}
+                        style={{
+                          ...styles.button,
+                          backgroundColor: "#1abc9c",
+                          ...(isButtonDisabled("send_offer") &&
+                            styles.disabledButton),
+                        }}
                         onClick={() => handleLetterSend(selectedInterview)}
                       >
                         Send Offer Letter
                       </button>
                     </div>
 
-                    {/* Create Employee */}
                     <div style={{ position: "relative" }}>
                       {getArrowStage() === "create_employee" && (
                         <FaArrowDown
@@ -1499,7 +1585,13 @@ const Interviews = () => {
                         />
                       )}
                       <button
-                        style={{ ...styles.button, backgroundColor: "#27ae60" }}
+                        disabled={isButtonDisabled("create_employee")}
+                        style={{
+                          ...styles.button,
+                          backgroundColor: "#27ae60",
+                          ...(isButtonDisabled("create_employee") &&
+                            styles.disabledButton),
+                        }}
                         onClick={() =>
                           handleSelectedAsEmployee(selectedInterview)
                         }
@@ -1507,12 +1599,26 @@ const Interviews = () => {
                         Create Employee
                       </button>
                     </div>
-                    <button
-                      style={{ ...styles.button, ...styles.buttonDanger }}
-                      onClick={() => handleDelete(selectedInterview.id)}
-                    >
-                      Delete Interview
-                    </button>
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "delete_interview" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-25px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#e74c3c",
+                            fontSize: "20px",
+                          }}
+                        />
+                      )}
+                      <button
+                        style={{ ...styles.button, ...styles.buttonDanger }}
+                        onClick={() => handleDelete(selectedInterview.id)}
+                      >
+                        Delete Interview
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1851,7 +1957,7 @@ const Interviews = () => {
                               type="checkbox"
                               name="immediate_recruitment"
                               checked={formData.immediate_recruitment}
-                              onChange={handleInputChange}
+                              onChange={handleCheckboxChange}
                               style={styles.checkbox}
                             />
                             Immediate Recruitment
@@ -1861,7 +1967,7 @@ const Interviews = () => {
                               type="checkbox"
                               name="on_hold"
                               checked={formData.on_hold}
-                              onChange={handleInputChange}
+                              onChange={handleCheckboxChange}
                               style={styles.checkbox}
                             />
                             On Hold
@@ -1871,7 +1977,7 @@ const Interviews = () => {
                               type="checkbox"
                               name="no_good"
                               checked={formData.no_good}
-                              onChange={handleInputChange}
+                              onChange={handleCheckboxChange}
                               style={styles.checkbox}
                             />
                             No Good
@@ -1891,7 +1997,7 @@ const Interviews = () => {
 
                       <div style={{ marginTop: "15px" }}>
                         <label style={styles.label}>
-                          Final Selection Remarks
+                          Final Selection Remarks (MD Sir)
                         </label>
                         <textarea
                           name="final_selection_remarks"

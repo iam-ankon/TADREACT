@@ -928,11 +928,11 @@ const styles = {
     backgroundColor: "#f9f9f9",
   },
   columnTitle: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    display: "flex",
+    justifyContent: "space-between", // This creates space between the items
     fontWeight: "bold",
-    textAlign: "center",
     marginBottom: "10px",
+    width: "55%", // Ensure the container takes full width
   },
 
   row: {

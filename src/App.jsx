@@ -57,6 +57,7 @@ import EditInquiry from './components/merchandiser/EditInquiry.jsx';
 import AddInquiry from './components/merchandiser/AddInquiry.jsx';
 import DetailsInquiry from './components/merchandiser/DetailsInquiry.jsx';
 import AddAttachmentInquiry from './components/merchandiser/AddAttachmentInquiry.jsx';
+import InterviewDetailsPage from "./components/hr/Interviews.jsx";
 
 // Protected Route Component (Prevents Unauthorized Access)
 const ProtectedRoute = ({ children }) => {
@@ -83,6 +84,7 @@ const AppContent = () => {
           <Route path="/" element={<AuthRoute><LoginPage /></AuthRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/hr-work" element={<ProtectedRoute><HRWorkPage /></ProtectedRoute>} />
+          <Route path="/interviews/details/:id" element={<InterviewDetailsPage />} />
           <Route path="/employees" element={<ProtectedRoute><EmployeeDetails /></ProtectedRoute>} />
           <Route path="/employee/:id" element={<ProtectedRoute><EmployeeDetailPage /></ProtectedRoute>} />
           <Route path="/edit-employee/:id" element={<ProtectedRoute><EditEmployeePage /></ProtectedRoute>} />

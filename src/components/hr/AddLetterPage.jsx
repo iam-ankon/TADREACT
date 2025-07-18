@@ -81,7 +81,8 @@ const AddLetterPage = () => {
 
       await addLetterSend(formData);
       alert("Letter sent successfully!");
-      navigate("/letter-send");
+      navigate("/interviews", { state: { email: cvData.email } });
+
     } catch (error) {
       console.error("Error sending letter:", error);
 

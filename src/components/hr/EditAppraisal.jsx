@@ -82,460 +82,377 @@ const EditAppraisal = () => {
     <div
       style={{
         display: "flex",
-        height: "100vh",
-        overflow: "hidden",
+        minHeight: "100vh",
+        backgroundColor: "#f5f7fa",
       }}
     >
-      {/* Fixed Sidebar */}
-      <div>
-        <Sidebars />
-      </div>
+      {/* Sidebar */}
+      <Sidebars />
 
-      {/* Main content */}
-      <div style={containerStyle}>
-        <div style={styles.container}>
+      {/* Main Content */}
+      <div style={styles.mainContent}>
+        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
+        <div style={styles.card}>
+          
           <h2 style={styles.title}>Edit Performance Appraisal</h2>
-          <form onSubmit={handleSubmit} style={styles.form}>
-            {/* form fields */}
-            <div style={styles.gridContainer}>
-              <div style={styles.field}>
-                <label style={styles.label}>Employee ID</label>
-                <input
-                  type="text"
-                  name="employee_id"
-                  value={formData.employee_id || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
+          
+            <form onSubmit={handleSubmit} style={styles.form}>
+              {/* Personal Information Section */}
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Personal Information</h3>
+                <div style={styles.gridContainer}>
+                  {[
+                    "employee_id",
+                    "name",
+                    "designation",
+                    "joining_date",
+                    "department",
+                    "last_increment_date",
+                    "last_promotion_date",
+                    "last_education",
+                  ].map((field) => (
+                    <div key={field} style={styles.field}>
+                      <label style={styles.label}>
+                        {field
+                          .split("_")
+                          .map(
+                            (word) =>
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                          )
+                          .join(" ")}
+                      </label>
+                      <input
+                        type={field.includes("date") ? "date" : "text"}
+                        name={field}
+                        value={formData[field] || ""}
+                        onChange={handleChange}
+                        required
+                        style={styles.input}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
+
+              {/* Performance Metrics Section */}
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Performance Metrics</h3>
+                <div style={styles.gridContainer}>
+                  {[
+                    "job_knowledge",
+                    "performance_in_meetings",
+                    "communication_skills",
+                    "reliability",
+                    "initiative",
+                    "stress_management",
+                    "co_operation",
+                    "leadership",
+                    "discipline",
+                    "ethical_considerations",
+                  ].map((field) => (
+                    <React.Fragment key={field}>
+                      <div style={styles.field}>
+                        <label style={styles.label}>
+                          {field
+                            .split("_")
+                            .map(
+                              (word) =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            )
+                            .join(" ")}{" "}
+                          (1-5)
+                        </label>
+                        <select
+                          name={field}
+                          value={formData[field] || ""}
+                          onChange={handleChange}
+                          style={styles.input}
+                        >
+                          <option value="">Select rating</option>
+                          {[1, 2, 3, 4, 5].map((num) => (
+                            <option key={num} value={num}>
+                              {num}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={styles.field}>
+                        <label style={styles.label}>
+                          {field
+                            .split("_")
+                            .map(
+                              (word) =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            )
+                            .join(" ")}{" "}
+                          Description
+                        </label>
+                        <textarea
+                          name={`${field}_description`}
+                          value={formData[`${field}_description`] || ""}
+                          onChange={handleChange}
+                          style={{ ...styles.input, minHeight: "80px" }}
+                          placeholder={`Describe ${field.replace(/_/g, " ")}`}
+                        />
+                      </div>
+                    </React.Fragment>
+                  ))}
+                </div>
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Designation</label>
-                <input
-                  type="text"
-                  name="designation"
-                  value={formData.designation || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
+
+              {/* Recommendations Section */}
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Recommendations</h3>
+                <div style={styles.checkboxGroup}>
+                  {["promotion", "increment", "performance_reward"].map(
+                    (field) => (
+                      <label key={field} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          name={field}
+                          checked={formData[field]}
+                          onChange={handleChange}
+                          style={styles.checkbox}
+                        />
+                        {field
+                          .split("_")
+                          .map(
+                            (word) =>
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                          )
+                          .join(" ")}
+                      </label>
+                    )
+                  )}
+                </div>
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Joining Date</label>
-                <input
-                  type="date"
-                  name="joining_date"
-                  value={formData.joining_date || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
+
+              {/* Salary & Designation Section */}
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Salary & Designation</h3>
+                <div
+                  style={{
+                    ...styles.gridContainer,
+                    gridTemplateColumns: "1fr 1fr",
+                  }}
+                >
+                  <div style={styles.salaryColumn}>
+                    <h4 style={styles.columnHeader}>Present</h4>
+                    <div style={styles.field}>
+                      <label style={styles.label}>Salary</label>
+                      <input
+                        type="number"
+                        name="present_salary"
+                        value={formData.present_salary || ""}
+                        onChange={handleChange}
+                        style={styles.input}
+                      />
+                    </div>
+                    <div style={styles.field}>
+                      <label style={styles.label}>Designation</label>
+                      <input
+                        type="text"
+                        name="present_designation"
+                        value={formData.present_designation || ""}
+                        onChange={handleChange}
+                        style={styles.input}
+                      />
+                    </div>
+                  </div>
+                  <div style={styles.salaryColumn}>
+                    <h4 style={styles.columnHeader}>Proposed</h4>
+                    <div style={styles.field}>
+                      <label style={styles.label}>Salary</label>
+                      <input
+                        type="number"
+                        name="proposed_salary"
+                        value={formData.proposed_salary || ""}
+                        onChange={handleChange}
+                        style={styles.input}
+                      />
+                    </div>
+                    <div style={styles.field}>
+                      <label style={styles.label}>Designation</label>
+                      <input
+                        type="text"
+                        name="proposed_designation"
+                        value={formData.proposed_designation || ""}
+                        onChange={handleChange}
+                        style={styles.input}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Department</label>
-                <input
-                  type="text"
-                  name="department"
-                  value={formData.department || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
+
+              {/* Performance Summary */}
+              <div style={styles.section}>
+                <h3 style={styles.sectionTitle}>Performance Summary</h3>
+                <div style={styles.gridContainer}>
+                  <div style={styles.field}>
+                    <label style={styles.label}>Current Performance</label>
+                    <textarea
+                      name="performance"
+                      value={formData.performance || ""}
+                      onChange={handleChange}
+                      style={{ ...styles.input, minHeight: "100px" }}
+                      placeholder="Describe current performance..."
+                    />
+                  </div>
+                  <div style={styles.field}>
+                    <label style={styles.label}>Expected Performance</label>
+                    <textarea
+                      name="expected_performance"
+                      value={formData.expected_performance || ""}
+                      onChange={handleChange}
+                      style={{ ...styles.input, minHeight: "100px" }}
+                      placeholder="Describe expected performance..."
+                    />
+                  </div>
+                </div>
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Last Increment Date</label>
-                <input
-                  type="date"
-                  name="last_increment_date"
-                  value={formData.last_increment_date || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
+
+              <div style={styles.buttonGroup}>
+                <button type="submit" style={styles.primaryButton}>
+                  Update Appraisal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/performanse_appraisal")}
+                  style={styles.secondaryButton}
+                >
+                  Cancel
+                </button>
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Last Promotion Date</label>
-                <input
-                  type="date"
-                  name="last_promotion_date"
-                  value={formData.last_promotion_date || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Last Education</label>
-                <input
-                  type="text"
-                  name="last_education"
-                  value={formData.last_education || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Job Knowledge (1-5)</label>
-                <input
-                  type="text"
-                  name="job_knowledge"
-                  value={formData.job_knowledge || ""}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Job Description</label>
-                <textarea
-                  name="job_description"
-                  value={formData.job_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Performance in Meetings (1-5)</label>
-                <input
-                  type="text"
-                  name="performance_in_meetings"
-                  value={formData.performance_in_meetings || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Performance Description</label>
-                <textarea
-                  name="performance_description"
-                  value={formData.performance_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Communication Skills (1-5)</label>
-                <input
-                  type="text"
-                  name="communication_skills"
-                  value={formData.communication_skills || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Communication Description</label>
-                <textarea
-                  name="communication_description"
-                  value={formData.communication_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Reliability (1-5)</label>
-                <input
-                  type="text"
-                  name="reliability"
-                  value={formData.reliability || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Reliability Description</label>
-                <textarea
-                  name="reliability_description"
-                  value={formData.reliability_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Initiative (1-5)</label>
-                <input
-                  type="text"
-                  name="initiative"
-                  value={formData.initiative || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Initiative Description</label>
-                <textarea
-                  name="initiative_description"
-                  value={formData.initiative_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Stress Management (1-5)</label>
-                <input
-                  type="text"
-                  name="stress_management"
-                  value={formData.stress_management || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>
-                  Stress Management Description
-                </label>
-                <textarea
-                  name="stress_management_description"
-                  value={formData.stress_management_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Co-operation (1-5)</label>
-                <input
-                  type="text"
-                  name="co_operation"
-                  value={formData.co_operation || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Co-operation Description</label>
-                <textarea
-                  name="co_operation_description"
-                  value={formData.co_operation_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Leadership (1-5)</label>
-                <input
-                  type="text"
-                  name="leadership"
-                  value={formData.leadership || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Leadership Description</label>
-                <textarea
-                  name="leadership_description"
-                  value={formData.leadership_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Discipline (1-5)</label>
-                <input
-                  type="text"
-                  name="discipline"
-                  value={formData.discipline || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Discipline Description</label>
-                <textarea
-                  name="discipline_description"
-                  value={formData.discipline_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Ethical Considerations (1-5)</label>
-                <input
-                  type="text"
-                  name="ethical_considerations"
-                  value={formData.ethical_considerations || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>
-                  Ethical Considerations Description
-                </label>
-                <textarea
-                  name="ethical_considerations_description"
-                  value={formData.ethical_considerations_description || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Promotion</label>
-                <input
-                  type="checkbox"
-                  name="promotion"
-                  checked={formData.promotion}
-                  onChange={handleChange}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Increment</label>
-                <input
-                  type="checkbox"
-                  name="increment"
-                  checked={formData.increment}
-                  onChange={handleChange}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Performance Reward</label>
-                <input
-                  type="checkbox"
-                  name="performance_reward"
-                  checked={formData.performance_reward}
-                  onChange={handleChange}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Performance</label>
-                <textarea
-                  name="performance"
-                  value={formData.performance || ""}
-                  onChange={handleChange}
-                  style={{ ...styles.input, minHeight: "80px" }} // Added minHeight for better visibility
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Expected Performance</label>
-                <textarea
-                  name="expected_performance"
-                  value={formData.expected_performance || ""}
-                  onChange={handleChange}
-                  style={{ ...styles.input, minHeight: "80px" }} // Added minHeight for better visibility
-                ></textarea>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Present Salary</label>
-                <input
-                  type="number"
-                  name="present_salary"
-                  value={formData.present_salary || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Proposed Salary</label>
-                <input
-                  type="number"
-                  name="proposed_salary"
-                  value={formData.proposed_salary || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Present Designation</label>
-                <input
-                  type="text"
-                  name="present_designation"
-                  value={formData.present_designation || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Proposed Designation</label>
-                <input
-                  type="text"
-                  name="proposed_designation"
-                  value={formData.proposed_designation || ""}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
-            </div>
-            <button type="submit" style={styles.submitButton}>
-              Update Appraisal
-            </button>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// Styles (same as before)
 const styles = {
-  container: {
-    width: "70%",
-    margin: "30px auto",
-
-    background: "#f3f3f3",
-    padding: "20px",
+  mainContent: {
+    flex: 1,
+    padding: "24px",
+    overflowY: "auto",
+  },
+  card: {
+    backgroundColor: "#ffffff",
     borderRadius: "8px",
-    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.08)",
+    padding: "32px",
+    maxWidth: "1200px",
+    margin: "0 auto",
   },
   title: {
-    textAlign: "center",
-    color: "#0078D4",
-    marginBottom: "20px",
-    fontSize: "24px",
+    color: "#2c3e50",
+    fontSize: "28px",
     fontWeight: "600",
+    marginBottom: "32px",
+    textAlign: "center",
+    borderBottom: "2px solid #eaeaea",
+    paddingBottom: "16px",
   },
-  form: { display: "flex", flexDirection: "column" },
+  section: {
+    marginBottom: "32px",
+    padding: "20px",
+    backgroundColor: "#f9fafc",
+    borderRadius: "6px",
+  },
+  sectionTitle: {
+    color: "#3498db",
+    fontSize: "18px",
+    fontWeight: "600",
+    marginBottom: "20px",
+    paddingBottom: "8px",
+    borderBottom: "1px solid #eaeaea",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+  },
   gridContainer: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
     gap: "20px",
   },
-  field: { display: "flex", flexDirection: "column" },
+  field: {
+    marginBottom: "16px",
+  },
   label: {
+    display: "block",
     fontSize: "14px",
-    fontWeight: "600",
-    marginBottom: "5px",
-    color: "#333",
+    fontWeight: "500",
+    marginBottom: "8px",
+    color: "#555",
   },
   input: {
-    padding: "10px",
-    borderRadius: "4px",
-    border: "1px solid #ccc",
-    fontSize: "14px",
-    outline: "none",
-  },
-  checkbox: { marginTop: "5px" },
-  submitButton: {
-    backgroundColor: "#0078D4",
-    color: "white",
+    width: "100%",
     padding: "12px",
+    borderRadius: "4px",
+    border: "1px solid #ddd",
+    fontSize: "14px",
+    transition: "border 0.3s",
+  },
+  checkboxGroup: {
+    display: "flex",
+    gap: "24px",
+    marginTop: "12px",
+  },
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "14px",
+    cursor: "pointer",
+  },
+  checkbox: {
+    width: "16px",
+    height: "16px",
+    cursor: "pointer",
+  },
+  salaryColumn: {
+    padding: "16px",
+    backgroundColor: "#f0f7ff",
+    borderRadius: "6px",
+  },
+  columnHeader: {
+    color: "#2980b9",
     fontSize: "16px",
+    fontWeight: "600",
+    marginBottom: "16px",
+    textAlign: "center",
+  },
+  buttonGroup: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "16px",
+    marginTop: "32px",
+  },
+  primaryButton: {
+    backgroundColor: "#3498db",
+    color: "white",
+    padding: "12px 24px",
+    fontSize: "16px",
+    fontWeight: "500",
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
-    marginTop: "20px",
-    width: "20%",
+    transition: "background-color 0.3s",
   },
-};
-const containerStyle = {
-  backgroundColor: "#A7D5E1",
-  width: "100%",
-  overflowY: "auto",
-  padding: "2px",
+  secondaryButton: {
+    backgroundColor: "#f5f5f5",
+    color: "#555",
+    padding: "12px 24px",
+    fontSize: "16px",
+    fontWeight: "500",
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    cursor: "pointer",
+    transition: "background-color 0.3s",
+  },
 };
 
 export default EditAppraisal;

@@ -50,19 +50,48 @@ const HRWorkPage = () => {
         const response = await axios.get(
           "http://119.148.12.1:8000/api/hrms/api/interviews/"
         );
-        setUpcomingInterviews(response.data);
+
+        console.log("Interview Data:", response.data); // Debug log
+
+        const sortedInterviews = response.data
+          .map((interview) => ({
+            ...interview,
+            // Ensure time is properly formatted
+            displayTime: interview.time ? formatTime(interview.time) : "--:--",
+          }))
+          .sort(
+            (a, b) => new Date(b.interview_date) - new Date(a.interview_date)
+          );
+
+        setUpcomingInterviews(sortedInterviews);
       } catch (error) {
         console.error("Error fetching interviews:", error);
       }
     };
 
+    // Add this helper function
+    const formatTime = (timeString) => {
+      if (!timeString) return "--:--";
+      // Handle various time formats
+      if (timeString.includes("T")) {
+        // ISO format
+        return new Date(timeString).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+      return timeString; // Return as-is if already in HH:MM format
+    };
     const fetchLeaveRequests = async () => {
       try {
         const response = await axios.get(
           "http://119.148.12.1:8000/api/hrms/api/employee_leaves/"
         );
-        setLeaveRequests(response.data);
-        console.log("Leave Requests:", response.data);
+        // Sort leave requests by date (most recent first)
+        const sortedRequests = response.data.sort((a, b) => {
+          return new Date(b.start_date) - new Date(a.start_date);
+        });
+        setLeaveRequests(sortedRequests);
       } catch (error) {
         console.error("Error fetching leave requests:", error);
       }
@@ -157,14 +186,24 @@ const HRWorkPage = () => {
   ];
 
   // Get today's attendance data
-  const todayAttendance = attendanceData.filter((record) => {
-    const recordDate = new Date(record.date);
-    return (
-      recordDate.getDate() === today.getDate() &&
-      recordDate.getMonth() === today.getMonth() &&
-      recordDate.getFullYear() === today.getFullYear()
-    );
-  });
+  const todayAttendance = attendanceData
+    .filter((record) => {
+      const recordDate = new Date(record.date);
+      return (
+        recordDate.getDate() === today.getDate() &&
+        recordDate.getMonth() === today.getMonth() &&
+        recordDate.getFullYear() === today.getFullYear()
+      );
+    })
+    .slice(0, 1); // Only take the most recent one
+
+  // Get the most recent pending leave requests (only 1)
+  const recentPendingLeaveRequests = leaveRequests
+    .filter((req) => req.status === "pending")
+    .slice(0, 1);
+
+  // Get the most recent 3 interviews
+  const recentInterviews = upcomingInterviews.slice(0, 3);
 
   return (
     <div
@@ -369,20 +408,19 @@ const HRWorkPage = () => {
                   color: "#374151",
                 }}
               >
-                Interviews
+                Recent Interviews
               </h2>
             </div>
             <div style={{ borderTop: "1px solid #e5e7eb" }}>
-              {upcomingInterviews.map((interview) => (
+              {recentInterviews.map((interview) => (
                 <div
                   key={interview.id}
                   style={{
                     padding: "1rem",
                     borderBottom: "1px solid #e5e7eb",
-                    cursor: "pointer",
-                    ":hover": { backgroundColor: "#f9fafb" },
+                    // Removed cursor: pointer and hover effects
                   }}
-                  onClick={() => navigate(`/interviews/${interview.id}`)}
+                  // Removed onClick handler
                 >
                   <div
                     style={{
@@ -400,7 +438,19 @@ const HRWorkPage = () => {
                       </p>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <p style={{ fontWeight: 500 }}>{interview.time}</p>
+                      <p style={{ fontWeight: 500 }}>
+                        {interview.time
+                          ? formatTime(interview.time)
+                          : interview.interview_datetime
+                          ? new Date(
+                              interview.interview_datetime
+                            ).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "--:--"}
+                      </p>
+                      {/* Date display remains the same */}
                       <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
                         {interview.interview_date}
                       </p>
@@ -408,7 +458,7 @@ const HRWorkPage = () => {
                   </div>
                 </div>
               ))}
-              {upcomingInterviews.length === 0 && (
+              {recentInterviews.length === 0 && (
                 <div
                   style={{
                     padding: "1rem",
@@ -468,63 +518,57 @@ const HRWorkPage = () => {
                     color: "#374151",
                   }}
                 >
-                  Pending Leave Requests
+                  Recent Pending Leave Request
                 </h2>
               </div>
               <div style={{ borderTop: "1px solid #e5e7eb" }}>
-                {leaveRequests
-                  .filter((req) => req.status === "pending")
-                  .map((request) => (
+                {recentPendingLeaveRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    style={{
+                      padding: "1rem",
+                      borderBottom: "1px solid #e5e7eb",
+                      // Removed cursor: pointer and hover effects
+                    }}
+                    // Removed onClick handler
+                  >
                     <div
-                      key={request.id}
                       style={{
-                        padding: "1rem",
-                        borderBottom: "1px solid #e5e7eb",
-                        cursor: "pointer",
-                        ":hover": { backgroundColor: "#f9fafb" },
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
                       }}
-                      onClick={() =>
-                        navigate(`/leave-request-details/${request.id}`)
-                      }
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <div>
-                          <h3 style={{ fontWeight: 500 }}>
-                            {request.employee_name}
-                          </h3>
-                          <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                            {request.leave_type}
-                          </p>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <p style={{ fontWeight: 500 }}>
-                            {request.start_date} to {request.end_date}
-                          </p>
-                          <span
-                            style={{
-                              display: "inline-block",
-                              padding: "0.25rem 0.5rem",
-                              fontSize: "0.75rem",
-                              fontWeight: 500,
-                              backgroundColor: "#fffbeb",
-                              color: "#d97706",
-                              borderRadius: "9999px",
-                            }}
-                          >
-                            {request.status}
-                          </span>
-                        </div>
+                      <div>
+                        <h3 style={{ fontWeight: 500 }}>
+                          {request.employee_name}
+                        </h3>
+                        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                          {request.leave_type}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <p style={{ fontWeight: 500 }}>
+                          {request.start_date} to {request.end_date}
+                        </p>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "0.25rem 0.5rem",
+                            fontSize: "0.75rem",
+                            fontWeight: 500,
+                            backgroundColor: "#fffbeb",
+                            color: "#d97706",
+                            borderRadius: "9999px",
+                          }}
+                        >
+                          {request.status}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                {leaveRequests.filter((req) => req.status === "pending")
-                  .length === 0 && (
+                  </div>
+                ))}
+                {recentPendingLeaveRequests.length === 0 && (
                   <div
                     style={{
                       padding: "1rem",
@@ -582,56 +626,44 @@ const HRWorkPage = () => {
               <div
                 style={{
                   borderTop: "1px solid #e5e7eb",
-                  maxHeight: todayAttendance.length > 1 ? "200px" : "auto",
-                  overflowY: todayAttendance.length > 1 ? "auto" : "hidden",
                 }}
               >
-                {todayAttendance
-                  .slice(0, todayAttendance.length > 1 ? 1 : undefined)
-                  .map((record, index) => (
+                {todayAttendance.map((record, index) => (
+                  <div
+                    key={record.id}
+                    style={{
+                      padding: "1rem",
+                      borderBottom: "1px solid #e5e7eb",
+                      // Removed cursor: pointer and hover effects
+                    }}
+                    // Removed onClick handler
+                  >
                     <div
-                      key={record.id}
                       style={{
-                        padding: "1rem",
-                        borderBottom:
-                          index <
-                          (todayAttendance.length > 1
-                            ? 1
-                            : todayAttendance.length) -
-                            1
-                            ? "1px solid #e5e7eb"
-                            : undefined,
-                        cursor: "pointer",
-                        ":hover": { backgroundColor: "#f9fafb" },
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
                       }}
-                      onClick={() => navigate(`/attendance/${record.id}`)}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <div>
-                          <h3 style={{ fontWeight: 500 }}>
-                            {record.employee_name}
-                          </h3>
-                          <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                            ID: {record.id}
-                          </p>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <p style={{ fontWeight: 500 }}>
-                            Check-in: {record.check_in || "--:--"}
-                          </p>
-                          <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                            Check-out: {record.check_out || "--:--"}
-                          </p>
-                        </div>
+                      <div>
+                        <h3 style={{ fontWeight: 500 }}>
+                          {record.employee_name}
+                        </h3>
+                        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                          ID: {record.id}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <p style={{ fontWeight: 500 }}>
+                          Check-in: {record.check_in || "--:--"}
+                        </p>
+                        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                          Check-out: {record.check_out || "--:--"}
+                        </p>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
                 {todayAttendance.length === 0 && (
                   <div
                     style={{
