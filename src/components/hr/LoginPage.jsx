@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from '../../assets/texweave_Logo_1.png';
+import logo from "../../assets/texweave_Logo_1.png";
 
 const LoginPage = () => {
   const [username, setUsername] = useState("");
@@ -10,7 +10,6 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   // const logoImage = "public/texweave_Logo_1.png";
-
 
   // // const handleLogin = async (e) => {
   // //   e.preventDefault();
@@ -44,7 +43,8 @@ const LoginPage = () => {
   // // };
 
   const getBackendURL = () => {
-    return window.location.hostname === "119.148.12.1" || window.location.hostname === "119.148.12.1"
+    return window.location.hostname === "119.148.12.1" ||
+      window.location.hostname === "119.148.12.1"
       ? "http://119.148.12.1:8000/"
       : "http://119.148.12.1:8000";
   };
@@ -68,6 +68,8 @@ const LoginPage = () => {
 
       if (response.ok) {
         localStorage.setItem("token", data.token);
+        localStorage.setItem("username", data.username); // ✅ This is KEY
+
         setUsername("");
         setPassword("");
         navigate("/hr-work");
@@ -207,7 +209,16 @@ const LoginPage = () => {
       </style>
 
       <div className="header">
-        <img src={logo} alt="Logo" style={{ width: "150px", position: "absolute", top: "20px", left: "20px" }} />
+        <img
+          src={logo}
+          alt="Logo"
+          style={{
+            width: "150px",
+            position: "absolute",
+            top: "20px",
+            left: "20px",
+          }}
+        />
 
         <div className="login-container">
           <h2>Login</h2>
@@ -239,21 +250,53 @@ const LoginPage = () => {
           </form>
         </div>
 
-        <svg className="waves" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox="0 24 150 28" preserveAspectRatio="none" shapeRendering="auto">
+        <svg
+          className="waves"
+          xmlns="http://www.w3.org/2000/svg"
+          xmlnsXlink="http://www.w3.org/1999/xlink"
+          viewBox="0 24 150 28"
+          preserveAspectRatio="none"
+          shapeRendering="auto"
+        >
           <defs>
-            <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
+            <path
+              id="gentle-wave"
+              d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z"
+            />
           </defs>
           <g className="parallax">
-            <use xlinkHref="#gentle-wave" x="48" y="0" fill="rgba(209, 62, 62, 0.35)" />
-            <use xlinkHref="#gentle-wave" x="48" y="3" fill="rgba(8, 213, 249, 0.55)" />
-            <use xlinkHref="#gentle-wave" x="48" y="5" fill="rgba(156, 216, 121, 0.69)" />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="0"
+              fill="rgba(209, 62, 62, 0.35)"
+            />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="3"
+              fill="rgba(8, 213, 249, 0.55)"
+            />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="5"
+              fill="rgba(156, 216, 121, 0.69)"
+            />
             <use xlinkHref="#gentle-wave" x="48" y="7" fill="#fff" />
           </g>
         </svg>
       </div>
       <div class="content flex">
-        <p>Attention: Please note that transactions over the internet may be subject to interruption, delayed transmission due to internet traffic, or incorrect data transmission due to the nature of the internet. TEXWEAVE cannot assume responsibility for malfunctions in communications facilities not under our control or problems caused by your computing environment that may affect your usage of this application.
-          ©2025 Copyright by TEXWEAVE. All rights reserved </p>
+        <p>
+          Attention: Please note that transactions over the internet may be
+          subject to interruption, delayed transmission due to internet traffic,
+          or incorrect data transmission due to the nature of the internet.
+          TEXWEAVE cannot assume responsibility for malfunctions in
+          communications facilities not under our control or problems caused by
+          your computing environment that may affect your usage of this
+          application. ©2025 Copyright by TEXWEAVE. All rights reserved{" "}
+        </p>
       </div>
     </>
   );

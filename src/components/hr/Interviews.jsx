@@ -14,6 +14,8 @@ const Interviews = () => {
   const { id } = useParams();
   const [candidateData, setCandidateData] = useState(null);
   const [interviews, setInterviews] = useState([]);
+  const currentUser = localStorage.getItem("username");
+
   const [selectedInterview, setSelectedInterview] = useState(null);
   const { name, position_for, age, email, phone, reference } =
     location.state || {};
@@ -939,6 +941,9 @@ const Interviews = () => {
       };
     });
   };
+ 
+
+  console.log("Logged in user:", currentUser);
 
   // Styles
   const styles = {
@@ -1449,7 +1454,7 @@ const Interviews = () => {
                     </div>
 
                     <div style={{ marginTop: "15px" }}>
-                      <span style={styles.label}>Interview Notes</span>
+                      <span style={styles.label}>HR Comments</span>
                       <div
                         style={{
                           padding: "10px",
@@ -2004,6 +2009,7 @@ const Interviews = () => {
                           value={formData.final_selection_remarks}
                           onChange={handleInputChange}
                           style={styles.textarea}
+                          disabled={currentUser !== "Tuhin"}
                         />
                       </div>
                     </div>

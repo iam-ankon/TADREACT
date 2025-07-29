@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const EmployeeAttachments = () => {
   const { id } = useParams();
@@ -69,14 +69,18 @@ const EmployeeAttachments = () => {
   };
 
   const handleDelete = async (attachmentId) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this file?");
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this file?"
+    );
     if (!confirmDelete) return;
 
     try {
       await axios.delete(
         `http://119.148.12.1:8000/api/hrms/api/employee_attachments/${attachmentId}/`
       );
-      setAttachments(attachments.filter((attachment) => attachment.id !== attachmentId));
+      setAttachments(
+        attachments.filter((attachment) => attachment.id !== attachmentId)
+      );
       alert("File deleted successfully!");
     } catch (error) {
       console.error("Error deleting file:", error);
@@ -86,11 +90,12 @@ const EmployeeAttachments = () => {
 
   const handleEditDescription = (attachmentId, newDescription) => {
     if (newDescription === null) return; // User cancelled
-    
-    axios.patch(
-      `http://119.148.12.1:8000/api/hrms/api/employee_attachments/${attachmentId}/`,
-      { description: newDescription }
-    )
+
+    axios
+      .patch(
+        `http://119.148.12.1:8000/api/hrms/api/employee_attachments/${attachmentId}/`,
+        { description: newDescription }
+      )
       .then(() => {
         fetchAttachments();
         alert("Description updated successfully!");
@@ -105,94 +110,115 @@ const EmployeeAttachments = () => {
     <div style={styles.container}>
       <Sidebars />
       <div style={styles.content}>
-        <div style={styles.card}>
-          <h2 style={styles.heading}>Employee Attachments</h2>
-          
-          <div style={styles.uploadSection}>
-            <div style={styles.fileInputContainer}>
-              <label htmlFor="fileInput" style={styles.fileInputLabel}>
-                Choose Files
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  id="fileInput"
-                  style={styles.fileInput}
-                />
-              </label>
-              <button onClick={handleUpload} style={styles.uploadButton} disabled={files.length === 0}>
-                Upload {files.length > 0 ? `(${files.length})` : ''}
-              </button>
+        <div
+          style={{
+            maxHeight: "calc(100vh - 100px)",
+            overflowY: "auto",
+            padding: "1rem",
+          }}
+        >
+          <div style={styles.card}>
+            <h2 style={styles.heading}>Employee Attachments</h2>
+
+            <div style={styles.uploadSection}>
+              <div style={styles.fileInputContainer}>
+                <label htmlFor="fileInput" style={styles.fileInputLabel}>
+                  Choose Files
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileChange}
+                    id="fileInput"
+                    style={styles.fileInput}
+                  />
+                </label>
+                <button
+                  onClick={handleUpload}
+                  style={styles.uploadButton}
+                  disabled={files.length === 0}
+                >
+                  Upload {files.length > 0 ? `(${files.length})` : ""}
+                </button>
+              </div>
+
+              {files.length > 0 && (
+                <div style={styles.selectedFiles}>
+                  <h4 style={styles.selectedFilesHeading}>Files to Upload:</h4>
+                  {files.map((fileObj, index) => (
+                    <div key={index} style={styles.fileItem}>
+                      <span style={styles.fileName}>{fileObj.file.name}</span>
+                      <input
+                        type="text"
+                        placeholder="Enter description (optional)"
+                        value={fileObj.description}
+                        onChange={(event) => handleTextChange(index, event)}
+                        style={styles.descriptionInput}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {files.length > 0 && (
-              <div style={styles.selectedFiles}>
-                <h4 style={styles.selectedFilesHeading}>Files to Upload:</h4>
-                {files.map((fileObj, index) => (
-                  <div key={index} style={styles.fileItem}>
-                    <span style={styles.fileName}>{fileObj.file.name}</span>
-                    <input
-                      type="text"
-                      placeholder="Enter description (optional)"
-                      value={fileObj.description}
-                      onChange={(event) => handleTextChange(index, event)}
-                      style={styles.descriptionInput}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={styles.attachmentsSection}>
-            <h3 style={styles.sectionHeading}>Uploaded Files</h3>
-            {attachments.length === 0 ? (
-              <p style={styles.noFiles}>No files uploaded yet</p>
-            ) : (
-              <ul style={styles.fileList}>
-                {attachments.map((attachment) => (
-                  <li key={attachment.id} style={styles.listItem}>
-                    <div style={styles.fileInfo}>
-                      <a
-                        href={attachment.file.startsWith("http") ? attachment.file : `http://119.148.12.1:8000${attachment.file}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={styles.fileLink}
-                      >
-                        {attachment.file.split("/").pop()}
-                      </a>
-                      <span style={styles.uploadDate}>
-                        {new Date(attachment.uploaded_at).toLocaleString()}
-                      </span>
-                    </div>
-                    <div style={styles.descriptionContainer}>
-                      <span style={styles.descriptionText}>
-                        {attachment.description || "No description"}
-                      </span>
-                    </div>
-                    <div style={styles.actions}>
-                      <button
-                        onClick={() => handleEditDescription(
-                          attachment.id, 
-                          prompt("Enter new description:", attachment.description || "")
-                        )}
-                        style={styles.editButton}
-                        title="Edit description"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(attachment.id)}
-                        style={styles.deleteButton}
-                        title="Delete file"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div style={styles.attachmentsSection}>
+              <h3 style={styles.sectionHeading}>Uploaded Files</h3>
+              {attachments.length === 0 ? (
+                <p style={styles.noFiles}>No files uploaded yet</p>
+              ) : (
+                <ul style={styles.fileList}>
+                  {attachments.map((attachment) => (
+                    <li key={attachment.id} style={styles.listItem}>
+                      <div style={styles.fileInfo}>
+                        <a
+                          href={
+                            attachment.file.startsWith("http")
+                              ? attachment.file
+                              : `http://119.148.12.1:8000${attachment.file}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.fileLink}
+                        >
+                          {attachment.file.split("/").pop()}
+                        </a>
+                        <span style={styles.uploadDate}>
+                          {new Date(attachment.uploaded_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={styles.descriptionContainer}>
+                        <span style={styles.descriptionText}>
+                          {attachment.description || "No description"}
+                        </span>
+                      </div>
+                      <div style={styles.actions}>
+                        <button
+                          onClick={() =>
+                            handleEditDescription(
+                              attachment.id,
+                              prompt(
+                                "Enter new description:",
+                                attachment.description || ""
+                              )
+                            )
+                          }
+                          style={styles.editButton}
+                          title="Edit description"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(attachment.id)}
+                          style={styles.deleteButton}
+                          title="Delete file"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -205,7 +231,6 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#f5f7fa",
-    
   },
   content: {
     flex: 1,
