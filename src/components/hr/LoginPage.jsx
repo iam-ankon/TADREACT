@@ -1,46 +1,22 @@
-import React, { useState } from "react";
+
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/texweave_Logo_1.png";
+import React, { useEffect, useState } from "react";
 
 const LoginPage = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
 
-  // const logoImage = "public/texweave_Logo_1.png";
-
-  // // const handleLogin = async (e) => {
-  // //   e.preventDefault();
-  // //   setError("");
-  // //   setLoading(true);
-
-  // //   try {
-  // //     const response = await fetch("http://119.148.12.1:8000/users/login/", {
-  // //       method: "POST",
-  // //       headers: {
-  // //         "Content-Type": "application/json",
-  // //       },
-  // //       body: JSON.stringify({ username, password }),
-  // //     });
-
-  // //     const data = await response.json();
-
-  // //     if (response.ok) {
-  // //       localStorage.setItem("token", data.token);
-  // //       setUsername("");
-  // //       setPassword("");
-  // //       navigate("/dashboard");
-  // //     } else {
-  // //       setError(data.error || "Login failed. Please try again.");
-  // //     }
-  // //   } catch (err) {
-  // //     setError("An error occurred. Please try again later.");
-  // //   } finally {
-  // //     setLoading(false);
-  // //   }
-  // // };
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/hr-work", { replace: true });
+    }
+  }, [navigate]);
 
   const getBackendURL = () => {
     return window.location.hostname === "119.148.12.1" ||
@@ -68,11 +44,13 @@ const LoginPage = () => {
 
       if (response.ok) {
         localStorage.setItem("token", data.token);
-        localStorage.setItem("username", data.username); // ✅ This is KEY
+        localStorage.setItem("username", data.username);
 
         setUsername("");
         setPassword("");
-        navigate("/hr-work");
+
+        // ✅ Replace history to prevent back button going to login
+        navigate("/hr-work", { replace: true });
       } else {
         setError(data.error || "Login failed. Please try again.");
       }

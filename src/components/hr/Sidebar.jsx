@@ -1,8 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { FiMenu } from "react-icons/fi";
-import { FiUsers, FiCalendar, FiMail, FiFileText, FiDollarSign, FiTerminal, FiSend, FiLogOut, FiPieChart, FiBriefcase, FiClock, FiHome } from 'react-icons/fi';
-import logo from '../../assets/texweave_Logo_1.png';
+import {
+  FiUsers,
+  FiCalendar,
+  FiMail,
+  FiFileText,
+  FiDollarSign,
+  FiTerminal,
+  FiSend,
+  FiLogOut,
+  FiPieChart,
+  FiBriefcase,
+  FiClock,
+  FiHome,
+} from "react-icons/fi";
+import logo from "../../assets/texweave_Logo_1.png";
 
 const Sidebar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar state (open/close)
@@ -13,27 +26,26 @@ const Sidebar = () => {
 
   // Navigate to the HR Work page
   const handleHRWorkClick = () => {
-    navigate('/hr-work');
+    navigate("/hr-work");
   };
 
   const handleMerchandiserClick = () => {
-    navigate('/dashboard');
+    navigate("/dashboard");
   };
 
   // Navigate to the Dashboard page
   const handleDashboardClick = () => {
-    navigate('/dashboard');
+    navigate("/dashboard");
   };
 
   const iconStyle = {
-    marginRight: '0.75rem',
+    marginRight: "0.75rem",
   };
   // Handle Logout
   const handleLogout = () => {
     localStorage.removeItem("token");
-    navigate("/", { replace: true }); // Prevent back navigation to protected pages
+    window.location.replace("/"); // This replaces history
   };
-
   // Toggle Sidebar visibility
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -41,25 +53,32 @@ const Sidebar = () => {
 
   // Close Sidebar when clicking outside
   const closeSidebarOnClickOutside = (event) => {
-    if (sidebarRef.current && !sidebarRef.current.contains(event.target) && !toggleBtnRef.current.contains(event.target)) {
+    if (
+      sidebarRef.current &&
+      !sidebarRef.current.contains(event.target) &&
+      !toggleBtnRef.current.contains(event.target)
+    ) {
       setIsSidebarOpen(false);
     }
   };
 
   // Adding the event listener to detect clicks outside of the sidebar
   useEffect(() => {
-    document.addEventListener('click', closeSidebarOnClickOutside);
+    document.addEventListener("click", closeSidebarOnClickOutside);
 
     // Cleanup the event listener when component unmounts
     return () => {
-      document.removeEventListener('click', closeSidebarOnClickOutside);
+      document.removeEventListener("click", closeSidebarOnClickOutside);
     };
   }, []);
 
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <div ref={sidebarRef} className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
+      <div
+        ref={sidebarRef}
+        className={`sidebar ${isSidebarOpen ? "open" : ""}`}
+      >
         <div className="sidebar-header">
           {/* Logo Section */}
           <div className="logo">
@@ -69,22 +88,14 @@ const Sidebar = () => {
             Dashboard
           </button>
         </div>
-        <ul className="sidebar-menu">
-          {/* Other Sidebar Links */}
-        </ul>
+        <ul className="sidebar-menu">{/* Other Sidebar Links */}</ul>
 
         {/* HR Work Button */}
-        <button
-          onClick={handleHRWorkClick}
-          className="hr-work-btn"
-        >
+        <button onClick={handleHRWorkClick} className="hr-work-btn">
           <FiUsers style={iconStyle} />
-           Human Resource
+          Human Resource
         </button>
-        <button
-          onClick={handleMerchandiserClick}
-          className="hr-work-btn"
-        >
+        <button onClick={handleMerchandiserClick} className="hr-work-btn">
           Merchandiser
         </button>
       </div>
@@ -106,7 +117,7 @@ const Sidebar = () => {
           className="logout-button"
         >
           <FiLogOut style={iconStyle} />
-           Logout
+          Logout
         </button>
       </div>
 
@@ -121,7 +132,11 @@ const Sidebar = () => {
           top: 0;
           height: 100vh;
           width: 250px;
-          background: linear-gradient(135deg,rgb(127, 137, 147),rgb(46, 116, 181));
+          background: linear-gradient(
+            135deg,
+            rgb(127, 137, 147),
+            rgb(46, 116, 181)
+          );
           color: white;
           transition: 0.3s ease-in-out;
           display: flex;
@@ -164,7 +179,7 @@ const Sidebar = () => {
           position: fixed;
           top: 15px;
           left: 15px;
-          background:rgb(95, 111, 129);
+          background: rgb(95, 111, 129);
           color: white;
           border: none;
           padding: 10px 12px;
@@ -178,12 +193,12 @@ const Sidebar = () => {
 
         .blue-bar {
           position: fixed;
-          top: 0;  /* Adjust to cover everything under the buttons */
+          top: 0; /* Adjust to cover everything under the buttons */
           left: 0;
-          width: 100%;  /* Full screen width */
-          height: 70px;  /* Adjust to the height that fits the buttons */
-          background-color:rgb(55, 72, 89);
-          z-index: 5;  /* Ensure it's below the sidebar */
+          width: 100%; /* Full screen width */
+          height: 70px; /* Adjust to the height that fits the buttons */
+          background-color: rgb(55, 72, 89);
+          z-index: 5; /* Ensure it's below the sidebar */
         }
 
         /* Logout Button Styles */
@@ -231,12 +246,12 @@ const Sidebar = () => {
         /* Full Screen Blue Bar Below the Buttons */
         .blue-bar {
           position: fixed;
-          top: 0;  /* Adjust to cover everything under the buttons */
+          top: 0; /* Adjust to cover everything under the buttons */
           left: 0;
-          width: 100%;  /* Full screen width */
-          height: 70px;  /* Adjust to the height that fits the buttons */
-          background-color:rgb(89, 130, 168);
-          z-index: 10;  /* Ensure it's below the buttons */
+          width: 100%; /* Full screen width */
+          height: 70px; /* Adjust to the height that fits the buttons */
+          background-color: rgb(89, 130, 168);
+          z-index: 10; /* Ensure it's below the buttons */
         }
 
         .button-bar {
@@ -258,7 +273,7 @@ const Sidebar = () => {
           }
 
           .blue-bar {
-            height: 70px;  /* Bar height remains the same */
+            height: 70px; /* Bar height remains the same */
           }
         }
 
