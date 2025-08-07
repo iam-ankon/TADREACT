@@ -42,9 +42,10 @@ const Sidebar = () => {
     marginRight: "0.75rem",
   };
   // Handle Logout
+
   const handleLogout = () => {
     localStorage.removeItem("token");
-    window.location.replace("/"); // This replaces history
+    navigate("/", { replace: true }); // clear history
   };
   // Toggle Sidebar visibility
   const toggleSidebar = () => {

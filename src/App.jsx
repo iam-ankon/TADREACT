@@ -272,20 +272,20 @@ const AppContent = () => {
           <Route path="/employee-termination" element={<ProtectedRoute><EmployeeTermination /></ProtectedRoute>} />
 
           {/* Optional Routes (unprotected or publicly safe) */}
-          <Route path="/letter-send" element={<LetterSend />} />
-          <Route path="/cv-add" element={<CVAdd />} />
-          <Route path="/it-provision" element={<ITProvision />} />
-          <Route path="/admin-provision" element={<AdminProvision />} />
-          <Route path="/finance-provision" element={<FinanceProvision />} />
-          <Route path="/add-letter" element={<AddLetterPage />} />
-          <Route path="/cv-list" element={<CVList />} />
-          <Route path="/cv-edit/:id" element={<CVEdit />} />
-          <Route path="/edit-cv/:cvId" element={<EditCVPage />} />
-          <Route path="/employee/:id/attachments" element={<EmployeeAttachments />} />
-          <Route path="/attachments/:id" element={<TerminationAttachment />} />
-          <Route path="/cv-detail/:id" element={<CVDetail />} />
-          <Route path="/mailmdsir" element={<MailMdSir />} />
-          <Route path="/invitemail" element={<InviteMail />} />
+          <Route path="/letter-send" element={<ProtectedRoute><LetterSend /></ProtectedRoute>} />
+          <Route path="/cv-add" element={<ProtectedRoute><CVAdd /></ProtectedRoute>} />
+          <Route path="/it-provision" element={<ProtectedRoute><ITProvision /></ProtectedRoute>} />
+          <Route path="/admin-provision" element={<ProtectedRoute><AdminProvision /></ProtectedRoute>} />
+          <Route path="/finance-provision" element={<ProtectedRoute><FinanceProvision /></ProtectedRoute>} />
+          <Route path="/add-letter" element={<ProtectedRoute><AddLetterPage /></ProtectedRoute>} />
+          <Route path="/cv-list" element={<ProtectedRoute><CVList /></ProtectedRoute>} />
+          <Route path="/cv-edit/:id" element={<ProtectedRoute><CVEdit /></ProtectedRoute>} />
+          <Route path="/edit-cv/:cvId" element={<ProtectedRoute><EditCVPage /></ProtectedRoute>} />
+          <Route path="/employee/:id/attachments" element={<ProtectedRoute><EmployeeAttachments /></ProtectedRoute>} />
+          <Route path="/attachments/:id" element={<ProtectedRoute><TerminationAttachment /></ProtectedRoute>} />
+          <Route path="/cv-detail/:id" element={<ProtectedRoute><CVDetail /></ProtectedRoute>} />
+          <Route path="/mailmdsir" element={<ProtectedRoute><MailMdSir /></ProtectedRoute>} />
+          <Route path="/invitemail" element={<ProtectedRoute><InviteMail /></ProtectedRoute>} />
 
           {/* Merchandiser Section (protect more if needed) */}
           <Route path="/customers" element={<ProtectedRoute><CustomerPage /></ProtectedRoute>} />
