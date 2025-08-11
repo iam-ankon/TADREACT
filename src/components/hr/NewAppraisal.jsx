@@ -74,7 +74,7 @@ const NewAppraisal = () => {
           name: selectedEmployee.name,
           designation: selectedEmployee.designation,
           joining_date: selectedEmployee.joining_date,
-          department: selectedEmployee.department || "",
+          department: selectedEmployee.department_name || "",
           present_designation: selectedEmployee.designation,
           present_salary: selectedEmployee.salary || "",
         }));

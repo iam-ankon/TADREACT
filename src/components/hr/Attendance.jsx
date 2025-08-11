@@ -112,7 +112,7 @@ const Attendance = () => {
     return {
       employee_id: employee.employee_id || "N/A", // Added employee_id here
       company: companyName,
-      department: employee.department || employee.department_name || "N/A",
+      department: employee.department_name || "N/A",
     };
   };
 

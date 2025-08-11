@@ -392,7 +392,7 @@ const LeaveRequestDetails = () => {
                 </div>
                 <div style={styles.formRow}>
                   <label style={styles.label}>Department:</label>
-                  <div style={styles.field}>{leave.department}</div>
+                  <div style={styles.field}>{leave.department_name}</div>
                 </div>
               </div>
             </div>

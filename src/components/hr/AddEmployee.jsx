@@ -30,6 +30,7 @@ const AddEmployee = () => {
     remarks: "",
     image1: null,
     permanent_address: "",
+    emergency_contact: "", // New field for emergency contact
   });
 
   const [companies, setCompanies] = useState([]);
@@ -38,6 +39,7 @@ const AddEmployee = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // New state for loading
+  const [departments, setDepartments] = useState([]);
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -63,8 +65,20 @@ const AddEmployee = () => {
       }
     };
 
+    const fetchDepartments = async () => {
+      try {
+        const response = await axios.get(
+          "http://119.148.12.1:8000/api/hrms/api/departments/"
+        );
+        setDepartments(response.data);
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+      }
+    };
+
     fetchCompanies();
     fetchCustomers();
+    fetchDepartments();
   }, []);
 
   const handleChange = (e) => {
@@ -144,6 +158,7 @@ const AddEmployee = () => {
         remarks: "",
         image1: null,
         permanent_address: "",
+        emergency_contact: "", // Reset emergency contact field
       });
       setShowPopup(true);
 
@@ -303,147 +318,158 @@ const AddEmployee = () => {
         )}
         <div style={styles.popup}>{successMessage}</div>
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-        <form onSubmit={handleSubmit} style={styles.form}>
-          {[
-            { name: "device_user_id", label: "Device User ID" },
-            { name: "employee_id", label: "Employee ID", required: true },
-            { name: "name", label: "Name", required: true },
-            { name: "designation", label: "Designation", required: true },
-            { name: "email", label: "Email", required: true },
-            { name: "personal_phone", label: "Personal Phone" },
-            {
-              name: "joining_date",
-              label: "Joining Date",
-              required: true,
-              type: "date",
-            },
-            {
-              name: "date_of_birth",
-              label: "Date of Birth",
-              required: true,
-              type: "date",
-            },
-            { name: "mail_address", label: "Mail Address" },
-            { name: "office_phone", label: "Office Phone" },
-            { name: "reference_phone", label: "Reference Phone" },
-            { name: "job_title", label: "Job Title" },
-            { name: "department", label: "Department" },
-            {
-              name: "customer",
-              label: "Customer",
-              type: "checkboxes",
-              options: customers.map((c) => ({
-                label: c.customer_name,
-                value: c.id.toString(), // Ensure value is a string for checkbox handling
-              })),
-            },
-            {
-              name: "company",
-              label: "Company",
-              type: "select",
-              options: companies.map((c) => ({
-                label: c.company_name,
-                value: c.id,
-              })),
-            },
-            { name: "salary", label: "Salary" },
-            { name: "reporting_leader", label: "Reporting Leader" },
-            { name: "special_skills", label: "Special Skills" },
-            { name: "remarks", label: "Remarks" },
-            { name: "permanent_address", label: "Permanent Address" },
-          ].map(({ name, label, type = "text", options, required = false }) => (
-            <div key={name}>
-              <label style={styles.label}>
-                {label}
-                {required && <span style={{ color: "red" }}>*</span>}
-              </label>
-              {type === "select" ? (
-                <select
-                  name={name}
-                  onChange={handleChange}
-                  style={styles.input}
-                  value={formData[name] || ""}
-                  required={required}
-                  disabled={isLoading}
-                >
-                  <option value="">Select {label}</option>
-                  {options.map((opt, idx) => (
-                    <option key={idx} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : type === "checkboxes" ? (
-                <div style={styles.checkboxContainer}>
-                  {options &&
-                    options.map((opt) => (
-                      <div key={opt.value} style={styles.checkboxItem}>
-                        <input
-                          type="checkbox"
-                          id={`customer-${opt.value}`}
-                          name="customer"
-                          value={opt.value}
-                          checked={formData.customer.includes(opt.value)}
-                          onChange={handleCheckboxChange}
-                          disabled={isLoading}
-                          style={{
-                            ...styles.checkboxInput,
-                            ...(formData.customer.includes(opt.value) &&
-                              styles.checkboxInputChecked),
-                          }}
-                        />
-                        <label
-                          htmlFor={`customer-${opt.value}`}
-                          style={styles.checkboxLabel}
-                        >
+          <form onSubmit={handleSubmit} style={styles.form}>
+            {[
+              { name: "device_user_id", label: "Device User ID" },
+              { name: "employee_id", label: "Employee ID", required: true },
+              { name: "name", label: "Name", required: true },
+              { name: "designation", label: "Designation", required: true },
+              { name: "email", label: "Email", required: true },
+              { name: "personal_phone", label: "Personal Phone" },
+              {
+                name: "joining_date",
+                label: "Joining Date",
+                required: true,
+                type: "date",
+              },
+              {
+                name: "date_of_birth",
+                label: "Date of Birth",
+                required: true,
+                type: "date",
+              },
+              { name: "mail_address", label: "Mail Address" },
+              { name: "office_phone", label: "Office Phone" },
+              { name: "reference_phone", label: "Reference Phone" },
+              { name: "job_title", label: "Job Title" },
+              {
+                name: "department",
+                label: "Department",
+                type: "select",
+                options: departments.map((d) => ({
+                  label: d.department_name,
+                  value: d.id,
+                })),
+              },
+              {
+                name: "customer",
+                label: "Customer",
+                type: "checkboxes",
+                options: customers.map((c) => ({
+                  label: c.customer_name,
+                  value: c.id.toString(), // Ensure value is a string for checkbox handling
+                })),
+              },
+              {
+                name: "company",
+                label: "Company",
+                type: "select",
+                options: companies.map((c) => ({
+                  label: c.company_name,
+                  value: c.id,
+                })),
+              },
+              { name: "salary", label: "Salary" },
+              { name: "reporting_leader", label: "Reporting Leader" },
+              { name: "special_skills", label: "Special Skills" },
+              { name: "remarks", label: "Remarks" },
+              { name: "permanent_address", label: "Permanent Address" },
+              { name: "emergency_contact", label: "Emergency Contact" },
+            ].map(
+              ({ name, label, type = "text", options, required = false }) => (
+                <div key={name}>
+                  <label style={styles.label}>
+                    {label}
+                    {required && <span style={{ color: "red" }}>*</span>}
+                  </label>
+                  {type === "select" ? (
+                    <select
+                      name={name}
+                      onChange={handleChange}
+                      style={styles.input}
+                      value={formData[name] || ""}
+                      required={required}
+                      disabled={isLoading}
+                    >
+                      <option value="">Select {label}</option>
+                      {options.map((opt, idx) => (
+                        <option key={idx} value={opt.value}>
                           {opt.label}
-                        </label>
-                      </div>
-                    ))}
+                        </option>
+                      ))}
+                    </select>
+                  ) : type === "checkboxes" ? (
+                    <div style={styles.checkboxContainer}>
+                      {options &&
+                        options.map((opt) => (
+                          <div key={opt.value} style={styles.checkboxItem}>
+                            <input
+                              type="checkbox"
+                              id={`customer-${opt.value}`}
+                              name="customer"
+                              value={opt.value}
+                              checked={formData.customer.includes(opt.value)}
+                              onChange={handleCheckboxChange}
+                              disabled={isLoading}
+                              style={{
+                                ...styles.checkboxInput,
+                                ...(formData.customer.includes(opt.value) &&
+                                  styles.checkboxInputChecked),
+                              }}
+                            />
+                            <label
+                              htmlFor={`customer-${opt.value}`}
+                              style={styles.checkboxLabel}
+                            >
+                              {opt.label}
+                            </label>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <input
+                      type={type}
+                      name={name}
+                      onChange={handleChange}
+                      style={styles.input}
+                      value={formData[name] || ""}
+                      required={required}
+                      disabled={isLoading}
+                    />
+                  )}
                 </div>
-              ) : (
-                <input
-                  type={type}
-                  name={name}
-                  onChange={handleChange}
-                  style={styles.input}
-                  value={formData[name] || ""}
-                  required={required}
-                  disabled={isLoading}
-                />
-              )}
-            </div>
-          ))}
-
-          <div>
-            <label style={styles.label}>Upload Image</label>
-            <input
-              type="file"
-              name="image1"
-              accept="image/*"
-              onChange={handleFileChange}
-              style={styles.fileInput}
-              disabled={isLoading}
-            />
-          </div>
-
-          <button
-            type="submit"
-            style={styles.button}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <div style={styles.loadingSpinner}></div>
-                Saving...
-              </>
-            ) : (
-              "Submit"
+              )
             )}
-          </button>
-        </form>
+
+            <div>
+              <label style={styles.label}>Upload Image</label>
+              <input
+                type="file"
+                name="image1"
+                accept="image/*"
+                onChange={handleFileChange}
+                style={styles.fileInput}
+                disabled={isLoading}
+              />
+            </div>
+
+            <button
+              type="submit"
+              style={styles.button}
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <div style={styles.loadingSpinner}></div>
+                  Saving...
+                </>
+              ) : (
+                "Submit"
+              )}
+            </button>
+          </form>
         </div>
       </div>
     </div>

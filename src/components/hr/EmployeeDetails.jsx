@@ -23,6 +23,8 @@ const EmployeeDetails = () => {
       try {
         setLoading(true);
         const response = await getEmployees();
+        console.log("Raw API Data:", response.data);
+        // No transformation needed - use data as-is
         setEmployees(response.data);
       } catch (error) {
         console.error("Error fetching employees", error);
@@ -30,7 +32,6 @@ const EmployeeDetails = () => {
         setLoading(false);
       }
     };
-
     fetchEmployees();
   }, []);
 
@@ -115,7 +116,10 @@ const EmployeeDetails = () => {
       employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.employee_id?.toString().includes(searchQuery) ||
       employee.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (employee.department_name &&
+        employee.department_name
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())) ||
       employee.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -135,92 +139,94 @@ const EmployeeDetails = () => {
       <div className="content-wrapper">
         <div className="employee-list-card">
           <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-          <div className="employee-header">
-            <h2>Employee Directory</h2>
-            <div className="action-buttons">
-              <button
-                onClick={() => navigate("/add-employee")}
-                className="btn-add"
-              >
-                <FaPlus /> Add Employee
-              </button>
-              <button onClick={handlePrint} className="btn-print">
-                <FaPrint /> Print
-              </button>
+            <div className="employee-header">
+              <h2>Employee Directory</h2>
+              <div className="action-buttons">
+                <button
+                  onClick={() => navigate("/add-employee")}
+                  className="btn-add"
+                >
+                  <FaPlus /> Add Employee
+                </button>
+                <button onClick={handlePrint} className="btn-print">
+                  <FaPrint /> Print
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="search-container">
-            <div className="search-input">
-              <FaSearch className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search employees..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="search-container">
+              <div className="search-input">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="table-responsive">
-            <table className="employee-table">
-              <thead>
-                <tr>
-                  <th>Employee ID</th>
-                  <th>Name</th>
-                  <th>Designation</th>
-                  <th>Department</th>
-                  <th>Company</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentEmployees.length > 0 ? (
-                  currentEmployees.map((employee) => (
-                    <tr
-                      key={employee.id}
-                      onClick={() => handleRowClick(employee.id)}
-                      className="employee-row"
-                    >
-                      <td>{employee.employee_id}</td>
-                      <td>{employee.name}</td>
-                      <td>{employee.designation}</td>
-                      <td>{employee.department}</td>
-                      <td>{employee.company_name}</td>
-                      <td className="action-buttons-cell">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/employee/${employee.id}/attachments`);
-                          }}
-                          className="btn-attachment"
-                        >
-                          <FaPaperclip /> 
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(employee.id, e)}
-                          className="btn-delete"
-                        >
-                          <FaTrash />
-                        </button>
+            <div className="table-responsive">
+              <table className="employee-table">
+                <thead>
+                  <tr>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Designation</th>
+                    <th>Department</th>
+                    <th>Company</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentEmployees.length > 0 ? (
+                    currentEmployees.map((employee) => (
+                      <tr
+                        key={employee.id}
+                        onClick={() => handleRowClick(employee.id)}
+                        className="employee-row"
+                      >
+                        <td>{employee.employee_id}</td>
+                        <td>{employee.name}</td>
+                        <td>{employee.designation}</td>
+                        <td>{employee.department_name || "N/A"}</td>
+                        <td>{employee.company_name}</td>
+                        <td className="action-buttons-cell">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/employee/${employee.id}/attachments`);
+                            }}
+                            className="btn-attachment"
+                          >
+                            <FaPaperclip />
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(employee.id, e)}
+                            className="btn-delete"
+                          >
+                            <FaTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="no-results">
+                        No employees found matching your search criteria
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="no-results">
-                      No employees found matching your search criteria
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          {totalPages > 1 && (
-            <div className="pagination">
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-                (pageNumber) => (
+            {totalPages > 1 && (
+              <div className="pagination">
+                {Array.from(
+                  { length: totalPages },
+                  (_, index) => index + 1
+                ).map((pageNumber) => (
                   <button
                     key={pageNumber}
                     onClick={() => handlePageChange(pageNumber)}
@@ -230,12 +236,11 @@ const EmployeeDetails = () => {
                   >
                     {pageNumber}
                   </button>
-                )
-              )}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       <style jsx>{`

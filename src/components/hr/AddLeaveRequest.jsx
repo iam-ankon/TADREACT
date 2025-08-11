@@ -7,6 +7,7 @@ const AddLeaveRequest = () => {
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [balances, setBalances] = useState([]);
   const [newLeave, setNewLeave] = useState({
     employee: "",
@@ -36,6 +37,7 @@ const AddLeaveRequest = () => {
     reson_for_delay: "",
     reason: "",
     status: "pending",
+    emergency_contact: "",
   });
 
   const navigate = useNavigate();
@@ -45,13 +47,16 @@ const AddLeaveRequest = () => {
     Promise.all([
       axios.get("http://119.148.12.1:8000/api/hrms/api/employees/"),
       axios.get("http://119.148.12.1:8000/api/hrms/api/tad_groups/"),
+      axios.get("http://119.148.12.1:8000/api/hrms/api/departments/"),
       axios.get(
         "http://119.148.12.1:8000/api/hrms/api/employee_leave_balances/"
       ),
     ])
-      .then(([empRes, compRes, balRes]) => {
+      .then(([empRes, compRes, deptRes, balRes]) => {
+        // Changed parameter names
         setEmployees(empRes.data);
         setCompanies(compRes.data);
+        setDepartments(deptRes.data); // Now using the correct response for departments
         setBalances(balRes.data);
       })
       .catch((err) => console.error("Error fetching data:", err));
@@ -75,6 +80,7 @@ const AddLeaveRequest = () => {
           personal_phone: selectedEmployee.personal_phone || "",
           joining_date: selectedEmployee.joining_date || "",
           email: selectedEmployee.email || "",
+          emergency_contact: selectedEmployee.emergency_contact || "",
         }));
 
         const selectedBalance = balances.find(
@@ -221,7 +227,13 @@ const AddLeaveRequest = () => {
                 { label: "Employee Code", name: "employee_code" },
                 { label: "Designation", name: "designation" },
                 { label: "Joining Date", name: "joining_date", type: "date" },
-                { label: "Department", name: "department" },
+                {
+                  label: "Department",
+                  name: "department",
+                  type: "select",
+                  options: departments,
+                  optionLabel: "department_name",
+                },
                 {
                   label: "Company",
                   name: "company",
@@ -230,6 +242,7 @@ const AddLeaveRequest = () => {
                   optionLabel: "company_name",
                 },
                 { label: "Personal Phone", name: "personal_phone" },
+                { label: "Emergency Contact", name: "emergency_contact" },
                 { label: "Email", name: "email", type: "email" },
                 { label: "Substitute Person", name: "sub_person" },
                 { label: "Receiver Name", name: "receiver_name" },

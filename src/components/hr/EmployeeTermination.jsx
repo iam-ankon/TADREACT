@@ -169,7 +169,7 @@ const EmployeeTermination = () => {
                             </div>
                           </td>
                           <td style={styles.tableCell}>{emp.designation || "-"}</td>
-                          <td style={styles.tableCell}>{emp.department || "-"}</td>
+                          <td style={styles.tableCell}>{emp.department_name || "-"}</td>
                           <td style={styles.tableCell}>{emp.company_name || "-"}</td>
                           <td style={styles.tableCell}>
                             <div style={{ display: "flex", justifyContent: "center" }}>

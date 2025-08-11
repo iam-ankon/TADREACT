@@ -6,12 +6,14 @@ import Sidebars from "./sidebars";
 const EditAppraisal = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [departments, setDepartments] = useState([]);
   const [formData, setFormData] = useState({
     employee_id: "",
     name: "",
     designation: "",
     joining_date: "",
     department: "",
+    department_name: "",
     last_increment_date: "",
     last_promotion_date: "",
     last_education: "",
@@ -47,16 +49,44 @@ const EditAppraisal = () => {
   });
 
   useEffect(() => {
+    // Fetch departments list
+    axios
+      .get("http://119.148.12.1:8000/api/hrms/api/departments/")
+      .then((res) => setDepartments(res.data))
+      .catch((err) => console.error("Error fetching departments:", err));
+
+    // Fetch appraisal data
     axios
       .get(
         `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`
       )
-      .then((res) => setFormData(res.data))
+      .then((res) => {
+        const departmentName = res.data.department
+          ? departments.find((d) => d.id === res.data.department)
+              ?.department_name
+          : "";
+
+        setFormData({
+          ...res.data,
+          department_name: departmentName,
+        });
+      })
       .catch((err) => console.error("Error fetching data:", err));
   }, [id]);
 
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
+
+    // Handle department selection
+    if (name === "department") {
+      const selectedDept = departments.find((d) => d.id.toString() === value);
+      setFormData({
+        ...formData,
+        department: value,
+        department_name: selectedDept ? selectedDept.department_name : "",
+      });
+      return;
+    }
 
     setFormData({
       ...formData,
@@ -67,14 +97,19 @@ const EditAppraisal = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Create a copy of formData without department_name for submission
+      const submissionData = { ...formData };
+      delete submissionData.department_name;
+
       await axios.put(
         `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`,
-        formData
+        submissionData
       );
       alert("Appraisal updated successfully!");
-      navigate("/performanse_appraisal"); // Ensure the route exists
+      navigate("/performanse_appraisal");
     } catch (error) {
       console.error("Error updating appraisal:", error);
+      alert("Failed to update appraisal. Please try again.");
     }
   };
 
@@ -86,27 +121,64 @@ const EditAppraisal = () => {
         backgroundColor: "#f5f7fa",
       }}
     >
-      {/* Sidebar */}
       <Sidebars />
-
-      {/* Main Content */}
       <div style={styles.mainContent}>
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-        <div style={styles.card}>
-          
-          <h2 style={styles.title}>Edit Performance Appraisal</h2>
-          
+          <div style={styles.card}>
+            <h2 style={styles.title}>Edit Performance Appraisal</h2>
             <form onSubmit={handleSubmit} style={styles.form}>
               {/* Personal Information Section */}
               <div style={styles.section}>
                 <h3 style={styles.sectionTitle}>Personal Information</h3>
                 <div style={styles.gridContainer}>
+                  {/* Employee ID */}
+                  <div style={styles.field}>
+                    <label style={styles.label}>Employee ID</label>
+                    <input
+                      type="text"
+                      name="employee_id"
+                      value={formData.employee_id || ""}
+                      onChange={handleChange}
+                      required
+                      style={styles.input}
+                    />
+                  </div>
+
+                  {/* Name */}
+                  <div style={styles.field}>
+                    <label style={styles.label}>Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name || ""}
+                      onChange={handleChange}
+                      required
+                      style={styles.input}
+                    />
+                  </div>
+
+                  {/* Department - Updated to show name */}
+                  <div style={styles.field}>
+                    <label style={styles.label}>Department</label>
+                    <select
+                      name="department"
+                      value={formData.department || ""}
+                      onChange={handleChange}
+                      style={styles.input}
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.department_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Other fields remain the same */}
                   {[
-                    "employee_id",
-                    "name",
                     "designation",
                     "joining_date",
-                    "department",
                     "last_increment_date",
                     "last_promotion_date",
                     "last_education",
@@ -126,7 +198,7 @@ const EditAppraisal = () => {
                         name={field}
                         value={formData[field] || ""}
                         onChange={handleChange}
-                        required
+                        required={field !== "last_education"}
                         style={styles.input}
                       />
                     </div>

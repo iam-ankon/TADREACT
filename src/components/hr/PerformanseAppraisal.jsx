@@ -115,7 +115,7 @@ const PerformanseAppraisal = () => {
                       <td style={cellStyle}>{appraisal.employee_id}</td>
                       <td style={cellStyle}>{appraisal.name}</td>
                       <td style={cellStyle}>{appraisal.designation}</td>
-                      <td style={cellStyle}>{appraisal.department}</td>
+                      <td style={cellStyle}>{appraisal.department_name}</td>
                       <td style={cellStyle}>{appraisal.last_increment_date}</td>
                       <td style={cellStyle}>{appraisal.last_promotion_date}</td>
                       <td style={cellStyle}>

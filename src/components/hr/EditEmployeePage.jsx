@@ -31,19 +31,22 @@ const EditEmployeePage = () => {
     remarks: "",
     image1: null,
     permanent_address: "",
+    emergency_contact: "",
   });
 
   const [companies, setCompanies] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [employeeRes, companiesRes, customersRes] = await Promise.all([
+        const [employeeRes, companiesRes, customersRes, departmentsRes] = await Promise.all([
           axios.get(`http://119.148.12.1:8000/api/hrms/api/employees/${id}/`),
           axios.get("http://119.148.12.1:8000/api/hrms/api/tad_groups/"),
           axios.get("http://119.148.12.1:8000/api/hrms/api/customers/"),
+          axios.get("http://119.148.12.1:8000/api/hrms/api/departments/"),
         ]);
 
         const emp = employeeRes.data;
@@ -59,6 +62,7 @@ const EditEmployeePage = () => {
 
         setCompanies(companiesRes.data);
         setCustomers(customersRes.data);
+        setDepartments(departmentsRes.data);
 
         if (emp.image1) {
           setImagePreview(emp.image1);
@@ -115,6 +119,8 @@ const EditEmployeePage = () => {
         `http://119.148.12.1:8000/api/hrms/api/employees/${id}/update_customers/`,
         { customers: employee.customer }
       );
+
+
 
       navigate(`/employee/${id}`);
     } catch (error) {
@@ -207,7 +213,7 @@ const EditEmployeePage = () => {
               { name: "office_phone", label: "Office Phone" },
               { name: "reference_phone", label: "Reference Phone" },
               { name: "job_title", label: "Job Title" },
-              { name: "department", label: "Department" },
+              { name: "emergency_contact", label: "Emergency Contact" }, // Added emergency contact field
               { name: "salary", label: "Salary", type: "number" },
               { name: "reporting_leader", label: "Reporting Leader" },
             ].map(({ name, label, type = "text" }) => (
@@ -307,6 +313,24 @@ const EditEmployeePage = () => {
                 ))}
               </select>
             </div>
+
+            <div>
+              <label style={labelStyle}>Department</label>
+              <select
+                name="department"
+                value={employee.department}
+                onChange={handleChange}
+                style={inputStyle}
+              >
+                <option value="">Select Department</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.department_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+              
 
             <div>
               <label style={labelStyle}>Employee Photo (optional)</label>

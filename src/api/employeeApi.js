@@ -25,6 +25,10 @@ export { api };
 export const getCompanies = () => api.get('companies/');
 export const getCompanyById = (id) => api.get(`companies/${id}/`);
 
+export const getDepartments = () => api.get('departments/'); // New function to get departments
+export const getDepartmentById = (id) => api.get(`departments/${id}/`);
+
+
 // ========== EMPLOYEE ==========
 export const getEmployees = () => api.get('employees/');
 export const getEmployeeById = (id) => api.get(`employees/${id}/`);

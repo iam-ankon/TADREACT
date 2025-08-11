@@ -179,7 +179,7 @@ const EmployeeDetailPage = () => {
               <div class="basic-info">
                 <h3>${employee.name}</h3>
                 <p class="designation">${employee.designation}</p>
-                <p class="department">${employee.department}</p>
+                <p class="department">${employee.department_name}</p>
                 <p class="employee-id">Employee ID: ${employee.employee_id}</p>
               </div>
             </div>
@@ -330,7 +330,7 @@ const EmployeeDetailPage = () => {
                 <div className="basic-info">
                   <h3>{employee.name}</h3>
                   <p className="designation">{employee.designation}</p>
-                  <p className="department">{employee.department}</p>
+                  <p className="department">{employee.department_name}</p>
                   <p className="employee-id">
                     Employee ID: {employee.employee_id}
                   </p>
@@ -396,6 +396,10 @@ const EmployeeDetailPage = () => {
                     <span>Reference Phone:</span>
                     <span>{employee.reference_phone || "N/A"}</span>
                   </div>
+                  <div className="detail-row">
+                    <span>Emergency Contact:</span>
+                    <span>{employee.emergency_contact || "N/A"}</span>
+                  </div>
                 </div>
 
                 <div className="detail-section">
@@ -440,7 +444,6 @@ const EmployeeDetailPage = () => {
           display: flex;
           min-height: 100vh;
           background-color: #a7d5e1;
-          
         }
 
         .sidebar-wrapper {

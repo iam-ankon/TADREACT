@@ -505,7 +505,7 @@ const AppraisalDetails = () => {
                     <strong>Designation:</strong> {appraisal.designation}
                   </div>
                   <div style={styles.detail}>
-                    <strong>Department:</strong> {appraisal.department}
+                    <strong>Department:</strong> {appraisal.department_name}
                   </div>
                   <div style={styles.detail}>
                     <strong>Last Promotion Date:</strong>{" "}
