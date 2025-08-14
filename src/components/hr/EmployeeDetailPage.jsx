@@ -25,6 +25,32 @@ const EmployeeDetailPage = () => {
   const [customerNames, setCustomerNames] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Helper function to calculate length of service
+  const calculateLengthOfService = (joiningDate) => {
+    if (!joiningDate) return "N/A";
+
+    const joinDate = new Date(joiningDate);
+    const today = new Date();
+
+    // Calculate total difference in days
+    const diffTime = today.getTime() - joinDate.getTime();
+    const totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    // Extract years
+    const years = Math.floor(totalDays / 365);
+
+    // Remaining days after removing full years
+    const remainingDaysAfterYears = totalDays % 365;
+
+    // Extract months (approx 30 days per month)
+    const months = Math.floor(remainingDaysAfterYears / 30);
+
+    // Remaining days after removing full months
+    const days = remainingDaysAfterYears % 30;
+
+    return `${years} year(s), ${months} month(s), ${days} day(s)`;
+  };
+
   useEffect(() => {
     const fetchEmployeeDetails = async () => {
       try {
@@ -372,6 +398,12 @@ const EmployeeDetailPage = () => {
                       {customerNames.length > 0
                         ? customerNames.join(", ")
                         : "N/A"}
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span>Length of Service:</span>
+                    <span>
+                      {calculateLengthOfService(employee.joining_date)}
                     </span>
                   </div>
                 </div>
