@@ -7,6 +7,30 @@ const AppraisalDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [appraisal, setAppraisal] = useState(null);
+  const username = localStorage.getItem("username");
+  const [employee, setEmployee] = useState(null); // initialize state
+  const [incrementHistory, setIncrementHistory] = useState([]);
+
+  const handleApprove = () => {
+    axios
+      .post(
+        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/approve_increment/`
+      )
+      .then(() => {
+        alert("Increment approved successfully");
+        // Re-fetch increment history
+        axios
+          .get(
+            `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
+          )
+          .then((res) => setIncrementHistory(res.data))
+
+          .catch((err) =>
+            console.error("Error fetching increment history", err)
+          );
+      })
+      .catch((err) => console.error(err));
+  };
 
   useEffect(() => {
     axios
@@ -803,6 +827,24 @@ const AppraisalDetails = () => {
             <button style={styles.buttonPrint} onClick={printPage}>
               🖨️ Print
             </button>
+
+            {username === "Tuhin" && (
+              <button
+                onClick={handleApprove}
+                disabled={incrementHistory.some((inc) => inc.id === id)}
+                style={{
+                  backgroundColor: "green",
+                  color: "white",
+                  padding: "8px 14px",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  marginTop: "10px",
+                }}
+              >
+                Approve Increment
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -556,7 +556,7 @@ const NewAppraisal = () => {
                         Promotion
                       </label>
                     </div>
-                    <div style={checkboxContainerStyle}>
+                    {/* <div style={checkboxContainerStyle}>
                       <input
                         type="checkbox"
                         id="increment"
@@ -568,7 +568,7 @@ const NewAppraisal = () => {
                       <label htmlFor="increment" style={labelStyle}>
                         Increment
                       </label>
-                    </div>
+                    </div> */}
                     <div style={checkboxContainerStyle}>
                       <input
                         type="checkbox"

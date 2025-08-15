@@ -24,6 +24,23 @@ const EmployeeDetailPage = () => {
   const [employee, setEmployee] = useState(null);
   const [customerNames, setCustomerNames] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [incrementHistory, setIncrementHistory] = useState([]);
+
+  useEffect(() => {
+    if (!employee?.employee_id) return; // only run if employee exists
+
+    axios
+      .get(
+        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
+      )
+      .then((res) => {
+        const approvedIncrements = res.data.filter(
+          (appraisal) => appraisal.increment === true
+        );
+        setIncrementHistory(approvedIncrements);
+      })
+      .catch((err) => console.error(err));
+  }, [employee]);
 
   // Helper function to calculate length of service
   const calculateLengthOfService = (joiningDate) => {
@@ -445,6 +462,21 @@ const EmployeeDetailPage = () => {
                   <div className="detail-row">
                     <span>Permanent Address:</span>
                     <span>{employee.permanent_address}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span>Increment History:</span>
+                    {incrementHistory.length > 0 ? (
+                      <ul>
+                        {incrementHistory.map((inc, idx) => (
+                          <li key={idx}>
+                            {inc.last_increment_date || "N/A"} — ৳
+                            {inc.present_salary} → ৳{inc.proposed_salary}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No increment history available.</p>
+                    )}
                   </div>
                 </div>
 
