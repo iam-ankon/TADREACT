@@ -26,19 +26,30 @@ const EmployeeDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [incrementHistory, setIncrementHistory] = useState([]);
 
+  // useEffect(() => {
+  //   if (!employee?.employee_id) return; // only run if employee exists
+
+  //   axios
+  //     .get(
+  //       `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
+  //     )
+  //     .then((res) => {
+  //       const approvedIncrements = res.data.filter(
+  //         (appraisal) => appraisal.increment === true
+  //       );
+  //       setIncrementHistory(approvedIncrements);
+  //     })
+  //     .catch((err) => console.error(err));
+  // }, [employee]);
+
   useEffect(() => {
-    if (!employee?.employee_id) return; // only run if employee exists
+    if (!employee?.employee_id) return;
 
     axios
       .get(
         `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
       )
-      .then((res) => {
-        const approvedIncrements = res.data.filter(
-          (appraisal) => appraisal.increment === true
-        );
-        setIncrementHistory(approvedIncrements);
-      })
+      .then((res) => setIncrementHistory(res.data))
       .catch((err) => console.error(err));
   }, [employee]);
 

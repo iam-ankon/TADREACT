@@ -23,7 +23,7 @@ const EmployeeDetails = () => {
       try {
         setLoading(true);
         const response = await getEmployees();
-        console.log("Raw API Data:", response.data);
+        // console.log("Raw API Data:", response.data);
         // No transformation needed - use data as-is
         setEmployees(response.data);
       } catch (error) {

@@ -8,28 +8,23 @@ const AppraisalDetails = () => {
   const navigate = useNavigate();
   const [appraisal, setAppraisal] = useState(null);
   const username = localStorage.getItem("username");
-  const [employee, setEmployee] = useState(null); // initialize state
-  const [incrementHistory, setIncrementHistory] = useState([]);
+  // const [employee, setEmployee] = useState(null); // initialize state
+  // const [incrementHistory, setIncrementHistory] = useState([]);
 
-  const handleApprove = () => {
+  const handleApprove = (appraisalId) => {
     axios
       .post(
-        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/approve_increment/`
+        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${appraisalId}/approve_increment/`
       )
       .then(() => {
         alert("Increment approved successfully");
-        // Re-fetch increment history
         axios
           .get(
-            `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
+            `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${appraisalId}/`
           )
-          .then((res) => setIncrementHistory(res.data))
-
-          .catch((err) =>
-            console.error("Error fetching increment history", err)
-          );
+          .then((res) => setAppraisal(res.data));
       })
-      .catch((err) => console.error(err));
+      .catch((err) => console.error("Error approving increment", err));
   };
 
   useEffect(() => {
@@ -830,8 +825,8 @@ const AppraisalDetails = () => {
 
             {username === "Tuhin" && (
               <button
-                onClick={handleApprove}
-                disabled={incrementHistory.some((inc) => inc.id === id)}
+                onClick={() => handleApprove(appraisal.id)} // ✅ FIXED
+                disabled={appraisal.increment} // Disable if already approved
                 style={{
                   backgroundColor: "green",
                   color: "white",
