@@ -330,8 +330,22 @@ const EmployeeDetailPage = () => {
     }, 500);
   };
 
-  if (!employee) return;
-  if (loading) return <div className="loading-spinner">Loading...</div>;
+  // if (!employee) return;
+  // if (loading) return <div className="loading-spinner">Loading...</div>;
+
+  if (!employee) {
+    // Render the skeleton layout with empty/default values
+    return (
+      <div className="employee-detail-container">
+        <Sidebars />
+        <div className="content-wrapper">
+          <div className="employee-detail-card">
+            <p>Loading employee data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="employee-detail-container">

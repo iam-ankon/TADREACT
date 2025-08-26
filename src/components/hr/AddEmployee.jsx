@@ -6,7 +6,8 @@ import Sidebars from "./sidebars";
 const AddEmployee = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { name, position_for, email, phone } = location.state || {};
+  const { name, position_for, email, phone, age, date_of_birth } =
+    location.state || {};
 
   const [formData, setFormData] = useState({
     device_user_id: "",
@@ -16,7 +17,7 @@ const AddEmployee = () => {
     email: email || "",
     personal_phone: phone || "",
     joining_date: "",
-    date_of_birth: "",
+    date_of_birth: date_of_birth || age || "",
     mail_address: "",
     office_phone: "",
     reference_phone: "",
@@ -63,17 +64,21 @@ const AddEmployee = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.employee_id) newErrors.employee_id = "Employee ID is required";
+    if (!formData.employee_id)
+      newErrors.employee_id = "Employee ID is required";
     if (!formData.name) newErrors.name = "Name is required";
-    if (!formData.designation) newErrors.designation = "Designation is required";
+    if (!formData.designation)
+      newErrors.designation = "Designation is required";
     if (!formData.email) {
       newErrors.email = "Email is required";
     } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       newErrors.email = "Email is invalid";
     }
-    if (!formData.joining_date) newErrors.joining_date = "Joining date is required";
-    if (!formData.date_of_birth) newErrors.date_of_birth = "Date of birth is required";
-    
+    if (!formData.joining_date)
+      newErrors.joining_date = "Joining date is required";
+    if (!formData.date_of_birth)
+      newErrors.date_of_birth = "Date of birth is required";
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -112,7 +117,7 @@ const AddEmployee = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -228,8 +233,8 @@ const AddEmployee = () => {
       gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
       gap: "20px",
     },
-    label: { 
-      display: "block", 
+    label: {
+      display: "block",
       marginBottom: "5px",
       fontWeight: "500",
     },
@@ -302,11 +307,21 @@ const AddEmployee = () => {
     { name: "email", label: "Email", required: true, type: "email" },
     { name: "personal_phone", label: "Personal Phone" },
     { name: "emergency_contact", label: "Emergency Contact" },
-    { name: "date_of_birth", label: "Date of Birth", required: true, type: "date" },
-    
+    {
+      name: "date_of_birth",
+      label: "Date of Birth",
+      required: true,
+      type: "date",
+    },
+
     // Employment Details
     { type: "section", label: "Employment Details" },
-    { name: "joining_date", label: "Joining Date", required: true, type: "date" },
+    {
+      name: "joining_date",
+      label: "Joining Date",
+      required: true,
+      type: "date",
+    },
     { name: "job_title", label: "Job Title" },
     {
       name: "department",
@@ -328,20 +343,20 @@ const AddEmployee = () => {
     },
     { name: "salary", label: "Salary", type: "number" },
     { name: "reporting_leader", label: "Reporting Leader" },
-    
+
     // Contact Information
     { type: "section", label: "Contact Information" },
     { name: "mail_address", label: "Mail Address" },
     { name: "permanent_address", label: "Permanent Address" },
     { name: "office_phone", label: "Office Phone" },
     { name: "reference_phone", label: "Reference Phone" },
-    
+
     // Additional Information
     { type: "section", label: "Additional Information" },
     { name: "special_skills", label: "Special Skills" },
     { name: "remarks", label: "Remarks" },
     { name: "device_user_id", label: "Device User ID" },
-    
+
     // Customers
     { type: "section", label: "Customer Assignments" },
     {
@@ -353,7 +368,7 @@ const AddEmployee = () => {
         value: c.id.toString(),
       })),
     },
-    
+
     // Image Upload
     { type: "section", label: "Employee Image" },
     { name: "image1", label: "Upload Image", type: "file" },
@@ -387,7 +402,9 @@ const AddEmployee = () => {
                       <select
                         name={field.name}
                         onChange={handleChange}
-                        style={errors[field.name] ? styles.inputError : styles.input}
+                        style={
+                          errors[field.name] ? styles.inputError : styles.input
+                        }
                         value={formData[field.name] || ""}
                         required={field.required}
                         disabled={isLoading}
@@ -400,7 +417,9 @@ const AddEmployee = () => {
                         ))}
                       </select>
                       {errors[field.name] && (
-                        <span style={styles.errorText}>{errors[field.name]}</span>
+                        <span style={styles.errorText}>
+                          {errors[field.name]}
+                        </span>
                       )}
                     </>
                   ) : field.type === "checkboxes" ? (
@@ -446,13 +465,17 @@ const AddEmployee = () => {
                         type={field.type || "text"}
                         name={field.name}
                         onChange={handleChange}
-                        style={errors[field.name] ? styles.inputError : styles.input}
+                        style={
+                          errors[field.name] ? styles.inputError : styles.input
+                        }
                         value={formData[field.name] || ""}
                         required={field.required}
                         disabled={isLoading}
                       />
                       {errors[field.name] && (
-                        <span style={styles.errorText}>{errors[field.name]}</span>
+                        <span style={styles.errorText}>
+                          {errors[field.name]}
+                        </span>
                       )}
                     </>
                   )}

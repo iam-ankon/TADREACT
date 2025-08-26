@@ -864,7 +864,12 @@ const Interviews = () => {
   const handleLetterSend = (interview) =>
     navigate("/add-letter", { state: interview });
   const handleSelectedAsEmployee = (interview) =>
-    navigate("/add-employee", { state: interview });
+    navigate("/add-employee", {
+      state: {
+        ...interview,
+        date_of_birth: interview.age || "",
+      },
+    });
 
   const getArrowStage = () => {
     const hasCandidateInfo =
@@ -941,7 +946,6 @@ const Interviews = () => {
       };
     });
   };
- 
 
   console.log("Logged in user:", currentUser);
 
@@ -1470,7 +1474,9 @@ const Interviews = () => {
                     </div>
 
                     <div style={{ marginTop: "15px" }}>
-                      <span style={styles.label}>Final Selection Remarks (MD Sir)</span>
+                      <span style={styles.label}>
+                        Final Selection Remarks (MD Sir)
+                      </span>
                       <div
                         style={{
                           padding: "10px",
