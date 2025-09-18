@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../merchandiser/Sidebar.jsx";
-import { User, Mail, Phone, MapPin, FileText, ArrowRight } from "lucide-react";
+import { User, Mail, Phone, MapPin, FileText, ArrowRight, Trash2 } from "lucide-react";
 
 export default function CustomerPage() {
   const [customers, setCustomers] = useState([]);
@@ -32,6 +32,18 @@ export default function CustomerPage() {
     }
     fetchData();
   }, []);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this customer?")) return;
+
+    try {
+      await axios.delete(`${API_URL}${id}/`);
+      setCustomers((prev) => prev.filter((cust) => cust.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete customer.");
+    }
+  };
 
   if (loading) {
     return (
@@ -148,7 +160,25 @@ export default function CustomerPage() {
                 </div>
 
                 {/* Footer */}
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+                  <button
+                    onClick={() => handleDelete(customer.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      backgroundColor: "#dc2626",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                  >
+                    <Trash2 size={16} /> Delete
+                  </button>
+
                   <button
                     onClick={() => navigate(`/customer-details/${customer.id}`)}
                     style={{
