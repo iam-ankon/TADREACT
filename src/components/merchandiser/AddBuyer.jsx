@@ -48,10 +48,9 @@ export default function AddBuyer() {
     setError(null);
 
     try {
-      // Prepare payload with customer IDs as numbers
       const payload = {
         ...form,
-        Customer: selectedCustomers.map((id) => Number(id)), // Changed from 'customers' to 'Customer'
+        customers: selectedCustomers.map((id) => Number(id)), // ✅ fixed key
       };
 
       // Convert empty strings to null
@@ -71,7 +70,7 @@ export default function AddBuyer() {
 
       navigate("/buyers");
     } catch (err) {
-      console.error("Error adding buyer:", err);
+      console.error("Error adding buyer:", err.response?.data || err.message);
       setError("Failed to add buyer. Please try again.");
     } finally {
       setIsSubmitting(false);

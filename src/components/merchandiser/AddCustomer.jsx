@@ -164,7 +164,7 @@ export default function AddCustomer() {
               />
             </div>
 
-            <div className="form-group">
+            {/* <div className="form-group">
               <label>Associated Buyers</label>
               <select
                 name="buyer"
@@ -183,7 +183,7 @@ export default function AddCustomer() {
                   <span className="selected-count">{form.buyer.length} selected</span>
                 )}
               </div>
-            </div>
+            </div> */}
           </div>
 
           <div className="form-actions">

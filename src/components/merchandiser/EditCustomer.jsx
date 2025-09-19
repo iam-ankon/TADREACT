@@ -13,7 +13,7 @@ export default function EditCustomer() {
     phone: "",
     address: "",
     remarks: "",
-    buyer: [],
+    
   });
 
   const [buyers, setBuyers] = useState([]);
@@ -189,7 +189,7 @@ export default function EditCustomer() {
                 />
               </div>
 
-              <div className="form-group">
+              {/* <div className="form-group">
                 <label>Associated Buyers</label>
                 <select
                   name="buyer"
@@ -208,7 +208,7 @@ export default function EditCustomer() {
                     <span className="selected-count">{form.buyer.length} selected</span>
                   )}
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="form-actions">

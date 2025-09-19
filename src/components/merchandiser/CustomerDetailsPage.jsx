@@ -123,7 +123,7 @@ export default function CustomerDetailsPage() {
                 {customer.name}
               </h2>
               <p style={{ margin: 0, color: "#6b7280" }}>
-                {customerBuyers.length > 0 ? customerBuyers[0] : "No buyer"}
+                {customerBuyers.length > 0 ? customerBuyers[0] : ""}
               </p>
             </div>
           </div>

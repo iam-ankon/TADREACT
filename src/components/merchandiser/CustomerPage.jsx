@@ -126,7 +126,7 @@ export default function CustomerPage() {
                       {customer.name}
                     </h3>
                     <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>
-                      {firstBuyer ? firstBuyer.name : "No buyer"}
+                      {firstBuyer ? firstBuyer.name : ""}
                     </p>
                   </div>
                 </div>

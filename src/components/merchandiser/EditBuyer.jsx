@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   Save,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 
 export default function EditBuyer() {
@@ -65,12 +65,13 @@ export default function EditBuyer() {
 
         // Get customer IDs from the buyer data
         // Try different possible field names
-        const customerIds = response.data.Customer || 
-                           response.data.customers || 
-                           response.data.customer_ids || 
-                           [];
-        
-        setSelectedCustomers(customerIds.map(id => id.toString()));
+        const customerIds =
+          response.data.Customer ||
+          response.data.customers ||
+          response.data.customer_ids ||
+          [];
+
+        setSelectedCustomers(customerIds.map((id) => id.toString()));
       } catch (err) {
         console.error("Error fetching buyer:", err);
         setError("Failed to load buyer data. Please try again later.");
@@ -85,77 +86,59 @@ export default function EditBuyer() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
-    
+
     // Clear field error when user starts typing
     if (fieldErrors[name]) {
-      setFieldErrors(prev => ({ ...prev, [name]: null }));
+      setFieldErrors((prev) => ({ ...prev, [name]: null }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!form.name.trim()) newErrors.name = "Name is required";
     if (!form.email.trim()) newErrors.email = "Email is required";
-    else if (!/^\S+@\S+\.\S+$/.test(form.email)) newErrors.email = "Invalid email format";
-    
+    else if (!/^\S+@\S+\.\S+$/.test(form.email))
+      newErrors.email = "Invalid email format";
+
     setFieldErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       setError("Please fix the validation errors");
       return;
     }
-    
+
     setIsSubmitting(true);
     setError(null);
     setFieldErrors({});
 
     try {
-      // Prepare payload with customer IDs as numbers
       const payload = {
         ...form,
-        Customer: selectedCustomers.map((id) => Number(id)), // Use correct field name
+        customers: selectedCustomers.map((id) => Number(id)), // Correct key
       };
 
-      // Convert empty strings to null
       Object.keys(payload).forEach((key) => {
-        if (payload[key] === "") {
-          payload[key] = null;
-        }
+        if (payload[key] === "") payload[key] = null;
       });
-
-      console.log("Submitting payload:", payload);
 
       await axios.put(
         `http://119.148.12.1:8000/api/merchandiser/api/buyer/${id}/`,
         payload,
-        { 
-          headers: { "Content-Type": "application/json" },
-          timeout: 10000
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
 
       navigate("/buyers");
     } catch (err) {
-      console.error("Error updating buyer:", err);
-      
-      if (err.response?.status === 500) {
-        setError("Server error. Please check if the email is unique and try again.");
-      } else if (err.code === 'NETWORK_ERROR') {
-        setError("Network error. Please check your connection and try again.");
-      } else if (err.response?.data) {
-        // Handle Django validation errors
-        if (typeof err.response.data === 'object') {
-          setFieldErrors(err.response.data);
-          setError("Please fix the validation errors");
-        } else {
-          setError("Failed to update buyer. Please try again.");
-        }
+      console.error("Error updating buyer:", err.response?.data || err.message);
+      if (err.response?.data) {
+        setFieldErrors(err.response.data);
+        setError("Please fix the validation errors");
       } else {
         setError("Failed to update buyer. Please try again.");
       }
@@ -302,37 +285,37 @@ export default function EditBuyer() {
                   field: "name",
                   icon: <User size={18} />,
                   placeholder: "Full Name",
-                  required: true
+                  required: true,
                 },
                 {
                   field: "email",
                   icon: <Mail size={18} />,
                   placeholder: "Email Address",
-                  required: true
+                  required: true,
                 },
                 {
                   field: "phone",
                   icon: <Phone size={18} />,
                   placeholder: "Phone Number",
-                  required: false
+                  required: false,
                 },
                 {
                   field: "department",
                   icon: <Briefcase size={18} />,
                   placeholder: "Department",
-                  required: false
+                  required: false,
                 },
                 {
                   field: "wgr",
                   icon: <Tag size={18} />,
                   placeholder: "WGR Number",
-                  required: false
+                  required: false,
                 },
                 {
                   field: "product_categories",
                   icon: <Grid size={18} />,
                   placeholder: "Product Categories",
-                  required: false
+                  required: false,
                 },
               ].map(({ field, icon, placeholder, required }) => (
                 <div key={field}>
@@ -356,7 +339,9 @@ export default function EditBuyer() {
                       onChange={handleChange}
                       style={{
                         padding: "12px 16px 12px 40px",
-                        border: fieldErrors[field] ? "1px solid #dc2626" : "1px solid #d1d5db",
+                        border: fieldErrors[field]
+                          ? "1px solid #dc2626"
+                          : "1px solid #d1d5db",
                         borderRadius: "6px",
                         fontSize: "14px",
                         width: "100%",
@@ -366,9 +351,16 @@ export default function EditBuyer() {
                     />
                   </div>
                   {fieldErrors[field] && (
-                    <p style={{ color: "#dc2626", fontSize: "12px", margin: "4px 0 0", paddingLeft: "4px" }}>
-                      {Array.isArray(fieldErrors[field]) 
-                        ? fieldErrors[field].join(", ") 
+                    <p
+                      style={{
+                        color: "#dc2626",
+                        fontSize: "12px",
+                        margin: "4px 0 0",
+                        paddingLeft: "4px",
+                      }}
+                    >
+                      {Array.isArray(fieldErrors[field])
+                        ? fieldErrors[field].join(", ")
                         : fieldErrors[field]}
                     </p>
                   )}
@@ -413,8 +405,15 @@ export default function EditBuyer() {
                     </option>
                   ))}
                 </select>
-                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
-                  Hold CTRL/CMD to select multiple customers. Selected: {selectedCustomers.length}
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    marginTop: "4px",
+                  }}
+                >
+                  Hold CTRL/CMD to select multiple customers. Selected:{" "}
+                  {selectedCustomers.length}
                 </div>
               </div>
 
