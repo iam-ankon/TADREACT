@@ -16,7 +16,7 @@ import {
   Trash2,
   Edit3,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 
 export default function BuyerPage() {
@@ -43,23 +43,27 @@ export default function BuyerPage() {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Fetch both buyers and customers
         const [buyersResponse, customersResponse] = await Promise.all([
           axios.get("http://119.148.12.1:8000/api/merchandiser/api/buyer/"),
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/customer/")
+          axios.get("http://119.148.12.1:8000/api/merchandiser/api/customer/"),
         ]);
-        
+
         setBuyers(buyersResponse.data);
         setCustomers(customersResponse.data);
       } catch (err) {
         console.error("Error fetching data:", err);
-        
+
         // More specific error messages
         if (err.response?.status === 500) {
-          setError("Server error. Please try again or contact support if the problem persists.");
-        } else if (err.code === 'NETWORK_ERROR') {
-          setError("Network error. Please check your connection and try again.");
+          setError(
+            "Server error. Please try again or contact support if the problem persists."
+          );
+        } else if (err.code === "NETWORK_ERROR") {
+          setError(
+            "Network error. Please check your connection and try again."
+          );
         } else {
           setError("Failed to load data. Please try again later.");
         }
@@ -72,14 +76,15 @@ export default function BuyerPage() {
   }, [retryCount]);
 
   // Function to get customers for a specific buyer
-  const getBuyerCustomers = (buyerId) => {
-    return customers.filter(customer => 
-      customer.buyer && customer.buyer.includes(buyerId)
+  const getBuyerCustomers = (buyer) => {
+    if (!buyer.customers) return [];
+    return customers.filter((customer) =>
+      buyer.customers.includes(customer.id)
     );
   };
 
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
+    setRetryCount((prev) => prev + 1);
   };
 
   const handleDeleteBuyer = async (buyerId, e) => {
@@ -113,14 +118,17 @@ export default function BuyerPage() {
   const sortedBuyers = [...buyers]
     .filter((buyer) => {
       const matchesSearch =
-        (buyer.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (buyer.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (buyer.department?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (buyer.product_categories?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+        (buyer.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (buyer.email?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (buyer.department?.toLowerCase() || "").includes(
+          searchTerm.toLowerCase()
+        ) ||
+        (buyer.product_categories?.toLowerCase() || "").includes(
+          searchTerm.toLowerCase()
+        );
 
       const matchesDepartment =
-        selectedDepartment === "All" ||
-        buyer.department === selectedDepartment;
+        selectedDepartment === "All" || buyer.department === selectedDepartment;
 
       return matchesSearch && matchesDepartment;
     })
@@ -140,7 +148,9 @@ export default function BuyerPage() {
 
   const SortIcon = ({ column }) => {
     if (sortConfig.key !== column)
-      return <span style={{ display: "inline-block", width: 16, height: 16 }} />;
+      return (
+        <span style={{ display: "inline-block", width: 16, height: 16 }} />
+      );
     return sortConfig.direction === "ascending" ? (
       <ChevronUp style={{ width: 16, height: 16, marginLeft: 4 }} />
     ) : (
@@ -149,7 +159,9 @@ export default function BuyerPage() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", backgroundColor: "#A7D5E1" }}>
+    <div
+      style={{ display: "flex", height: "100vh", backgroundColor: "#A7D5E1" }}
+    >
       <Sidebar />
       <div style={{ flex: 1, padding: "16px", overflow: "auto" }}>
         <div
@@ -196,7 +208,9 @@ export default function BuyerPage() {
                       pointerEvents: "none",
                     }}
                   >
-                    <Search style={{ width: 20, height: 20, color: "#9ca3af" }} />
+                    <Search
+                      style={{ width: 20, height: 20, color: "#9ca3af" }}
+                    />
                   </div>
                   <input
                     type="text"
@@ -287,7 +301,9 @@ export default function BuyerPage() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <AlertCircle style={{ width: 20, height: 20, color: "#dc2626" }} />
+                  <AlertCircle
+                    style={{ width: 20, height: 20, color: "#dc2626" }}
+                  />
                   <p style={{ color: "#b91c1c", margin: 0 }}>{error}</p>
                 </div>
                 <button
@@ -337,7 +353,11 @@ export default function BuyerPage() {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead
-                      style={{ backgroundColor: "#A7D5E1", position: "sticky", top: 0 }}
+                      style={{
+                        backgroundColor: "#A7D5E1",
+                        position: "sticky",
+                        top: 0,
+                      }}
                     >
                       <tr>
                         {["name", "email", "department"].map((key) => (
@@ -355,7 +375,9 @@ export default function BuyerPage() {
                               borderBottom: "1px solid #e5e7eb",
                             }}
                           >
-                            <div style={{ display: "flex", alignItems: "center" }}>
+                            <div
+                              style={{ display: "flex", alignItems: "center" }}
+                            >
                               {key === "name" && "Buyer"}
                               {key === "email" && "Contact"}
                               {key === "department" && "Department"}
@@ -403,18 +425,26 @@ export default function BuyerPage() {
                     </thead>
                     <tbody>
                       {currentBuyers.map((buyer, idx) => {
-                        const buyerCustomers = getBuyerCustomers(buyer.id);
+                        const buyerCustomers = getBuyerCustomers(buyer);
                         return (
                           <tr
                             key={buyer.id}
-                            onClick={() => navigate(`/buyer-details/${buyer.id}`)}
+                            onClick={() =>
+                              navigate(`/buyer-details/${buyer.id}`)
+                            }
                             style={{
-                              backgroundColor: idx % 2 === 0 ? "white" : "#f9fafb",
+                              backgroundColor:
+                                idx % 2 === 0 ? "white" : "#f9fafb",
                               cursor: "pointer",
                             }}
                           >
                             <td style={{ padding: "12px 24px" }}>
-                              <div style={{ display: "flex", alignItems: "center" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
+                              >
                                 <div
                                   style={{
                                     width: 40,
@@ -426,10 +456,21 @@ export default function BuyerPage() {
                                     justifyContent: "center",
                                   }}
                                 >
-                                  <User style={{ width: 20, height: 20, color: "#2563eb" }} />
+                                  <User
+                                    style={{
+                                      width: 20,
+                                      height: 20,
+                                      color: "#2563eb",
+                                    }}
+                                  />
                                 </div>
                                 <div style={{ marginLeft: 16 }}>
-                                  <div style={{ fontWeight: 600, color: "#111827" }}>
+                                  <div
+                                    style={{
+                                      fontWeight: 600,
+                                      color: "#111827",
+                                    }}
+                                  >
                                     {buyer.name || "Unnamed Buyer"}
                                   </div>
                                 </div>
@@ -501,7 +542,13 @@ export default function BuyerPage() {
                               )}
                             </td>
                             <td style={{ padding: "12px 24px" }}>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: 8,
+                                }}
+                              >
                                 {buyer.wgr && (
                                   <div
                                     style={{
@@ -552,14 +599,27 @@ export default function BuyerPage() {
                             </td>
                             <td style={{ padding: "12px 24px" }}>
                               {buyerCustomers.length > 0 ? (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  {buyerCustomers.slice(0, 2).map((customer) => (
-                                    <span key={customer.id} style={{ fontSize: 14 }}>
-                                      {customer.name}
-                                    </span>
-                                  ))}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 4,
+                                  }}
+                                >
+                                  {buyerCustomers
+                                    .slice(0, 2)
+                                    .map((customer) => (
+                                      <span
+                                        key={customer.id}
+                                        style={{ fontSize: 14 }}
+                                      >
+                                        {customer.name}
+                                      </span>
+                                    ))}
                                   {buyerCustomers.length > 2 && (
-                                    <span style={{ fontSize: 12, color: "#6b7280" }}>
+                                    <span
+                                      style={{ fontSize: 12, color: "#6b7280" }}
+                                    >
                                       +{buyerCustomers.length - 2} more
                                     </span>
                                   )}
@@ -593,7 +653,9 @@ export default function BuyerPage() {
                                   Edit
                                 </button>
                                 <button
-                                  onClick={(e) => handleDeleteBuyer(buyer.id, e)}
+                                  onClick={(e) =>
+                                    handleDeleteBuyer(buyer.id, e)
+                                  }
                                   style={{
                                     padding: "6px 12px",
                                     backgroundColor: "#fef2f2",
@@ -635,7 +697,8 @@ export default function BuyerPage() {
                     onClick={() => setCurrentPage((p) => p - 1)}
                     style={{
                       padding: "6px 12px",
-                      backgroundColor: currentPage === 1 ? "#e5e7eb" : "#2563eb",
+                      backgroundColor:
+                        currentPage === 1 ? "#e5e7eb" : "#2563eb",
                       color: currentPage === 1 ? "#9ca3af" : "white",
                       border: "none",
                       borderRadius: 4,

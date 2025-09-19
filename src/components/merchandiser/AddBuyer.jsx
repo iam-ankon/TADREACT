@@ -250,7 +250,7 @@ export default function AddBuyer() {
               ))}
 
               {/* Customer Multi-select */}
-              {/* <div style={{ position: "relative" }}>
+              <div style={{ position: "relative" }}>
                 <label
                   style={{
                     display: "block",
@@ -285,7 +285,7 @@ export default function AddBuyer() {
                     </option>
                   ))}
                 </select>
-              </div> */}
+              </div>
 
               {/* Remarks */}
               <div style={{ position: "relative" }}>

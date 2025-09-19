@@ -376,7 +376,7 @@ export default function EditBuyer() {
               ))}
 
               {/* Customer Multi-select */}
-              {/* <div>
+              <div>
                 <label
                   style={{
                     display: "block",
@@ -416,7 +416,7 @@ export default function EditBuyer() {
                 <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
                   Hold CTRL/CMD to select multiple customers. Selected: {selectedCustomers.length}
                 </div>
-              </div> */}
+              </div>
 
               {/* Remarks */}
               <div>

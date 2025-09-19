@@ -10,7 +10,7 @@ export default function BuyerDetails() {
   const [buyer, setBuyer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [buyerCustomers, setBuyerCustomers] = useState([]); 
+  const [buyerCustomers, setBuyerCustomers] = useState([]);
 
   useEffect(() => {
     const fetchBuyerData = async () => {
@@ -30,8 +30,8 @@ export default function BuyerDetails() {
         );
 
         // Filter customers that are associated with this buyer
-        const associatedCustomers = customersResponse.data.filter(
-          (customer) => customer.buyer && customer.buyer.includes(parseInt(id))
+        const associatedCustomers = customersResponse.data.filter((customer) =>
+          buyerResponse.data.customers.includes(customer.id)
         );
 
         setBuyerCustomers(associatedCustomers);
