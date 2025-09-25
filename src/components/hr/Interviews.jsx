@@ -279,32 +279,43 @@ const Interviews = () => {
     }
   };
 
-  // Handle form submission
+  // In your handleSubmit function, add logging:
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       let response;
-      const formDataToSend = new FormData();
 
-      Object.keys(formData).forEach((key) => {
-        formDataToSend.append(key, formData[key] ?? "");
+      // Convert formData to JSON instead of FormData
+      const jsonData = { ...formData };
+
+      // Remove any undefined or null values
+      Object.keys(jsonData).forEach((key) => {
+        if (jsonData[key] === null || jsonData[key] === undefined) {
+          jsonData[key] = "";
+        }
       });
+
+      console.log("📤 JSON data being sent:", jsonData);
 
       if (selectedInterview) {
         response = await axios.put(
           `${API_URL}${selectedInterview.id}/`,
-          formDataToSend,
+          jsonData, // Send as JSON instead of FormData
           {
-            headers: { "Content-Type": "multipart/form-data" },
+            headers: {
+              "Content-Type": "application/json", // Change content type
+            },
           }
         );
+        console.log("🔄 Update response:", response.data);
         showToast("Interview updated successfully", "success");
       } else {
-        response = await axios.post(API_URL, formDataToSend, {
-          headers: { "Content-Type": "multipart/form-data" },
+        response = await axios.post(API_URL, jsonData, {
+          headers: { "Content-Type": "application/json" },
         });
+        console.log("🆕 Create response:", response.data);
         showToast("Interview created successfully", "success");
       }
 
@@ -318,7 +329,8 @@ const Interviews = () => {
 
       return response.data;
     } catch (error) {
-      console.error("Error submitting interview:", error);
+      console.error("❌ Error submitting interview:", error);
+      console.error("❌ Error details:", error.response?.data);
       showToast("Error submitting interview", "error");
       return null;
     } finally {
@@ -2009,13 +2021,35 @@ const Interviews = () => {
                       <div style={{ marginTop: "15px" }}>
                         <label style={styles.label}>
                           Final Selection Remarks (MD Sir)
+                          {currentUser !== "Tuhin" && (
+                            <span
+                              style={{
+                                color: "#e74c3c",
+                                fontSize: "12px",
+                                marginLeft: "10px",
+                              }}
+                            >
+                              (Only editable by Tuhin)
+                            </span>
+                          )}
                         </label>
                         <textarea
                           name="final_selection_remarks"
-                          value={formData.final_selection_remarks}
+                          value={formData.final_selection_remarks || ""}
                           onChange={handleInputChange}
-                          style={styles.textarea}
-                          disabled={currentUser !== "Tuhin"}
+                          style={{
+                            ...styles.textarea,
+                            backgroundColor:
+                              currentUser !== "Tuhin" ? "#f5f5f5" : "white",
+                            cursor:
+                              currentUser !== "Tuhin" ? "not-allowed" : "text",
+                          }}
+                          readOnly={currentUser !== "Tuhin"}
+                          placeholder={
+                            currentUser !== "Tuhin"
+                              ? "Contact Tuhin to edit this field"
+                              : "Enter final selection remarks"
+                          }
                         />
                       </div>
                     </div>

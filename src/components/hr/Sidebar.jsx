@@ -96,9 +96,9 @@ const Sidebar = () => {
           <FiUsers style={iconStyle} />
           Human Resource
         </button>
-        <button onClick={handleMerchandiserClick} className="hr-work-btn">
+        {/* <button onClick={handleMerchandiserClick} className="hr-work-btn">
           Merchandiser
-        </button>
+        </button> */}
       </div>
 
       {/* Main Content Area */}
