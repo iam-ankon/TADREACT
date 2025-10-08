@@ -272,12 +272,24 @@ const AddEmployee = () => {
       display: "flex",
       backgroundColor: "#f5f7f9",
       minHeight: "100vh",
+      width: "100%",
+      position: "relative",
+    },
+    sidebarWrapper: {
+      flexShrink: 0,
+      position: "sticky",
+      top: 0,
+      height: "100vh",
+      zIndex: 100,
     },
     content: {
       flexGrow: 1,
       padding: "30px",
-      maxWidth: "1200px",
-      margin: "0 auto",
+      maxWidth: "calc(100% - 250px)",
+      marginLeft: "0",
+      width: "100%",
+      boxSizing: "border-box",
+      overflow: "auto",
     },
     header: {
       marginBottom: "30px",
@@ -310,12 +322,8 @@ const AddEmployee = () => {
       color: "#5c6bc0",
       transition: "all 0.3s ease",
     },
-    // navButtonHover: {
-    //   backgroundColor: "#f0f3ff",
-    //   color: "#3f51b5",
-    // },
     navButtonActive: {
-      
+    
       color: "black",
     },
     form: {
@@ -323,6 +331,8 @@ const AddEmployee = () => {
       borderRadius: "12px",
       padding: "30px",
       boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+      width: "100%",
+      boxSizing: "border-box",
     },
     section: {
       display: "none",
@@ -406,6 +416,7 @@ const AddEmployee = () => {
     fileUpload: {
       display: "flex",
       alignItems: "center",
+      flexWrap: "wrap",
     },
     fileLabel: {
       backgroundColor: "#5c6bc0",
@@ -496,21 +507,6 @@ const AddEmployee = () => {
       marginRight: "10px",
       fontWeight: "bold",
     },
-    // Animation keyframes as objects
-    keyframes: {
-      fadeIn: {
-        from: { opacity: 0, transform: "translateY(10px)" },
-        to: { opacity: 1, transform: "translateY(0)" },
-      },
-      slideIn: {
-        from: { transform: "translateX(100px)", opacity: 0 },
-        to: { transform: "translateX(0)", opacity: 1 },
-      },
-      spin: {
-        "0%": { transform: "rotate(0deg)" },
-        "100%": { transform: "rotate(360deg)" },
-      },
-    },
   };
 
   // State for hover effects
@@ -531,8 +527,11 @@ const AddEmployee = () => {
 
   return (
     <div style={styles.container}>
-      <Sidebars />
+      
+        <Sidebars />
+      
       <div style={styles.content}>
+        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
         <div style={styles.header}>
           <h2 style={styles.headerTitle}>Add Employee</h2>
           <p style={styles.headerSubtitle}>Fill in the details below to add a new employee</p>
@@ -730,7 +729,7 @@ const AddEmployee = () => {
           </div>
         </form>
 
-        {/* Add style tag for animations */}
+        {/* Add style tag for animations and responsive design */}
         <style>
           {`
             @keyframes fadeIn {
@@ -745,8 +744,73 @@ const AddEmployee = () => {
               0% { transform: rotate(0deg); }
               100% { transform: rotate(360deg); }
             }
+            
+            /* Responsive adjustments */
+            @media (max-width: 1024px) {
+              .content {
+                max-width: calc(100% - 220px);
+                padding: 20px;
+              }
+            }
+            
+            @media (max-width: 768px) {
+              .container {
+                flex-direction: column;
+              }
+              
+              .sidebar-wrapper {
+                position: relative;
+                height: auto;
+                width: 100%;
+              }
+              
+              .content {
+                max-width: 100%;
+                padding: 15px;
+                margin-left: 0;
+              }
+              
+              .form {
+                padding: 20px;
+              }
+              
+              .section-fields {
+                grid-template-columns: 1fr;
+              }
+            }
+            
+            @media (max-width: 480px) {
+              .content {
+                padding: 10px;
+              }
+              
+              .form {
+                padding: 15px;
+              }
+              
+              .header-title {
+                font-size: 22px;
+              }
+              
+              .nav-button {
+                padding: 10px 15px;
+                font-size: 13px;
+                margin-right: 5px;
+              }
+              
+              .actions {
+                flex-direction: column;
+                gap: 10px;
+              }
+              
+              .cancel-button, .submit-button {
+                width: 100%;
+                justify-content: center;
+              }
+            }
           `}
         </style>
+      </div>
       </div>
     </div>
   );

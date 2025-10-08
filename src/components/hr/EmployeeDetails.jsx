@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmployees, deleteEmployee } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
@@ -13,27 +13,70 @@ import {
 const EmployeeDetails = () => {
   const [employees, setEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [designationFilter, setDesignationFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    try {
+      const savedPage = localStorage.getItem("employeeListPage");
+      return savedPage ? parseInt(savedPage, 10) : 1;
+    } catch (err) {
+      console.error("Error reading from localStorage:", err);
+      return 1;
+    }
+  });
   const employeesPerPage = 10;
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
         const response = await getEmployees();
-        // console.log("Raw API Data:", response.data);
-        // No transformation needed - use data as-is
-        setEmployees(response.data);
+        if (Array.isArray(response.data)) {
+          setEmployees(response.data);
+        } else {
+          throw new Error("Invalid employee data format");
+        }
       } catch (error) {
-        console.error("Error fetching employees", error);
+        console.error("Error fetching employees:", error);
+        setError("Failed to load employees. Please try again.");
       } finally {
         setLoading(false);
       }
     };
     fetchEmployees();
   }, []);
+
+  // Skip reset on initial mount to preserve saved page
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setCurrentPage(1);
+    localStorage.setItem("employeeListPage", "1");
+  }, [searchQuery, designationFilter, departmentFilter]);
+
+  // Validate and adjust currentPage
+  useEffect(() => {
+    if (!employees.length) return;
+    const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+      localStorage.setItem("employeeListPage", totalPages.toString());
+    } else if (filteredEmployees.length === 0) {
+      setCurrentPage(1);
+      localStorage.setItem("employeeListPage", "1");
+    }
+  }, [employees, searchQuery, designationFilter, departmentFilter, currentPage]);
+
+  // Save currentPage to localStorage
+  useEffect(() => {
+    localStorage.setItem("employeeListPage", currentPage.toString());
+  }, [currentPage]);
 
   const handleRowClick = (id) => {
     navigate(`/employee/${id}`);
@@ -46,7 +89,8 @@ const EmployeeDetails = () => {
         await deleteEmployee(id);
         setEmployees(employees.filter((employee) => employee.id !== id));
       } catch (error) {
-        console.error("Error deleting employee", error);
+        console.error("Error deleting employee:", error);
+        setError("Failed to delete employee. Please try again.");
       }
     }
   };
@@ -88,7 +132,7 @@ const EmployeeDetails = () => {
                   <td>${employee.employee_id || ""}</td>
                   <td>${employee.name || ""}</td>
                   <td>${employee.designation || ""}</td>
-                  <td>${employee.department || ""}</td>
+                  <td>${employee.department_name || ""}</td>
                   <td>${employee.company_name || ""}</td>
                   <td>${employee.salary ? "$" + employee.salary : ""}</td>
                 </tr>
@@ -111,16 +155,20 @@ const EmployeeDetails = () => {
     }, 500);
   };
 
+  const uniqueDesignations = [...new Set(employees.map(emp => emp.designation).filter(Boolean))];
+  const uniqueDepartments = [...new Set(employees.map(emp => emp.department_name).filter(Boolean))];
+
   const filteredEmployees = employees.filter(
     (employee) =>
-      employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.employee_id?.toString().includes(searchQuery) ||
-      employee.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (employee.department_name &&
-        employee.department_name
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())) ||
-      employee.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
+      employee &&
+      (employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       employee.employee_id?.toString().includes(searchQuery) ||
+       employee.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       (employee.department_name &&
+         employee.department_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+       employee.company_name?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+      (designationFilter === "" || employee.designation === designationFilter) &&
+      (departmentFilter === "" || employee.department_name === departmentFilter)
   );
 
   const indexOfLastEmployee = currentPage * employeesPerPage;
@@ -132,6 +180,38 @@ const EmployeeDetails = () => {
   const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
 
   const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
+
+  if (error) {
+    return (
+      <div className="employee-list-container">
+        <Sidebars />
+        <div className="content-wrapper">
+          <div className="employee-list-card">
+            <div className="error-message">{error}</div>
+          </div>
+        </div>
+        <style jsx>{`
+          .error-message {
+            text-align: center;
+            color: #e53935;
+            padding: 2rem;
+            font-size: 1.2rem;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="employee-list-container">
+        <Sidebars />
+        <div className="content-wrapper">
+          <div className="loading-spinner">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="employee-list-container">
@@ -159,10 +239,36 @@ const EmployeeDetails = () => {
                 <FaSearch className="search-icon" />
                 <input
                   type="text"
-                  placeholder="Search employees..."
+                  placeholder="Search by Name, ID, or Company..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
+              </div>
+              <div className="filter-input">
+                <select
+                  value={designationFilter}
+                  onChange={(e) => setDesignationFilter(e.target.value)}
+                >
+                  <option value="">All Designations</option>
+                  {uniqueDesignations.map((designation) => (
+                    <option key={designation} value={designation}>
+                      {designation}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-input">
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                >
+                  <option value="">All Departments</option>
+                  {uniqueDepartments.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -324,15 +430,18 @@ const EmployeeDetails = () => {
 
         .search-container {
           margin-bottom: 1.5rem;
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
         }
 
-        .search-input {
+        .search-input, .filter-input {
           position: relative;
           width: 100%;
           max-width: 400px;
         }
 
-        .search-input input {
+        .search-input input, .filter-input select {
           width: 100%;
           padding: 0.6rem 1rem 0.6rem 2rem;
           border: 1px solid #ddd;
@@ -341,7 +450,7 @@ const EmployeeDetails = () => {
           transition: border-color 0.2s;
         }
 
-        .search-input input:focus {
+        .search-input input:focus, .filter-input select:focus {
           outline: none;
           border-color: #0078d4;
         }
@@ -456,7 +565,7 @@ const EmployeeDetails = () => {
           padding: 0.5rem 0.8rem;
           border: 1px solid #ddd;
           border-radius: 4px;
-          background-color: white;
+          background-color: #4a4d51;
           cursor: pointer;
           transition: all 0.2s;
         }
@@ -530,7 +639,7 @@ const EmployeeDetails = () => {
             justify-content: center;
           }
 
-          .search-input {
+          .search-input, .filter-input {
             max-width: 100%;
           }
 
