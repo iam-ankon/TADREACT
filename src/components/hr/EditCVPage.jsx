@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const LETTER_CHOICES = [
   { value: "offer_letter", label: "Offer Letter" },
@@ -25,7 +25,7 @@ const EditCVPage = () => {
     const fetchCV = async () => {
       try {
         const response = await axios.get(
-          `http://119.148.12.1:8000/api/hrms/api/letter_send/${cvId}/`
+          `http://119.148.51.38:8000/api/hrms/api/letter_send/${cvId}/`
         );
         setCvData(response.data);
       } catch (error) {
@@ -55,7 +55,7 @@ const EditCVPage = () => {
   const updateCVManagement = async (formData) => {
     try {
       const response = await axios.put(
-        `http://119.148.12.1:8000/api/hrms/api/letter_send/${cvId}/`,
+        `http://119.148.51.38:8000/api/hrms/api/letter_send/${cvId}/`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -98,7 +98,7 @@ const EditCVPage = () => {
   const containerStyle = {
     display: "flex",
     height: "100vh",
-    
+
     backgroundColor: "#DCEEF3",
   };
 
@@ -106,7 +106,6 @@ const EditCVPage = () => {
     flex: 1,
     padding: "30px",
     backgroundColor: "#A7D5E1",
-    
   };
 
   const formContainerStyle = {
@@ -126,14 +125,12 @@ const EditCVPage = () => {
 
   const inputGroupStyle = {
     marginBottom: "20px",
-    
   };
 
   const labelStyle = {
     display: "block",
     marginBottom: "8px",
     fontWeight: "600",
-    
   };
 
   const inputStyle = {
@@ -164,9 +161,9 @@ const EditCVPage = () => {
 
   return (
     <div style={containerStyle}>
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: "auto" }}>
           {/* Your page content here */}
         </div>
       </div>
@@ -230,7 +227,12 @@ const EditCVPage = () => {
               </select>
             </div>
           </form>
-          <button type="button" style={buttonStyle} onClick={handleSubmit} disabled={loading}>
+          <button
+            type="button"
+            style={buttonStyle}
+            onClick={handleSubmit}
+            disabled={loading}
+          >
             {loading ? "Updating..." : "Save Changes"}
           </button>
         </div>

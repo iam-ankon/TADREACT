@@ -15,7 +15,7 @@ const EmployeeAttachments = () => {
   const fetchAttachments = async () => {
     try {
       const response = await axios.get(
-        `http://119.148.12.1:8000/api/hrms/api/employee_attachments/?employee_id=${id}`
+        `http://119.148.51.38:8000/api/hrms/api/employee_attachments/?employee_id=${id}`
       );
       setAttachments(response.data);
     } catch (error) {
@@ -52,7 +52,7 @@ const EmployeeAttachments = () => {
 
     try {
       await axios.post(
-        "http://119.148.12.1:8000/api/hrms/api/employee_attachments/",
+        "http://119.148.51.38:8000/api/hrms/api/employee_attachments/",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -76,7 +76,7 @@ const EmployeeAttachments = () => {
 
     try {
       await axios.delete(
-        `http://119.148.12.1:8000/api/hrms/api/employee_attachments/${attachmentId}/`
+        `http://119.148.51.38:8000/api/hrms/api/employee_attachments/${attachmentId}/`
       );
       setAttachments(
         attachments.filter((attachment) => attachment.id !== attachmentId)
@@ -93,7 +93,7 @@ const EmployeeAttachments = () => {
 
     axios
       .patch(
-        `http://119.148.12.1:8000/api/hrms/api/employee_attachments/${attachmentId}/`,
+        `http://119.148.51.38:8000/api/hrms/api/employee_attachments/${attachmentId}/`,
         { description: newDescription }
       )
       .then(() => {
@@ -173,7 +173,7 @@ const EmployeeAttachments = () => {
                           href={
                             attachment.file.startsWith("http")
                               ? attachment.file
-                              : `http://119.148.12.1:8000${attachment.file}`
+                              : `http://119.148.51.38:8000${attachment.file}`
                           }
                           target="_blank"
                           rel="noopener noreferrer"

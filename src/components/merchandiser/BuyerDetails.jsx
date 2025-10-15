@@ -19,14 +19,14 @@ export default function BuyerDetails() {
 
         // Fetch buyer details
         const buyerResponse = await axios.get(
-          `http://119.148.12.1:8000/api/merchandiser/api/buyer/${id}/`
+          `http://119.148.51.38:8000/api/merchandiser/api/buyer/${id}/`
         );
 
         setBuyer(buyerResponse.data);
 
         // Fetch all customers to find those associated with this buyer
         const customersResponse = await axios.get(
-          "http://119.148.12.1:8000/api/merchandiser/api/customer/"
+          "http://119.148.51.38:8000/api/merchandiser/api/customer/"
         );
 
         // Filter customers that are associated with this buyer

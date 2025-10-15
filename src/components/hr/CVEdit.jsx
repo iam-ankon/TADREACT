@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const CVEdit = () => {
   const { id } = useParams();
@@ -23,7 +23,9 @@ const CVEdit = () => {
     const fetchCV = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`http://119.148.12.1:8000/api/hrms/api/CVAdd/${id}/`);
+        const response = await axios.get(
+          `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`
+        );
         setFormData({
           name: response.data.name,
           position_for: response.data.position_for || "",
@@ -71,7 +73,7 @@ const CVEdit = () => {
 
     try {
       await axios.put(
-        `http://119.148.12.1:8000/api/hrms/api/CVAdd/${id}/`,
+        `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`,
         formDataToSubmit,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -91,7 +93,7 @@ const CVEdit = () => {
     container: {
       display: "flex",
       minHeight: "100vh",
-      
+
       backgroundColor: "#DCEEF3",
     },
     content: {
@@ -112,7 +114,7 @@ const CVEdit = () => {
       color: "#4a5568",
     },
     card: {
-      backgroundColor: '#A7D5E1',
+      backgroundColor: "#A7D5E1",
       borderRadius: "8px",
       boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
       padding: "24px",
@@ -199,122 +201,118 @@ const CVEdit = () => {
       <Sidebars />
       <div style={styles.content}>
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-        {isLoading ? (
-          <div style={styles.loadingContainer}>
-            <p style={styles.loadingText}>Loading CV details...</p>
-          </div>
-        ) : (
-          <div style={styles.card}>
-            <h2 style={styles.heading}>Edit CV</h2>
-            <form onSubmit={handleSubmit}>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Position for</label>
-                  <input
-                    type="text"
-                    name="position_for"
-                    value={formData.position_for}
-                    onChange={handleChange}
-                    
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Date of Birth</label>
-                  <input
-                    type="date"
-                    name="age"
-                    value={formData.age}
-                    onChange={handleChange}
-                    
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Reference</label>
-                  <input
-                    type="text"
-                    name="reference"
-                    value={formData.reference}
-                    onChange={handleChange}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Phone</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                   
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>CV File</label>
-                  {formData.existing_cv && (
-                    <p style={styles.currentFile}>
-                      Current file: <strong>{formData.existing_cv.split('/').pop()}</strong>
-                    </p>
-                  )}
-                  <div style={styles.fileInputContainer}>
+          {isLoading ? (
+            <div style={styles.loadingContainer}>
+              <p style={styles.loadingText}>Loading CV details...</p>
+            </div>
+          ) : (
+            <div style={styles.card}>
+              <h2 style={styles.heading}>Edit CV</h2>
+              <form onSubmit={handleSubmit}>
+                <div style={styles.formGrid}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Name</label>
                     <input
-                      type="file"
-                      name="cv_file"
-                      onChange={handleFileChange}
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
                       style={styles.input}
-                      accept=".pdf,.doc,.docx"
                     />
                   </div>
-                  <small style={{ color: '#718096', fontSize: '13px' }}>
-                    Leave empty to keep the existing file
-                  </small>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Position for</label>
+                    <input
+                      type="text"
+                      name="position_for"
+                      value={formData.position_for}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Date of Birth</label>
+                    <input
+                      type="date"
+                      name="age"
+                      value={formData.age}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Reference</label>
+                    <input
+                      type="text"
+                      name="reference"
+                      value={formData.reference}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Phone</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>CV File</label>
+                    {formData.existing_cv && (
+                      <p style={styles.currentFile}>
+                        Current file:{" "}
+                        <strong>{formData.existing_cv.split("/").pop()}</strong>
+                      </p>
+                    )}
+                    <div style={styles.fileInputContainer}>
+                      <input
+                        type="file"
+                        name="cv_file"
+                        onChange={handleFileChange}
+                        style={styles.input}
+                        accept=".pdf,.doc,.docx"
+                      />
+                    </div>
+                    <small style={{ color: "#718096", fontSize: "13px" }}>
+                      Leave empty to keep the existing file
+                    </small>
+                  </div>
                 </div>
-              </div>
 
-              <div style={styles.buttonContainer}>
-                <button
-                  type="submit"
-                  style={{ ...styles.button, ...styles.submitButton }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Saving..." : "Save Changes"}
-                </button>
-                <button
-                  type="button"
-                  style={{ ...styles.button, ...styles.cancelButton }}
-                  onClick={() => navigate(-1)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-      </div>
+                <div style={styles.buttonContainer}>
+                  <button
+                    type="submit"
+                    style={{ ...styles.button, ...styles.submitButton }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...styles.button, ...styles.cancelButton }}
+                    onClick={() => navigate(-1)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -20,23 +20,28 @@ const MailMdSir = () => {
   const handleSendMail = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://119.148.12.1:8000/api/hrms/api/mdsir/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCSRFToken(),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email,
-          interview_details: interviewDetails,
-        }),
-      });
+      const response = await fetch(
+        "http://119.148.51.38:8000/api/hrms/api/mdsir/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            email,
+            interview_details: interviewDetails,
+          }),
+        }
+      );
 
       const result = await response.json();
       if (response.ok) {
         alert("Email sent successfully and saved!");
-        navigate(`/interviews?interview_id=${interviewDetails.id}`, { replace: true });
+        navigate(`/interviews?interview_id=${interviewDetails.id}`, {
+          replace: true,
+        });
       } else {
         alert(`Error sending email: ${result.error || "Unknown error"}`);
       }
@@ -66,14 +71,22 @@ const MailMdSir = () => {
             <h3 style={styles.subHeading}>Interview Details</h3>
             {Object.entries(interviewDetails).map(([key, value]) => (
               <p key={key}>
-                <strong style={{ textTransform: "capitalize" }}>{key.replace(/_/g, ' ')}:</strong>{" "}
-                {typeof value === "boolean" ? (value ? "Yes" : "No") : value || "N/A"}
+                <strong style={{ textTransform: "capitalize" }}>
+                  {key.replace(/_/g, " ")}:
+                </strong>{" "}
+                {typeof value === "boolean"
+                  ? value
+                    ? "Yes"
+                    : "No"
+                  : value || "N/A"}
               </p>
             ))}
           </div>
 
           <div style={styles.inputContainer}>
-            <label htmlFor="email" style={styles.label}>Recipient's Email</label>
+            <label htmlFor="email" style={styles.label}>
+              Recipient's Email
+            </label>
             <input
               type="email"
               id="email"
@@ -92,10 +105,13 @@ const MailMdSir = () => {
               cursor: loading ? "not-allowed" : "pointer",
             }}
             onMouseOver={(e) => {
-              if (!loading) e.target.style.backgroundColor = styles.buttonHover.backgroundColor;
+              if (!loading)
+                e.target.style.backgroundColor =
+                  styles.buttonHover.backgroundColor;
             }}
             onMouseOut={(e) => {
-              if (!loading) e.target.style.backgroundColor = styles.button.backgroundColor;
+              if (!loading)
+                e.target.style.backgroundColor = styles.button.backgroundColor;
             }}
             disabled={loading}
           >
@@ -115,7 +131,6 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#DCEEF3",
-    
   },
   content: {
     flex: 1,
@@ -126,7 +141,7 @@ const styles = {
     alignItems: "flex-start",
   },
   card: {
-    backgroundColor: '#A7D5E1',
+    backgroundColor: "#A7D5E1",
     padding: "25px",
     borderRadius: "10px",
     boxShadow: "0 6px 12px rgba(0, 0, 0, 0.1)",

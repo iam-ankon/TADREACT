@@ -39,7 +39,7 @@ export default function EditBuyer() {
   // Fetch all customers
   useEffect(() => {
     axios
-      .get("http://119.148.12.1:8000/api/merchandiser/api/customer/")
+      .get("http://119.148.51.38:8000/api/merchandiser/api/customer/")
       .then((res) => setCustomers(res.data))
       .catch((err) => console.error("Error fetching customers:", err));
   }, []);
@@ -50,7 +50,7 @@ export default function EditBuyer() {
       try {
         setLoading(true);
         const response = await axios.get(
-          `http://119.148.12.1:8000/api/merchandiser/api/buyer/${id}/`
+          `http://119.148.51.38:8000/api/merchandiser/api/buyer/${id}/`
         );
 
         setForm({
@@ -128,7 +128,7 @@ export default function EditBuyer() {
       });
 
       await axios.put(
-        `http://119.148.12.1:8000/api/merchandiser/api/buyer/${id}/`,
+        `http://119.148.51.38:8000/api/merchandiser/api/buyer/${id}/`,
         payload,
         { headers: { "Content-Type": "application/json" } }
       );

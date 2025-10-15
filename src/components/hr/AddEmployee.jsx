@@ -47,9 +47,9 @@ const AddEmployee = () => {
     const fetchData = async () => {
       try {
         const [companiesRes, customersRes, departmentsRes] = await Promise.all([
-          axios.get("http://119.148.12.1:8000/api/hrms/api/tad_groups/"),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/customers/"),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/departments/"),
+          axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
+          axios.get("http://119.148.51.38:8000/api/hrms/api/customers/"),
+          axios.get("http://119.148.51.38:8000/api/hrms/api/departments/"),
         ]);
         setCompanies(companiesRes.data);
         setCustomers(customersRes.data);
@@ -124,9 +124,9 @@ const AddEmployee = () => {
       if (firstError) {
         const element = document.querySelector(`[name="${firstError}"]`);
         if (element) {
-          element.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center'
+          element.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
           });
         }
       }
@@ -150,7 +150,7 @@ const AddEmployee = () => {
 
     try {
       await axios.post(
-        "http://119.148.12.1:8000/api/hrms/api/employees/",
+        "http://119.148.51.38:8000/api/hrms/api/employees/",
         employeeFormData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -188,7 +188,7 @@ const AddEmployee = () => {
           required: true,
           type: "date",
         },
-      ]
+      ],
     },
     {
       id: "employment",
@@ -221,7 +221,7 @@ const AddEmployee = () => {
         },
         { name: "salary", label: "Salary", type: "number" },
         { name: "reporting_leader", label: "Reporting Leader" },
-      ]
+      ],
     },
     {
       id: "contact",
@@ -231,7 +231,7 @@ const AddEmployee = () => {
         { name: "permanent_address", label: "Permanent Address" },
         { name: "office_phone", label: "Office Phone" },
         { name: "reference_phone", label: "Reference Phone" },
-      ]
+      ],
     },
     {
       id: "additional",
@@ -240,7 +240,7 @@ const AddEmployee = () => {
         { name: "special_skills", label: "Special Skills" },
         { name: "remarks", label: "Remarks" },
         { name: "device_user_id", label: "Device User ID" },
-      ]
+      ],
     },
     {
       id: "customers",
@@ -255,15 +255,13 @@ const AddEmployee = () => {
             value: c.id.toString(),
           })),
         },
-      ]
+      ],
     },
     {
       id: "image",
       title: "Employee Image",
-      fields: [
-        { name: "image1", label: "Upload Image", type: "file" },
-      ]
-    }
+      fields: [{ name: "image1", label: "Upload Image", type: "file" }],
+    },
   ];
 
   // Inline styles
@@ -323,7 +321,6 @@ const AddEmployee = () => {
       transition: "all 0.3s ease",
     },
     navButtonActive: {
-    
       color: "black",
     },
     form: {
@@ -518,220 +515,264 @@ const AddEmployee = () => {
   });
 
   const handleMouseEnter = (element, id) => {
-    setHoverStates(prev => ({ ...prev, [element]: { ...prev[element], [id]: true } }));
+    setHoverStates((prev) => ({
+      ...prev,
+      [element]: { ...prev[element], [id]: true },
+    }));
   };
 
   const handleMouseLeave = (element, id) => {
-    setHoverStates(prev => ({ ...prev, [element]: { ...prev[element], [id]: false } }));
+    setHoverStates((prev) => ({
+      ...prev,
+      [element]: { ...prev[element], [id]: false },
+    }));
   };
 
   return (
     <div style={styles.container}>
-      
-        <Sidebars />
-      
+      <Sidebars />
+
       <div style={styles.content}>
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-        <div style={styles.header}>
-          <h2 style={styles.headerTitle}>Add Employee</h2>
-          <p style={styles.headerSubtitle}>Fill in the details below to add a new employee</p>
-        </div>
-
-        {showPopup && (
-          <div style={styles.successPopup}>
-            <div style={styles.popupContent}>
-              <span style={styles.popupIcon}>✓</span>
-              <p>{successMessage}</p>
-            </div>
+          <div style={styles.header}>
+            <h2 style={styles.headerTitle}>Add Employee</h2>
+            <p style={styles.headerSubtitle}>
+              Fill in the details below to add a new employee
+            </p>
           </div>
-        )}
 
-        <div style={styles.navigation}>
-          {formSections.map(section => (
-            <button
-              key={section.id}
-              style={{
-                ...styles.navButton,
-                ...(activeSection === section.id ? styles.navButtonActive : {}),
-                ...(hoverStates.navButtons[section.id] ? styles.navButtonHover : {})
-              }}
-              onMouseEnter={() => handleMouseEnter("navButtons", section.id)}
-              onMouseLeave={() => handleMouseLeave("navButtons", section.id)}
-              onClick={() => setActiveSection(section.id)}
-              type="button"
-            >
-              {section.title}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={handleSubmit} style={styles.form}>
-          {formSections.map(section => (
-            <div 
-              key={section.id} 
-              style={{
-                ...styles.section,
-                ...(activeSection === section.id ? styles.sectionActive : {})
-              }}
-            >
-              <h3 style={styles.sectionTitle}>{section.title}</h3>
-              <div style={styles.sectionFields}>
-                {section.fields.map((field) => (
-                  <div key={field.name} style={styles.field}>
-                    <label style={styles.label}>
-                      {field.label}
-                      {field.required && <span style={styles.required}>*</span>}
-                    </label>
-                    
-                    {field.type === "select" ? (
-                      <>
-                        <select
-                          name={field.name}
-                          onChange={handleChange}
-                          style={{
-                            ...styles.input,
-                            ...(errors[field.name] ? styles.inputError : {})
-                          }}
-                          value={formData[field.name] || ""}
-                          required={field.required}
-                          disabled={isLoading}
-                        >
-                          <option value="">Select {field.label}</option>
-                          {field.options.map((opt, idx) => (
-                            <option key={idx} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        {errors[field.name] && (
-                          <span style={styles.errorText}>{errors[field.name]}</span>
-                        )}
-                      </>
-                    ) : field.type === "checkboxes" ? (
-                      <div style={styles.checkboxContainer}>
-                        {field.options &&
-                          field.options.map((opt) => (
-                            <div key={opt.value} style={styles.checkboxItem}>
-                              <input
-                                type="checkbox"
-                                id={`customer-${opt.value}`}
-                                name="customer"
-                                value={opt.value}
-                                checked={formData.customer.includes(opt.value)}
-                                onChange={handleCheckboxChange}
-                                disabled={isLoading}
-                                style={styles.checkboxInput}
-                              />
-                              <label
-                                htmlFor={`customer-${opt.value}`}
-                                style={styles.checkboxLabel}
-                              >
-                                {opt.label}
-                              </label>
-                            </div>
-                          ))}
-                      </div>
-                    ) : field.type === "file" ? (
-                      <div style={styles.fileUpload}>
-                        <label 
-                          htmlFor="image1" 
-                          style={{
-                            ...styles.fileLabel,
-                            ...(hoverStates.fileLabel ? styles.fileLabelHover : {})
-                          }}
-                          onMouseEnter={() => setHoverStates(prev => ({ ...prev, fileLabel: true }))}
-                          onMouseLeave={() => setHoverStates(prev => ({ ...prev, fileLabel: false }))}
-                        >
-                          Choose File
-                        </label>
-                        <input
-                          type="file"
-                          id="image1"
-                          name={field.name}
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          style={styles.fileInput}
-                          disabled={isLoading}
-                        />
-                        {formData.image1 && (
-                          <span style={styles.fileName}>{formData.image1.name}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <input
-                          type={field.type || "text"}
-                          name={field.name}
-                          onChange={handleChange}
-                          style={{
-                            ...styles.input,
-                            ...(errors[field.name] ? styles.inputError : {})
-                          }}
-                          value={formData[field.name] || ""}
-                          required={field.required}
-                          disabled={isLoading}
-                          placeholder={`Enter ${field.label.toLowerCase()}`}
-                          onFocus={(e) => {
-                            e.target.style.outline = "none";
-                            e.target.style.borderColor = "#5c6bc0";
-                            e.target.style.boxShadow = "0 0 0 3px rgba(92, 107, 192, 0.2)";
-                          }}
-                          onBlur={(e) => {
-                            e.target.style.borderColor = errors[field.name] ? "#e74c3c" : "#dcdfe6";
-                            e.target.style.boxShadow = "none";
-                          }}
-                        />
-                        {errors[field.name] && (
-                          <span style={styles.errorText}>{errors[field.name]}</span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                ))}
+          {showPopup && (
+            <div style={styles.successPopup}>
+              <div style={styles.popupContent}>
+                <span style={styles.popupIcon}>✓</span>
+                <p>{successMessage}</p>
               </div>
             </div>
-          ))}
+          )}
 
-          <div style={styles.actions}>
-            <button
-              type="button"
-              onClick={() => navigate("/employees")}
-              style={{
-                ...styles.cancelButton,
-                ...(hoverStates.cancelButton ? styles.cancelButtonHover : {})
-              }}
-              onMouseEnter={() => setHoverStates(prev => ({ ...prev, cancelButton: true }))}
-              onMouseLeave={() => setHoverStates(prev => ({ ...prev, cancelButton: false }))}
-              disabled={isLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              style={{
-                ...styles.submitButton,
-                ...(hoverStates.submitButton ? styles.submitButtonHover : {}),
-                ...(isLoading ? styles.submitButtonDisabled : {})
-              }}
-              onMouseEnter={() => setHoverStates(prev => ({ ...prev, submitButton: true }))}
-              onMouseLeave={() => setHoverStates(prev => ({ ...prev, submitButton: false }))}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <div style={styles.loadingSpinner}></div>
-                  Saving...
-                </>
-              ) : (
-                "Save Employee"
-              )}
-            </button>
+          <div style={styles.navigation}>
+            {formSections.map((section) => (
+              <button
+                key={section.id}
+                style={{
+                  ...styles.navButton,
+                  ...(activeSection === section.id
+                    ? styles.navButtonActive
+                    : {}),
+                  ...(hoverStates.navButtons[section.id]
+                    ? styles.navButtonHover
+                    : {}),
+                }}
+                onMouseEnter={() => handleMouseEnter("navButtons", section.id)}
+                onMouseLeave={() => handleMouseLeave("navButtons", section.id)}
+                onClick={() => setActiveSection(section.id)}
+                type="button"
+              >
+                {section.title}
+              </button>
+            ))}
           </div>
-        </form>
 
-        {/* Add style tag for animations and responsive design */}
-        <style>
-          {`
+          <form onSubmit={handleSubmit} style={styles.form}>
+            {formSections.map((section) => (
+              <div
+                key={section.id}
+                style={{
+                  ...styles.section,
+                  ...(activeSection === section.id ? styles.sectionActive : {}),
+                }}
+              >
+                <h3 style={styles.sectionTitle}>{section.title}</h3>
+                <div style={styles.sectionFields}>
+                  {section.fields.map((field) => (
+                    <div key={field.name} style={styles.field}>
+                      <label style={styles.label}>
+                        {field.label}
+                        {field.required && (
+                          <span style={styles.required}>*</span>
+                        )}
+                      </label>
+
+                      {field.type === "select" ? (
+                        <>
+                          <select
+                            name={field.name}
+                            onChange={handleChange}
+                            style={{
+                              ...styles.input,
+                              ...(errors[field.name] ? styles.inputError : {}),
+                            }}
+                            value={formData[field.name] || ""}
+                            required={field.required}
+                            disabled={isLoading}
+                          >
+                            <option value="">Select {field.label}</option>
+                            {field.options.map((opt, idx) => (
+                              <option key={idx} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          {errors[field.name] && (
+                            <span style={styles.errorText}>
+                              {errors[field.name]}
+                            </span>
+                          )}
+                        </>
+                      ) : field.type === "checkboxes" ? (
+                        <div style={styles.checkboxContainer}>
+                          {field.options &&
+                            field.options.map((opt) => (
+                              <div key={opt.value} style={styles.checkboxItem}>
+                                <input
+                                  type="checkbox"
+                                  id={`customer-${opt.value}`}
+                                  name="customer"
+                                  value={opt.value}
+                                  checked={formData.customer.includes(
+                                    opt.value
+                                  )}
+                                  onChange={handleCheckboxChange}
+                                  disabled={isLoading}
+                                  style={styles.checkboxInput}
+                                />
+                                <label
+                                  htmlFor={`customer-${opt.value}`}
+                                  style={styles.checkboxLabel}
+                                >
+                                  {opt.label}
+                                </label>
+                              </div>
+                            ))}
+                        </div>
+                      ) : field.type === "file" ? (
+                        <div style={styles.fileUpload}>
+                          <label
+                            htmlFor="image1"
+                            style={{
+                              ...styles.fileLabel,
+                              ...(hoverStates.fileLabel
+                                ? styles.fileLabelHover
+                                : {}),
+                            }}
+                            onMouseEnter={() =>
+                              setHoverStates((prev) => ({
+                                ...prev,
+                                fileLabel: true,
+                              }))
+                            }
+                            onMouseLeave={() =>
+                              setHoverStates((prev) => ({
+                                ...prev,
+                                fileLabel: false,
+                              }))
+                            }
+                          >
+                            Choose File
+                          </label>
+                          <input
+                            type="file"
+                            id="image1"
+                            name={field.name}
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            style={styles.fileInput}
+                            disabled={isLoading}
+                          />
+                          {formData.image1 && (
+                            <span style={styles.fileName}>
+                              {formData.image1.name}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type={field.type || "text"}
+                            name={field.name}
+                            onChange={handleChange}
+                            style={{
+                              ...styles.input,
+                              ...(errors[field.name] ? styles.inputError : {}),
+                            }}
+                            value={formData[field.name] || ""}
+                            required={field.required}
+                            disabled={isLoading}
+                            placeholder={`Enter ${field.label.toLowerCase()}`}
+                            onFocus={(e) => {
+                              e.target.style.outline = "none";
+                              e.target.style.borderColor = "#5c6bc0";
+                              e.target.style.boxShadow =
+                                "0 0 0 3px rgba(92, 107, 192, 0.2)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = errors[field.name]
+                                ? "#e74c3c"
+                                : "#dcdfe6";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                          {errors[field.name] && (
+                            <span style={styles.errorText}>
+                              {errors[field.name]}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div style={styles.actions}>
+              <button
+                type="button"
+                onClick={() => navigate("/employees")}
+                style={{
+                  ...styles.cancelButton,
+                  ...(hoverStates.cancelButton ? styles.cancelButtonHover : {}),
+                }}
+                onMouseEnter={() =>
+                  setHoverStates((prev) => ({ ...prev, cancelButton: true }))
+                }
+                onMouseLeave={() =>
+                  setHoverStates((prev) => ({ ...prev, cancelButton: false }))
+                }
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{
+                  ...styles.submitButton,
+                  ...(hoverStates.submitButton ? styles.submitButtonHover : {}),
+                  ...(isLoading ? styles.submitButtonDisabled : {}),
+                }}
+                onMouseEnter={() =>
+                  setHoverStates((prev) => ({ ...prev, submitButton: true }))
+                }
+                onMouseLeave={() =>
+                  setHoverStates((prev) => ({ ...prev, submitButton: false }))
+                }
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <div style={styles.loadingSpinner}></div>
+                    Saving...
+                  </>
+                ) : (
+                  "Save Employee"
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Add style tag for animations and responsive design */}
+          <style>
+            {`
             @keyframes fadeIn {
               from { opacity: 0; transform: translateY(10px); }
               to { opacity: 1; transform: translateY(0); }
@@ -809,8 +850,8 @@ const AddEmployee = () => {
               }
             }
           `}
-        </style>
-      </div>
+          </style>
+        </div>
       </div>
     </div>
   );

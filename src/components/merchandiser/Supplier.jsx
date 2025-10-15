@@ -16,7 +16,7 @@ const Supplier = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/merchandiser/api/supplier/"
+          "http://119.148.51.38:8000/api/merchandiser/api/supplier/"
         );
         setSuppliers(response.data);
       } catch (error) {
@@ -32,7 +32,7 @@ const Supplier = () => {
     if (window.confirm("Are you sure you want to delete this supplier?")) {
       try {
         await axios.delete(
-          `http://119.148.12.1:8000/api/merchandiser/api/supplier/${id}/`
+          `http://119.148.51.38:8000/api/merchandiser/api/supplier/${id}/`
         );
         setSuppliers(suppliers.filter((supplier) => supplier.id !== id));
         toast.success("Supplier deleted successfully");

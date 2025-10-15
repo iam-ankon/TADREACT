@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import Sidebars from './sidebars';
-
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import Sidebars from "./sidebars";
 
 const EmployeeLeaveBalance = () => {
   const [balances, setBalances] = useState([]);
@@ -10,11 +9,13 @@ const EmployeeLeaveBalance = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://119.148.12.1:8000/api/hrms/api/employee_leave_balances/');
+        const response = await axios.get(
+          "http://119.148.51.38:8000/api/hrms/api/employee_leave_balances/"
+        );
         setBalances(response.data);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching leave balances:', error);
+        console.error("Error fetching leave balances:", error);
         setLoading(false);
       }
     };
@@ -22,63 +23,61 @@ const EmployeeLeaveBalance = () => {
     fetchData();
   }, []);
 
-
   const containerStyle = {
-    display: 'flex',
-    
-    backgroundColor: '#A7D5E1',
-    minHeight: '100vh',
-  };
+    display: "flex",
 
+    backgroundColor: "#A7D5E1",
+    minHeight: "100vh",
+  };
 
   const mainContentStyle = {
     flex: 1,
-    padding: '40px 50px',
+    padding: "40px 50px",
   };
 
   const headingStyle = {
-    color: '#0a58ca',
-    fontSize: '24px',
-    marginBottom: '25px',
-    borderBottom: '2px solid #ccc',
-    paddingBottom: '10px',
+    color: "#0a58ca",
+    fontSize: "24px",
+    marginBottom: "25px",
+    borderBottom: "2px solid #ccc",
+    paddingBottom: "10px",
   };
 
   const tableContainerStyle = {
-    overflowX: 'auto',
+    overflowX: "auto",
     backgroundColor: "#DCEEF3",
-    padding: '20px',
-    borderRadius: '12px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    padding: "20px",
+    borderRadius: "12px",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
   };
 
   const tableStyle = {
-    width: '100%',
-    borderCollapse: 'collapse',
+    width: "100%",
+    borderCollapse: "collapse",
   };
 
   const thStyle = {
-    backgroundColor: '#f0f4f9',
-    color: '#333',
-    padding: '12px 14px',
-    textAlign: 'center',
-    fontWeight: '600',
-    borderBottom: '1px solid #ddd',
+    backgroundColor: "#f0f4f9",
+    color: "#333",
+    padding: "12px 14px",
+    textAlign: "center",
+    fontWeight: "600",
+    borderBottom: "1px solid #ddd",
   };
 
   const tdStyle = {
-    padding: '12px 14px',
-    textAlign: 'center',
-    borderBottom: '1px solid #eee',
-    fontSize: '14px',
-    color: '#444',
+    padding: "12px 14px",
+    textAlign: "center",
+    borderBottom: "1px solid #eee",
+    fontSize: "14px",
+    color: "#444",
   };
 
   return (
     <div style={containerStyle}>
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: "auto" }}>
           {/* Your page content here */}
         </div>
       </div>

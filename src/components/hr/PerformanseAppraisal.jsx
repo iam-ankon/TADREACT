@@ -17,7 +17,7 @@ const PerformanseAppraisal = () => {
   const fetchAppraisals = async () => {
     try {
       const response = await axios.get(
-        "http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/"
+        "http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/"
       );
       setAppraisals(response.data);
     } catch (error) {
@@ -30,7 +30,7 @@ const PerformanseAppraisal = () => {
     if (window.confirm("Are you sure you want to delete this appraisal?")) {
       try {
         await axios.delete(
-          `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`
+          `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${id}/`
         );
         setAppraisals(appraisals.filter((a) => a.id !== id));
       } catch (error) {
@@ -56,123 +56,129 @@ const PerformanseAppraisal = () => {
         <Sidebars />
         <div style={styles.mainContent}>
           <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-          <h2 style={styles.heading}>Performance Appraisal</h2>
+            <h2 style={styles.heading}>Performance Appraisal</h2>
 
-          <div style={responsiveStyles.responsiveFlex}>
-            <div style={responsiveStyles.responsiveColumn}>
-              <label style={labelStyle}>Search by Name or ID:</label>
-              <div style={styles.searchBox}>
-                🔍
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={inputStyle}
-                />
+            <div style={responsiveStyles.responsiveFlex}>
+              <div style={responsiveStyles.responsiveColumn}>
+                <label style={labelStyle}>Search by Name or ID:</label>
+                <div style={styles.searchBox}>
+                  🔍
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div style={responsiveStyles.responsiveColumn}>
+                <Link to="/add-newAppraisal" style={btnStyle("#0078D4")}>
+                  + Add New Appraisal
+                </Link>
               </div>
             </div>
 
-            <div style={responsiveStyles.responsiveColumn}>
-              <Link to="/add-newAppraisal" style={btnStyle("#0078D4")}>
-                + Add New Appraisal
-              </Link>
-            </div>
-          </div>
-
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={{ backgroundColor: "#e1e9f3" }}>
-                  <th style={cellStyle}>Employee ID</th>
-                  <th style={cellStyle}>Name</th>
-                  <th style={cellStyle}>Designation</th>
-                  <th style={cellStyle}>Department</th>
-                  <th style={cellStyle}>Last Increment</th>
-                  <th style={cellStyle}>Last Promotion</th>
-                  <th style={cellStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentAppraisals.length > 0 ? (
-                  currentAppraisals.map((appraisal) => (
-                    <tr
-                      key={appraisal.id}
-                      onClick={() =>
-                        navigate(`/appraisal-details/${appraisal.id}`)
-                      }
-                      style={{
-                        backgroundColor: "#fff",
-                        cursor: "pointer",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor = "#eef6ff")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor = "#fff")
-                      }
-                    >
-                      <td style={cellStyle}>{appraisal.employee_id}</td>
-                      <td style={cellStyle}>{appraisal.name}</td>
-                      <td style={cellStyle}>{appraisal.designation}</td>
-                      <td style={cellStyle}>{appraisal.department_name}</td>
-                      <td style={cellStyle}>{appraisal.last_increment_date}</td>
-                      <td style={cellStyle}>{appraisal.last_promotion_date}</td>
-                      <td style={cellStyle}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/edit-appraisal/${appraisal.id}`);
-                          }}
-                          style={{
-                            ...actionButton,
-                            backgroundColor: "#28a745",
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(appraisal.id, e)}
-                          style={{
-                            ...actionButton,
-                            backgroundColor: "#dc3545",
-                          }}
-                        >
-                          Delete
-                        </button>
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={{ backgroundColor: "#e1e9f3" }}>
+                    <th style={cellStyle}>Employee ID</th>
+                    <th style={cellStyle}>Name</th>
+                    <th style={cellStyle}>Designation</th>
+                    <th style={cellStyle}>Department</th>
+                    <th style={cellStyle}>Last Increment</th>
+                    <th style={cellStyle}>Last Promotion</th>
+                    <th style={cellStyle}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentAppraisals.length > 0 ? (
+                    currentAppraisals.map((appraisal) => (
+                      <tr
+                        key={appraisal.id}
+                        onClick={() =>
+                          navigate(`/appraisal-details/${appraisal.id}`)
+                        }
+                        style={{
+                          backgroundColor: "#fff",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.backgroundColor = "#eef6ff")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor = "#fff")
+                        }
+                      >
+                        <td style={cellStyle}>{appraisal.employee_id}</td>
+                        <td style={cellStyle}>{appraisal.name}</td>
+                        <td style={cellStyle}>{appraisal.designation}</td>
+                        <td style={cellStyle}>{appraisal.department_name}</td>
+                        <td style={cellStyle}>
+                          {appraisal.last_increment_date}
+                        </td>
+                        <td style={cellStyle}>
+                          {appraisal.last_promotion_date}
+                        </td>
+                        <td style={cellStyle}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/edit-appraisal/${appraisal.id}`);
+                            }}
+                            style={{
+                              ...actionButton,
+                              backgroundColor: "#28a745",
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={(e) => handleDelete(appraisal.id, e)}
+                            style={{
+                              ...actionButton,
+                              backgroundColor: "#dc3545",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="7"
+                        style={{ ...cellStyle, textAlign: "center" }}
+                      >
+                        No appraisal records found.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      style={{ ...cellStyle, textAlign: "center" }}
-                    >
-                      No appraisal records found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          <div style={styles.pagination}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === page && styles.activePageButton),
-                }}
-              >
-                {page}
-              </button>
-            ))}
+            <div style={styles.pagination}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    style={{
+                      ...styles.pageButton,
+                      ...(currentPage === page && styles.activePageButton),
+                    }}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

@@ -45,11 +45,11 @@
 //   useEffect(() => {
 //     // Fetch employees, companies, and leave balances
 //     Promise.all([
-//       axios.get("http://119.148.12.1:8000/api/hrms/api/employees/"),
-//       axios.get("http://119.148.12.1:8000/api/hrms/api/tad_groups/"),
-//       axios.get("http://119.148.12.1:8000/api/hrms/api/departments/"),
+//       axios.get("http://119.148.51.38:8000/api/hrms/api/employees/"),
+//       axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
+//       axios.get("http://119.148.51.38:8000/api/hrms/api/departments/"),
 //       axios.get(
-//         "http://119.148.12.1:8000/api/hrms/api/employee_leave_balances/"
+//         "http://119.148.51.38:8000/api/hrms/api/employee_leave_balances/"
 //       ),
 //     ])
 //       .then(([empRes, compRes, deptRes, balRes]) => {
@@ -130,7 +130,7 @@
 
 //     axios
 //       .post(
-//         "http://119.148.12.1:8000/api/hrms/api/employee_leaves/",
+//         "http://119.148.51.38:8000/api/hrms/api/employee_leaves/",
 //         updatedLeave
 //       )
 //       .then(() => {
@@ -410,11 +410,11 @@ const AddLeaveRequest = () => {
       try {
         setLoading(true);
         const [empRes, compRes, deptRes, balRes] = await Promise.all([
-          axios.get("http://119.148.12.1:8000/api/hrms/api/employees/"),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/tad_groups/"),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/departments/"),
+          axios.get("http://119.148.51.38:8000/api/hrms/api/employees/"),
+          axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
+          axios.get("http://119.148.51.38:8000/api/hrms/api/departments/"),
           axios.get(
-            "http://119.148.12.1:8000/api/hrms/api/employee_leave_balances/"
+            "http://119.148.51.38:8000/api/hrms/api/employee_leave_balances/"
           ),
         ]);
 
@@ -484,7 +484,7 @@ const AddLeaveRequest = () => {
 
     try {
       await axios.post(
-        "http://119.148.12.1:8000/api/hrms/api/employee_leaves/",
+        "http://119.148.51.38:8000/api/hrms/api/employee_leaves/",
         {
           ...newLeave,
           to: newLeave.to || null,

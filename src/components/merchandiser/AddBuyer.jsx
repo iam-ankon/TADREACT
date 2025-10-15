@@ -33,7 +33,7 @@ export default function AddBuyer() {
   // Fetch all customers on component load
   useEffect(() => {
     axios
-      .get("http://119.148.12.1:8000/api/merchandiser/api/customer/")
+      .get("http://119.148.51.38:8000/api/merchandiser/api/customer/")
       .then((res) => setCustomers(res.data))
       .catch((err) => console.error("Error fetching customers:", err));
   }, []);
@@ -63,7 +63,7 @@ export default function AddBuyer() {
       console.log("Submitting payload:", payload); // Debug
 
       await axios.post(
-        "http://119.148.12.1:8000/api/merchandiser/api/buyer/",
+        "http://119.148.51.38:8000/api/merchandiser/api/buyer/",
         payload,
         { headers: { "Content-Type": "application/json" } }
       );

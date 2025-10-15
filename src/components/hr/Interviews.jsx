@@ -4,7 +4,7 @@ import { useLocation, useParams, useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
 import { FaArrowDown } from "react-icons/fa";
 
-const API_URL = "http://119.148.12.1:8000/api/hrms/api/interviews/";
+const API_URL = "http://119.148.51.38:8000/api/hrms/api/interviews/";
 
 const Interviews = () => {
   const location = useLocation();
@@ -59,7 +59,7 @@ const Interviews = () => {
   const checkOfferLetterSent = async (email) => {
     try {
       const res = await axios.get(
-        "http://119.148.12.1:8000/api/hrms/api/check_offer_letter/",
+        "http://119.148.51.38:8000/api/hrms/api/check_offer_letter/",
         {
           params: { email },
         }
@@ -196,7 +196,7 @@ const Interviews = () => {
   const fetchCandidateData = async (candidateId) => {
     try {
       const response = await axios.get(
-        `http://119.148.12.1:8000/api/hrms/api/CVAdd/${candidateId}/`
+        `http://119.148.51.38:8000/api/hrms/api/CVAdd/${candidateId}/`
       );
       setCandidateData(response.data);
       setFormData((prev) => ({

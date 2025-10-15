@@ -26,6 +26,14 @@ const Attendance = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  
+  // Get initial date filter from localStorage or use empty string
+  const [dateFilter, setDateFilter] = useState(() => {
+    const savedDate = localStorage.getItem('attendanceDateFilter');
+    return savedDate || "";
+  });
+  
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
   const recordsPerPage = 15;
 
   useEffect(() => {
@@ -34,12 +42,11 @@ const Attendance = () => {
         const [attRes, empRes, compRes] = await Promise.all([
           getAttendance(),
           getEmployees(),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/tad_groups/"),
+          axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
         ]);
 
         setAttendance(attRes.data);
         setEmployees(empRes.data);
-        // Handle both array and paginated responses
         setCompanies(
           compRes.data.results ? compRes.data.results : compRes.data
         );
@@ -50,6 +57,16 @@ const Attendance = () => {
     fetchData();
   }, []);
 
+  // Save date filter to localStorage whenever it changes
+  useEffect(() => {
+    if (dateFilter) {
+      localStorage.setItem('attendanceDateFilter', dateFilter);
+    } else {
+      localStorage.removeItem('attendanceDateFilter');
+    }
+  }, [dateFilter]);
+
+  // Rest of your component remains the same...
   const formatTimeToAMPM = (timeStr) => {
     if (!timeStr) return "-";
 
@@ -77,7 +94,6 @@ const Attendance = () => {
   const formatDelayTime = (delay) => {
     if (!delay) return "00:00";
 
-    // Handle numeric delay in seconds
     if (typeof delay === "number") {
       const hours = Math.floor(delay / 3600);
       const minutes = Math.floor((delay % 3600) / 60);
@@ -85,7 +101,6 @@ const Attendance = () => {
         .toString()
         .padStart(2, "0")}`;
     }
-    // Handle string format (HH:MM:SS)
     else if (typeof delay === "string") {
       const parts = delay.split(":");
       if (parts.length >= 2) {
@@ -110,7 +125,7 @@ const Attendance = () => {
     const companyName = company ? company.name || company.company_name : "N/A";
 
     return {
-      employee_id: employee.employee_id || "N/A", // Added employee_id here
+      employee_id: employee.employee_id || "N/A",
       company: companyName,
       department: employee.department_name || "N/A",
     };
@@ -133,7 +148,32 @@ const Attendance = () => {
     }
   };
 
+  const filterAttendanceByDate = (records) => {
+    if (!dateFilter) return records;
+    
+    return records.filter(record => {
+      const recordDate = new Date(record.date).toISOString().split('T')[0];
+      return recordDate === dateFilter;
+    });
+  };
+
+  const filterAttendanceByName = (records) => {
+    if (!searchTerm) return records;
+    
+    return records.filter(a =>
+      a.employee_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredAttendance = () => {
+    let filtered = attendance;
+    filtered = filterAttendanceByName(filtered);
+    filtered = filterAttendanceByDate(filtered);
+    return filtered;
+  };
+
   const generateMonthlyReport = () => {
+    const filteredAttendance = getFilteredAttendance();
     const headers = [
       "Employee ID",
       "Employee",
@@ -147,13 +187,13 @@ const Attendance = () => {
     ];
     const csvContent = [
       headers.join(","),
-      ...attendance.map((item) => {
+      ...filteredAttendance.map((item) => {
         const empDetails = getEmployeeDetails(item.employee);
         const formattedDate = item.date
           ? new Date(item.date).toLocaleDateString()
           : "N/A";
         return [
-          `"${empDetails.employee_id}"`, // Using employee_id instead of id
+          `"${empDetails.employee_id}"`,
           `"${item.employee_name}"`,
           `"${empDetails.company}"`,
           `"${empDetails.department}"`,
@@ -170,7 +210,7 @@ const Attendance = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `attendance_report_${new Date()
+    link.download = `attendance_report_${dateFilter || new Date()
       .toISOString()
       .slice(0, 10)}.csv`;
     document.body.appendChild(link);
@@ -243,19 +283,16 @@ const Attendance = () => {
     document.body.removeChild(link);
   };
 
-  // Pagination logic
+  const clearDateFilter = () => {
+    setDateFilter("");
+    setCurrentPage(1);
+  };
+
+  const filteredAttendance = getFilteredAttendance();
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = attendance
-    .filter((a) =>
-      a.employee_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .slice(indexOfFirstRecord, indexOfLastRecord);
-  const totalPages = Math.ceil(
-    attendance.filter((a) =>
-      a.employee_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    ).length / recordsPerPage
-  );
+  const currentRecords = filteredAttendance.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = Math.ceil(filteredAttendance.length / recordsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -281,18 +318,52 @@ const Attendance = () => {
               alignItems: "center",
             }}
           >
-            <input
-              type="text"
-              placeholder="Search employee"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                padding: "10px",
-                minWidth: "220px",
-                border: "1px solid #ccc",
-                borderRadius: "5px",
-              }}
-            />
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <input
+                type="text"
+                placeholder="Search employee"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: "10px",
+                  minWidth: "220px",
+                  border: "1px solid #ccc",
+                  borderRadius: "5px",
+                }}
+              />
+              
+              {/* Date Filter Input */}
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: "10px",
+                  minWidth: "180px",
+                  border: "1px solid #ccc",
+                  borderRadius: "5px",
+                }}
+              />
+              
+              {dateFilter && (
+                <button
+                  onClick={clearDateFilter}
+                  style={{
+                    ...actionButton,
+                    background: "#6b7280",
+                    padding: "10px 15px",
+                  }}
+                >
+                  Clear Date
+                </button>
+              )}
+            </div>
 
             <div style={{ display: "flex", gap: "10px" }}>
               <button
@@ -325,10 +396,27 @@ const Attendance = () => {
                   padding: "10px 15px",
                 }}
               >
-                Generate Monthly Report
+                Generate {dateFilter ? 'Daily' : 'Monthly'} Report
               </button>
             </div>
           </div>
+
+          {/* Filter Info */}
+          {dateFilter && (
+            <div style={{
+              marginBottom: "15px",
+              padding: "10px",
+              backgroundColor: "#dbeafe",
+              border: "1px solid #3b82f6",
+              borderRadius: "5px",
+              fontSize: "14px",
+            }}>
+              Showing attendance for: <strong>{dateFilter}</strong> 
+              {filteredAttendance.length > 0 && 
+                ` (${filteredAttendance.length} records found)`
+              }
+            </div>
+          )}
 
           {/* Attendance Table */}
           <div style={{ overflowX: "auto" }}>
@@ -353,27 +441,37 @@ const Attendance = () => {
                 </tr>
               </thead>
               <tbody>
-                {currentRecords.map((a) => {
-                  const empDetails = getEmployeeDetails(a.employee);
-                  return (
-                    <tr key={a.id}>
-                      <td style={tdStyle}>{empDetails.employee_id}</td>{" "}
-                      {/* Now showing employee_id */}
-                      <td style={tdStyle}>{a.employee_name}</td>
-                      <td style={tdStyle}>{empDetails.company}</td>
-                      <td style={tdStyle}>{empDetails.department}</td>
-                      <td style={tdStyle}>{a.date}</td>
-                      <td style={tdStyle}>{formatTimeToAMPM(a.check_in)}</td>
-                      <td style={tdStyle}>{formatTimeToAMPM(a.check_out)}</td>
-                      <td style={tdStyle}>
-                        {formatDelayTime(a.attendance_delay || a.delay_time)}
-                      </td>
-                      <td style={tdStyle}>
-                        {formatTimeToAMPM(a.office_start_time)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {currentRecords.length > 0 ? (
+                  currentRecords.map((a) => {
+                    const empDetails = getEmployeeDetails(a.employee);
+                    return (
+                      <tr key={a.id}>
+                        <td style={tdStyle}>{empDetails.employee_id}</td>
+                        <td style={tdStyle}>{a.employee_name}</td>
+                        <td style={tdStyle}>{empDetails.company}</td>
+                        <td style={tdStyle}>{empDetails.department}</td>
+                        <td style={tdStyle}>{a.date}</td>
+                        <td style={tdStyle}>{formatTimeToAMPM(a.check_in)}</td>
+                        <td style={tdStyle}>{formatTimeToAMPM(a.check_out)}</td>
+                        <td style={tdStyle}>
+                          {formatDelayTime(a.attendance_delay || a.delay_time)}
+                        </td>
+                        <td style={tdStyle}>
+                          {formatTimeToAMPM(a.office_start_time)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="9" style={{ ...tdStyle, textAlign: "center" }}>
+                      {dateFilter || searchTerm 
+                        ? "No attendance records found for the selected criteria" 
+                        : "No attendance records available"
+                      }
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -409,6 +507,8 @@ const Attendance = () => {
           )}
         </div>
       </div>
+      
+      {/* Employee Search Modal */}
       {showEmployeeSearch && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -416,7 +516,8 @@ const Attendance = () => {
             <input
               type="text"
               placeholder="Search employee"
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={employeeSearchTerm}
+              onChange={(e) => setEmployeeSearchTerm(e.target.value)}
               style={{
                 padding: "10px",
                 width: "100%",
@@ -430,7 +531,7 @@ const Attendance = () => {
                 .filter((emp) =>
                   (emp.name || emp.employee_name || "")
                     .toLowerCase()
-                    .includes(searchTerm.toLowerCase())
+                    .includes(employeeSearchTerm.toLowerCase())
                 )
                 .map((employee) => (
                   <div
@@ -445,7 +546,7 @@ const Attendance = () => {
                           : "white",
                     }}
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevent event bubbling
+                      e.stopPropagation();
                       handleEmployeeSelect(employee);
                     }}
                   >
@@ -479,7 +580,7 @@ const Attendance = () => {
               <button
                 onClick={() => {
                   generateEmployeeReport();
-                  setShowEmployeeSearch(false); // Close modal after generation
+                  setShowEmployeeSearch(false);
                 }}
                 style={{
                   ...actionButton,
@@ -497,7 +598,7 @@ const Attendance = () => {
   );
 };
 
-// Styles
+// Styles remain the same...
 const actionButton = {
   color: "white",
   border: "none",
@@ -520,7 +621,7 @@ const thStyle = {
   backgroundColor: "#f3f4f6",
   border: "1px solid #e5e7eb",
   textAlign: "left",
-  fontWeight: 600,
+  fontWeight: "600",
 };
 
 const tdStyle = {

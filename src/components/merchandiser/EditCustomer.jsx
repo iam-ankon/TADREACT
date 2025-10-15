@@ -13,7 +13,6 @@ export default function EditCustomer() {
     phone: "",
     address: "",
     remarks: "",
-    
   });
 
   const [buyers, setBuyers] = useState([]);
@@ -21,8 +20,8 @@ export default function EditCustomer() {
   const [message, setMessage] = useState(null);
   const [errors, setErrors] = useState({});
 
-  const CUSTOMER_API = `http://119.148.12.1:8000/api/merchandiser/api/customer/${id}/`;
-  const BUYER_API = "http://119.148.12.1:8000/api/merchandiser/api/buyer/";
+  const CUSTOMER_API = `http://119.148.51.38:8000/api/merchandiser/api/customer/${id}/`;
+  const BUYER_API = "http://119.148.51.38:8000/api/merchandiser/api/buyer/";
 
   useEffect(() => {
     fetchCustomer();
@@ -31,7 +30,8 @@ export default function EditCustomer() {
 
   const fetchCustomer = () => {
     setLoading(true);
-    axios.get(CUSTOMER_API)
+    axios
+      .get(CUSTOMER_API)
       .then((res) => setForm(res.data))
       .catch((err) => {
         console.error("Failed to load customer", err);
@@ -41,7 +41,8 @@ export default function EditCustomer() {
   };
 
   const fetchBuyers = () => {
-    axios.get(BUYER_API)
+    axios
+      .get(BUYER_API)
       .then((res) => setBuyers(res.data))
       .catch((err) => {
         console.error("Failed to load buyers", err);
@@ -52,14 +53,16 @@ export default function EditCustomer() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "buyer") {
-      const selected = Array.from(e.target.selectedOptions).map(opt => parseInt(opt.value));
+      const selected = Array.from(e.target.selectedOptions).map((opt) =>
+        parseInt(opt.value)
+      );
       setForm({ ...form, buyer: selected });
     } else {
       setForm({ ...form, [name]: value });
     }
     // Clear error when field is edited
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: null }));
+      setErrors((prev) => ({ ...prev, [name]: null }));
     }
   };
 
@@ -77,12 +80,13 @@ export default function EditCustomer() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setMessage(null);
-    
+
     if (!validateForm()) return;
 
     setLoading(true);
 
-    axios.put(CUSTOMER_API, form)
+    axios
+      .put(CUSTOMER_API, form)
       .then(() => {
         setMessage({ type: "success", text: "Customer updated successfully!" });
         setTimeout(() => navigate("/customers"), 1500);
@@ -104,12 +108,12 @@ export default function EditCustomer() {
   return (
     <div className="page-container">
       <Sidebar />
-      
+
       <div className="content-container">
         <div className="form-header">
           <h2 className="page-title">Edit Customer</h2>
-          <button 
-            onClick={() => navigate("/customers")} 
+          <button
+            onClick={() => navigate("/customers")}
             className="btn btn-outline"
           >
             Back to Customers
@@ -142,7 +146,9 @@ export default function EditCustomer() {
                   onChange={handleChange}
                   className={errors.name ? "input-error" : ""}
                 />
-                {errors.name && <span className="error-message">{errors.name}</span>}
+                {errors.name && (
+                  <span className="error-message">{errors.name}</span>
+                )}
               </div>
 
               <div className="form-group">
@@ -154,7 +160,9 @@ export default function EditCustomer() {
                   onChange={handleChange}
                   className={errors.email ? "input-error" : ""}
                 />
-                {errors.email && <span className="error-message">{errors.email}</span>}
+                {errors.email && (
+                  <span className="error-message">{errors.email}</span>
+                )}
               </div>
 
               <div className="form-group">
@@ -166,7 +174,9 @@ export default function EditCustomer() {
                   onChange={handleChange}
                   className={errors.phone ? "input-error" : ""}
                 />
-                {errors.phone && <span className="error-message">{errors.phone}</span>}
+                {errors.phone && (
+                  <span className="error-message">{errors.phone}</span>
+                )}
               </div>
 
               <div className="form-group">
@@ -236,17 +246,17 @@ export default function EditCustomer() {
         .page-container {
           display: flex;
           min-height: 100vh;
-          background-color: #A7D5E1;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          background-color: #a7d5e1;
+          font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
         }
-        
+
         .content-container {
           flex: 1;
           padding: 2rem;
           max-width: 800px;
           margin: 0 auto;
         }
-        
+
         /* Header Styles */
         .form-header {
           display: flex;
@@ -254,44 +264,44 @@ export default function EditCustomer() {
           align-items: center;
           margin-bottom: 1.5rem;
         }
-        
+
         .page-title {
           font-size: 1.75rem;
           font-weight: 600;
           color: #1e293b;
           margin: 0;
         }
-        
+
         /* Form Styles */
         .customer-form {
-          background: #DCEEF3;
+          background: #dceef3;
           border-radius: 0.75rem;
           padding: 2rem;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-        
+
         .form-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1.5rem;
         }
-        
+
         .form-group {
           margin-bottom: 1.25rem;
         }
-        
+
         .form-group label {
           display: block;
           margin-bottom: 0.5rem;
           font-weight: 500;
           color: #334155;
         }
-        
+
         .form-group label.required:after {
           content: " *";
           color: #ef4444;
         }
-        
+
         .form-group input,
         .form-group textarea,
         .form-group select {
@@ -302,7 +312,7 @@ export default function EditCustomer() {
           font-size: 0.875rem;
           transition: border-color 0.2s;
         }
-        
+
         .form-group input:focus,
         .form-group textarea:focus,
         .form-group select:focus {
@@ -310,38 +320,38 @@ export default function EditCustomer() {
           border-color: #3b82f6;
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
-        
+
         .form-group input.input-error,
         .form-group textarea.input-error,
         .form-group select.input-error {
           border-color: #ef4444;
         }
-        
+
         .form-group textarea {
           min-height: 100px;
           resize: vertical;
         }
-        
+
         .multi-select {
           min-height: 120px;
         }
-        
+
         .select-hint {
           display: flex;
           justify-content: space-between;
           margin-top: 0.5rem;
           font-size: 0.75rem;
         }
-        
+
         .hint-text {
           color: #64748b;
         }
-        
+
         .selected-count {
           color: #3b82f6;
           font-weight: 500;
         }
-        
+
         /* Error Messages */
         .error-message {
           display: block;
@@ -349,7 +359,7 @@ export default function EditCustomer() {
           color: #ef4444;
           font-size: 0.75rem;
         }
-        
+
         /* Alert Messages */
         .alert {
           display: flex;
@@ -360,19 +370,19 @@ export default function EditCustomer() {
           font-size: 0.875rem;
           position: relative;
         }
-        
+
         .alert-error {
           background-color: #fef2f2;
           color: #b91c1c;
           border-left: 4px solid #dc2626;
         }
-        
+
         .alert-success {
           background-color: #f0fdf4;
           color: #166534;
           border-left: 4px solid #16a34a;
         }
-        
+
         .alert-close {
           margin-left: auto;
           background: none;
@@ -382,7 +392,7 @@ export default function EditCustomer() {
           font-size: 1.25rem;
           padding: 0 0.5rem;
         }
-        
+
         /* Button Styles */
         .btn {
           display: inline-flex;
@@ -396,31 +406,31 @@ export default function EditCustomer() {
           transition: all 0.2s;
           border: 1px solid transparent;
         }
-        
+
         .btn-primary {
           background-color: #3b82f6;
           color: white;
         }
-        
+
         .btn-primary:hover {
           background-color: #2563eb;
         }
-        
+
         .btn-primary:disabled {
           background-color: #93c5fd;
           cursor: not-allowed;
         }
-        
+
         .btn-outline {
           background-color: white;
           color: #3b82f6;
           border: 1px solid #3b82f6;
         }
-        
+
         .btn-outline:hover {
           background-color: #f0f7ff;
         }
-        
+
         /* Form Actions */
         .form-actions {
           display: flex;
@@ -429,7 +439,7 @@ export default function EditCustomer() {
           border-top: 1px solid #e2e8f0;
           padding-top: 1.5rem;
         }
-        
+
         /* Loading States */
         .loading-state {
           display: flex;
@@ -441,7 +451,7 @@ export default function EditCustomer() {
           border-radius: 0.75rem;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-        
+
         .spinner {
           display: inline-block;
           width: 1rem;
@@ -452,9 +462,11 @@ export default function EditCustomer() {
           animation: spin 1s ease-in-out infinite;
           margin-right: 0.5rem;
         }
-        
+
         @keyframes spin {
-          to { transform: rotate(360deg); }
+          to {
+            transform: rotate(360deg);
+          }
         }
       `}</style>
     </div>

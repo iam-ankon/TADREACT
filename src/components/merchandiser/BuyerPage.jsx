@@ -46,8 +46,8 @@ export default function BuyerPage() {
 
         // Fetch both buyers and customers
         const [buyersResponse, customersResponse] = await Promise.all([
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/buyer/"),
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/customer/"),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/buyer/"),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/customer/"),
         ]);
 
         setBuyers(buyersResponse.data);
@@ -92,7 +92,7 @@ export default function BuyerPage() {
     if (window.confirm("Are you sure you want to delete this buyer?")) {
       try {
         await axios.delete(
-          `http://119.148.12.1:8000/api/merchandiser/api/buyer/${buyerId}/`
+          `http://119.148.51.38:8000/api/merchandiser/api/buyer/${buyerId}/`
         );
         setBuyers(buyers.filter((buyer) => buyer.id !== buyerId));
       } catch (err) {

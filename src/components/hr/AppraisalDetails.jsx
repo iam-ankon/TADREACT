@@ -14,13 +14,13 @@ const AppraisalDetails = () => {
   const handleApprove = (appraisalId) => {
     axios
       .post(
-        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${appraisalId}/approve_increment/`
+        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${appraisalId}/approve_increment/`
       )
       .then(() => {
         alert("Increment approved successfully");
         axios
           .get(
-            `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${appraisalId}/`
+            `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${appraisalId}/`
           )
           .then((res) => setAppraisal(res.data));
       })
@@ -30,7 +30,7 @@ const AppraisalDetails = () => {
   useEffect(() => {
     axios
       .get(
-        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`
+        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${id}/`
       )
       .then((res) => setAppraisal(res.data))
       .catch((err) => console.error("Error fetching data:", err));

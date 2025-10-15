@@ -2,9 +2,15 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
-import { FiSearch, FiPrinter, FiPaperclip, FiTrash2, FiUser } from "react-icons/fi";
+import {
+  FiSearch,
+  FiPrinter,
+  FiPaperclip,
+  FiTrash2,
+  FiUser,
+} from "react-icons/fi";
 
-const API_URL = "http://119.148.12.1:8000/api/hrms/api/employees/";
+const API_URL = "http://119.148.51.38:8000/api/hrms/api/employees/";
 
 const EmployeeTermination = () => {
   const [employees, setEmployees] = useState([]);
@@ -32,7 +38,11 @@ const EmployeeTermination = () => {
 
   const handleDelete = async (e, id, name) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to terminate ${name}? This action cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to terminate ${name}? This action cannot be undone.`
+      )
+    ) {
       try {
         await axios.delete(`${API_URL}${id}/`);
         setEmployees(employees.filter((emp) => emp.id !== id));
@@ -83,14 +93,24 @@ const EmployeeTermination = () => {
         <div style={{ flex: 1, overflow: "auto" }}></div>
       </div>
       <div style={styles.mainContent}>
-        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto", padding: "1rem" }}>
-          <h2 style={{ ...styles.heading, color: colors.primary }}>Employee Termination</h2>
+        <div
+          style={{
+            maxHeight: "calc(100vh - 100px)",
+            overflowY: "auto",
+            padding: "1rem",
+          }}
+        >
+          <h2 style={{ ...styles.heading, color: colors.primary }}>
+            Employee Termination
+          </h2>
 
           {/* Search and Print */}
           <div style={styles.controlsContainer}>
             <div style={styles.searchContainer}>
               <div style={{ ...styles.searchBox, borderColor: colors.border }}>
-                <FiSearch style={{ color: colors.textSecondary, marginRight: "8px" }} />
+                <FiSearch
+                  style={{ color: colors.textSecondary, marginRight: "8px" }}
+                />
                 <input
                   type="text"
                   placeholder="Search by name or ID..."
@@ -101,12 +121,12 @@ const EmployeeTermination = () => {
               </div>
             </div>
 
-            <button 
-              onClick={handlePrint} 
-              style={{ 
+            <button
+              onClick={handlePrint}
+              style={{
                 ...styles.printButton,
                 backgroundColor: colors.primary,
-                ":hover": { backgroundColor: colors.primaryLight }
+                ":hover": { backgroundColor: colors.primaryLight },
               }}
             >
               <FiPrinter style={{ marginRight: "8px" }} />
@@ -128,7 +148,12 @@ const EmployeeTermination = () => {
           )}
 
           {/* Table */}
-          <div style={{ ...styles.tableWrapper, backgroundColor: colors.cardBackground }}>
+          <div
+            style={{
+              ...styles.tableWrapper,
+              backgroundColor: colors.cardBackground,
+            }}
+          >
             {!loading && !error && (
               <>
                 <table style={styles.table}>
@@ -149,36 +174,64 @@ const EmployeeTermination = () => {
                           key={emp.id}
                           onClick={() => handleRowClick(emp.id)}
                           style={{
-                            backgroundColor: index % 2 === 0 ? colors.cardBackground : colors.hover,
+                            backgroundColor:
+                              index % 2 === 0
+                                ? colors.cardBackground
+                                : colors.hover,
                             cursor: "pointer",
                             transition: "background-color 0.2s ease",
                           }}
                           onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor = colors.hover)
+                            (e.currentTarget.style.backgroundColor =
+                              colors.hover)
                           }
                           onMouseLeave={(e) =>
                             (e.currentTarget.style.backgroundColor =
-                              index % 2 === 0 ? colors.cardBackground : colors.hover)
+                              index % 2 === 0
+                                ? colors.cardBackground
+                                : colors.hover)
                           }
                         >
-                          <td style={styles.tableCell}>{emp.employee_id || "-"}</td>
                           <td style={styles.tableCell}>
-                            <div style={{ display: "flex", alignItems: "center" }}>
-                              <FiUser style={{ marginRight: "8px", color: colors.textSecondary }} />
+                            {emp.employee_id || "-"}
+                          </td>
+                          <td style={styles.tableCell}>
+                            <div
+                              style={{ display: "flex", alignItems: "center" }}
+                            >
+                              <FiUser
+                                style={{
+                                  marginRight: "8px",
+                                  color: colors.textSecondary,
+                                }}
+                              />
                               {emp.name || "-"}
                             </div>
                           </td>
-                          <td style={styles.tableCell}>{emp.designation || "-"}</td>
-                          <td style={styles.tableCell}>{emp.department_name || "-"}</td>
-                          <td style={styles.tableCell}>{emp.company_name || "-"}</td>
                           <td style={styles.tableCell}>
-                            <div style={{ display: "flex", justifyContent: "center" }}>
+                            {emp.designation || "-"}
+                          </td>
+                          <td style={styles.tableCell}>
+                            {emp.department_name || "-"}
+                          </td>
+                          <td style={styles.tableCell}>
+                            {emp.company_name || "-"}
+                          </td>
+                          <td style={styles.tableCell}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "center",
+                              }}
+                            >
                               <button
                                 style={{
                                   ...styles.actionButton,
                                   backgroundColor: `${colors.primary}20`,
                                   color: colors.primary,
-                                  ":hover": { backgroundColor: `${colors.primary}30` }
+                                  ":hover": {
+                                    backgroundColor: `${colors.primary}30`,
+                                  },
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -189,13 +242,17 @@ const EmployeeTermination = () => {
                                 <FiPaperclip />
                               </button>
                               <button
-                                onClick={(e) => handleDelete(e, emp.id, emp.name)}
+                                onClick={(e) =>
+                                  handleDelete(e, emp.id, emp.name)
+                                }
                                 style={{
                                   ...styles.actionButton,
                                   backgroundColor: `${colors.danger}20`,
                                   color: colors.danger,
-                                  ":hover": { backgroundColor: `${colors.danger}30` },
-                                  marginLeft: "8px"
+                                  ":hover": {
+                                    backgroundColor: `${colors.danger}30`,
+                                  },
+                                  marginLeft: "8px",
                                 }}
                                 title="Terminate employee"
                               >
@@ -207,8 +264,13 @@ const EmployeeTermination = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="6" style={{ ...styles.tableCell, textAlign: "center" }}>
-                          {searchTerm ? "No matching employees found" : "No employees available"}
+                        <td
+                          colSpan="6"
+                          style={{ ...styles.tableCell, textAlign: "center" }}
+                        >
+                          {searchTerm
+                            ? "No matching employees found"
+                            : "No employees available"}
                         </td>
                       </tr>
                     )}
@@ -219,7 +281,9 @@ const EmployeeTermination = () => {
                 {totalPages > 1 && (
                   <div style={styles.pagination}>
                     <button
-                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
                       disabled={currentPage === 1}
                       style={styles.paginationButton}
                     >
@@ -270,7 +334,9 @@ const EmployeeTermination = () => {
                       </button>
                     )}
                     <button
-                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      }
                       disabled={currentPage === totalPages}
                       style={styles.paginationButton}
                     >

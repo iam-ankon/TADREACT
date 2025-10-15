@@ -31,9 +31,9 @@ const LoginPage = () => {
   }, [navigate]);
 
   const getBackendURL = () => {
-    return window.location.hostname === "119.148.12.1"
-      ? "http://119.148.12.1:8000/"
-      : "http://119.148.12.1:8000";
+    return window.location.hostname === "119.148.51.38"
+      ? "http://119.148.51.38:8000/"
+      : "http://119.148.51.38:8000";
   };
 
   const handleLogin = async (e) => {
@@ -227,9 +227,24 @@ const LoginPage = () => {
             />
           </defs>
           <g className="parallax">
-            <use xlinkHref="#gentle-wave" x="48" y="0" fill="rgba(209, 62, 62, 0.35)" />
-            <use xlinkHref="#gentle-wave" x="48" y="3" fill="rgba(8, 213, 249, 0.55)" />
-            <use xlinkHref="#gentle-wave" x="48" y="5" fill="rgba(156, 216, 121, 0.69)" />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="0"
+              fill="rgba(209, 62, 62, 0.35)"
+            />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="3"
+              fill="rgba(8, 213, 249, 0.55)"
+            />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="5"
+              fill="rgba(156, 216, 121, 0.69)"
+            />
             <use xlinkHref="#gentle-wave" x="48" y="7" fill="#fff" />
           </g>
         </svg>

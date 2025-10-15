@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import axios from "axios";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const LETTER_CHOICES = [
   { value: "offer_letter", label: "Offer Letter" },
@@ -42,7 +42,7 @@ const AddLetterPage = () => {
   const addLetterSend = async (formData) => {
     try {
       const response = await axios.post(
-        "http://119.148.12.1:8000/api/hrms/api/letter_send/",
+        "http://119.148.51.38:8000/api/hrms/api/letter_send/",
         formData,
         {
           headers: {
@@ -82,7 +82,6 @@ const AddLetterPage = () => {
       await addLetterSend(formData);
       alert("Letter sent successfully!");
       navigate("/interviews", { state: { email: cvData.email } });
-
     } catch (error) {
       console.error("Error sending letter:", error);
 
@@ -111,13 +110,12 @@ const AddLetterPage = () => {
   };
 
   const formContainerStyle = {
-    
     padding: "20px",
     borderRadius: "8px",
     boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
     maxWidth: "600px",
     margin: "0 auto",
-    backgroundColor: '#A7D5E1',
+    backgroundColor: "#A7D5E1",
   };
 
   const formHeaderStyle = {
@@ -170,16 +168,18 @@ const AddLetterPage = () => {
 
   return (
     <div style={containerStyle}>
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: "auto" }}>
           {/* Your page content here */}
         </div>
       </div>
       <div style={mainContentStyle}>
         <div style={formContainerStyle}>
           <h2 style={formHeaderStyle}>Send Letter</h2>
-          <form> {/* Remove onSubmit from the form tag */}
+          <form>
+            {" "}
+            {/* Remove onSubmit from the form tag */}
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Name *</label>
               <input
@@ -191,7 +191,6 @@ const AddLetterPage = () => {
                 style={inputStyle}
               />
             </div>
-
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Email *</label>
               <input
@@ -203,7 +202,6 @@ const AddLetterPage = () => {
                 style={inputStyle}
               />
             </div>
-
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Letter File *</label>
               <input
@@ -215,7 +213,6 @@ const AddLetterPage = () => {
                 style={inputStyle}
               />
             </div>
-
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Letter Type *</label>
               <select
@@ -237,7 +234,12 @@ const AddLetterPage = () => {
             </div>
           </form>
           <div style={buttonContainerStyle}>
-            <button type="button" style={buttonStyle} disabled={loading} onClick={handleSubmit}>
+            <button
+              type="button"
+              style={buttonStyle}
+              disabled={loading}
+              onClick={handleSubmit}
+            >
               {loading ? "Adding..." : "Save"}
             </button>
             <button

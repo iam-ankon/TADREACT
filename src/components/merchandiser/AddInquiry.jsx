@@ -84,13 +84,15 @@ const AddInquiry = () => {
           itemsRes,
           fabricationsRes,
         ] = await Promise.all([
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/buyer/"),
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/customer/"),
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/repeat_of/"),
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/style/"),
-          axios.get("http://119.148.12.1:8000/api/merchandiser/api/item/"),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/buyer/"),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/customer/"),
           axios.get(
-            "http://119.148.12.1:8000/api/merchandiser/api/fabrication/"
+            "http://119.148.51.38:8000/api/merchandiser/api/repeat_of/"
+          ),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/style/"),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/item/"),
+          axios.get(
+            "http://119.148.51.38:8000/api/merchandiser/api/fabrication/"
           ),
         ]);
 
@@ -282,7 +284,7 @@ const AddInquiry = () => {
   //     formDataToSend.append('data', JSON.stringify(jsonPayload));
 
   //     const response = await axios.post(
-  //       'http://119.148.12.1:8000/api/merchandiser/api/inquiry/',
+  //       'http://119.148.51.38:8000/api/merchandiser/api/inquiry/',
   //       formDataToSend,
   //       {
   //         headers: {
@@ -369,7 +371,7 @@ const AddInquiry = () => {
       formDataToSend.append("data", JSON.stringify(payload));
 
       const response = await axios.post(
-        "http://119.148.12.1:8000/api/merchandiser/api/inquiry/",
+        "http://119.148.51.38:8000/api/merchandiser/api/inquiry/",
         formDataToSend,
         {
           headers: {
@@ -446,23 +448,24 @@ const AddInquiry = () => {
 
       switch (field) {
         case "repeat_of":
-          endpoint = "http://119.148.12.1:8000/api/merchandiser/api/repeat_of/";
+          endpoint =
+            "http://119.148.51.38:8000/api/merchandiser/api/repeat_of/";
           data = { repeat_of: value };
           responseField = "repeat_of";
           break;
         case "same_style":
-          endpoint = "http://119.148.12.1:8000/api/merchandiser/api/style/";
+          endpoint = "http://119.148.51.38:8000/api/merchandiser/api/style/";
           data = { styles: value };
           responseField = "styles";
           break;
         case "item":
-          endpoint = "http://119.148.12.1:8000/api/merchandiser/api/item/";
+          endpoint = "http://119.148.51.38:8000/api/merchandiser/api/item/";
           data = { item: value };
           responseField = "item";
           break;
         case "fabrication":
           endpoint =
-            "http://119.148.12.1:8000/api/merchandiser/api/fabrication/";
+            "http://119.148.51.38:8000/api/merchandiser/api/fabrication/";
           data = { fabrication: value };
           responseField = "fabrication";
           break;

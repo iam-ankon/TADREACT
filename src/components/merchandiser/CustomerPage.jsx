@@ -2,7 +2,15 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../merchandiser/Sidebar.jsx";
-import { User, Mail, Phone, MapPin, FileText, ArrowRight, Trash2 } from "lucide-react";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  FileText,
+  ArrowRight,
+  Trash2,
+} from "lucide-react";
 
 export default function CustomerPage() {
   const [customers, setCustomers] = useState([]);
@@ -11,8 +19,8 @@ export default function CustomerPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  const API_URL = "http://119.148.12.1:8000/api/merchandiser/api/customer/";
-  const BUYER_URL = "http://119.148.12.1:8000/api/merchandiser/api/buyer/";
+  const API_URL = "http://119.148.51.38:8000/api/merchandiser/api/customer/";
+  const BUYER_URL = "http://119.148.51.38:8000/api/merchandiser/api/buyer/";
 
   useEffect(() => {
     async function fetchData() {
@@ -34,7 +42,8 @@ export default function CustomerPage() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this customer?")) return;
+    if (!window.confirm("Are you sure you want to delete this customer?"))
+      return;
 
     try {
       await axios.delete(`${API_URL}${id}/`);
@@ -62,11 +71,25 @@ export default function CustomerPage() {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#A7D5E1" }}>
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        backgroundColor: "#A7D5E1",
+      }}
+    >
       <Sidebar />
       <div style={{ flex: 1, padding: "24px", overflow: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 24, fontWeight: "bold" }}>Customer Management</h2>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 20,
+          }}
+        >
+          <h2 style={{ fontSize: 24, fontWeight: "bold" }}>
+            Customer Management
+          </h2>
           <button
             onClick={() => navigate("/add-customer")}
             style={{
@@ -134,25 +157,48 @@ export default function CustomerPage() {
                 {/* Body */}
                 <div style={{ marginTop: 16, fontSize: 14, color: "#374151" }}>
                   {customer.email && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 8,
+                      }}
+                    >
                       <Mail size={16} style={{ color: "#2563eb" }} />
                       <span>{customer.email}</span>
                     </div>
                   )}
                   {customer.phone && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 8,
+                      }}
+                    >
                       <Phone size={16} style={{ color: "#2563eb" }} />
                       <span>{customer.phone}</span>
                     </div>
                   )}
                   {customer.address && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 8,
+                      }}
+                    >
                       <MapPin size={16} style={{ color: "#2563eb" }} />
                       <span>{customer.address}</span>
                     </div>
                   )}
                   {customer.remarks && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
                       <FileText size={16} style={{ color: "#2563eb" }} />
                       <span>{customer.remarks}</span>
                     </div>
@@ -160,7 +206,13 @@ export default function CustomerPage() {
                 </div>
 
                 {/* Footer */}
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginTop: 20,
+                  }}
+                >
                   <button
                     onClick={() => handleDelete(customer.id)}
                     style={{

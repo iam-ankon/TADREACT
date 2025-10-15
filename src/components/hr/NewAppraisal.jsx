@@ -48,7 +48,7 @@ const NewAppraisal = () => {
     const fetchEmployees = async () => {
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/hrms/api/employees/"
+          "http://119.148.51.38:8000/api/hrms/api/employees/"
         );
         setEmployees(response.data);
       } catch (error) {
@@ -121,7 +121,7 @@ const NewAppraisal = () => {
 
     try {
       await axios.post(
-        "http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/",
+        "http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/",
         cleanFormData
       );
       alert("Appraisal Added Successfully!");

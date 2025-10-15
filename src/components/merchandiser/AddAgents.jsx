@@ -2,7 +2,14 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../merchandiser/Sidebar.jsx";
-import { FiUser, FiMail, FiPhone, FiMapPin, FiSave, FiArrowLeft } from "react-icons/fi";
+import {
+  FiUser,
+  FiMail,
+  FiPhone,
+  FiMapPin,
+  FiSave,
+  FiArrowLeft,
+} from "react-icons/fi";
 
 export default function AddAgents() {
   const [formData, setFormData] = useState({
@@ -29,7 +36,7 @@ export default function AddAgents() {
 
     try {
       const response = await axios.post(
-        "http://119.148.12.1:8000/api/merchandiser/api/agent/", 
+        "http://119.148.51.38:8000/api/merchandiser/api/agent/",
         formData
       );
       setSuccess("Agent added successfully!");
@@ -50,35 +57,41 @@ export default function AddAgents() {
   };
 
   return (
-    <div style={{
-      display: "flex",
-      minHeight: "100vh",
-      
-      backgroundColor: '#A7D5E1',
-    }}>
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+
+        backgroundColor: "#A7D5E1",
+      }}
+    >
       {/* Sidebar */}
-      
-        <Sidebar />
-  
+
+      <Sidebar />
 
       {/* Main content */}
-      <div style={{ 
-        flex: 1, 
-        padding: "2rem",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "flex-start"
-      }}>
-        <div style={{
-          width: "100%",
-          maxWidth: "600px",
-          backgroundColor: "#DCEEF3",
-          borderRadius: "12px",
-          boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
+      <div
+        style={{
+          flex: 1,
           padding: "2rem",
-          position: "relative"
-        }}>
-          <button 
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-start",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "600px",
+            backgroundColor: "#DCEEF3",
+            borderRadius: "12px",
+            boxShadow:
+              "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
+            padding: "2rem",
+            position: "relative",
+          }}
+        >
+          <button
             onClick={() => navigate("/agents")}
             style={{
               display: "flex",
@@ -92,64 +105,72 @@ export default function AddAgents() {
               padding: "0.5rem 0",
               fontSize: "0.9rem",
               ":hover": {
-                color: "#334155"
-              }
+                color: "#334155",
+              },
             }}
           >
             <FiArrowLeft /> Back to Agents
           </button>
 
-          <h2 style={{ 
-            fontSize: "1.5rem", 
-            fontWeight: "600", 
-            color: "#0f172a",
-            marginBottom: "1.5rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem"
-          }}>
+          <h2
+            style={{
+              fontSize: "1.5rem",
+              fontWeight: "600",
+              color: "#0f172a",
+              marginBottom: "1.5rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
             <FiUser size={24} /> Add New Agent
           </h2>
 
           {error && (
-            <div style={{
-              backgroundColor: "#fee2e2",
-              color: "#b91c1c",
-              padding: "1rem",
-              borderRadius: "8px",
-              marginBottom: "1.5rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem"
-            }}>
+            <div
+              style={{
+                backgroundColor: "#fee2e2",
+                color: "#b91c1c",
+                padding: "1rem",
+                borderRadius: "8px",
+                marginBottom: "1.5rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
               {error}
             </div>
           )}
 
           {success && (
-            <div style={{
-              backgroundColor: "#dcfce7",
-              color: "#166534",
-              padding: "1rem",
-              borderRadius: "8px",
-              marginBottom: "1.5rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem"
-            }}>
+            <div
+              style={{
+                backgroundColor: "#dcfce7",
+                color: "#166534",
+                padding: "1rem",
+                borderRadius: "8px",
+                marginBottom: "1.5rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
               {success}
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{
-                display: "block",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-                color: "#334155",
-                marginBottom: "0.5rem"
-              }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#334155",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 Full Name
               </label>
               <div style={{ position: "relative" }}>
@@ -166,23 +187,27 @@ export default function AddAgents() {
             </div>
 
             <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{
-                display: "block",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-                color: "#334155",
-                marginBottom: "0.5rem"
-              }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#334155",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 Email Address
               </label>
               <div style={{ position: "relative" }}>
-                <FiMail style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#94a3b8"
-                }} />
+                <FiMail
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94a3b8",
+                  }}
+                />
                 <input
                   type="email"
                   name="email"
@@ -196,23 +221,27 @@ export default function AddAgents() {
             </div>
 
             <div style={{ marginBottom: "1.5rem" }}>
-              <label style={{
-                display: "block",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-                color: "#334155",
-                marginBottom: "0.5rem"
-              }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#334155",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 Phone Number
               </label>
               <div style={{ position: "relative" }}>
-                <FiPhone style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#94a3b8"
-                }} />
+                <FiPhone
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94a3b8",
+                  }}
+                />
                 <input
                   type="text"
                   name="phone"
@@ -226,57 +255,71 @@ export default function AddAgents() {
             </div>
 
             <div style={{ marginBottom: "2rem" }}>
-              <label style={{
-                display: "block",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-                color: "#334155",
-                marginBottom: "0.5rem"
-              }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color: "#334155",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 Address
               </label>
               <div style={{ position: "relative" }}>
-                <FiMapPin style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "16px",
-                  color: "#94a3b8"
-                }} />
+                <FiMapPin
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "16px",
+                    color: "#94a3b8",
+                  }}
+                />
                 <textarea
                   name="address"
                   required
                   value={formData.address}
                   onChange={handleChange}
-                  style={{ 
-                    ...inputStyle, 
+                  style={{
+                    ...inputStyle,
                     height: "100px",
                     paddingLeft: "40px",
-                    resize: "vertical"
+                    resize: "vertical",
                   }}
                   placeholder="123 Main St, City, Country"
                 />
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              style={buttonStyle}
-              disabled={isSubmitting}
-            >
+            <button type="submit" style={buttonStyle} disabled={isSubmitting}>
               {isSubmitting ? (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <div style={{
-                    width: "16px",
-                    height: "16px",
-                    border: "2px solid rgba(255,255,255,0.3)",
-                    borderTopColor: "white",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite"
-                  }}></div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      borderTopColor: "white",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  ></div>
                   Processing...
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
                   <FiSave /> Save Agent
                 </div>
               )}
@@ -299,8 +342,8 @@ const inputStyle = {
   outline: "none",
   ":focus": {
     borderColor: "#3b82f6",
-    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)"
-  }
+    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+  },
 };
 
 const buttonStyle = {
@@ -319,10 +362,10 @@ const buttonStyle = {
   gap: "0.5rem",
   transition: "all 0.2s",
   ":hover": {
-    backgroundColor: "#2563eb"
+    backgroundColor: "#2563eb",
   },
   ":disabled": {
     backgroundColor: "#bfdbfe",
-    cursor: "not-allowed"
-  }
+    cursor: "not-allowed",
+  },
 };

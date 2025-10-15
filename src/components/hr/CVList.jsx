@@ -19,7 +19,7 @@ const CVList = () => {
 
   useEffect(() => {
     axios
-      .get("http://119.148.12.1:8000/api/hrms/api/CVAdd/")
+      .get("http://119.148.51.38:8000/api/hrms/api/CVAdd/")
       .then((res) => setCvs(res.data))
       .catch((err) => console.error("Error fetching CVs:", err));
   }, []);
@@ -28,7 +28,7 @@ const CVList = () => {
     if (window.confirm("Are you sure you want to delete this CV?")) {
       try {
         await axios.delete(
-          `http://119.148.12.1:8000/api/hrms/api/CVAdd/${id}/`
+          `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`
         );
         setCvs(cvs.filter((cv) => cv.id !== id));
       } catch (error) {
@@ -240,7 +240,7 @@ const styles = {
     border: "1px solid #ddd",
     borderRadius: "4px",
     cursor: "pointer",
-    backgroundColor: "white",
+    backgroundColor: "",
   },
   activePageButton: {
     backgroundColor: "#0078D4",

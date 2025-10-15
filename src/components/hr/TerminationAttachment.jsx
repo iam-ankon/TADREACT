@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const TerminationAttachment = () => {
   const { id } = useParams();
@@ -15,7 +15,7 @@ const TerminationAttachment = () => {
   const fetchAttachments = async () => {
     try {
       const response = await axios.get(
-        `http://119.148.12.1:8000/api/hrms/api/termination_attachment/?employee_id=${id}`
+        `http://119.148.51.38:8000/api/hrms/api/termination_attachment/?employee_id=${id}`
       );
       setAttachments(response.data);
     } catch (error) {
@@ -52,7 +52,7 @@ const TerminationAttachment = () => {
 
     try {
       await axios.post(
-        "http://119.148.12.1:8000/api/hrms/api/termination_attachment/",
+        "http://119.148.51.38:8000/api/hrms/api/termination_attachment/",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -69,14 +69,18 @@ const TerminationAttachment = () => {
   };
 
   const handleDelete = async (attachmentId) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this termination file?");
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this termination file?"
+    );
     if (!confirmDelete) return;
 
     try {
       await axios.delete(
-        `http://119.148.12.1:8000/api/hrms/api/termination_attachment/${attachmentId}/`
+        `http://119.148.51.38:8000/api/hrms/api/termination_attachment/${attachmentId}/`
       );
-      setAttachments(attachments.filter((attachment) => attachment.id !== attachmentId));
+      setAttachments(
+        attachments.filter((attachment) => attachment.id !== attachmentId)
+      );
       alert("Termination file deleted successfully!");
     } catch (error) {
       console.error("Error deleting termination file:", error);
@@ -86,11 +90,12 @@ const TerminationAttachment = () => {
 
   const handleEditDescription = (attachmentId, newDescription) => {
     if (newDescription === null) return; // User cancelled
-    
-    axios.patch(
-      `http://119.148.12.1:8000/api/hrms/api/termination_attachment/${attachmentId}/`,
-      { description: newDescription }
-    )
+
+    axios
+      .patch(
+        `http://119.148.51.38:8000/api/hrms/api/termination_attachment/${attachmentId}/`,
+        { description: newDescription }
+      )
       .then(() => {
         fetchAttachments();
         alert("Description updated successfully!");
@@ -107,7 +112,7 @@ const TerminationAttachment = () => {
       <div style={styles.content}>
         <div style={styles.card}>
           <h2 style={styles.heading}>Employee Attachments</h2>
-          
+
           <div style={styles.uploadSection}>
             <div style={styles.fileInputContainer}>
               <label htmlFor="fileInput" style={styles.fileInputLabel}>
@@ -120,8 +125,12 @@ const TerminationAttachment = () => {
                   style={styles.fileInput}
                 />
               </label>
-              <button onClick={handleUpload} style={styles.uploadButton} disabled={files.length === 0}>
-                Upload {files.length > 0 ? `(${files.length})` : ''}
+              <button
+                onClick={handleUpload}
+                style={styles.uploadButton}
+                disabled={files.length === 0}
+              >
+                Upload {files.length > 0 ? `(${files.length})` : ""}
               </button>
             </div>
 
@@ -154,7 +163,11 @@ const TerminationAttachment = () => {
                   <li key={attachment.id} style={styles.listItem}>
                     <div style={styles.fileInfo}>
                       <a
-                        href={attachment.file.startsWith("http") ? attachment.file : `http://119.148.12.1:8000${attachment.file}`}
+                        href={
+                          attachment.file.startsWith("http")
+                            ? attachment.file
+                            : `http://119.148.51.38:8000${attachment.file}`
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                         style={styles.fileLink}
@@ -172,10 +185,15 @@ const TerminationAttachment = () => {
                     </div>
                     <div style={styles.actions}>
                       <button
-                        onClick={() => handleEditDescription(
-                          attachment.id, 
-                          prompt("Enter new description:", attachment.description || "")
-                        )}
+                        onClick={() =>
+                          handleEditDescription(
+                            attachment.id,
+                            prompt(
+                              "Enter new description:",
+                              attachment.description || ""
+                            )
+                          )
+                        }
                         style={styles.editButton}
                         title="Edit description"
                       >
@@ -205,7 +223,6 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#f5f7fa",
-    
   },
   content: {
     flex: 1,

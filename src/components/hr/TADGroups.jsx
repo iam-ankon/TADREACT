@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import Sidebars from './sidebars';
+import React, { useState, useEffect } from "react";
+import Sidebars from "./sidebars";
 
 const TADGroups = () => {
   const [tadGroups, setTadGroups] = useState([]);
 
   // Fetch TAD groups from the API
   useEffect(() => {
-    fetch('http://119.148.12.1:8000/api/hrms/api/tad_groups/')
-      .then(response => response.json())
-      .then(data => setTadGroups(data))
-      .catch(error => console.error('Error fetching data:', error));
+    fetch("http://119.148.51.38:8000/api/hrms/api/tad_groups/")
+      .then((response) => response.json())
+      .then((data) => setTadGroups(data))
+      .catch((error) => console.error("Error fetching data:", error));
   }, []);
 
   return (
     <div style={styles.appContainer}>
       {/* Sidebar */}
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: "auto" }}>
           {/* Your page content here */}
         </div>
       </div>
@@ -29,7 +29,7 @@ const TADGroups = () => {
         <div style={styles.outlookBody}>
           {tadGroups.length > 0 ? (
             <ul>
-              {tadGroups.map(group => (
+              {tadGroups.map((group) => (
                 <li key={group.id} style={styles.groupItem}>
                   <span>{group.company_name}</span>
                 </li>
@@ -49,35 +49,34 @@ const styles = {
   appContainer: {
     display: "flex",
     height: "100vh",
-    
   },
   outlookContainer: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
-    borderLeft: '1px solid #ccc',
-    padding: '30px',
-    overflowY: 'auto'
+    backgroundColor: "#f3f6fb",
+    borderLeft: "1px solid #ccc",
+    padding: "30px",
+    overflowY: "auto",
   },
   outlookHeader: {
-    backgroundColor: '#0078d4',
-    color: 'white',
-    padding: '20px',
-    borderRadius: '8px 8px 0 0',
-    marginBottom: '10px'
+    backgroundColor: "#0078d4",
+    color: "white",
+    padding: "20px",
+    borderRadius: "8px 8px 0 0",
+    marginBottom: "10px",
   },
   outlookBody: {
-    backgroundColor: '#fff',
-    padding: '20px',
-    borderRadius: '0 0 8px 8px',
-    boxShadow: '0px 4px 8px rgba(0,0,0,0.05)'
+    backgroundColor: "#fff",
+    padding: "20px",
+    borderRadius: "0 0 8px 8px",
+    boxShadow: "0px 4px 8px rgba(0,0,0,0.05)",
   },
   groupItem: {
-    padding: '10px',
-    margin: '5px 0',
-    backgroundColor: '#f9f9f9',
-    border: '1px solid #ddd',
-    borderRadius: '5px'
-  }
+    padding: "10px",
+    margin: "5px 0",
+    backgroundColor: "#f9f9f9",
+    border: "1px solid #ddd",
+    borderRadius: "5px",
+  },
 };
 
 export default TADGroups;

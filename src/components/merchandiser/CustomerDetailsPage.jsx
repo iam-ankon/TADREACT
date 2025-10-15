@@ -2,7 +2,15 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Sidebar from "../merchandiser/Sidebar.jsx";
-import { User, Mail, Phone, MapPin, FileText, ArrowLeft, Users } from "lucide-react";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  FileText,
+  ArrowLeft,
+  Users,
+} from "lucide-react";
 
 export default function CustomerDetailsPage() {
   const { id } = useParams();
@@ -11,8 +19,8 @@ export default function CustomerDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  const API_URL = "http://119.148.12.1:8000/api/merchandiser/api/customer/";
-  const BUYER_URL = "http://119.148.12.1:8000/api/merchandiser/api/buyer/";
+  const API_URL = "http://119.148.51.38:8000/api/merchandiser/api/customer/";
+  const BUYER_URL = "http://119.148.51.38:8000/api/merchandiser/api/buyer/";
 
   useEffect(() => {
     async function fetchData() {
@@ -34,9 +42,18 @@ export default function CustomerDetailsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", height: "100vh", backgroundColor: "#A7D5E1" }}>
+      <div
+        style={{ display: "flex", height: "100vh", backgroundColor: "#A7D5E1" }}
+      >
         <Sidebar />
-        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           <p>Loading customer details...</p>
         </div>
       </div>
@@ -45,9 +62,18 @@ export default function CustomerDetailsPage() {
 
   if (!customer) {
     return (
-      <div style={{ display: "flex", height: "100vh", backgroundColor: "#A7D5E1" }}>
+      <div
+        style={{ display: "flex", height: "100vh", backgroundColor: "#A7D5E1" }}
+      >
         <Sidebar />
-        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           <p>Customer not found</p>
           <button
             onClick={() => navigate(-1)}
@@ -71,7 +97,13 @@ export default function CustomerDetailsPage() {
     customer.buyer?.map((bid) => buyers.find((b) => b.id === bid)?.name) || [];
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#A7D5E1" }}>
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        backgroundColor: "#A7D5E1",
+      }}
+    >
       <Sidebar />
       <div style={{ flex: 1, padding: "24px", overflow: "auto" }}>
         {/* Back Button */}
@@ -130,7 +162,9 @@ export default function CustomerDetailsPage() {
 
           {/* Contact Info */}
           <div style={{ marginTop: 24 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Contact Info</h3>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>
+              Contact Info
+            </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {customer.email && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -161,7 +195,9 @@ export default function CustomerDetailsPage() {
           {/* Extra Info */}
           {customer.remarks && (
             <div style={{ marginTop: 24 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Remarks</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
+                Remarks
+              </h3>
               <p style={{ color: "#374151" }}>{customer.remarks}</p>
             </div>
           )}

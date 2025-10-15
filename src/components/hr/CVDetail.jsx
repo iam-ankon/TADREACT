@@ -15,7 +15,7 @@ const CVDetail = () => {
     const fetchCVDetails = async () => {
       try {
         const response = await axios.get(
-          `http://119.148.12.1:8000/api/hrms/api/CVAdd/${id}/`
+          `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`
         );
         setCvDetails(response.data);
       } catch (error) {
@@ -31,7 +31,7 @@ const CVDetail = () => {
     if (!cvDetails) return "";
 
     // Create URL with query parameters containing CV details
-    const baseUrl = "http://119.148.12.1:3000/interviews";
+    const baseUrl = "http://119.148.51.38:3000/interviews";
 
     const params = new URLSearchParams({
       id: cvDetails.id || id,
@@ -65,7 +65,7 @@ const CVDetail = () => {
 
       // 3. Make API request
       const response = await axios.post(
-        `http://119.148.12.1:8000/api/hrms/api/CVAdd/${id}/update-cv-with-qr/`,
+        `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/update-cv-with-qr/`,
         formData,
         {
           responseType: "blob",

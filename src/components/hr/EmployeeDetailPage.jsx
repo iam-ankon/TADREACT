@@ -31,7 +31,7 @@ const EmployeeDetailPage = () => {
 
   //   axios
   //     .get(
-  //       `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
+  //       `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
   //     )
   //     .then((res) => {
   //       const approvedIncrements = res.data.filter(
@@ -47,7 +47,7 @@ const EmployeeDetailPage = () => {
 
     axios
       .get(
-        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
+        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
       )
       .then((res) => setIncrementHistory(res.data))
       .catch((err) => console.error(err));
@@ -102,7 +102,7 @@ const EmployeeDetailPage = () => {
         for (const customerId of employee.customer) {
           try {
             const response = await axios.get(
-              `http://119.148.12.1:8000/api/hrms/api/customers/${customerId}/`
+              `http://119.148.51.38:8000/api/hrms/api/customers/${customerId}/`
             );
             names.push(response.data.customer_name);
           } catch (error) {

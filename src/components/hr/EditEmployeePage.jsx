@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
@@ -42,12 +40,15 @@ const EditEmployeePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [employeeRes, companiesRes, customersRes, departmentsRes] = await Promise.all([
-          axios.get(`http://119.148.12.1:8000/api/hrms/api/employees/${id}/`),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/tad_groups/"),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/customers/"),
-          axios.get("http://119.148.12.1:8000/api/hrms/api/departments/"),
-        ]);
+        const [employeeRes, companiesRes, customersRes, departmentsRes] =
+          await Promise.all([
+            axios.get(
+              `http://119.148.51.38:8000/api/hrms/api/employees/${id}/`
+            ),
+            axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
+            axios.get("http://119.148.51.38:8000/api/hrms/api/customers/"),
+            axios.get("http://119.148.51.38:8000/api/hrms/api/departments/"),
+          ]);
 
         const emp = employeeRes.data;
         const customerIds = Array.isArray(emp.customer)
@@ -110,17 +111,15 @@ const EditEmployeePage = () => {
       }
 
       await axios.put(
-        `http://119.148.12.1:8000/api/hrms/api/employees/${id}/`,
+        `http://119.148.51.38:8000/api/hrms/api/employees/${id}/`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
       await axios.patch(
-        `http://119.148.12.1:8000/api/hrms/api/employees/${id}/update_customers/`,
+        `http://119.148.51.38:8000/api/hrms/api/employees/${id}/update_customers/`,
         { customers: employee.customer }
       );
-
-
 
       navigate(`/employee/${id}`);
     } catch (error) {
@@ -330,7 +329,6 @@ const EditEmployeePage = () => {
                 ))}
               </select>
             </div>
-              
 
             <div>
               <label style={labelStyle}>Employee Photo (optional)</label>

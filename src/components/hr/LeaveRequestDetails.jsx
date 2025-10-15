@@ -27,13 +27,13 @@ const LeaveRequestDetails = () => {
         // Fetch all required data
         const [leaveRes, balancesRes, typesRes] = await Promise.all([
           axios.get(
-            `http://119.148.12.1:8000/api/hrms/api/employee_leaves/${id}/`
+            `http://119.148.51.38:8000/api/hrms/api/employee_leaves/${id}/`
           ),
           axios.get(
-            "http://119.148.12.1:8000/api/hrms/api/employee_leave_balances/"
+            "http://119.148.51.38:8000/api/hrms/api/employee_leave_balances/"
           ),
           axios.get(
-            "http://119.148.12.1:8000/api/hrms/api/employee_leave_types/"
+            "http://119.148.51.38:8000/api/hrms/api/employee_leave_types/"
           ),
         ]);
 

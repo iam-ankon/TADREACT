@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const InviteMail = () => {
   const [description, setDescription] = useState("");
@@ -20,23 +20,28 @@ const InviteMail = () => {
   const handleSendMail = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://119.148.12.1:8000/api/hrms/api/invitemail/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCSRFToken(),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          description,
-          interview_details: interviewDetails,
-        }),
-      });
+      const response = await fetch(
+        "http://119.148.51.38:8000/api/hrms/api/invitemail/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken(),
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            description,
+            interview_details: interviewDetails,
+          }),
+        }
+      );
 
       const result = await response.json();
       if (response.ok) {
         alert("Message sent successfully and saved!");
-        navigate(`/interviews?interview_id=${interviewDetails.id}`, { replace: true });
+        navigate(`/interviews?interview_id=${interviewDetails.id}`, {
+          replace: true,
+        });
       } else {
         alert(`Error sending message: ${result.error || "Unknown error"}`);
       }
@@ -71,7 +76,9 @@ const InviteMail = () => {
               </div>
               <div style={styles.detailItem}>
                 <span style={styles.detailLabel}>Reference:</span>
-                <span style={styles.detailValue}>{interviewDetails.reference}</span>
+                <span style={styles.detailValue}>
+                  {interviewDetails.reference}
+                </span>
               </div>
               <div style={styles.detailItem}>
                 <span style={styles.detailLabel}>Email:</span>
@@ -84,14 +91,18 @@ const InviteMail = () => {
               <div style={styles.detailItem}>
                 <span style={styles.detailLabel}>Interview Date:</span>
                 <span style={styles.detailValue}>
-                  {interviewDetails.interview_date ? new Date(interviewDetails.interview_date).toLocaleString() : ''}
+                  {interviewDetails.interview_date
+                    ? new Date(interviewDetails.interview_date).toLocaleString()
+                    : ""}
                 </span>
               </div>
             </div>
           </div>
 
           <div style={styles.inputContainer}>
-            <label htmlFor="description" style={styles.label}>Invitation Message</label>
+            <label htmlFor="description" style={styles.label}>
+              Invitation Message
+            </label>
             <textarea
               id="description"
               value={description}
@@ -131,7 +142,6 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#DCEEF3",
-    
   },
   mainContent: {
     flex: 1,
@@ -142,7 +152,7 @@ const styles = {
     alignItems: "flex-start",
   },
   card: {
-    backgroundColor: '#A7D5E1',
+    backgroundColor: "#A7D5E1",
     padding: "2rem",
     borderRadius: "12px",
     boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
@@ -195,7 +205,6 @@ const styles = {
   },
   inputContainer: {
     marginBottom: "1.5rem",
-    
   },
   label: {
     display: "block",

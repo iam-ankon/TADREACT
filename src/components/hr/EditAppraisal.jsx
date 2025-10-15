@@ -51,14 +51,14 @@ const EditAppraisal = () => {
   useEffect(() => {
     // Fetch departments list
     axios
-      .get("http://119.148.12.1:8000/api/hrms/api/departments/")
+      .get("http://119.148.51.38:8000/api/hrms/api/departments/")
       .then((res) => setDepartments(res.data))
       .catch((err) => console.error("Error fetching departments:", err));
 
     // Fetch appraisal data
     axios
       .get(
-        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`
+        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${id}/`
       )
       .then((res) => {
         const departmentName = res.data.department
@@ -102,7 +102,7 @@ const EditAppraisal = () => {
       delete submissionData.department_name;
 
       await axios.put(
-        `http://119.148.12.1:8000/api/hrms/api/performanse_appraisals/${id}/`,
+        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${id}/`,
         submissionData
       );
       alert("Appraisal updated successfully!");

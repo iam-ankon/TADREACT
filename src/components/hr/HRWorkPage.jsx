@@ -34,7 +34,7 @@ const HRWorkPage = () => {
     const fetchEmployeeCount = async () => {
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/hrms/api/employees/"
+          "http://119.148.51.38:8000/api/hrms/api/employees/"
         );
         setEmployeeCount(response.data.length || 0);
       } catch (err) {
@@ -48,7 +48,7 @@ const HRWorkPage = () => {
     const fetchInterviews = async () => {
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/hrms/api/interviews/"
+          "http://119.148.51.38:8000/api/hrms/api/interviews/"
         );
 
         console.log("Interview Data:", response.data); // Debug log
@@ -85,7 +85,7 @@ const HRWorkPage = () => {
     const fetchLeaveRequests = async () => {
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/hrms/api/employee_leaves/"
+          "http://119.148.51.38:8000/api/hrms/api/employee_leaves/"
         );
         // Sort leave requests by date (most recent first)
         const sortedRequests = response.data.sort((a, b) => {
@@ -100,7 +100,7 @@ const HRWorkPage = () => {
     const fetchCVCount = async () => {
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/hrms/api/CVAdd/"
+          "http://119.148.51.38:8000/api/hrms/api/CVAdd/"
         );
         setCvCount(response.data.length || 0);
       } catch (error) {
@@ -111,7 +111,7 @@ const HRWorkPage = () => {
     const fetchAttendanceData = async () => {
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/hrms/api/attendance/"
+          "http://119.148.51.38:8000/api/hrms/api/attendance/"
         );
         console.log("Attendance Data Response:", response.data);
         setAttendanceData(response.data);

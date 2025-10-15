@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const CVAdd = () => {
   const [formData, setFormData] = useState({
@@ -42,9 +42,13 @@ const CVAdd = () => {
     }
 
     try {
-      await axios.post("http://119.148.12.1:8000/api/hrms/api/CVAdd/", uploadData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await axios.post(
+        "http://119.148.51.38:8000/api/hrms/api/CVAdd/",
+        uploadData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       alert("CV uploaded successfully");
       setFormData({
@@ -68,17 +72,16 @@ const CVAdd = () => {
     appContainer: {
       display: "flex",
       height: "100vh",
-      
+
       backgroundColor: "#DCEEF3",
     },
     formContainer: {
-     
       padding: "100px",
       borderRadius: "10px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       width: "800px",
       margin: "40px auto",
-      backgroundColor: '#A7D5E1',
+      backgroundColor: "#A7D5E1",
     },
     heading: {
       fontSize: "1.4rem",
@@ -151,7 +154,6 @@ const CVAdd = () => {
       gap: "100px",
       marginTop: "20px",
       justifyContent: "center",
-      
     },
     spinner: {
       width: "20px",
@@ -174,13 +176,12 @@ const CVAdd = () => {
   return (
     <div style={styles.appContainer}>
       <style>{spinnerStyles}</style> {/* Add the spinner animation */}
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: "auto" }}>
           {/* Your page content here */}
         </div>
       </div>
-
       <div style={styles.formContainer}>
         <h2 style={styles.heading}>Add CV</h2>
         <form onSubmit={handleSubmit}>
@@ -188,42 +189,89 @@ const CVAdd = () => {
           <div style={styles.formRow}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Name:</label>
-              <input type="text" name="name" value={formData.name} onChange={handleChange} required style={styles.inputField} />
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                style={styles.inputField}
+              />
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Position for:</label>
-              <input type="text" name="position_for" value={formData.position_for} onChange={handleChange} required style={styles.inputField} />
+              <input
+                type="text"
+                name="position_for"
+                value={formData.position_for}
+                onChange={handleChange}
+                required
+                style={styles.inputField}
+              />
             </div>
           </div>
           <div style={styles.formRow}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Date of Birth:</label>
-              <input type="date" name="age" value={formData.age} onChange={handleChange} required style={styles.inputField} />
+              <input
+                type="date"
+                name="age"
+                value={formData.age}
+                onChange={handleChange}
+                required
+                style={styles.inputField}
+              />
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Reference:</label>
-              <input type="text" name="reference" value={formData.reference} onChange={handleChange} required style={styles.inputField} />
+              <input
+                type="text"
+                name="reference"
+                value={formData.reference}
+                onChange={handleChange}
+                required
+                style={styles.inputField}
+              />
             </div>
           </div>
           <div style={styles.formRow}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Email:</label>
-              <input type="email" name="email" value={formData.email} onChange={handleChange} required style={styles.inputField} />
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                style={styles.inputField}
+              />
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Phone:</label>
-              <input type="text" name="phone" value={formData.phone} onChange={handleChange} required style={styles.inputField} />
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                style={styles.inputField}
+              />
             </div>
           </div>
           <div style={{ marginBottom: "15px" }}>
             <label style={styles.label}>CV File:</label>
-            <input type="file" onChange={handleFileChange} required style={styles.inputField} />
+            <input
+              type="file"
+              onChange={handleFileChange}
+              required
+              style={styles.inputField}
+            />
           </div>
         </form>
         <div style={styles.buttonContainer}>
-          <button 
-            type="submit" 
-            onClick={handleSubmit} 
+          <button
+            type="submit"
+            onClick={handleSubmit}
             style={isLoading ? styles.submitBtnDisabled : styles.submitBtn}
             disabled={isLoading}
           >
@@ -232,9 +280,13 @@ const CVAdd = () => {
                 <div style={styles.spinner}></div>
                 Processing...
               </>
-            ) : "Submit"}
+            ) : (
+              "Submit"
+            )}
           </button>
-          <button onClick={() => navigate("/cv-list")} style={styles.viewBtn}>View All CVs</button>
+          <button onClick={() => navigate("/cv-list")} style={styles.viewBtn}>
+            View All CVs
+          </button>
         </div>
       </div>
     </div>

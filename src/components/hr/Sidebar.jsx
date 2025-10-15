@@ -35,7 +35,7 @@ const Sidebar = () => {
 
   // Navigate to the Dashboard page
   const handleDashboardClick = () => {
-    navigate("/dashboard");
+    navigate("/hr-work");
   };
 
   const iconStyle = {

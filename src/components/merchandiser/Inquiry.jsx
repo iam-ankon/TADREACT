@@ -14,7 +14,7 @@ const Inquiry = () => {
     const fetchInquiries = async () => {
       try {
         const response = await axios.get(
-          "http://119.148.12.1:8000/api/merchandiser/api/inquiry/"
+          "http://119.148.51.38:8000/api/merchandiser/api/inquiry/"
         );
         setInquiries(response.data);
         setLoading(false);
@@ -30,7 +30,7 @@ const Inquiry = () => {
     if (window.confirm("Are you sure you want to delete this inquiry?")) {
       try {
         await axios.delete(
-          `http://119.148.12.1:8000/api/merchandiser/api/inquiry/${id}/`
+          `http://119.148.51.38:8000/api/merchandiser/api/inquiry/${id}/`
         );
         setInquiries((prev) => prev.filter((inquiry) => inquiry.id !== id));
       } catch (error) {
