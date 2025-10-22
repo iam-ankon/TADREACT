@@ -459,7 +459,7 @@ const styles = {
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
     cursor: "pointer",
-    backgroundColor: "white",
+    
     transition: "background-color 0.2s ease, color 0.2s ease",
     ":hover": {
       backgroundColor: "#f1f5f9",

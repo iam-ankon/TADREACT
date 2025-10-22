@@ -21,18 +21,19 @@ const Attendance = () => {
     delay_time: "",
     id: null,
   });
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(""); // Combined search for name and ID
+  const [companyFilter, setCompanyFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  
+
   // Get initial date filter from localStorage or use empty string
   const [dateFilter, setDateFilter] = useState(() => {
-    const savedDate = localStorage.getItem('attendanceDateFilter');
+    const savedDate = localStorage.getItem("attendanceDateFilter");
     return savedDate || "";
   });
-  
+
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
   const recordsPerPage = 15;
 
@@ -60,13 +61,12 @@ const Attendance = () => {
   // Save date filter to localStorage whenever it changes
   useEffect(() => {
     if (dateFilter) {
-      localStorage.setItem('attendanceDateFilter', dateFilter);
+      localStorage.setItem("attendanceDateFilter", dateFilter);
     } else {
-      localStorage.removeItem('attendanceDateFilter');
+      localStorage.removeItem("attendanceDateFilter");
     }
   }, [dateFilter]);
 
-  // Rest of your component remains the same...
   const formatTimeToAMPM = (timeStr) => {
     if (!timeStr) return "-";
 
@@ -100,8 +100,7 @@ const Attendance = () => {
       return `${hours.toString().padStart(2, "0")}:${minutes
         .toString()
         .padStart(2, "0")}`;
-    }
-    else if (typeof delay === "string") {
+    } else if (typeof delay === "string") {
       const parts = delay.split(":");
       if (parts.length >= 2) {
         return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
@@ -150,30 +149,62 @@ const Attendance = () => {
 
   const filterAttendanceByDate = (records) => {
     if (!dateFilter) return records;
-    
-    return records.filter(record => {
-      const recordDate = new Date(record.date).toISOString().split('T')[0];
+
+    return records.filter((record) => {
+      const recordDate = new Date(record.date).toISOString().split("T")[0];
       return recordDate === dateFilter;
     });
   };
 
-  const filterAttendanceByName = (records) => {
+  // Updated function to search by both name and employee ID
+  const filterAttendanceByNameAndId = (records) => {
     if (!searchTerm) return records;
-    
-    return records.filter(a =>
-      a.employee_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+
+    const searchLower = searchTerm.toLowerCase();
+
+    return records.filter((record) => {
+      const empDetails = getEmployeeDetails(record.employee);
+
+      // Search in employee name
+      const nameMatch = record.employee_name
+        ?.toLowerCase()
+        .includes(searchLower);
+
+      // Search in employee ID
+      const idMatch = empDetails.employee_id
+        ?.toString()
+        .toLowerCase()
+        .includes(searchLower);
+
+      return nameMatch || idMatch;
+    });
+  };
+
+  const filterAttendanceByCompany = (records) => {
+    if (!companyFilter) return records;
+
+    return records.filter((record) => {
+      const empDetails = getEmployeeDetails(record.employee);
+      return empDetails.company === companyFilter;
+    });
   };
 
   const getFilteredAttendance = () => {
     let filtered = attendance;
-    filtered = filterAttendanceByName(filtered);
+    filtered = filterAttendanceByNameAndId(filtered); // Apply combined name and ID filter
     filtered = filterAttendanceByDate(filtered);
+    filtered = filterAttendanceByCompany(filtered);
     return filtered;
   };
 
   const generateMonthlyReport = () => {
     const filteredAttendance = getFilteredAttendance();
+
+    if (filteredAttendance.length === 0) {
+      alert("No attendance records found for the selected criteria");
+      return;
+    }
+
     const headers = [
       "Employee ID",
       "Employee",
@@ -185,6 +216,7 @@ const Attendance = () => {
       "Delay Time",
       "Office Start",
     ];
+
     const csvContent = [
       headers.join(","),
       ...filteredAttendance.map((item) => {
@@ -206,13 +238,28 @@ const Attendance = () => {
       }),
     ].join("\n");
 
+    // Create filename based on filters
+    let filename = "attendance_report";
+    if (dateFilter) {
+      filename += `_${dateFilter}`;
+    }
+    if (companyFilter) {
+      const companyNameForFile = companyFilter.replace(/\s+/g, "_");
+      filename += `_${companyNameForFile}`;
+    }
+    if (searchTerm) {
+      filename += `_search_${searchTerm.replace(/\s+/g, "_")}`;
+    }
+    if (!dateFilter && !companyFilter && !searchTerm) {
+      filename += `_${new Date().toISOString().slice(0, 10)}`;
+    }
+    filename += ".csv";
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `attendance_report_${dateFilter || new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -288,10 +335,35 @@ const Attendance = () => {
     setCurrentPage(1);
   };
 
+  const clearCompanyFilter = () => {
+    setCompanyFilter("");
+    setCurrentPage(1);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setCurrentPage(1);
+  };
+
+  // Get unique company names from employees
+  const getUniqueCompanies = () => {
+    const companySet = new Set();
+    employees.forEach((employee) => {
+      const empDetails = getEmployeeDetails(employee.id);
+      if (empDetails.company && empDetails.company !== "N/A") {
+        companySet.add(empDetails.company);
+      }
+    });
+    return Array.from(companySet).sort();
+  };
+
   const filteredAttendance = getFilteredAttendance();
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = filteredAttendance.slice(indexOfFirstRecord, indexOfLastRecord);
+  const currentRecords = filteredAttendance.slice(
+    indexOfFirstRecord,
+    indexOfLastRecord
+  );
   const totalPages = Math.ceil(filteredAttendance.length / recordsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
@@ -319,9 +391,10 @@ const Attendance = () => {
             }}
           >
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              {/* Combined Employee Name and ID Search */}
               <input
                 type="text"
-                placeholder="Search employee"
+                placeholder="Search by employee name or ID"
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
@@ -329,12 +402,61 @@ const Attendance = () => {
                 }}
                 style={{
                   padding: "10px",
-                  minWidth: "220px",
+                  minWidth: "250px",
                   border: "1px solid #ccc",
                   borderRadius: "5px",
                 }}
               />
-              
+
+              {searchTerm && (
+                <button
+                  onClick={clearSearch}
+                  style={{
+                    ...actionButton,
+                    background: "#6b7280",
+                    padding: "10px 15px",
+                  }}
+                >
+                  Clear Search
+                </button>
+              )}
+
+              {/* Company Filter Dropdown */}
+              <select
+                value={companyFilter}
+                onChange={(e) => {
+                  setCompanyFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: "10px",
+                  minWidth: "180px",
+                  border: "1px solid #ccc",
+                  borderRadius: "5px",
+                  backgroundColor: "white",
+                }}
+              >
+                <option value="">All Companies</option>
+                {getUniqueCompanies().map((company) => (
+                  <option key={company} value={company}>
+                    {company}
+                  </option>
+                ))}
+              </select>
+
+              {companyFilter && (
+                <button
+                  onClick={clearCompanyFilter}
+                  style={{
+                    ...actionButton,
+                    background: "#6b7280",
+                    padding: "10px 15px",
+                  }}
+                >
+                  Clear Company
+                </button>
+              )}
+
               {/* Date Filter Input */}
               <input
                 type="date"
@@ -350,7 +472,7 @@ const Attendance = () => {
                   borderRadius: "5px",
                 }}
               />
-              
+
               {dateFilter && (
                 <button
                   onClick={clearDateFilter}
@@ -396,25 +518,29 @@ const Attendance = () => {
                   padding: "10px 15px",
                 }}
               >
-                Generate {dateFilter ? 'Daily' : 'Monthly'} Report
+                Generate Report
               </button>
             </div>
           </div>
 
           {/* Filter Info */}
-          {dateFilter && (
-            <div style={{
-              marginBottom: "15px",
-              padding: "10px",
-              backgroundColor: "#dbeafe",
-              border: "1px solid #3b82f6",
-              borderRadius: "5px",
-              fontSize: "14px",
-            }}>
-              Showing attendance for: <strong>{dateFilter}</strong> 
-              {filteredAttendance.length > 0 && 
-                ` (${filteredAttendance.length} records found)`
-              }
+          {(dateFilter || companyFilter || searchTerm) && (
+            <div
+              style={{
+                marginBottom: "15px",
+                padding: "10px",
+                backgroundColor: "#dbeafe",
+                border: "1px solid #3b82f6",
+                borderRadius: "5px",
+                fontSize: "14px",
+              }}
+            >
+              Showing attendance records:
+              {dateFilter && <strong> Date: {dateFilter}</strong>}
+              {companyFilter && <strong> Company: {companyFilter}</strong>}
+              {searchTerm && <strong> Search: {searchTerm}</strong>}
+              {filteredAttendance.length > 0 &&
+                ` (${filteredAttendance.length} records found)`}
             </div>
           )}
 
@@ -465,10 +591,9 @@ const Attendance = () => {
                 ) : (
                   <tr>
                     <td colSpan="9" style={{ ...tdStyle, textAlign: "center" }}>
-                      {dateFilter || searchTerm 
-                        ? "No attendance records found for the selected criteria" 
-                        : "No attendance records available"
-                      }
+                      {dateFilter || companyFilter || searchTerm
+                        ? "No attendance records found for the selected criteria"
+                        : "No attendance records available"}
                     </td>
                   </tr>
                 )}
@@ -484,38 +609,134 @@ const Attendance = () => {
                 justifyContent: "center",
                 marginTop: "20px",
                 gap: "5px",
+                alignItems: "center",
               }}
             >
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (number) => (
-                  <button
-                    key={number}
-                    onClick={() => paginate(number)}
-                    style={{
-                      ...actionButton,
-                      background:
-                        currentPage === number ? "#2563eb" : "#e5e7eb",
-                      color: currentPage === number ? "white" : "black",
-                      padding: "8px 12px",
-                    }}
-                  >
-                    {number}
-                  </button>
-                )
+              {/* Previous Button */}
+              <button
+                onClick={() => paginate(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  ...actionButton,
+                  background: currentPage === 1 ? "#9ca3af" : "#3b82f6",
+                  color: "white",
+                  padding: "8px 12px",
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  opacity: currentPage === 1 ? 0.6 : 1,
+                  minWidth: "70px",
+                }}
+              >
+                Previous
+              </button>
+
+              {/* Always show first page */}
+              <button
+                onClick={() => paginate(1)}
+                style={{
+                  ...actionButton,
+                  background: currentPage === 1 ? "#2563eb" : "#e5e7eb",
+                  color: currentPage === 1 ? "white" : "black",
+                  padding: "8px 12px",
+                  minWidth: "40px",
+                }}
+              >
+                1
+              </button>
+
+              {/* Show ellipsis after first page if needed */}
+              {currentPage > 4 && (
+                <span style={{ padding: "8px 5px", color: "#666" }}>...</span>
               )}
+
+              {/* Show pages around current page */}
+              {Array.from({ length: Math.min(5, totalPages - 2) }, (_, i) => {
+                let page;
+                if (currentPage <= 4) {
+                  // Near the beginning: show pages 2,3,4,5,6
+                  page = i + 2;
+                } else if (currentPage >= totalPages - 3) {
+                  // Near the end: show pages totalPages-5 to totalPages-1
+                  page = totalPages - 4 + i;
+                } else {
+                  // Middle: show currentPage-2 to currentPage+2
+                  page = currentPage - 2 + i;
+                }
+
+                // Ensure page is within valid range and not first/last page
+                if (page > 1 && page < totalPages) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => paginate(page)}
+                      style={{
+                        ...actionButton,
+                        background:
+                          currentPage === page ? "#2563eb" : "#e5e7eb",
+                        color: currentPage === page ? "white" : "black",
+                        padding: "8px 12px",
+                        minWidth: "40px",
+                      }}
+                    >
+                      {page}
+                    </button>
+                  );
+                }
+                return null;
+              }).filter(Boolean)}
+
+              {/* Show ellipsis before last page if needed */}
+              {currentPage < totalPages - 3 && (
+                <span style={{ padding: "8px 5px", color: "#666" }}>...</span>
+              )}
+
+              {/* Always show last page if there's more than 1 page */}
+              {totalPages > 1 && (
+                <button
+                  onClick={() => paginate(totalPages)}
+                  style={{
+                    ...actionButton,
+                    background:
+                      currentPage === totalPages ? "#2563eb" : "#e5e7eb",
+                    color: currentPage === totalPages ? "white" : "black",
+                    padding: "8px 12px",
+                    minWidth: "40px",
+                  }}
+                >
+                  {totalPages}
+                </button>
+              )}
+
+              {/* Next Button */}
+              <button
+                onClick={() => paginate(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  ...actionButton,
+                  background:
+                    currentPage === totalPages ? "#9ca3af" : "#3b82f6",
+                  color: "white",
+                  padding: "8px 12px",
+                  cursor:
+                    currentPage === totalPages ? "not-allowed" : "pointer",
+                  opacity: currentPage === totalPages ? 0.6 : 1,
+                  minWidth: "70px",
+                }}
+              >
+                Next
+              </button>
             </div>
           )}
         </div>
       </div>
-      
-      {/* Employee Search Modal */}
+
+      {/* Employee Search Modal - Updated to search by name and ID */}
       {showEmployeeSearch && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
             <h3 style={{ marginBottom: "15px" }}>Select Employee</h3>
             <input
               type="text"
-              placeholder="Search employee"
+              placeholder="Search by employee name or ID"
               value={employeeSearchTerm}
               onChange={(e) => setEmployeeSearchTerm(e.target.value)}
               style={{
@@ -528,11 +749,17 @@ const Attendance = () => {
             />
             <div style={{ maxHeight: "300px", overflowY: "auto" }}>
               {employees
-                .filter((emp) =>
-                  (emp.name || emp.employee_name || "")
+                .filter((emp) => {
+                  const searchLower = employeeSearchTerm.toLowerCase();
+                  const nameMatch = (emp.name || emp.employee_name || "")
                     .toLowerCase()
-                    .includes(employeeSearchTerm.toLowerCase())
-                )
+                    .includes(searchLower);
+                  const idMatch = emp.employee_id
+                    ?.toString()
+                    .toLowerCase()
+                    .includes(searchLower);
+                  return nameMatch || idMatch;
+                })
                 .map((employee) => (
                   <div
                     key={employee.id}
@@ -550,8 +777,12 @@ const Attendance = () => {
                       handleEmployeeSelect(employee);
                     }}
                   >
-                    {employee.name || employee.employee_name} (
-                    {employee.employee_id})
+                    <div>
+                      <strong>{employee.name || employee.employee_name}</strong>
+                    </div>
+                    <div style={{ fontSize: "0.9rem", color: "#666" }}>
+                      ID: {employee.employee_id}
+                    </div>
                   </div>
                 ))}
             </div>
@@ -579,8 +810,12 @@ const Attendance = () => {
               </button>
               <button
                 onClick={() => {
-                  generateEmployeeReport();
-                  setShowEmployeeSearch(false);
+                  if (selectedEmployee) {
+                    generateEmployeeReport();
+                    setShowEmployeeSearch(false);
+                  } else {
+                    alert("Please select an employee first");
+                  }
                 }}
                 style={{
                   ...actionButton,
@@ -612,7 +847,7 @@ const tableStyle = {
   width: "100%",
   background: "#fff",
   borderCollapse: "collapse",
-  borderRadius: "8px",
+  borderRadius: "10px",
   overflow: "hidden",
 };
 

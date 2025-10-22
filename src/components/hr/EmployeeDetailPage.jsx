@@ -365,7 +365,7 @@ const EmployeeDetailPage = () => {
                 >
                   <FaEdit /> Edit
                 </button>
-                <button onClick={() => navigate(-1)} className="btn-back">
+                <button onClick={() => navigate(`/employees`)} className="btn-back">
                   <FaArrowLeft /> Back
                 </button>
                 <button onClick={handlePrint} className="btn-print">

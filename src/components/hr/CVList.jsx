@@ -161,22 +161,102 @@ const CVList = () => {
           </div>
 
           {/* Pagination */}
-          <div style={styles.pagination}>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map(
-              (page) => (
+          {totalPages > 1 && (
+            <div style={styles.pagination}>
+              {/* Previous Button */}
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === 1 && styles.disabledPageButton),
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                }}
+              >
+                Previous
+              </button>
+
+              {/* Always show first page */}
+              <button
+                onClick={() => setCurrentPage(1)}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === 1 && styles.activePageButton),
+                }}
+              >
+                1
+              </button>
+
+              {/* Show ellipsis after first page if needed */}
+              {currentPage > 4 && <span style={styles.ellipsis}>...</span>}
+
+              {/* Show pages around current page */}
+              {Array.from({ length: Math.min(5, totalPages - 2) }, (_, i) => {
+                let page;
+                if (currentPage <= 4) {
+                  // Near the beginning: show pages 2,3,4,5,6
+                  page = i + 2;
+                } else if (currentPage >= totalPages - 3) {
+                  // Near the end: show pages totalPages-5 to totalPages-1
+                  page = totalPages - 4 + i;
+                } else {
+                  // Middle: show currentPage-2 to currentPage+2
+                  page = currentPage - 2 + i;
+                }
+
+                // Ensure page is within valid range and not first/last page
+                if (page > 1 && page < totalPages) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{
+                        ...styles.pageButton,
+                        ...(currentPage === page && styles.activePageButton),
+                      }}
+                    >
+                      {page}
+                    </button>
+                  );
+                }
+                return null;
+              }).filter(Boolean)}
+
+              {/* Show ellipsis before last page if needed */}
+              {currentPage < totalPages - 3 && (
+                <span style={styles.ellipsis}>...</span>
+              )}
+
+              {/* Always show last page if there's more than 1 page */}
+              {totalPages > 1 && (
                 <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
+                  onClick={() => setCurrentPage(totalPages)}
                   style={{
                     ...styles.pageButton,
-                    ...(currentPage === page && styles.activePageButton),
+                    ...(currentPage === totalPages && styles.activePageButton),
                   }}
                 >
-                  {page}
+                  {totalPages}
                 </button>
-              )
-            )}
-          </div>
+              )}
+
+              {/* Next Button */}
+              <button
+                onClick={() =>
+                  setCurrentPage(Math.min(totalPages, currentPage + 1))
+                }
+                disabled={currentPage === totalPages}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === totalPages && styles.disabledPageButton),
+                  cursor:
+                    currentPage === totalPages ? "not-allowed" : "pointer",
+                }}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -240,10 +320,10 @@ const styles = {
     border: "1px solid #ddd",
     borderRadius: "4px",
     cursor: "pointer",
-    backgroundColor: "",
+    backgroundColor: "green",
   },
   activePageButton: {
-    backgroundColor: "#0078D4",
+    backgroundColor: "",
     color: "white",
   },
 };

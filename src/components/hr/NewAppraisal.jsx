@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import Sidebars from "./sidebars";
 
 const NewAppraisal = () => {
   const [employees, setEmployees] = useState([]);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  
   const [formData, setFormData] = useState({
     employee_id: "",
     name: "",
@@ -58,30 +61,40 @@ const NewAppraisal = () => {
     fetchEmployees();
   }, []);
 
-  const handleEmployeeSelect = async (e) => {
-    const selectedEmployeeId = e.target.value;
-    if (!selectedEmployeeId) return;
+  // Filter employees based on search term
+  const filteredEmployees = useMemo(() => {
+    if (!employeeSearch) return employees;
+    
+    const searchTerm = employeeSearch.toLowerCase();
+    return employees.filter(emp => 
+      emp.name?.toLowerCase().includes(searchTerm) ||
+      emp.employee_id?.toLowerCase().includes(searchTerm) ||
+      emp.designation?.toLowerCase().includes(searchTerm)
+    );
+  }, [employees, employeeSearch]);
 
-    try {
-      const selectedEmployee = employees.find(
-        (emp) => emp.employee_id === selectedEmployeeId
-      );
+  const handleEmployeeSelect = (employeeId, employee) => {
+    if (!employeeId) return;
 
-      if (selectedEmployee) {
-        setFormData((prev) => ({
-          ...prev,
-          employee_id: selectedEmployee.employee_id,
-          name: selectedEmployee.name,
-          designation: selectedEmployee.designation,
-          joining_date: selectedEmployee.joining_date,
-          department: selectedEmployee.department_name || "",
-          present_designation: selectedEmployee.designation,
-          present_salary: selectedEmployee.salary || "",
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching employee details:", error);
+    const selectedEmployee = employees.find(
+      (emp) => emp.employee_id === employeeId
+    );
+
+    if (selectedEmployee) {
+      setFormData((prev) => ({
+        ...prev,
+        employee_id: selectedEmployee.employee_id,
+        name: selectedEmployee.name,
+        designation: selectedEmployee.designation,
+        joining_date: selectedEmployee.joining_date,
+        department: selectedEmployee.department_name || "",
+        present_designation: selectedEmployee.designation,
+        present_salary: selectedEmployee.salary || "",
+      }));
     }
+    
+    setEmployeeSearch(employee ? `${employee.name} (${employee.employee_id})` : "");
+    setShowEmployeeDropdown(false);
   };
 
   const handleChange = (e) => {
@@ -166,6 +179,7 @@ const NewAppraisal = () => {
         present_designation: "",
         proposed_designation: "",
       });
+      setEmployeeSearch("");
     } catch (error) {
       console.error("Error adding appraisal:", error);
       alert("Failed to add appraisal. Please try again.");
@@ -229,6 +243,7 @@ const NewAppraisal = () => {
 
   const fieldContainerStyle = {
     marginBottom: "16px",
+    position: "relative",
   };
 
   const labelStyle = {
@@ -303,6 +318,30 @@ const NewAppraisal = () => {
     backgroundColor: "#2563eb",
   };
 
+  const dropdownStyle = {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    maxHeight: "200px",
+    overflowY: "auto",
+    zIndex: 1000,
+    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+  };
+
+  const dropdownItemStyle = {
+    padding: "10px 12px",
+    cursor: "pointer",
+    borderBottom: "1px solid #f3f4f6",
+  };
+
+  const dropdownItemHoverStyle = {
+    backgroundColor: "#f3f4f6",
+  };
+
   return (
     <div style={containerStyle}>
       <Sidebars />
@@ -316,25 +355,39 @@ const NewAppraisal = () => {
                 <h3 style={sectionTitleStyle}>Employee Information</h3>
 
                 <div style={fieldContainerStyle}>
-                  <label htmlFor="employee-select" style={labelStyle}>
-                    Employee Name
+                  <label htmlFor="employee-search" style={labelStyle}>
+                    Search Employee *
                   </label>
-                  <select
-                    id="employee-select"
-                    onChange={handleEmployeeSelect}
-                    style={selectStyle}
-                  >
-                    <option value="">-- Select Employee --</option>
-                    {employees.map((employee) => (
-                      <option
-                        key={employee.employee_id}
-                        value={employee.employee_id}
-                      >
-                        {employee.name} ({employee.employee_id}) -{" "}
-                        {employee.designation}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    id="employee-search"
+                    value={employeeSearch}
+                    onChange={(e) => {
+                      setEmployeeSearch(e.target.value);
+                      setShowEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowEmployeeDropdown(true)}
+                    style={inputStyle}
+                    placeholder="Search by name, ID, or designation..."
+                    required
+                  />
+                  {showEmployeeDropdown && filteredEmployees.length > 0 && (
+                    <div style={dropdownStyle}>
+                      {filteredEmployees.map((emp) => (
+                        <div
+                          key={emp.employee_id}
+                          style={dropdownItemStyle}
+                          onClick={() => handleEmployeeSelect(emp.employee_id, emp)}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = dropdownItemHoverStyle.backgroundColor}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+                        >
+                          <div><strong>{emp.name}</strong></div>
+                          <div>ID: {emp.employee_id} | {emp.designation}</div>
+                          <div>Dept: {emp.department_name} | Phone: {emp.personal_phone}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div style={fieldContainerStyle}>
@@ -348,6 +401,22 @@ const NewAppraisal = () => {
                     value={formData.employee_id}
                     onChange={handleChange}
                     style={inputStyle}
+                    readOnly
+                  />
+                </div>
+
+                <div style={fieldContainerStyle}>
+                  <label htmlFor="name" style={labelStyle}>
+                    Employee Name
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    style={inputStyle}
+                    readOnly
                   />
                 </div>
 
@@ -362,6 +431,7 @@ const NewAppraisal = () => {
                     value={formData.designation}
                     onChange={handleChange}
                     style={inputStyle}
+                    readOnly
                   />
                 </div>
 
@@ -376,6 +446,7 @@ const NewAppraisal = () => {
                     value={formData.joining_date}
                     onChange={handleChange}
                     style={inputStyle}
+                    readOnly
                   />
                 </div>
 
@@ -390,6 +461,7 @@ const NewAppraisal = () => {
                     value={formData.department}
                     onChange={handleChange}
                     style={inputStyle}
+                    readOnly
                   />
                 </div>
 
@@ -481,6 +553,7 @@ const NewAppraisal = () => {
                     value={formData.present_salary}
                     onChange={handleChange}
                     style={inputStyle}
+                    readOnly
                   />
                 </div>
 
@@ -509,6 +582,7 @@ const NewAppraisal = () => {
                     value={formData.present_designation}
                     onChange={handleChange}
                     style={inputStyle}
+                    readOnly
                   />
                 </div>
 
@@ -556,19 +630,6 @@ const NewAppraisal = () => {
                         Promotion
                       </label>
                     </div>
-                    {/* <div style={checkboxContainerStyle}>
-                      <input
-                        type="checkbox"
-                        id="increment"
-                        name="increment"
-                        checked={formData.increment}
-                        onChange={handleCheckboxChange}
-                        style={checkboxStyle}
-                      />
-                      <label htmlFor="increment" style={labelStyle}>
-                        Increment
-                      </label>
-                    </div> */}
                     <div style={checkboxContainerStyle}>
                       <input
                         type="checkbox"
@@ -937,7 +998,7 @@ const NewAppraisal = () => {
               <button
                 type="button"
                 style={buttonStyle}
-                onClick={handleSubmit} // ✅ Trigger submission manually
+                onClick={handleSubmit}
                 onMouseEnter={(e) =>
                   (e.target.style.backgroundColor =
                     buttonHoverStyle.backgroundColor)
