@@ -1,16 +1,16 @@
+// LoginPage.jsx
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/texweave_Logo_1.png";
 import React, { useEffect, useState } from "react";
+import { loginUser, setToken } from "../../api/employeeApi"; // Import the login function
 
 const LoginPage = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
 
-  // 🔒 Prevent back navigation (disables browser back button)
   useEffect(() => {
     window.history.pushState(null, "", window.location.href);
     const handlePopState = () => {
@@ -22,51 +22,46 @@ const LoginPage = () => {
     };
   }, []);
 
-  // 🔐 If already logged in, redirect
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      navigate("/hr-work", { replace: true });
+      navigate("/hr-work", { replace: true }); // Redirect to chat instead of hr-work
     }
   }, [navigate]);
-
-  const getBackendURL = () => {
-    return window.location.hostname === "119.148.51.38"
-      ? "http://119.148.51.38:8000/"
-      : "http://119.148.51.38:8000";
-  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
+    if (!username.trim() || !password.trim()) {
+      setError("Please enter both username and password");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const backendURL = getBackendURL();
-      const response = await fetch(`${backendURL}/users/login/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+      console.log('Starting login process...');
+      const data = await loginUser(username, password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("username", data.username);
-
-        setUsername("");
-        setPassword("");
-
-        // ✅ Replace history to clear login page from back stack
-        navigate("/hr-work", { replace: true });
-      } else {
-        setError(data.error || "Login failed. Please try again.");
+      if (!data.token) {
+        throw new Error('No token received from server');
       }
+
+      // Store authentication data using the API function
+      setToken(data.token);
+      localStorage.setItem("username", data.username);
+      localStorage.setItem("user_id", data.user_id);
+
+      console.log("Login successful, token stored");
+      setUsername("");
+      setPassword("");
+
+      // Redirect to chat page
+      navigate("/chat", { replace: true });
     } catch (err) {
-      setError("An error occurred. Please try again later.");
+      console.error("Login error:", err);
+      setError(err.message || "An error occurred. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -194,6 +189,7 @@ const LoginPage = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="input-group">
@@ -204,6 +200,7 @@ const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <button type="submit" className="login-btn" disabled={loading}>
@@ -227,24 +224,9 @@ const LoginPage = () => {
             />
           </defs>
           <g className="parallax">
-            <use
-              xlinkHref="#gentle-wave"
-              x="48"
-              y="0"
-              fill="rgba(209, 62, 62, 0.35)"
-            />
-            <use
-              xlinkHref="#gentle-wave"
-              x="48"
-              y="3"
-              fill="rgba(8, 213, 249, 0.55)"
-            />
-            <use
-              xlinkHref="#gentle-wave"
-              x="48"
-              y="5"
-              fill="rgba(156, 216, 121, 0.69)"
-            />
+            <use xlinkHref="#gentle-wave" x="48" y="0" fill="rgba(209, 62, 62, 0.35)" />
+            <use xlinkHref="#gentle-wave" x="48" y="3" fill="rgba(8, 213, 249, 0.55)" />
+            <use xlinkHref="#gentle-wave" x="48" y="5" fill="rgba(156, 216, 121, 0.69)" />
             <use xlinkHref="#gentle-wave" x="48" y="7" fill="#fff" />
           </g>
         </svg>

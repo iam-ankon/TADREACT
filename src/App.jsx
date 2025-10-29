@@ -70,6 +70,11 @@ import AddAttachmentInquiry from "./components/merchandiser/AddAttachmentInquiry
 import BuyerDetails from "./components/merchandiser/BuyerDetails.jsx";
 import CustomerDetailsPage from "./components/merchandiser/CustomerDetailsPage.jsx";
 
+
+// chatbox 
+
+import ChatApp from "./components/chatbox/ChatApp.jsx";
+
 import "./styles/App.css";
 
 const AppContent = () => {
@@ -148,6 +153,8 @@ const AppContent = () => {
           <Route path="/inquiries/attachments" element={<ProtectedRoute><AddAttachmentInquiry /></ProtectedRoute>} />
           <Route path="/buyer-details/:id" element={<ProtectedRoute><BuyerDetails /></ProtectedRoute>} />
           <Route path="/customer-details/:id" element={<ProtectedRoute><CustomerDetailsPage /></ProtectedRoute>} />
+
+          <Route path="/chat" element={<ProtectedRoute><ChatApp /></ProtectedRoute>} />
         </Routes>
       </div>
     </>
