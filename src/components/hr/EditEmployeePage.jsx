@@ -30,6 +30,9 @@ const EditEmployeePage = () => {
     image1: null,
     permanent_address: "",
     emergency_contact: "",
+    nid_number: "",
+    blood_group: "",
+    gender: "",
   });
 
   const [companies, setCompanies] = useState([]);
@@ -212,22 +215,50 @@ const EditEmployeePage = () => {
               { name: "office_phone", label: "Office Phone" },
               { name: "reference_phone", label: "Reference Phone" },
               { name: "job_title", label: "Job Title" },
-              { name: "emergency_contact", label: "Emergency Contact" }, // Added emergency contact field
+
+              { name: "nid_number", label: "NID Number" },
+              { name: "blood_group", label: "Blood Group" },
               { name: "salary", label: "Salary", type: "number" },
               { name: "reporting_leader", label: "Reporting Leader" },
-            ].map(({ name, label, type = "text" }) => (
+              {
+                name: "gender",
+                label: "Gender",
+                type: "select",
+                options: [
+                  { value: "", label: "Select Gender" },
+                  { value: "M", label: "Male" },
+                  { value: "F", label: "Female" },
+                ],
+              },
+            ].map(({ name, label, type = "text", options }) => (
               <div key={name}>
                 <label htmlFor={name} style={labelStyle}>
                   {label}
                 </label>
-                <input
-                  id={name}
-                  name={name}
-                  type={type}
-                  value={employee[name]}
-                  onChange={handleChange}
-                  style={inputStyle}
-                />
+                {type === "select" ? (
+                  <select
+                    id={name}
+                    name={name}
+                    value={employee[name]}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  >
+                    {options.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={name}
+                    name={name}
+                    type={type}
+                    value={employee[name]}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                )}
               </div>
             ))}
 
@@ -271,6 +302,16 @@ const EditEmployeePage = () => {
               <textarea
                 name="special_skills"
                 value={employee.special_skills}
+                onChange={handleChange}
+                style={textareaStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Emergency Contact</label>
+              <textarea
+                name="emergency_contact"
+                value={employee.emergency_contact}
                 onChange={handleChange}
                 style={textareaStyle}
               />

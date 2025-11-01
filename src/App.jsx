@@ -35,7 +35,7 @@ import LetterSend from "./components/hr/LetterSend";
 import CVAdd from "./components/hr/CVAdd";
 import ITProvision from "./components/hr/ITProvision";
 import AdminProvision from "./components/hr/AdminProvision";
-import FinanceProvision from "./components/hr/FinanceProvision";
+import FinanceProvision from "./components/tax/FinanceProvision";
 import AddLetterPage from "./components/hr/AddLetterPage";
 import CVList from "./components/hr/CVList";
 import CVEdit from "./components/hr/CVEdit";
@@ -69,6 +69,7 @@ import DetailsInquiry from "./components/merchandiser/DetailsInquiry";
 import AddAttachmentInquiry from "./components/merchandiser/AddAttachmentInquiry";
 import BuyerDetails from "./components/merchandiser/BuyerDetails.jsx";
 import CustomerDetailsPage from "./components/merchandiser/CustomerDetailsPage.jsx";
+import TaxCalculator from "./components/tax/TaxCalculator.jsx";
 
 
 // chatbox 
@@ -155,6 +156,8 @@ const AppContent = () => {
           <Route path="/customer-details/:id" element={<ProtectedRoute><CustomerDetailsPage /></ProtectedRoute>} />
 
           <Route path="/chat" element={<ProtectedRoute><ChatApp /></ProtectedRoute>} />
+
+          <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

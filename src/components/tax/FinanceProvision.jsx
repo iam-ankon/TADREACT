@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { getFinanceProvisions, addFinanceProvision, updateFinanceProvision, deleteFinanceProvision } from "../../api/employeeApi";
 import { useNavigate } from 'react-router-dom';
-import Sidebars from './sidebars';
+import Sidebars from '../hr/sidebars';
+
 const FinanceProvision = () => {
   const [provisions, setProvisions] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -11,7 +12,7 @@ const FinanceProvision = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const provisionsPerPage = 6; // Adjust number of provisions per page
+  const provisionsPerPage = 6;
 
   useEffect(() => {
     const fetchProvisions = async () => {
@@ -114,7 +115,6 @@ const FinanceProvision = () => {
       display: "flex",
       minHeight: "100vh",
       backgroundColor: "#f9fafb",
-      
     },
     mainContent: {
       flex: 1,
@@ -209,18 +209,9 @@ const FinanceProvision = () => {
     },
   };
 
-
   return (
     <div style={styles.container}>
-      {/* Sidebar */}
-      <div style={{ display: 'flex' }}>
-        <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          {/* Your page content here */}
-        </div>
-      </div>
-
-      {/* Main Content */}
+      {/* <Sidebars /> */}
       <div style={styles.mainContent}>
         <div style={styles.header}>
           <h2>Finance Provision</h2>
@@ -237,15 +228,17 @@ const FinanceProvision = () => {
           <button onClick={() => setIsAddModalOpen(true)} style={{ ...styles.button, backgroundColor: "#4CAF50", color: "white" }}>
             Add New Provision
           </button>
-          <button onClick={() => navigate('/it-provision')} style={{ ...styles.button, backgroundColor: "#2196F3", color: "white" }}>
+          {/* <button onClick={() => navigate('/it-provision')} style={{ ...styles.button, backgroundColor: "#2196F3", color: "white" }}>
             IT Provision
           </button>
           <button onClick={() => navigate('/admin-provision')} style={{ ...styles.button, backgroundColor: "#FF9800", color: "white" }}>
             Admin Provision
+          </button> */}
+          <button onClick={() => navigate('/tax-calculator')} style={{ ...styles.button, backgroundColor: "#673AB7", color: "white" }}>
+            Tax Calculator
           </button>
         </div>
 
-        {/* Provisions List */}
         <div style={styles.provisionsContainer}>
           {currentProvisions.map((provision) => (
             <div key={provision.id} style={styles.card}>
@@ -266,7 +259,6 @@ const FinanceProvision = () => {
           ))}
         </div>
 
-        {/* Pagination */}
         <div style={styles.pagination}>
           {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
             <button
@@ -282,7 +274,6 @@ const FinanceProvision = () => {
           ))}
         </div>
 
-        {/* Edit Modal */}
         {isModalOpen && editProvision && (
           <div style={styles.modal}>
             <div style={styles.modalContent}>
@@ -298,7 +289,6 @@ const FinanceProvision = () => {
           </div>
         )}
 
-        {/* Add Modal */}
         {isAddModalOpen && (
           <div style={styles.modal}>
             <div style={styles.modalContent}>

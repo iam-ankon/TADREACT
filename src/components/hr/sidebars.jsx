@@ -4,7 +4,6 @@ import {
   FiUsers,
   FiCalendar,
   FiFileText,
-  FiDollarSign,
   FiSend,
   FiLogOut,
   FiBriefcase,
@@ -14,23 +13,28 @@ import {
 } from "react-icons/fi";
 import { TfiEmail, TfiWorld } from "react-icons/tfi";
 
-const Sidebar = () => {
+const Sidebars = () => {
   const location = useLocation();
-
-  // ✅ Load from localStorage or default to true
+  
+  // ✅ Use a UNIQUE key for Sidebars component
   const [isOpen, setIsOpen] = useState(() => {
-    const stored = localStorage.getItem("sidebarOpen");
-    return stored ? JSON.parse(stored) : true;
+    const stored = localStorage.getItem("sidebarsOpenState");
+    console.log("🔄 Loading Sidebars state:", stored);
+    // Default to TRUE (open) if no stored value
+    return stored !== null ? JSON.parse(stored) : true;
   });
 
-  // ✅ Toggle and persist
+  // ✅ Toggle with the unique key
   const toggleSidebar = () => {
     setIsOpen((prev) => {
-      localStorage.setItem("sidebarOpen", JSON.stringify(!prev));
-      return !prev;
+      const newState = !prev;
+      console.log("💾 Saving Sidebars state:", newState);
+      localStorage.setItem("sidebarsOpenState", JSON.stringify(newState));
+      return newState;
     });
   };
 
+  // Your existing styles and JSX remain the same...
   const sidebarStyle = {
     width: isOpen ? "250px" : "75px",
     backgroundColor: "#DCEEF3",
@@ -41,8 +45,8 @@ const Sidebar = () => {
     transition: "width 0.3s ease",
     position: "relative",
     overflow: "hidden",
-    flexShrink: 0, // ✅ FIXED: was incorrect (you used CSS syntax with a semicolon)
-    minWidth: "75px", // ✅ Prevents shrinking too small when zoomed out
+    flexShrink: 0,
+    minWidth: "75px",
   };
 
   const headerStyle = {
@@ -123,7 +127,6 @@ const Sidebar = () => {
       icon: <FiCalendar />,
       label: "Performance Appraisal",
     },
-    { to: "/finance-provision", icon: <FiDollarSign />, label: "Finance" },
     { to: "/employee-termination", icon: <FiLogOut />, label: "Termination" },
     { to: "/letter-send", icon: <FiSend />, label: "Send Letters" },
     { to: "/email-logs", icon: <TfiEmail />, label: "Email log" },
@@ -159,4 +162,4 @@ const Sidebar = () => {
   );
 };
 
-export default Sidebar;
+export default Sidebars;

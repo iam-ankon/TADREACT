@@ -310,6 +310,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   FiHome,
   FiPieChart,
+  FiDollarSign,
   FiMessageSquare,
   FiMenu,
   FiLogOut,
@@ -496,8 +497,9 @@ const Sidebar = () => {
 
   const menuItems = [
     { to: "/hr-work", icon: <FiHome />, label: "HR Dashboard" },
-    { to: "/dashboard", icon: <FiPieChart />, label: "Merchandiser Dashboard" },
+    // { to: "/dashboard", icon: <FiPieChart />, label: "Merchandiser Dashboard" },
     { to: "/chat", icon: <FiMessageSquare />, label: "Chatbox", onClick: handleChatClick },
+    { to: "/finance-provision", icon: <FiDollarSign />, label: "Finance" },
   ];
 
   return (

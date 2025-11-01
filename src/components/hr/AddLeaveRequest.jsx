@@ -11,7 +11,7 @@ const AddLeaveRequest = () => {
   const [balances, setBalances] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
-  
+
   const [newLeave, setNewLeave] = useState({
     employee: "",
     employee_code: "",
@@ -74,27 +74,27 @@ const AddLeaveRequest = () => {
 
   // Safe string conversion function
   const safeToString = (value) => {
-    if (value === null || value === undefined) return '';
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return value.toString();
-    if (typeof value === 'boolean') return value.toString();
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return value.toString();
+    if (typeof value === "boolean") return value.toString();
     return String(value);
   };
 
   // Filter employees based on search term - COMPLETELY SAFE VERSION
   const filteredEmployees = useMemo(() => {
     if (!employeeSearch) return employees;
-    
+
     const searchTerm = safeToString(employeeSearch).toLowerCase();
-    
-    return employees.filter(emp => {
+
+    return employees.filter((emp) => {
       if (!emp) return false;
-      
+
       const name = safeToString(emp.name);
       const employeeId = safeToString(emp.employee_id);
       const designation = safeToString(emp.designation);
       const department = safeToString(emp.department);
-      
+
       return (
         name.toLowerCase().includes(searchTerm) ||
         employeeId.toLowerCase().includes(searchTerm) ||
@@ -105,8 +105,10 @@ const AddLeaveRequest = () => {
   }, [employees, employeeSearch]);
 
   const handleEmployeeSelect = (employeeId, employee) => {
-    const selectedEmployee = employees.find(emp => emp && emp.id.toString() === employeeId);
-    
+    const selectedEmployee = employees.find(
+      (emp) => emp && emp.id.toString() === employeeId
+    );
+
     if (selectedEmployee) {
       const selectedBalance = balances.find(
         (balance) => balance && balance.employee === selectedEmployee.id
@@ -127,9 +129,11 @@ const AddLeaveRequest = () => {
         leave_balance: selectedBalance?.leave_balance || 0,
       }));
     }
-    
+
     if (employee) {
-      const displayName = `${safeToString(employee.name)} (${safeToString(employee.employee_id)})`;
+      const displayName = `${safeToString(employee.name)} (${safeToString(
+        employee.employee_id
+      )})`;
       setEmployeeSearch(displayName);
     } else {
       setEmployeeSearch("");
@@ -164,7 +168,7 @@ const AddLeaveRequest = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!newLeave.employee) {
       alert("Please select an employee");
       return;
@@ -184,7 +188,7 @@ const AddLeaveRequest = () => {
       alert("Please provide a reason for leave");
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -213,14 +217,14 @@ const AddLeaveRequest = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (!e.target.closest('.employee-search-container')) {
+      if (!e.target.closest(".employee-search-container")) {
         setShowEmployeeDropdown(false);
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, []);
 
@@ -392,7 +396,7 @@ const AddLeaveRequest = () => {
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
           <div style={styles.card}>
             <h2 style={styles.heading}>New Leave Request</h2>
-            
+
             {loading && employees.length === 0 ? (
               <div style={styles.loadingText}>Loading data...</div>
             ) : (
@@ -400,7 +404,10 @@ const AddLeaveRequest = () => {
                 <div style={styles.section}>
                   <h3 style={styles.sectionTitle}>Employee Information</h3>
                   <div style={styles.formGrid}>
-                    <div style={styles.employeeSearchGroup} className="employee-search-container">
+                    <div
+                      style={styles.employeeSearchGroup}
+                      className="employee-search-container"
+                    >
                       <label style={styles.label}>
                         Employee <span style={styles.requiredField}>*</span>
                       </label>
@@ -424,27 +431,47 @@ const AddLeaveRequest = () => {
                                 e.stopPropagation();
                                 handleEmployeeSelect(emp.id.toString(), emp);
                               }}
-                              onMouseEnter={(e) => e.target.style.backgroundColor = styles.dropdownItemHover.backgroundColor}
-                              onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+                              onMouseEnter={(e) =>
+                                (e.target.style.backgroundColor =
+                                  styles.dropdownItemHover.backgroundColor)
+                              }
+                              onMouseLeave={(e) =>
+                                (e.target.style.backgroundColor = "transparent")
+                              }
                             >
-                              <div style={styles.employeeName}>{safeToString(emp.name) || 'No Name'}</div>
-                              <div style={styles.employeeDetails}>
-                                ID: {safeToString(emp.employee_id) || 'No ID'} | {safeToString(emp.designation) || 'No Designation'}
+                              <div style={styles.employeeName}>
+                                {safeToString(emp.name) || "No Name"}
                               </div>
                               <div style={styles.employeeDetails}>
-                                Dept: {safeToString(emp.department) || 'No Department'} | Phone: {safeToString(emp.personal_phone) || 'No Phone'}
+                                ID: {safeToString(emp.employee_id) || "No ID"} |{" "}
+                                {safeToString(emp.designation) ||
+                                  "No Designation"}
+                              </div>
+                              <div style={styles.employeeDetails}>
+                                Dept:{" "}
+                                {safeToString(emp.department) ||
+                                  "No Department"}{" "}
+                                | Phone:{" "}
+                                {safeToString(emp.personal_phone) || "No Phone"}
                               </div>
                             </div>
                           ))}
                         </div>
                       )}
-                      {showEmployeeDropdown && filteredEmployees.length === 0 && employeeSearch && (
-                        <div style={styles.dropdown}>
-                          <div style={{...styles.dropdownItem, cursor: 'default'}}>
-                            No employees found matching "{employeeSearch}"
+                      {showEmployeeDropdown &&
+                        filteredEmployees.length === 0 &&
+                        employeeSearch && (
+                          <div style={styles.dropdown}>
+                            <div
+                              style={{
+                                ...styles.dropdownItem,
+                                cursor: "default",
+                              }}
+                            >
+                              No employees found matching "{employeeSearch}"
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
 
                     <div style={styles.inputGroup}>
@@ -454,7 +481,7 @@ const AddLeaveRequest = () => {
                         name="employee_code"
                         value={newLeave.employee_code}
                         readOnly
-                        style={{...styles.input, backgroundColor: '#f7fafc'}}
+                        style={{ ...styles.input, backgroundColor: "#f7fafc" }}
                       />
                     </div>
 
@@ -465,30 +492,45 @@ const AddLeaveRequest = () => {
                         name="designation"
                         value={newLeave.designation}
                         readOnly
-                        style={{...styles.input, backgroundColor: '#f7fafc'}}
+                        style={{ ...styles.input, backgroundColor: "#f7fafc" }}
+                        
                       />
                     </div>
 
                     <div style={styles.inputGroup}>
                       <label style={styles.label}>Department</label>
-                      <input
-                        type="text"
+                      <select
                         name="department"
                         value={newLeave.department}
-                        readOnly
-                        style={{...styles.input, backgroundColor: '#f7fafc'}}
-                      />
+                        onChange={handleInputChange}
+                        style={{ ...styles.input, ...styles.select }}
+                     
+                      >
+                        <option value="">Select Department</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {dept.department_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div style={styles.inputGroup}>
                       <label style={styles.label}>Company</label>
-                      <input
-                        type="text"
+                      <select
                         name="company"
                         value={newLeave.company}
-                        readOnly
-                        style={{...styles.input, backgroundColor: '#f7fafc'}}
-                      />
+                        onChange={handleInputChange}
+                        style={{ ...styles.input, ...styles.select }}
+                        
+                      >
+                        <option value="">Select Company</option>
+                        {companies.map((comp) => (
+                          <option key={comp.id} value={comp.id}>
+                            {comp.company_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div style={styles.inputGroup}>
@@ -498,7 +540,7 @@ const AddLeaveRequest = () => {
                         name="joining_date"
                         value={newLeave.joining_date}
                         readOnly
-                        style={{...styles.input, backgroundColor: '#f7fafc'}}
+                        style={{ ...styles.input, backgroundColor: "#f7fafc" }}
                       />
                     </div>
 
@@ -597,7 +639,7 @@ const AddLeaveRequest = () => {
                         name="leave_days"
                         value={newLeave.leave_days}
                         readOnly
-                        style={{...styles.input, backgroundColor: '#f7fafc'}}
+                        style={{ ...styles.input, backgroundColor: "#f7fafc" }}
                       />
                     </div>
 
@@ -608,7 +650,7 @@ const AddLeaveRequest = () => {
                         name="balance"
                         value={newLeave.balance}
                         readOnly
-                        style={{...styles.input, backgroundColor: '#f7fafc'}}
+                        style={{ ...styles.input, backgroundColor: "#f7fafc" }}
                       />
                     </div>
 

@@ -149,7 +149,11 @@ const EmployeeDetails = () => {
             .includes(searchQuery.toLowerCase())) ||
         employee.company_name
           ?.toLowerCase()
-          .includes(searchQuery.toLowerCase())) &&
+          .includes(searchQuery.toLowerCase()) ||
+        (employee.blood_group &&
+          employee.blood_group
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()))) &&
       (designationFilter === "" ||
         employee.designation === designationFilter) &&
       (departmentFilter === "" || employee.department_name === departmentFilter)
@@ -208,7 +212,8 @@ const EmployeeDetails = () => {
                 <th>Designation</th>
                 <th>Department</th>
                 <th>Company</th>
-                <th>Salary</th>
+                <th>Blood Group</th>
+                <th>Join Date</th>
               </tr>
             </thead>
             <tbody>
@@ -221,7 +226,8 @@ const EmployeeDetails = () => {
                   <td>${employee.designation || ""}</td>
                   <td>${employee.department_name || ""}</td>
                   <td>${employee.company_name || ""}</td>
-                  <td>${employee.salary ? "$" + employee.salary : ""}</td>
+                  <td>${employee.blood_group ? employee.blood_group : ""}</td>
+                  <td>${employee.joining_date || ""}</td>
                 </tr>
               `
                 )
@@ -320,7 +326,7 @@ const EmployeeDetails = () => {
                 <FaSearch className="search-icon" />
                 <input
                   type="text"
-                  placeholder="Search by Name, ID, or Company..."
+                  placeholder="Search by Name, ID, Company, or Blood Group..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -450,6 +456,7 @@ const EmployeeDetails = () => {
                     <th>Designation</th>
                     <th>Department</th>
                     <th>Company</th>
+                    <th>Blood Group</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -466,6 +473,7 @@ const EmployeeDetails = () => {
                         <td>{employee.designation}</td>
                         <td>{employee.department_name || "N/A"}</td>
                         <td>{employee.company_name}</td>
+                        <td>{employee.blood_group || "N/A"}</td>
                         <td className="action-buttons-cell">
                           <button
                             onClick={(e) => {
@@ -487,7 +495,7 @@ const EmployeeDetails = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="no-results">
+                      <td colSpan="7" className="no-results">
                         No employees found matching your search criteria
                       </td>
                     </tr>

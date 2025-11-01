@@ -58,7 +58,7 @@ const LoginPage = () => {
       setPassword("");
 
       // Redirect to chat page
-      navigate("/chat", { replace: true });
+      navigate("/hr-work", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "An error occurred. Please try again later.");

@@ -32,6 +32,9 @@ const AddEmployee = () => {
     image1: null,
     permanent_address: "",
     emergency_contact: "",
+    nid_number: "",
+    blood_group: "",
+    gender: "",
   });
 
   const [companies, setCompanies] = useState([]);
@@ -42,6 +45,13 @@ const AddEmployee = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeSection, setActiveSection] = useState("personal");
+
+  // Gender options
+  const genderOptions = [
+    { label: "Select Gender", value: "" },
+    { label: "Male", value: "M" },
+    { label: "Female", value: "F" },
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -182,6 +192,15 @@ const AddEmployee = () => {
         { name: "email", label: "Email", required: true, type: "email" },
         { name: "personal_phone", label: "Personal Phone" },
         { name: "emergency_contact", label: "Emergency Contact" },
+        { name: "nid_number", label: "NID Number" },
+        { name: "blood_group", label: "Blood Group" },
+        {
+          name: "gender",
+          label: "Gender",
+          type: "select",
+          options: genderOptions,
+          
+        },
         {
           name: "date_of_birth",
           label: "Date of Birth",

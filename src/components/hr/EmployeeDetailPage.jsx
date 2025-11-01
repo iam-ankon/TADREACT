@@ -26,6 +26,13 @@ const EmployeeDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [incrementHistory, setIncrementHistory] = useState([]);
 
+  // Helper function to display gender
+  const displayGender = (gender) => {
+    if (gender === "M") return "Male";
+    if (gender === "F") return "Female";
+    return "N/A";
+  };
+
   // useEffect(() => {
   //   if (!employee?.employee_id) return; // only run if employee exists
 
@@ -512,6 +519,18 @@ const EmployeeDetailPage = () => {
                   <div className="detail-row">
                     <span>Date of Birth:</span>
                     <span>{employee.date_of_birth}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span>Gender:</span>
+                    <span>{displayGender(employee.gender)}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span>NID Number:</span>
+                    <span>{employee.nid_number || "N/A"}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span>Blood Group:</span>
+                    <span>{employee.blood_group || "N/A"}</span>
                   </div>
                   <div className="detail-row">
                     <span>Special Skills:</span>
