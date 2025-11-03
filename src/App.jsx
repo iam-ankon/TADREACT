@@ -69,7 +69,11 @@ import DetailsInquiry from "./components/merchandiser/DetailsInquiry";
 import AddAttachmentInquiry from "./components/merchandiser/AddAttachmentInquiry";
 import BuyerDetails from "./components/merchandiser/BuyerDetails.jsx";
 import CustomerDetailsPage from "./components/merchandiser/CustomerDetailsPage.jsx";
+
+
+// Tax Calculator
 import TaxCalculator from "./components/tax/TaxCalculator.jsx";
+import TaxCalculators from "./components/tax/TaxCalculators.jsx";
 
 
 // chatbox 
@@ -158,6 +162,7 @@ const AppContent = () => {
           <Route path="/chat" element={<ProtectedRoute><ChatApp /></ProtectedRoute>} />
 
           <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} />
+          <Route path="/tax-calculator/:employeeId" element={<ProtectedRoute><TaxCalculators /></ProtectedRoute>} />
         </Routes>
       </div>
     </>
