@@ -1,61 +1,132 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState } from "react";
 import { Form, Button, Table, Alert, Card } from "react-bootstrap";
+import { FaArrowLeft } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
+/* -------------------------------------------------------------
+   TAX CALCULATION – pure JavaScript (identical to Python)
+   ------------------------------------------------------------- */
+const calculate_ait = (salary, gender, source_other = 0) => {
+  if (salary <= 0) return { error: "Invalid salary amount" };
+  if (source_other < 0) return { error: "Invalid source tax amount" };
+  if (!["Male", "Female"].includes(gender))
+    return { error: "Invalid gender! Must be Male or Female" };
+
+  const first_slab = gender === "Male" ? 375000 : 400000;
+  const title_gender = gender;
+  const title_name = gender === "Male" ? "Mr. X" : "Ms. X";
+
+  const bonus = salary;
+  const basic = salary * 0.6;
+  const house_rent = salary * 0.3;
+  const medical = salary * 0.05;
+  const conveyance = salary * 0.05;
+
+  const total_income_ytd =
+    (basic + house_rent + medical + conveyance) * 12 + bonus;
+  const exemption = Math.min(500000, total_income_ytd / 3);
+  const taxable_income_ytd = total_income_ytd - exemption;
+
+  const tax_rebate_criteria = taxable_income_ytd * 0.03;
+  const actual_investment = taxable_income_ytd * 0.15;
+  const max_investment_limit = 1000000;
+  const tax_rebate = Math.min(
+    tax_rebate_criteria,
+    actual_investment,
+    max_investment_limit
+  );
+
+  const slabs = [
+    { limit: first_slab, rate: 0 },
+    { limit: 300000, rate: 0.1 },
+    { limit: 400000, rate: 0.15 },
+    { limit: 500000, rate: 0.2 },
+    { limit: 2000000, rate: 0.25 },
+    { limit: null, rate: 0.3 },
+  ];
+
+  let remaining = taxable_income_ytd;
+  const tax_slabs = slabs.map((s) => {
+    if (remaining <= 0) return { ...s, income: 0, tax: 0 };
+    const income = s.limit === null ? remaining : Math.min(s.limit, remaining);
+    const tax = income * s.rate;
+    remaining -= income;
+    return { limit: s.limit, rate: s.rate, income, tax };
+  });
+
+  const total_tax_payable = tax_slabs.reduce((a, b) => a + b.tax, 0);
+  const net_tax_payable = Math.max(total_tax_payable - tax_rebate, 5000);
+  const tax_payable = Math.max(net_tax_payable - source_other, 0);
+  const monthly_tds = Math.round(tax_payable / 12);
+
+  return {
+    title: `${title_name} (Income Year 2025-2026)`,
+    gender: title_gender,
+    monthly_salary: salary,
+    bonus,
+    source_other,
+    salary_breakdown: {
+      basic: { monthly: basic, ytd: basic * 12 },
+      house_rent: { monthly: house_rent, ytd: house_rent * 12 },
+      medical: { monthly: medical, ytd: medical * 12 },
+      conveyance: { monthly: conveyance, ytd: conveyance * 12 },
+      bonus,
+      total_income_ytd,
+      exemption,
+      taxable_income_ytd,
+    },
+    rebate: {
+      taxable_income_3percent: tax_rebate_criteria,
+      actual_investment_15percent: actual_investment,
+      max_investment_limit,
+      tax_rebate,
+    },
+    tax_slabs,
+    tax_calculation: {
+      total_tax_payable,
+      tax_rebate,
+      net_tax_payable,
+      source_tax_other: source_other,
+      tax_payable,
+      monthly_tds,
+    },
+    employee_name: "Custom Employee",
+  };
+};
+
+/* -------------------------------------------------------------
+   MAIN COMPONENT – Updated to match TaxCalculators.jsx design
+   ------------------------------------------------------------- */
 const TaxCalculator = () => {
-  const [employees, setEmployees] = useState([]);
-  const [filteredEmployees, setFilteredEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const navigate = useNavigate();
+  const [customSalary, setCustomSalary] = useState("");
   const [gender, setGender] = useState("Male");
   const [sourceOther, setSourceOther] = useState(0);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-
-  useEffect(() => {
-    axios
-      .get("http://119.148.51.38:8000/api/tax-calculator/employees/")
-      .then((response) => {
-        setEmployees(response.data);
-        setFilteredEmployees(response.data);
-      })
-      .catch((error) => setError("Failed to fetch employees"));
-  }, []);
-
-  const handleSearch = (e) => {
-    const term = e.target.value.toLowerCase();
-    setSearchTerm(term);
-
-    if (term === "") {
-      setFilteredEmployees(employees);
-    } else {
-      const filtered = employees.filter(
-        (emp) =>
-          emp.name.toLowerCase().includes(term) ||
-          emp.employee_id.toString().includes(term)
-      );
-      setFilteredEmployees(filtered);
-    }
-  };
 
   const handleCalculate = () => {
-    if (!selectedEmployee) {
-      setError("Please select an employee");
+    setError("");
+    setResult(null);
+
+    const salaryNum = parseFloat(customSalary);
+    if (isNaN(salaryNum) || salaryNum <= 0) {
+      setError("Please enter a valid salary greater than 0");
       return;
     }
-    setError("");
-    axios
-      .post("http://119.148.51.38:8000/api/tax-calculator/calculate/", {
-        employee_id: selectedEmployee,
-        gender,
-        source_other: sourceOther,
-      })
-      .then((response) => setResult(response.data))
-      .catch((error) =>
-        setError(error.response?.data?.error || "Calculation failed")
-      );
+
+    const data = calculate_ait(salaryNum, gender, sourceOther);
+    if (data.error) {
+      setError(data.error);
+      return;
+    }
+    setResult(data);
   };
 
+  const n = (v) =>
+    (v ?? 0).toLocaleString("en-BD", { maximumFractionDigits: 0 });
+
+  /* ----------------- EXACT STYLES FROM TaxCalculators.jsx ----------------- */
   const containerStyle = {
     padding: "20px",
     maxWidth: "1200px",
@@ -114,8 +185,22 @@ const TaxCalculator = () => {
     marginBottom: "25px",
   };
 
-  // Helper function for number formatting
-  const n = (val) => (val ?? 0).toLocaleString("en-BD", { maximumFractionDigits: 0 });
+  const backButtonStyle = {
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    border: "none",
+    borderRadius: "10px",
+    padding: "10px 20px",
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "white",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    transition: "all 0.3s ease",
+    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.3)",
+    marginBottom: "20px",
+  };
 
   return (
     <div style={containerStyle}>
@@ -144,6 +229,34 @@ const TaxCalculator = () => {
         </Alert>
       )}
 
+      {/* Back Button and Title */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "15px",
+          marginBottom: "25px",
+        }}
+      >
+        <button
+          onClick={() => navigate(-1)}
+          style={backButtonStyle}
+          onMouseEnter={(e) => {
+            e.target.style.transform = "translateY(-2px)";
+            e.target.style.boxShadow = "0 6px 20px rgba(102, 126, 234, 0.4)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = "translateY(0)";
+            e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.3)";
+          }}
+        >
+          <FaArrowLeft /> Back
+        </button>
+        <h2 style={{ margin: 0, color: "#2c3e50" }}>
+          Custom Tax Calculation
+        </h2>
+      </div>
+
       {/* Input Card */}
       <Card style={cardStyle}>
         <Card.Body style={{ padding: "30px" }}>
@@ -157,210 +270,150 @@ const TaxCalculator = () => {
               display: "inline-block",
             }}
           >
-            Employee Details
+            Update Inputs
           </h3>
 
           <Form>
-            {/* Search Input */}
-            <Form.Group className="mb-4">
-              <Form.Label
-                style={{
-                  fontWeight: "600",
-                  color: "#555",
-                  marginBottom: "8px",
-                }}
-              >
-                Search Employee
-              </Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Search by name or ID..."
-                value={searchTerm}
-                onChange={handleSearch}
-                style={{
-                  ...inputStyle,
-                  background: searchTerm ? "#fff9e6" : "white",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#667eea";
-                  e.target.style.boxShadow =
-                    "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e9ecef";
-                  e.target.style.boxShadow = "none";
-                }}
-              />
-            </Form.Group>
-
-            {/* Employee Selection */}
-            <Form.Group className="mb-4">
-              <Form.Label
-                style={{
-                  fontWeight: "600",
-                  color: "#555",
-                  marginBottom: "8px",
-                }}
-              >
-                Select Employee
-              </Form.Label>
-              <Form.Select
-                value={selectedEmployee}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
-                style={inputStyle}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#667eea";
-                  e.target.style.boxShadow =
-                    "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e9ecef";
-                  e.target.style.boxShadow = "none";
-                }}
-              >
-                <option value="">Select Employee</option>
-                {filteredEmployees.map((emp) => (
-                  <option key={emp.employee_id} value={emp.employee_id}>
-                    {emp.name} (ID: {emp.employee_id})
-                  </option>
-                ))}
-              </Form.Select>
-              {filteredEmployees.length === 0 && searchTerm && (
-                <div
-                  style={{
-                    color: "#6c757d",
-                    fontSize: "14px",
-                    marginTop: "5px",
-                  }}
-                >
-                  No employees found matching "{searchTerm}"
-                </div>
-              )}
-            </Form.Group>
-
-            {/* Gender Selection */}
-            <Form.Group className="mb-4">
-              <Form.Label
-                style={{
-                  fontWeight: "600",
-                  color: "#555",
-                  marginBottom: "8px",
-                }}
-              >
-                Gender
-              </Form.Label>
-              <Form.Select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                style={inputStyle}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#667eea";
-                  e.target.style.boxShadow =
-                    "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e9ecef";
-                  e.target.style.boxShadow = "none";
-                }}
-              >
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </Form.Select>
-            </Form.Group>
-
-            {/* Other Income */}
-            <Form.Group className="mb-4">
-              <Form.Label
-                style={{
-                  fontWeight: "600",
-                  color: "#555",
-                  marginBottom: "8px",
-                }}
-              >
-                Source Tax Other (BDT)
-              </Form.Label>
-              <Form.Control
-                type="number"
-                value={sourceOther}
-                onChange={(e) => setSourceOther(e.target.value)}
-                min="0"
-                style={inputStyle}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#667eea";
-                  e.target.style.boxShadow =
-                    "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e9ecef";
-                  e.target.style.boxShadow = "none";
-                }}
-              />
-            </Form.Group>
-
-            {/* Calculate Button */}
-            <Button
-              variant="primary"
-              onClick={handleCalculate}
-              style={buttonStyle}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-                e.target.style.boxShadow =
-                  "0 6px 20px rgba(102, 126, 234, 0.4)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow =
-                  "0 4px 15px rgba(102, 126, 234, 0.3)";
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "25px",
               }}
             >
-              Calculate Tax
-            </Button>
+              {/* Salary Input */}
+              <Form.Group>
+                <Form.Label
+                  style={{
+                    fontWeight: "600",
+                    color: "#555",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Monthly Salary (BDT)
+                </Form.Label>
+                <Form.Control
+                  type="number"
+                  placeholder="e.g. 120000"
+                  value={customSalary}
+                  onChange={(e) => setCustomSalary(e.target.value)}
+                  min="1"
+                  style={inputStyle}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#667eea";
+                    e.target.style.boxShadow = "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e9ecef";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+              </Form.Group>
+
+              {/* Gender Selection */}
+              <Form.Group>
+                <Form.Label
+                  style={{
+                    fontWeight: "600",
+                    color: "#555",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Gender
+                </Form.Label>
+                <Form.Select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  style={inputStyle}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#667eea";
+                    e.target.style.boxShadow = "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e9ecef";
+                    e.target.style.boxShadow = "none";
+                  }}
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </Form.Select>
+              </Form.Group>
+
+              {/* Source Other */}
+              <Form.Group>
+                <Form.Label
+                  style={{
+                    fontWeight: "600",
+                    color: "#555",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Source Tax Other (BDT)
+                </Form.Label>
+                <Form.Control
+                  type="number"
+                  value={sourceOther}
+                  onChange={(e) => setSourceOther(parseInt(e.target.value) || 0)}
+                  min="0"
+                  style={inputStyle}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#667eea";
+                    e.target.style.boxShadow = "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e9ecef";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+              </Form.Group>
+
+              {/* Calculate Button */}
+              <Form.Group style={{ display: "flex", alignItems: "flex-end" }}>
+                <Button
+                  variant="primary"
+                  onClick={handleCalculate}
+                  style={buttonStyle}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = "translateY(-2px)";
+                    e.target.style.boxShadow = "0 6px 20px rgba(102, 126, 234, 0.4)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = "translateY(0)";
+                    e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.3)";
+                  }}
+                >
+                  Calculate Tax
+                </Button>
+              </Form.Group>
+            </div>
           </Form>
         </Card.Body>
       </Card>
 
-      {/* Results Section */}
+      {/* Results */}
       {result && (
         <div style={{ marginTop: "30px" }}>
-          {/* Move variable declarations inside the result conditional */}
           {(() => {
             const b = result.salary_breakdown;
             const r = result.rebate;
             const t = result.tax_calculation;
             const slabs = result.tax_slabs;
 
+            // Calculate taxable ratio for proportional distribution (same as TaxCalculators.jsx)
+            const taxableRatio = b.taxable_income_ytd / b.total_income_ytd;
+
             return (
               <>
-                {/* Result Header */}
+                {/* Title Card */}
                 <Card style={resultCardStyle}>
                   <Card.Body style={{ padding: "30px", textAlign: "center" }}>
-                    <h3
-                      style={{
-                        color: "#2c3e50",
-                        marginBottom: "15px",
-                        fontWeight: "700",
-                      }}
-                    >
+                    <h3 style={{ color: "#2c3e50", marginBottom: "15px", fontWeight: "700" }}>
                       {result.title}
                     </h3>
-                    <h5
-                      style={{
-                        color: "#34495e",
-                        marginBottom: "15px",
-                        fontWeight: "600",
-                      }}
-                    >
-                      Simple Only Individual Tax Calculation for {result.gender}{" "}
-                      (Private Job)
+                    <h5 style={{ color: "#34495e", marginBottom: "15px", fontWeight: "600" }}>
+                      Simple Only Individual Tax Calculation for {result.gender} (Private Job)
                     </h5>
-                    <p
-                      style={{
-                        fontSize: "18px",
-                        color: "#2c3e50",
-                        fontWeight: "500",
-                        margin: 0,
-                      }}
-                    >
+                    <p style={{ fontSize: "18px", color: "#2c3e50", fontWeight: "500", margin: 0 }}>
                       Employee: <strong>{result.employee_name}</strong>
                     </p>
                   </Card.Body>
@@ -380,10 +433,7 @@ const TaxCalculator = () => {
                     >
                       Salary Breakdown
                     </h4>
-                    <Table
-                      bordered
-                      style={{ borderRadius: "10px", overflow: "hidden" }}
-                    >
+                    <Table bordered style={{ borderRadius: "10px", overflow: "hidden" }}>
                       <thead>
                         <tr style={tableHeaderStyle}>
                           <th style={{ padding: "15px" }}>Particulars</th>
@@ -399,46 +449,55 @@ const TaxCalculator = () => {
                           { key: "house_rent", label: "House Rent" },
                           { key: "medical", label: "Medical" },
                           { key: "conveyance", label: "Conveyance" },
-                        ].map((item, index) => (
-                          <tr
-                            key={item.key}
-                            style={{
-                              background: index % 2 === 0 ? "#f8f9fa" : "white",
-                            }}
-                          >
-                            <td style={{ padding: "12px 15px", fontWeight: "500" }}>
-                              {item.label}
-                            </td>
-                            <td style={{ padding: "12px 15px" }}>
-                              {n(b[item.key].monthly)}
-                            </td>
-                            <td style={{ padding: "12px 15px" }}>
-                              {n(b[item.key].ytd)}
-                            </td>
-                            {index === 0 && (
-                              <td
-                                rowSpan="5"
-                                style={{
-                                  padding: "12px 15px",
-                                  verticalAlign: "middle",
-                                }}
-                              >
-                                Exemption would be 500,000 or 1/3 of income from
-                                salary, whichever is lower
+                        ].map((item, index) => {
+                          const component = b[item.key];
+                          const taxableYtd = component.ytd * taxableRatio;
+
+                          return (
+                            <tr
+                              key={item.key}
+                              style={{
+                                background: index % 2 === 0 ? "#f8f9fa" : "white",
+                              }}
+                            >
+                              <td style={{ padding: "12px 15px", fontWeight: "500" }}>
+                                {item.label}
                               </td>
-                            )}
-                            <td style={{ padding: "12px 15px" }}></td>
-                          </tr>
-                        ))}
+                              <td style={{ padding: "12px 15px" }}>
+                                {n(component.monthly)}
+                              </td>
+                              <td style={{ padding: "12px 15px" }}>
+                                {n(component.ytd)}
+                              </td>
+                              {index === 0 && (
+                                <td
+                                  rowSpan="5"
+                                  style={{
+                                    padding: "12px 15px",
+                                    verticalAlign: "middle",
+                                    textAlign: "center",
+                                    background: "#f0f8ff",
+                                  }}
+                                >
+                                  Exemption would be 500,000 or 1/3 of income from
+                                  salary, whichever is lower
+                                </td>
+                              )}
+                              <td style={{ padding: "12px 15px" }}>
+                                {n(taxableYtd)}
+                              </td>
+                            </tr>
+                          );
+                        })}
                         <tr style={{ background: "#f8f9fa" }}>
                           <td style={{ padding: "12px 15px", fontWeight: "500" }}>
                             Bonus
                           </td>
                           <td style={{ padding: "12px 15px" }}>-</td>
+                          <td style={{ padding: "12px 15px" }}>{n(b.bonus)}</td>
                           <td style={{ padding: "12px 15px" }}>
-                            {n(b.bonus)}
+                            {n(b.bonus * taxableRatio)}
                           </td>
-                          <td style={{ padding: "12px 15px" }}></td>
                         </tr>
                         <tr style={{ background: "#e3f2fd", fontWeight: "600" }}>
                           <td style={{ padding: "12px 15px" }}>Total</td>
@@ -448,9 +507,7 @@ const TaxCalculator = () => {
                           <td style={{ padding: "12px 15px" }}>
                             {n(b.total_income_ytd)}
                           </td>
-                          <td style={{ padding: "12px 15px" }}>
-                            {n(b.exemption)}
-                          </td>
+                          <td style={{ padding: "12px 15px" }}>{n(b.exemption)}</td>
                           <td style={{ padding: "12px 15px" }}>
                             {n(b.taxable_income_ytd)}
                           </td>
@@ -474,10 +531,7 @@ const TaxCalculator = () => {
                     >
                       Rebate Calculation as Per ITA 2023
                     </h4>
-                    <Table
-                      bordered
-                      style={{ borderRadius: "10px", overflow: "hidden" }}
-                    >
+                    <Table bordered style={{ borderRadius: "10px", overflow: "hidden" }}>
                       <thead>
                         <tr style={tableHeaderStyle}>
                           <th style={{ padding: "15px" }}>Criteria</th>
@@ -567,10 +621,7 @@ const TaxCalculator = () => {
                     >
                       Tax Calculation as Per ITA 2023 AY 2026-2027
                     </h4>
-                    <Table
-                      bordered
-                      style={{ borderRadius: "10px", overflow: "hidden" }}
-                    >
+                    <Table bordered style={{ borderRadius: "10px", overflow: "hidden" }}>
                       <thead>
                         <tr style={tableHeaderStyle}>
                           <th style={{ padding: "15px" }}>Tax Slab</th>
@@ -590,15 +641,11 @@ const TaxCalculator = () => {
                             <td style={{ padding: "12px 15px", fontWeight: "500" }}>
                               {slab.limit ? `${n(slab.limit)}+` : "Remaining"}
                             </td>
-                            <td style={{ padding: "12px 15px" }}>
-                              {n(slab.income)}
-                            </td>
+                            <td style={{ padding: "12px 15px" }}>{n(slab.income)}</td>
                             <td style={{ padding: "12px 15px" }}>
                               {parseFloat(slab.rate) * 100}%
                             </td>
-                            <td style={{ padding: "12px 15px" }}>
-                              {n(slab.tax)}
-                            </td>
+                            <td style={{ padding: "12px 15px" }}>{n(slab.tax)}</td>
                           </tr>
                         ))}
                         <tr style={{ background: "#e3f2fd", fontWeight: "600" }}>
@@ -630,10 +677,7 @@ const TaxCalculator = () => {
                     >
                       Tax Calculation as Per ITA 2023
                     </h4>
-                    <Table
-                      bordered
-                      style={{ borderRadius: "10px", overflow: "hidden" }}
-                    >
+                    <Table bordered style={{ borderRadius: "10px", overflow: "hidden" }}>
                       <thead>
                         <tr style={tableHeaderStyle}>
                           <th style={{ padding: "15px" }}>Particulars</th>
@@ -642,23 +686,14 @@ const TaxCalculator = () => {
                       </thead>
                       <tbody>
                         {[
-                          {
-                            label: "Total Tax Payable",
-                            value: t.total_tax_payable,
-                          },
-                          {
-                            label: "Less: Tax Rebate",
-                            value: t.tax_rebate,
-                          },
+                          { label: "Total Tax Payable", value: t.total_tax_payable },
+                          { label: "Less: Tax Rebate", value: t.tax_rebate },
                           {
                             label: "Net Tax Payable",
                             value: t.net_tax_payable,
                             isBold: true,
                           },
-                          {
-                            label: "Source Tax Other",
-                            value: sourceOther,
-                          },
+                          { label: "Source Tax Other", value: sourceOther },
                           {
                             label: "Tax Payable",
                             value: t.tax_payable,

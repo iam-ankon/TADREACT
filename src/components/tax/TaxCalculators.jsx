@@ -15,8 +15,11 @@ const TaxCalculators = () => {
   const [result, setResult] = useState(null);
   const [gender, setGender] = useState("Male");
   const [sourceOther, setSourceOther] = useState(0);
+  const [bonus, setBonus] = useState(0);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("0");
+  const [editingBonus, setEditingBonus] = useState(false);
+  const [editBonusValue, setEditBonusValue] = useState("0");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -34,12 +37,19 @@ const TaxCalculators = () => {
         setEmployee(emp);
         setGender(emp.gender === "M" ? "Male" : "Female");
 
+        // Load Source Tax Other
         const saved = localStorage.getItem("sourceTaxOther");
         const savedVal = saved ? JSON.parse(saved)[employeeId] || 0 : 0;
         setSourceOther(savedVal);
         setEditValue(savedVal.toString());
 
-        await calculate(savedVal);
+        // Load Bonus Override
+        const savedBonus = localStorage.getItem("bonusOverride");
+        const savedBonusVal = savedBonus ? JSON.parse(savedBonus)[employeeId] || 0 : 0;
+        setBonus(savedBonusVal);
+        setEditBonusValue(savedBonusVal.toString());
+
+        await calculate(savedVal, savedBonusVal);
       } catch (err) {
         setError(err.message || "Failed to load");
       } finally {
@@ -47,11 +57,12 @@ const TaxCalculators = () => {
       }
     };
 
-    const calculate = async (other = sourceOther) => {
+    const calculate = async (other = sourceOther, bonusVal = bonus) => {
       const res = await axios.post(`${API_BASE}/calculate/`, {
         employee_id: employeeId,
         gender,
         source_other: parseFloat(other) || 0,
+        bonus: parseFloat(bonusVal) || 0,
       });
       setResult(res.data);
     };
@@ -59,7 +70,7 @@ const TaxCalculators = () => {
     if (employeeId) load();
   }, [employeeId]);
 
-  // Auto recalculate
+  // Auto recalculate on input change
   useEffect(() => {
     if (!employee) return;
     const timer = setTimeout(() => {
@@ -68,11 +79,12 @@ const TaxCalculators = () => {
           employee_id: employeeId,
           gender,
           source_other: sourceOther,
+          bonus: bonus,
         })
         .then((r) => setResult(r.data));
     }, 500);
     return () => clearTimeout(timer);
-  }, [gender, sourceOther]);
+  }, [gender, sourceOther, bonus]);
 
   const handleSave = () => {
     const val = parseFloat(editValue) || 0;
@@ -83,7 +95,16 @@ const TaxCalculators = () => {
     localStorage.setItem("sourceTaxOther", JSON.stringify(saved));
   };
 
-  // Styles matching TaxCalculator.jsx
+  const handleSaveBonus = () => {
+    const val = parseFloat(editBonusValue) || 0;
+    setBonus(val);
+    setEditingBonus(false);
+    const saved = JSON.parse(localStorage.getItem("bonusOverride") || "{}");
+    saved[employeeId] = val;
+    localStorage.setItem("bonusOverride", JSON.stringify(saved));
+  };
+
+  // Styles (unchanged)
   const containerStyle = {
     padding: "20px",
     maxWidth: "1200px",
@@ -186,11 +207,11 @@ const TaxCalculators = () => {
           <p>Loading...</p>
         </div>
         <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
 
@@ -231,7 +252,6 @@ const TaxCalculators = () => {
   const t = result.tax_calculation;
   const slabs = result.tax_slabs;
 
-  // Calculate taxable ratio for proportional distribution
   const taxableRatio = b.taxable_income_ytd / b.total_income_ytd;
 
   return (
@@ -343,7 +363,7 @@ const TaxCalculators = () => {
                 </Form.Select>
               </Form.Group>
 
-              {/* Other Income */}
+              {/* Source Tax Other */}
               <Form.Group>
                 <Form.Label
                   style={{
@@ -398,6 +418,73 @@ const TaxCalculators = () => {
                       />
                       <FaEdit
                         onClick={() => setEditing(true)}
+                        style={{
+                          fontSize: "24px",
+                          cursor: "pointer",
+                          color: "#667eea",
+                          marginBottom: "12px",
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+              </Form.Group>
+
+              {/* Bonus Input */}
+              <Form.Group>
+                <Form.Label
+                  style={{
+                    fontWeight: "600",
+                    color: "#555",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Bonus (BDT)
+                </Form.Label>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    alignItems: "flex-end",
+                  }}
+                >
+                  {editingBonus ? (
+                    <>
+                      <Form.Control
+                        type="number"
+                        value={editBonusValue}
+                        onChange={(e) => setEditBonusValue(e.target.value)}
+                        style={inputStyle}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = "#667eea";
+                          e.target.style.boxShadow =
+                            "0 0 0 0.2rem rgba(102, 126, 234, 0.25)";
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = "#e9ecef";
+                          e.target.style.boxShadow = "none";
+                        }}
+                        autoFocus
+                      />
+                      <FaSave
+                        onClick={handleSaveBonus}
+                        style={{
+                          fontSize: "24px",
+                          cursor: "pointer",
+                          color: "#10b981",
+                          marginBottom: "12px",
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Form.Control
+                        value={n(bonus)}
+                        readOnly
+                        style={inputStyle}
+                      />
+                      <FaEdit
+                        onClick={() => setEditingBonus(true)}
                         style={{
                           fontSize: "24px",
                           cursor: "pointer",
@@ -584,14 +671,14 @@ const TaxCalculators = () => {
                     {
                       label: "A) Taxable Income 3%",
                       description: "3% of Total Taxable Income",
-                      figure: b.taxable_income_ytd, // Show the total taxable income
+                      figure: b.taxable_income_ytd,
                       rate: "0.03",
                       calculatedRebate: b.taxable_income_ytd * 0.03,
                     },
                     {
                       label: "B) Actual Investment 15% DPS",
                       description: "15% of Total Taxable Income",
-                      figure: b.taxable_income_ytd, // Show the total taxable income
+                      figure: b.taxable_income_ytd,
                       rate: "0.15",
                       calculatedRebate: b.taxable_income_ytd * 0.15,
                     },
@@ -667,7 +754,7 @@ const TaxCalculators = () => {
                 <thead>
                   <tr style={tableHeaderStyle}>
                     <th style={{ padding: "15px" }}>Tax Slab</th>
-                    <th style={{ padding: "15px" }}>Income→Slab</th>
+                    <th style={{ padding: "15px" }}>Income to Slab</th>
                     <th style={{ padding: "15px" }}>Tax Rate</th>
                     <th style={{ padding: "15px" }}>Tax Payable</th>
                   </tr>
