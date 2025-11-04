@@ -48,7 +48,7 @@ const AddEmployee = () => {
 
   // Gender options
   const genderOptions = [
-    { label: "Select Gender", value: "" },
+   
     { label: "Male", value: "M" },
     { label: "Female", value: "F" },
   ];

@@ -74,6 +74,7 @@ import CustomerDetailsPage from "./components/merchandiser/CustomerDetailsPage.j
 // Tax Calculator
 import TaxCalculator from "./components/tax/TaxCalculator.jsx";
 import TaxCalculators from "./components/tax/TaxCalculators.jsx";
+import SalaryFormat from "./components/tax/SalaryFormat.jsx";
 
 
 // chatbox 
@@ -163,6 +164,7 @@ const AppContent = () => {
 
           <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} />
           <Route path="/tax-calculator/:employeeId" element={<ProtectedRoute><TaxCalculators /></ProtectedRoute>} />
+          <Route path="/salary-format" element={<ProtectedRoute><SalaryFormat /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

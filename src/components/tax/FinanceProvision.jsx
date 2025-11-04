@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { FaFileAlt } from "react-icons/fa";
+
 import {
   FaSearch,
   FaDownload,
@@ -249,6 +251,9 @@ const FinanceProvision = () => {
               </button>
               <button onClick={() => navigate("/tax-calculator")} className="btn calc">
                 <FaCalculator /> Manual Calc
+              </button>
+              <button onClick={() => navigate("/salary-format")} className="btn format">
+                <FaFileAlt /> Salary Format
               </button>
             </div>
           </div>
