@@ -45,7 +45,9 @@ const TaxCalculators = () => {
 
         // Load Bonus Override
         const savedBonus = localStorage.getItem("bonusOverride");
-        const savedBonusVal = savedBonus ? JSON.parse(savedBonus)[employeeId] || 0 : 0;
+        const savedBonusVal = savedBonus
+          ? JSON.parse(savedBonus)[employeeId] || 0
+          : 0;
         setBonus(savedBonusVal);
         setEditBonusValue(savedBonusVal.toString());
 
@@ -86,19 +88,39 @@ const TaxCalculators = () => {
     return () => clearTimeout(timer);
   }, [gender, sourceOther, bonus]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const val = parseFloat(editValue) || 0;
     setSourceOther(val);
     setEditing(false);
+    try {
+      await axios.post(`${API_BASE}/save-tax-extra/`, {
+        employee_id: employeeId,
+        source_other: val,
+        bonus: bonus, // Keep current bonus
+      });
+    } catch (err) {
+      console.error("Save source failed:", err);
+    }
+    // Fallback localStorage
     const saved = JSON.parse(localStorage.getItem("sourceTaxOther") || "{}");
     saved[employeeId] = val;
     localStorage.setItem("sourceTaxOther", JSON.stringify(saved));
   };
 
-  const handleSaveBonus = () => {
+  const handleSaveBonus = async () => {
     const val = parseFloat(editBonusValue) || 0;
     setBonus(val);
     setEditingBonus(false);
+    try {
+      await axios.post(`${API_BASE}/save-tax-extra/`, {
+        employee_id: employeeId,
+        source_other: sourceOther, // Keep current source
+        bonus: val,
+      });
+    } catch (err) {
+      console.error("Save bonus failed:", err);
+    }
+    // Fallback localStorage
     const saved = JSON.parse(localStorage.getItem("bonusOverride") || "{}");
     saved[employeeId] = val;
     localStorage.setItem("bonusOverride", JSON.stringify(saved));

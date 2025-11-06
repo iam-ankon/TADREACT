@@ -353,7 +353,7 @@ const TaxCalculator = () => {
                 <Form.Control
                   type="number"
                   value={sourceOther}
-                  onChange={(e) => setSourceOther(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setSourceOther(parseInt(e.target.value))}
                   min="0"
                   style={inputStyle}
                   onFocus={(e) => {

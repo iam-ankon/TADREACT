@@ -253,7 +253,7 @@ const FinanceProvision = () => {
                 <FaCalculator /> Manual Calc
               </button>
               <button onClick={() => navigate("/salary-format")} className="btn format">
-                <FaFileAlt /> Salary Format
+                <FaFileAlt /> Salary Sheet
               </button>
             </div>
           </div>

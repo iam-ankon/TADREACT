@@ -15,6 +15,12 @@ import {
   FiClock,
   FiHome,
   FiVoicemail,
+  FiArrowUp,
+  FiArrowDown,
+  FiTrendingUp,
+  FiCheckCircle,
+  FiXCircle,
+  FiClock as FiClockIcon,
 } from "react-icons/fi";
 import axios from "axios";
 import Sidebars from "./sidebars";
@@ -29,6 +35,7 @@ const HRWorkPage = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [cvCount, setCvCount] = useState(0);
   const [attendanceData, setAttendanceData] = useState([]);
+  const [activeStat, setActiveStat] = useState(null);
 
   useEffect(() => {
     const fetchEmployeeCount = async () => {
@@ -51,12 +58,11 @@ const HRWorkPage = () => {
           "http://119.148.51.38:8000/api/hrms/api/interviews/"
         );
 
-        console.log("Interview Data:", response.data); // Debug log
+        console.log("Interview Data:", response.data);
 
         const sortedInterviews = response.data
           .map((interview) => ({
             ...interview,
-            // Ensure time is properly formatted
             displayTime: interview.time ? formatTime(interview.time) : "--:--",
           }))
           .sort(
@@ -69,25 +75,22 @@ const HRWorkPage = () => {
       }
     };
 
-    // Add this helper function
     const formatTime = (timeString) => {
       if (!timeString) return "--:--";
-      // Handle various time formats
       if (timeString.includes("T")) {
-        // ISO format
         return new Date(timeString).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         });
       }
-      return timeString; // Return as-is if already in HH:MM format
+      return timeString;
     };
+
     const fetchLeaveRequests = async () => {
       try {
         const response = await axios.get(
           "http://119.148.51.38:8000/api/hrms/api/employee_leaves/"
         );
-        // Sort leave requests by date (most recent first)
         const sortedRequests = response.data.sort((a, b) => {
           return new Date(b.start_date) - new Date(a.start_date);
         });
@@ -135,30 +138,47 @@ const HRWorkPage = () => {
     year: "numeric",
   });
 
+  // Enhanced stats with trends and colors
   const stats = [
     {
       title: "Total Employees",
       value: employeeCount,
       icon: <FiUsers size={24} />,
       link: "/employees",
+      
+      trendDirection: "up",
+      color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      bgColor: "rgba(102, 126, 234, 0.1)",
     },
     {
       title: "Interviews",
       value: upcomingInterviews.length,
       icon: <FiBriefcase size={24} />,
       link: "/interviews",
+      
+      trendDirection: "up",
+      color: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+      bgColor: "rgba(245, 87, 108, 0.1)",
     },
     {
-      title: "Pending Leave Requests",
+      title: "Pending Leaves",
       value: leaveRequests.filter((req) => req.status === "pending").length,
       icon: <FiCalendar size={24} />,
       link: "/employee_leave",
+      
+      trendDirection: "up",
+      color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+      bgColor: "rgba(79, 172, 254, 0.1)",
     },
     {
       title: "CV Bank",
       value: cvCount,
       icon: <FiFileText size={24} />,
       link: "/cv-list",
+     
+      trendDirection: "up",
+      color: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+      bgColor: "rgba(67, 233, 123, 0.1)",
     },
   ];
 
@@ -167,21 +187,25 @@ const HRWorkPage = () => {
       title: "Add New Employee",
       icon: <FiUsers size={20} />,
       link: "/add-employee",
+      color: "#667eea",
     },
     {
       title: "Schedule Interview",
       icon: <FiBriefcase size={20} />,
       link: "/interviews",
+      color: "#f5576c",
     },
     {
       title: "Process Payroll",
       icon: <FiDollarSign size={20} />,
       link: "/finance-provision",
+      color: "#4facfe",
     },
     {
       title: "Send Announcement",
       icon: <FiSend size={20} />,
       link: "/letter-send",
+      color: "#43e97b",
     },
   ];
 
@@ -195,7 +219,7 @@ const HRWorkPage = () => {
         recordDate.getFullYear() === today.getFullYear()
       );
     })
-    .slice(0, 1); // Only take the most recent one
+    .slice(0, 1);
 
   // Get the most recent pending leave requests (only 1)
   const recentPendingLeaveRequests = leaveRequests
@@ -207,7 +231,11 @@ const HRWorkPage = () => {
 
   return (
     <div
-      style={{ display: "flex", height: "100vh", backgroundColor: "#DCEEF3" }}
+      style={{ 
+        display: "flex", 
+        height: "100vh", 
+        backgroundColor: "#f8fafc",
+      }}
     >
       {/* Sidebar */}
       <div style={{ display: "flex" }}>
@@ -216,41 +244,60 @@ const HRWorkPage = () => {
           {/* Your page content here */}
         </div>
       </div>
+      
       {/* Main Content */}
-      <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ flex: 1, overflow: "auto", padding: "0 1rem" }}>
         {/* Header */}
         <header
           style={{
-            backgroundColor: "#DCEEF3",
-            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+            backgroundColor: "#ffffff",
+            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+            borderRadius: "0.75rem",
+            margin: "1rem 0",
+            padding: "1rem 1.5rem",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <div
-            style={{
-              padding: "1rem 1.5rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+          <div>
             <h1
-              style={{ fontSize: "1.5rem", fontWeight: 700, color: "#374151" }}
+              style={{ 
+                fontSize: "1.5rem", 
+                fontWeight: 700, 
+                color: "#1e293b",
+                margin: 0 
+              }}
             >
               HR Dashboard
             </h1>
-            <div style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-              {formattedDate}
-            </div>
+            <p style={{ 
+              fontSize: "0.875rem", 
+              color: "#64748b", 
+              margin: "0.25rem 0 0 0" 
+            }}>
+              Welcome back! Here's what's happening today.
+            </p>
+          </div>
+          <div style={{ 
+            fontSize: "0.875rem", 
+            color: "#64748b",
+            backgroundColor: "#f1f5f9",
+            padding: "0.5rem 1rem",
+            borderRadius: "0.5rem",
+            fontWeight: 500
+          }}>
+            {formattedDate}
           </div>
         </header>
 
         {/* Dashboard Content */}
-        <main style={{ padding: "1.5rem" }}>
+        <main style={{ padding: "0 0 1.5rem 0" }}>
           {/* Stats Cards */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
               gap: "1.5rem",
               marginBottom: "2rem",
             }}
@@ -259,25 +306,39 @@ const HRWorkPage = () => {
               <div
                 key={index}
                 style={{
-                  backgroundColor: "rgb(177, 222, 233)",
+                  background: stat.color,
                   padding: "1.5rem",
                   borderRadius: "1rem",
-                  boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                  border: "1px solid #e5e7eb",
-                  transition: "box-shadow 0.3s ease-in-out",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                   cursor: "pointer",
-                  ":hover": {
-                    boxShadow:
-                      "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                  },
+                  transition: "all 0.3s ease",
+                  transform: activeStat === index ? "translateY(-5px)" : "translateY(0)",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
+                onMouseEnter={() => setActiveStat(index)}
+                onMouseLeave={() => setActiveStat(null)}
                 onClick={() => navigate(stat.link)}
               >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(255,255,255,0.1)",
+                    opacity: activeStat === index ? 1 : 0,
+                    transition: "opacity 0.3s ease",
+                  }}
+                />
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "flex-start",
+                    position: "relative",
+                    zIndex: 1,
                   }}
                 >
                   <div>
@@ -285,7 +346,8 @@ const HRWorkPage = () => {
                       style={{
                         fontSize: "0.875rem",
                         fontWeight: 500,
-                        color: "#6b7280",
+                        color: "rgba(255,255,255,0.8)",
+                        margin: 0,
                       }}
                     >
                       {stat.title}
@@ -296,34 +358,54 @@ const HRWorkPage = () => {
                           height: "2rem",
                           width: "4rem",
                           marginTop: "0.5rem",
-                          backgroundColor: "#e5e7eb",
+                          backgroundColor: "rgba(255,255,255,0.3)",
                           borderRadius: "0.25rem",
-                          animation:
-                            "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                          animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
                         }}
                       ></div>
                     ) : error && stat.title === "Total Employees" ? (
-                      <p style={{ color: "#ef4444", marginTop: "0.5rem" }}>
+                      <p style={{ color: "#fef2f2", marginTop: "0.5rem" }}>
                         Error loading
                       </p>
                     ) : (
                       <p
                         style={{
-                          fontSize: "1.5rem",
+                          fontSize: "1.875rem",
                           fontWeight: 700,
-                          marginTop: "0.25rem",
+                          margin: "0.5rem 0 0 0",
+                          color: "white",
                         }}
                       >
                         {stat.value}
                       </p>
                     )}
+                    <div style={{ display: "flex", alignItems: "center", marginTop: "0.5rem" }}>
+                      {stat.trendDirection === "up" ? (
+                        <FiTrendingUp size={14} color="#ffffff" />
+                      ) : (
+                        <FiTrendingUp size={14} color="#ffffff" style={{ transform: "rotate(90deg)" }} />
+                      )}
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
+                          color: "white",
+                          marginLeft: "0.25rem",
+                        }}
+                      >
+                        {stat.trend}
+                      </span>
+                    </div>
                   </div>
                   <div
                     style={{
-                      padding: "0.5rem",
-                      backgroundColor: "#eff6ff",
-                      borderRadius: "0.375rem",
-                      color: "#2563eb",
+                      padding: "0.75rem",
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      borderRadius: "0.75rem",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
                     {stat.icon}
@@ -333,112 +415,170 @@ const HRWorkPage = () => {
             ))}
           </div>
 
-          {/* Quick Actions */}
-          <div style={{ marginBottom: "2rem" }}>
-            <h2
-              style={{
-                fontSize: "1.125rem",
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: "1rem",
-              }}
-            >
-              Quick Actions
-            </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                gap: "4rem",
-              }}
-            >
-              {quickActions.map((action, index) => (
-                <Link
-                  key={index}
-                  to={action.link}
-                  style={{
-                    backgroundColor: " #B9D6F2",
-                    padding: "1rem",
-                    borderRadius: "1rem",
-                    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                    border: "1px solid #e5e7eb",
-                    transition: "box-shadow 0.3s ease-in-out",
-                    display: "flex",
-                    alignItems: "center",
-                    textDecoration: "none",
-                    color: "inherit",
-                    ":hover": {
-                      boxShadow:
-                        "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                    },
-                  }}
-                >
-                  <div
-                    style={{
-                      marginRight: "0.75rem",
-                      padding: "0.5rem",
-                      backgroundColor: "#eff6ff",
-                      borderRadius: "0.375rem",
-                      color: "#2563eb",
-                    }}
-                  >
-                    {action.icon}
-                  </div>
-                  <span style={{ fontWeight: 500 }}>{action.title}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Upcoming Interviews */}
-          <div
-            style={{
-              backgroundColor: " #A7D5E1",
-              borderRadius: "1.5rem",
-              boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-              border: "1px solid #e5e7eb",
-              marginBottom: "2rem",
-            }}
-          >
-            <div style={{ padding: "1rem", borderBottom: "1px solid #e5e7eb" }}>
+          {/* Quick Actions & Recent Activity */}
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "1fr 1fr", 
+            gap: "1.5rem",
+            marginBottom: "1.5rem"
+          }}>
+            {/* Quick Actions */}
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "1rem",
+              boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+              padding: "1.5rem"
+            }}>
               <h2
                 style={{
                   fontSize: "1.125rem",
                   fontWeight: 600,
-                  color: "#374151",
+                  color: "#1e293b",
+                  marginBottom: "1rem",
+                  display: "flex",
+                  alignItems: "center",
                 }}
               >
-                Recent Interviews
+                <FiSend style={{ marginRight: "0.5rem" }} />
+                Quick Actions
               </h2>
-            </div>
-            <div style={{ borderTop: "1px solid #e5e7eb" }}>
-              {recentInterviews.map((interview) => (
-                <div
-                  key={interview.id}
-                  style={{
-                    padding: "1rem",
-                    borderBottom: "1px solid #e5e7eb",
-                    // Removed cursor: pointer and hover effects
-                  }}
-                  // Removed onClick handler
-                >
-                  <div
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: "1rem",
+                }}
+              >
+                {quickActions.map((action, index) => (
+                  <Link
+                    key={index}
+                    to={action.link}
                     style={{
+                      backgroundColor: "white",
+                      padding: "1rem",
+                      borderRadius: "0.75rem",
+                      boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                      border: `1px solid #f1f5f9`,
+                      transition: "all 0.3s ease",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      textDecoration: "none",
+                      color: "inherit",
+                      textAlign: "center",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-5px)";
+                      e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(0, 0, 0, 0.05)";
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "0.75rem",
+                        backgroundColor: action.color + "20",
+                        borderRadius: "0.5rem",
+                        color: action.color,
+                        marginBottom: "0.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {action.icon}
+                    </div>
+                    <span style={{ fontWeight: 500, fontSize: "0.875rem" }}>{action.title}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Recent Interviews */}
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "1rem",
+              boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+              overflow: "hidden"
+            }}>
+              <div style={{ 
+                padding: "1.25rem 1.5rem", 
+                borderBottom: "1px solid #f1f5f9",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}>
+                <h2
+                  style={{
+                    fontSize: "1.125rem",
+                    fontWeight: 600,
+                    color: "#1e293b",
+                    margin: 0,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FiBriefcase style={{ marginRight: "0.5rem" }} />
+                  Recent Interviews
+                </h2>
+                <span style={{
+                  backgroundColor: "#f5576c20",
+                  color: "#f5576c",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  padding: "0.25rem 0.5rem",
+                  borderRadius: "1rem"
+                }}>
+                  {recentInterviews.length} upcoming
+                </span>
+              </div>
+              <div>
+                {recentInterviews.map((interview) => (
+                  <div
+                    key={interview.id}
+                    style={{
+                      padding: "1rem 1.5rem",
+                      borderBottom: "1px solid #f1f5f9",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      transition: "background-color 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
                     }}
                   >
-                    <div>
-                      <h3 style={{ fontWeight: 500 }}>
-                        {interview.name || "No Candidate"}
-                      </h3>
-                      <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                        {interview.position_for || "No Position"}
-                      </p>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <div style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "50%",
+                        backgroundColor: "#f5576c20",
+                        color: "#f5576c",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: "0.75rem",
+                        fontWeight: 600
+                      }}>
+                        {interview.name ? interview.name.charAt(0).toUpperCase() : "?"}
+                      </div>
+                      <div>
+                        <h3 style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                          {interview.name || "No Candidate"}
+                        </h3>
+                        <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                          {interview.position_for || "No Position"}
+                        </p>
+                      </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <p style={{ fontWeight: 500 }}>
+                      <p style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
                         {interview.time
                           ? formatTime(interview.time)
                           : interview.interview_datetime
@@ -450,44 +590,48 @@ const HRWorkPage = () => {
                             })
                           : "--:--"}
                       </p>
-                      {/* Date display remains the same */}
-                      <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
                         {interview.interview_date}
                       </p>
                     </div>
                   </div>
-                </div>
-              ))}
-              {recentInterviews.length === 0 && (
-                <div
-                  style={{
-                    padding: "1rem",
-                    textAlign: "center",
-                    color: "#6b7280",
-                  }}
-                >
-                  No upcoming interviews scheduled
-                </div>
-              )}
-            </div>
-            <div
-              style={{
-                padding: "1rem",
-                borderTop: "1px solid #e5e7eb",
-                textAlign: "right",
-              }}
-            >
-              <Link
-                to="/interviews"
+                ))}
+                {recentInterviews.length === 0 && (
+                  <div
+                    style={{
+                      padding: "2rem 1rem",
+                      textAlign: "center",
+                      color: "#64748b",
+                    }}
+                  >
+                    <FiBriefcase size={32} color="#cbd5e1" style={{ marginBottom: "0.5rem" }} />
+                    <p style={{ margin: 0 }}>No upcoming interviews scheduled</p>
+                  </div>
+                )}
+              </div>
+              <div
                 style={{
-                  color: "#2563eb",
-                  textDecoration: "none",
-                  fontWeight: 500,
-                  ":hover": { color: "#1d4ed8" },
+                  padding: "1rem 1.5rem",
+                  borderTop: "1px solid #f1f5f9",
+                  textAlign: "center",
                 }}
               >
-                View All Interviews →
-              </Link>
+                <Link
+                  to="/interviews"
+                  style={{
+                    color: "#667eea",
+                    textDecoration: "none",
+                    fontWeight: 500,
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  View All Interviews
+                  <FiArrowUp style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }} />
+                </Link>
+              </div>
             </div>
           </div>
 
@@ -496,107 +640,148 @@ const HRWorkPage = () => {
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gap: "2rem",
+              gap: "1.5rem",
             }}
           >
             {/* Pending Leave Requests */}
             <div
               style={{
-                backgroundColor: " #72BBCE",
-                borderRadius: "1.5rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
+                backgroundColor: "white",
+                borderRadius: "1rem",
+                boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+                overflow: "hidden"
               }}
             >
               <div
-                style={{ padding: "1rem", borderBottom: "1px solid #e5e7eb" }}
+                style={{ 
+                  padding: "1.25rem 1.5rem", 
+                  borderBottom: "1px solid #f1f5f9",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}
               >
                 <h2
                   style={{
                     fontSize: "1.125rem",
                     fontWeight: 600,
-                    color: "#374151",
+                    color: "#1e293b",
+                    margin: 0,
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
-                  Recent Pending Leave Request
+                  <FiCalendar style={{ marginRight: "0.5rem" }} />
+                  Recent Leave Requests
                 </h2>
+                <span style={{
+                  backgroundColor: "#4facfe20",
+                  color: "#4facfe",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  padding: "0.25rem 0.5rem",
+                  borderRadius: "1rem"
+                }}>
+                  {recentPendingLeaveRequests.length} pending
+                </span>
               </div>
-              <div style={{ borderTop: "1px solid #e5e7eb" }}>
+              <div>
                 {recentPendingLeaveRequests.map((request) => (
                   <div
                     key={request.id}
                     style={{
-                      padding: "1rem",
-                      borderBottom: "1px solid #e5e7eb",
-                      // Removed cursor: pointer and hover effects
+                      padding: "1rem 1.5rem",
+                      borderBottom: "1px solid #f1f5f9",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      transition: "background-color 0.2s ease",
                     }}
-                    // Removed onClick handler
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
                   >
-                    <div
-                      style={{
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <div style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "50%",
+                        backgroundColor: "#4facfe20",
+                        color: "#4facfe",
                         display: "flex",
-                        justifyContent: "space-between",
                         alignItems: "center",
-                      }}
-                    >
+                        justifyContent: "center",
+                        marginRight: "0.75rem",
+                        fontWeight: 600
+                      }}>
+                        {request.employee_name ? request.employee_name.charAt(0).toUpperCase() : "?"}
+                      </div>
                       <div>
-                        <h3 style={{ fontWeight: 500 }}>
+                        <h3 style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
                           {request.employee_name}
                         </h3>
-                        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                        <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
                           {request.leave_type}
                         </p>
                       </div>
-                      <div style={{ textAlign: "right" }}>
-                        <p style={{ fontWeight: 500 }}>
-                          {request.start_date} to {request.end_date}
-                        </p>
-                        <span
-                          style={{
-                            display: "inline-block",
-                            padding: "0.25rem 0.5rem",
-                            fontSize: "0.75rem",
-                            fontWeight: 500,
-                            backgroundColor: "#fffbeb",
-                            color: "#d97706",
-                            borderRadius: "9999px",
-                          }}
-                        >
-                          {request.status}
-                        </span>
-                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                        {request.start_date} to {request.end_date}
+                      </p>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "0.25rem 0.75rem",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          backgroundColor: "#fffbeb",
+                          color: "#d97706",
+                          borderRadius: "1rem",
+                        }}
+                      >
+                        {request.status}
+                      </span>
                     </div>
                   </div>
                 ))}
                 {recentPendingLeaveRequests.length === 0 && (
                   <div
                     style={{
-                      padding: "1rem",
+                      padding: "2rem 1rem",
                       textAlign: "center",
-                      color: "#6b7280",
+                      color: "#64748b",
                     }}
                   >
-                    No pending leave requests
+                    <FiCheckCircle size={32} color="#cbd5e1" style={{ marginBottom: "0.5rem" }} />
+                    <p style={{ margin: 0 }}>No pending leave requests</p>
                   </div>
                 )}
               </div>
               <div
                 style={{
-                  padding: "1rem",
-                  borderTop: "1px solid #e5e7eb",
-                  textAlign: "right",
+                  padding: "1rem 1.5rem",
+                  borderTop: "1px solid #f1f5f9",
+                  textAlign: "center",
                 }}
               >
                 <Link
                   to="/employee_leave"
                   style={{
-                    color: "#2563eb",
+                    color: "#667eea",
                     textDecoration: "none",
                     fontWeight: 500,
-                    ":hover": { color: "#1d4ed8" },
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  View All Leave Requests →
+                  View All Leave Requests
+                  <FiArrowUp style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }} />
                 </Link>
               </div>
             </div>
@@ -604,95 +789,136 @@ const HRWorkPage = () => {
             {/* Today's Attendance */}
             <div
               style={{
-                backgroundColor: " #63B0E3",
-                borderRadius: "1.5rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
+                backgroundColor: "white",
+                borderRadius: "1rem",
+                boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+                overflow: "hidden"
               }}
             >
               <div
-                style={{ padding: "1rem", borderBottom: "1px solid #e5e7eb" }}
+                style={{ 
+                  padding: "1.25rem 1.5rem", 
+                  borderBottom: "1px solid #f1f5f9",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}
               >
                 <h2
                   style={{
                     fontSize: "1.125rem",
                     fontWeight: 600,
-                    color: "#374151",
+                    color: "#1e293b",
+                    margin: 0,
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
+                  <FiClockIcon style={{ marginRight: "0.5rem" }} />
                   Today's Attendance
                 </h2>
+                <span style={{
+                  backgroundColor: "#43e97b20",
+                  color: "#43e97b",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  padding: "0.25rem 0.5rem",
+                  borderRadius: "1rem"
+                }}>
+                  {todayAttendance.length} recorded
+                </span>
               </div>
               <div
                 style={{
-                  borderTop: "1px solid #e5e7eb",
+                  borderTop: "1px solid #f1f5f9",
                 }}
               >
                 {todayAttendance.map((record, index) => (
                   <div
                     key={record.id}
                     style={{
-                      padding: "1rem",
-                      borderBottom: "1px solid #e5e7eb",
-                      // Removed cursor: pointer and hover effects
+                      padding: "1rem 1.5rem",
+                      borderBottom: "1px solid #f1f5f9",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      transition: "background-color 0.2s ease",
                     }}
-                    // Removed onClick handler
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
                   >
-                    <div
-                      style={{
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <div style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "50%",
+                        backgroundColor: "#43e97b20",
+                        color: "#43e97b",
                         display: "flex",
-                        justifyContent: "space-between",
                         alignItems: "center",
-                      }}
-                    >
+                        justifyContent: "center",
+                        marginRight: "0.75rem",
+                        fontWeight: 600
+                      }}>
+                        {record.employee_name ? record.employee_name.charAt(0).toUpperCase() : "?"}
+                      </div>
                       <div>
-                        <h3 style={{ fontWeight: 500 }}>
+                        <h3 style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
                           {record.employee_name}
                         </h3>
-                        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                        <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
                           ID: {record.id}
                         </p>
                       </div>
-                      <div style={{ textAlign: "right" }}>
-                        <p style={{ fontWeight: 500 }}>
-                          Check-in: {record.check_in || "--:--"}
-                        </p>
-                        <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                          Check-out: {record.check_out || "--:--"}
-                        </p>
-                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                        Check-in: {record.check_in || "--:--"}
+                      </p>
+                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                        Check-out: {record.check_out || "--:--"}
+                      </p>
                     </div>
                   </div>
                 ))}
                 {todayAttendance.length === 0 && (
                   <div
                     style={{
-                      padding: "1rem",
+                      padding: "2rem 1rem",
                       textAlign: "center",
-                      color: "#6b7280",
+                      color: "#64748b",
                     }}
                   >
-                    No attendance records for today
+                    <FiClockIcon size={32} color="#cbd5e1" style={{ marginBottom: "0.5rem" }} />
+                    <p style={{ margin: 0 }}>No attendance records for today</p>
                   </div>
                 )}
               </div>
               <div
                 style={{
-                  padding: "1rem",
-                  borderTop: "1px solid #e5e7eb",
-                  textAlign: "right",
+                  padding: "1rem 1.5rem",
+                  borderTop: "1px solid #f1f5f9",
+                  textAlign: "center",
                 }}
               >
                 <Link
                   to="/attendance"
                   style={{
-                    color: "#2563eb",
+                    color: "#667eea",
                     textDecoration: "none",
                     fontWeight: 500,
-                    ":hover": { color: "#1d4ed8" },
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  View All Attendance Records →
+                  View All Attendance Records
+                  <FiArrowUp style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }} />
                 </Link>
               </div>
             </div>
