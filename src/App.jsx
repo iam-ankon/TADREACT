@@ -10,7 +10,8 @@ import ProtectedRoute from "./components/hr/ProtectedRoute";
 import LoginPage from "./components/hr/LoginPage";
 
 // HR Pages
-import DashboardPage from "./components/hr/DashboardPage";
+
+import Dashboard from "./components/hr/Dashboard";
 import HRWorkPage from "./components/hr/HRWorkPage";
 import EmployeeDetails from "./components/hr/EmployeeDetails";
 import EmployeeDetailPage from "./components/hr/EmployeeDetailPage";
@@ -96,7 +97,9 @@ const AppContent = () => {
           <Route path="/" element={<LoginPage />} />
 
           {/* Protected HR Routes */}
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          =
+
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>}/>
           <Route path="/hr-work" element={<ProtectedRoute><HRWorkPage /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><EmployeeDetails /></ProtectedRoute>} />
           <Route path="/employee/:id" element={<ProtectedRoute><EmployeeDetailPage /></ProtectedRoute>} />

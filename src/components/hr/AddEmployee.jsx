@@ -48,7 +48,6 @@ const AddEmployee = () => {
 
   // Gender options
   const genderOptions = [
-   
     { label: "Male", value: "M" },
     { label: "Female", value: "F" },
   ];
@@ -79,11 +78,7 @@ const AddEmployee = () => {
     if (!formData.name) newErrors.name = "Name is required";
     if (!formData.designation)
       newErrors.designation = "Designation is required";
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      newErrors.email = "Email is invalid";
-    }
+    // Email is now optional - no validation
     if (!formData.joining_date)
       newErrors.joining_date = "Joining date is required";
     if (!formData.date_of_birth)
@@ -125,6 +120,12 @@ const AddEmployee = () => {
     setFormData({ ...formData, [e.target.name]: e.target.files[0] });
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -146,26 +147,39 @@ const AddEmployee = () => {
     setIsLoading(true);
 
     const employeeFormData = new FormData();
+    // Append non-empty fields, skipping customer and image1 for special handling
     Object.keys(formData).forEach((key) => {
-      if (key === "image1" && formData[key]) {
-        employeeFormData.append(key, formData[key], formData[key].name);
-      } else if (key === "customer") {
-        formData[key].forEach((customerId) => {
-          employeeFormData.append(key, customerId);
-        });
-      } else {
-        employeeFormData.append(key, formData[key]);
+      if (key === "customer" || key === "image1") return;
+      const value = formData[key];
+      if (value !== null && value !== undefined && value !== "") {
+        // Format dates
+        if (key === "joining_date" || key === "date_of_birth") {
+          employeeFormData.append(key, formatDate(value));
+        } else {
+          employeeFormData.append(key, value);
+        }
       }
     });
 
+    // Handle image
+    if (formData.image1) {
+      employeeFormData.append("image1", formData.image1, formData.image1.name);
+    }
+
+    // Handle customers as JSON string (to match edit endpoint pattern and avoid list parsing issues)
+    if (formData.customer.length > 0) {
+      employeeFormData.append("customers", JSON.stringify(formData.customer));
+    }
+
     try {
-      await axios.post(
+      const response = await axios.post(
         "http://119.148.51.38:8000/api/hrms/api/employees/",
         employeeFormData,
         {
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
+      console.log("Employee created:", response.data); // Debug log
       setSuccessMessage("Employee saved successfully!");
       setShowPopup(true);
 
@@ -175,7 +189,8 @@ const AddEmployee = () => {
       }, 1500);
     } catch (error) {
       console.error("Error saving employee data:", error);
-      setSuccessMessage("Error saving employee data. Please try again.");
+      console.error("Response data:", error.response?.data); // Log backend error details
+      setSuccessMessage("Error saving employee data. Please check console for details.");
       setIsLoading(false);
     }
   };
@@ -189,7 +204,7 @@ const AddEmployee = () => {
         { name: "name", label: "Name", required: true },
         { name: "employee_id", label: "Employee ID", required: true },
         { name: "designation", label: "Designation", required: true },
-        { name: "email", label: "Email", required: true, type: "email" },
+        { name: "email", label: "Email", required: false }, // Optional: no asterisk, no validation
         { name: "personal_phone", label: "Personal Phone" },
         { name: "emergency_contact", label: "Emergency Contact" },
         { name: "nid_number", label: "NID Number" },
@@ -199,7 +214,6 @@ const AddEmployee = () => {
           label: "Gender",
           type: "select",
           options: genderOptions,
-          
         },
         {
           name: "date_of_birth",
@@ -283,7 +297,7 @@ const AddEmployee = () => {
     },
   ];
 
-  // Inline styles
+  // Inline styles (unchanged)
   const styles = {
     container: {
       display: "flex",
@@ -579,7 +593,7 @@ const AddEmployee = () => {
                     ? styles.navButtonActive
                     : {}),
                   ...(hoverStates.navButtons[section.id]
-                    ? styles.navButtonHover
+                    ? { color: "#3f51b5" } // Simple hover
                     : {}),
                 }}
                 onMouseEnter={() => handleMouseEnter("navButtons", section.id)}

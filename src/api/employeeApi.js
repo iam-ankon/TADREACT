@@ -1,126 +1,3 @@
-// import axios from "axios";
-
-// // Auto-detect API base URL depending on where frontend is accessed from
-// const getBaseUrl = () => {
-//   const hostname = window.location.hostname;
-
-//   if (hostname === "192.168.4.54") {
-//     return "http://119.148.51.38:8000/api/hrms/api/";
-//   } else if (hostname === "0.0.0.0") {
-//     return "http://119.148.51.38:8000/api/hrms/api/";
-//   } else {
-//     return "http://119.148.51.38:8000/api/hrms/api/"; // Fallback for 119.148.51.38
-//   }
-// };
-
-// const api = axios.create({
-//   baseURL: getBaseUrl(),
-// });
-
-// export { api };
-
-// // ========== COMPANY ==========
-// export const getCompanies = () => api.get("companies/");
-// export const getCompanyById = (id) => api.get(`companies/${id}/`);
-
-// export const getDepartments = () => api.get("departments/"); // New function to get departments
-// export const getDepartmentById = (id) => api.get(`departments/${id}/`);
-
-// // ========== EMPLOYEE ==========
-// export const getEmployees = () => api.get("employees/");
-// export const getEmployeeById = (id) => api.get(`employees/${id}/`);
-// export const updateEmployee = (id, data) => api.put(`employees/${id}/`, data);
-// export const addEmployee = (data) => api.post("employees/", data);
-// export const deleteEmployee = (id) => api.delete(`employees/${id}/`);
-
-// // ========== NOTIFICATIONS ==========
-// export const getNotifications = () => api.get("notifications/");
-
-// // ========== ATTENDANCE ==========
-// export const getAttendance = () => api.get("attendance/");
-// export const getAttendanceById = (id) => api.get(`attendance/${id}/`);
-// export const updateAttendance = (id, data) =>
-//   api.put(`attendance/${id}/`, data);
-// export const deleteAttendance = (id) => api.delete(`attendance/${id}/`);
-// export const deleteAllAttendance = () => api.delete("attendance/delete_all/"); // New function
-
-// export const addAttendance = (data) => {
-//   return api.post("attendance/", {
-//     employee: data.employee,
-//     check_in: data.check_in,
-//     check_out: data.check_out,
-//     office_start_time: data.office_start_time, // Added this field
-//     attendance_delay: data.attendance_delay,
-//   });
-// };
-
-// // ========== INTERVIEWS ==========
-// export const getInterviews = () => api.get("interviews/");
-// export const getInterviewById = (id) => api.get(`interviews/${id}/`);
-// export const updateInterview = (id, data) => api.put(`interviews/${id}/`, data);
-// export const addInterview = (data) => api.post("interviews/", data);
-// export const deleteInterview = (id) => api.delete(`interviews/${id}/`);
-
-// // ========== CVS ==========
-// export const getCVs = () => api.get("cvs/");
-// export const getCVById = (id) => api.get(`cvs/${id}/`);
-// export const updateCV = (id, data) => api.put(`cvs/${id}/`, data);
-// export const addCV = (data) => {
-//   const formData = new FormData();
-//   formData.append("employee", data.employee);
-//   formData.append("cv_file", data.cv_file);
-//   return api.post("cvs/", formData);
-// };
-// export const deleteCV = (id) => api.delete(`cvs/${id}/`);
-
-// // ========== IT PROVISIONS ==========
-// export const getITProvisions = () => api.get("it_provisions/");
-// export const getITProvisionById = (id) => api.get(`it_provisions/${id}/`);
-// export const updateITProvision = (id, data) =>
-//   api.put(`it_provisions/${id}/`, data);
-// export const addITProvision = (data) => api.post("it_provisions/", data);
-// export const deleteITProvision = (id) => api.delete(`it_provisions/${id}/`);
-
-// // ========== FINANCE PROVISIONS ==========
-// export const getFinanceProvisions = () => api.get("finance_provisions/");
-// export const getFinanceProvisionById = (id) =>
-//   api.get(`finance_provisions/${id}/`);
-// export const updateFinanceProvision = (id, data) =>
-//   api.put(`finance_provisions/${id}/`, data);
-// export const addFinanceProvision = (data) =>
-//   api.post("finance_provisions/", data);
-// export const deleteFinanceProvision = (id) =>
-//   api.delete(`finance_provisions/${id}/`);
-
-// // ========== ADMIN PROVISIONS ==========
-// export const getAdminProvisions = () => api.get("admin_provisions/");
-// export const getAdminProvisionById = (id) => api.get(`admin_provisions/${id}/`);
-// export const updateAdminProvision = (id, data) =>
-//   api.put(`admin_provisions/${id}/`, data);
-// export const addAdminProvision = (data) => api.post("admin_provisions/", data);
-// export const deleteAdminProvision = (id) =>
-//   api.delete(`admin_provisions/${id}/`);
-
-// // ========== LETTER SEND ==========
-// export const getLetterSend = () => api.get("letter_send/");
-// export const getLetterSendById = (id) => api.get(`letter_send/${id}/`);
-// export const updateLetterSend = (id, data) =>
-//   api.put(`letter_send/${id}/`, data);
-// export const addLetterSend = (data) => {
-//   const formData = new FormData();
-//   formData.append("name", data.name);
-//   formData.append("email", data.email);
-//   formData.append("letter_file", data.letter_file);
-//   formData.append("letter_type", data.letter_type);
-//   return api.post("letter_send/", formData);
-// };
-// export const deleteLetterSend = (id) => api.delete(`letter_send/${id}/`);
-
-// // ========== EMAIL LOG ==========
-// export const getEmailLogs = () => api.get("email_logs/");
-// export const deleteAllEmailLogs = () => api.delete("email_logs/delete_all/");
-
-// employeeApi.js - Combined API file for both chat and employee functionality
 import axios from "axios";
 
 // ========== BASE URL CONFIGURATION ==========
@@ -297,8 +174,12 @@ export const createGroupConversation = async (groupName, userIds) => {
 };
 
 // ========== AUTHENTICATION API ==========
-export const loginUser = async (username, password) => {
+// ========== AUTHENTICATION API ==========
+export const loginUser = async (payload) => {
+  const { username, password, employee_id, designation } = payload;
+
   console.log(`Attempting login at: ${getBackendURL()}/users/login/`);
+  console.log("Login payload:", { username, employee_id, designation });
 
   // Use fetch for login since we don't have token yet
   const response = await fetch(`${getBackendURL()}/users/login/`, {
@@ -306,7 +187,12 @@ export const loginUser = async (username, password) => {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({
+      username: username,
+      password: password,
+      employee_id: employee_id,
+      designation: designation,
+    }),
   });
 
   console.log("Login response status:", response.status);
@@ -315,7 +201,7 @@ export const loginUser = async (username, password) => {
     let errorMessage = "Login failed. Please try again.";
 
     if (response.status === 401) {
-      errorMessage = "Invalid username or password";
+      errorMessage = "Invalid credentials";
     } else if (response.status === 404) {
       errorMessage = "Login endpoint not found. Please check the server.";
     } else if (response.status >= 500) {
@@ -326,6 +212,7 @@ export const loginUser = async (username, password) => {
       const errorData = await response.json();
       errorMessage = errorData.error || errorData.detail || errorMessage;
     } catch (e) {
+      // If response is not JSON (like HTML error page), use default message
       console.error("Error parsing error response:", e);
     }
 
@@ -334,7 +221,33 @@ export const loginUser = async (username, password) => {
 
   const data = await response.json();
   console.log("Login successful, received data:", data);
+
+  // Store token and user data
+  setToken(data.token);
+  localStorage.setItem("username", data.username);
+  localStorage.setItem("user_id", data.user_id);
+  localStorage.setItem("employee_id", data.employee_id);
+  localStorage.setItem("employee_name", data.employee_name);
+  localStorage.setItem("designation", data.designation);
+  localStorage.setItem("permissions", JSON.stringify(data.permissions));
+
   return data;
+};
+
+// Add permission check helper functions
+export const hasFullAccess = () => {
+  const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
+  return permissions.full_access === true;
+};
+
+export const canAccessLeaveRequests = () => {
+  const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
+  return permissions.leave_requests === true;
+};
+
+export const canAccessHRWork = () => {
+  const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
+  return permissions.hr_work === true;
 };
 
 export const createDirectConversation = async (userId) => {

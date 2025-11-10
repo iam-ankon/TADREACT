@@ -258,7 +258,7 @@ const EmployeeDetails = () => {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.filter-input')) {
+      if (!event.target.closest(".filter-input")) {
         closeDropdowns();
       }
     };
@@ -331,12 +331,14 @@ const EmployeeDetails = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              
+
               {/* Custom Searchable Designation Dropdown */}
               <div className="filter-input">
                 <div className="custom-select-wrapper">
                   <div
-                    className={`custom-select ${showDesignationDropdown ? 'open' : ''}`}
+                    className={`custom-select ${
+                      showDesignationDropdown ? "open" : ""
+                    }`}
                     onClick={() => {
                       setShowDesignationDropdown(!showDesignationDropdown);
                       setShowDepartmentDropdown(false);
@@ -360,7 +362,9 @@ const EmployeeDetails = () => {
                       />
                       <div className="dropdown-options">
                         <div
-                          className={`dropdown-option ${!designationFilter ? 'selected' : ''}`}
+                          className={`dropdown-option ${
+                            !designationFilter ? "selected" : ""
+                          }`}
                           onClick={() => {
                             setDesignationFilter("");
                             closeDropdowns();
@@ -371,7 +375,11 @@ const EmployeeDetails = () => {
                         {filteredDesignations.map((designation) => (
                           <div
                             key={designation}
-                            className={`dropdown-option ${designationFilter === designation ? 'selected' : ''}`}
+                            className={`dropdown-option ${
+                              designationFilter === designation
+                                ? "selected"
+                                : ""
+                            }`}
                             onClick={() => {
                               setDesignationFilter(designation);
                               closeDropdowns();
@@ -381,7 +389,9 @@ const EmployeeDetails = () => {
                           </div>
                         ))}
                         {filteredDesignations.length === 0 && (
-                          <div className="dropdown-option disabled">No designations found</div>
+                          <div className="dropdown-option disabled">
+                            No designations found
+                          </div>
                         )}
                       </div>
                     </div>
@@ -393,7 +403,9 @@ const EmployeeDetails = () => {
               <div className="filter-input">
                 <div className="custom-select-wrapper">
                   <div
-                    className={`custom-select ${showDepartmentDropdown ? 'open' : ''}`}
+                    className={`custom-select ${
+                      showDepartmentDropdown ? "open" : ""
+                    }`}
                     onClick={() => {
                       setShowDepartmentDropdown(!showDepartmentDropdown);
                       setShowDesignationDropdown(false);
@@ -417,7 +429,9 @@ const EmployeeDetails = () => {
                       />
                       <div className="dropdown-options">
                         <div
-                          className={`dropdown-option ${!departmentFilter ? 'selected' : ''}`}
+                          className={`dropdown-option ${
+                            !departmentFilter ? "selected" : ""
+                          }`}
                           onClick={() => {
                             setDepartmentFilter("");
                             closeDropdowns();
@@ -428,7 +442,9 @@ const EmployeeDetails = () => {
                         {filteredDepartments.map((department) => (
                           <div
                             key={department}
-                            className={`dropdown-option ${departmentFilter === department ? 'selected' : ''}`}
+                            className={`dropdown-option ${
+                              departmentFilter === department ? "selected" : ""
+                            }`}
                             onClick={() => {
                               setDepartmentFilter(department);
                               closeDropdowns();
@@ -438,7 +454,9 @@ const EmployeeDetails = () => {
                           </div>
                         ))}
                         {filteredDepartments.length === 0 && (
-                          <div className="dropdown-option disabled">No departments found</div>
+                          <div className="dropdown-option disabled">
+                            No departments found
+                          </div>
                         )}
                       </div>
                     </div>
@@ -506,6 +524,7 @@ const EmployeeDetails = () => {
 
             {totalPages > 1 && (
               <div className="pagination">
+                {/* Previous Button */}
                 <button
                   onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
@@ -513,22 +532,31 @@ const EmployeeDetails = () => {
                 >
                   Previous
                 </button>
+
+                {/* First Page */}
                 <button
                   onClick={() => handlePageChange(1)}
                   className={`page-btn ${currentPage === 1 ? "active" : ""}`}
                 >
                   1
                 </button>
-                {currentPage > 4 && <span className="ellipsis">...</span>}
-                {Array.from({ length: Math.min(5, totalPages - 2) }, (_, i) => {
+
+                {/* Left Ellipsis */}
+                {currentPage > 5 && <span className="ellipsis">...</span>}
+
+                {/* Dynamic Middle Pages */}
+                {Array.from({ length: 5 }, (_, i) => {
                   let page;
+
                   if (currentPage <= 4) {
-                    page = i + 2;
+                    page = i + 2; // Show 2,3,4,5,6
                   } else if (currentPage >= totalPages - 3) {
-                    page = totalPages - 4 + i;
+                    page = totalPages - 5 + i; // Show last 5 pages
                   } else {
-                    page = currentPage - 2 + i;
+                    page = currentPage - 2 + i; // Show current ±2
                   }
+
+                  // Only render if page is valid and not 1 or last page
                   if (page > 1 && page < totalPages) {
                     return (
                       <button
@@ -544,9 +572,13 @@ const EmployeeDetails = () => {
                   }
                   return null;
                 }).filter(Boolean)}
-                {currentPage < totalPages - 3 && (
+
+                {/* Right Ellipsis */}
+                {currentPage < totalPages - 4 && (
                   <span className="ellipsis">...</span>
                 )}
+
+                {/* Last Page */}
                 {totalPages > 1 && (
                   <button
                     onClick={() => handlePageChange(totalPages)}
@@ -557,6 +589,8 @@ const EmployeeDetails = () => {
                     {totalPages}
                   </button>
                 )}
+
+                {/* Next Button */}
                 <button
                   onClick={() =>
                     handlePageChange(Math.min(totalPages, currentPage + 1))
@@ -721,7 +755,7 @@ const EmployeeDetails = () => {
 
         .custom-select-value {
           flex: 1;
-          color: ${designationFilter || departmentFilter ? '#333' : '#777'};
+          color: ${designationFilter || departmentFilter ? "#333" : "#777"};
         }
 
         .custom-select-icon {

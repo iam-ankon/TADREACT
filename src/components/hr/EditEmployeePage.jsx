@@ -3,18 +3,41 @@ import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import Sidebars from "./sidebars";
 
+// === 1. GET CSRF TOKEN FROM COOKIE ===
+const getCsrfToken = () => {
+  const name = "csrftoken";
+  const cookies = document.cookie.split(";");
+  for (let cookie of cookies) {
+    const [key, value] = cookie.trim().split("=");
+    if (key === name) return decodeURIComponent(value);
+  }
+  return null;
+};
+
+// === 2. SET DEFAULTS + INTERCEPTOR ===
+// At top of file
+axios.defaults.withCredentials = true;
+
+axios.interceptors.request.use((config) => {
+  const token = getCsrfToken();
+  if (token) {
+    config.headers["X-CSRFToken"] = token;
+  }
+  return config;
+});
+
 const EditEmployeePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [employee, setEmployee] = useState({
-    device_user_id: "", // Added device_user_id field
+    device_user_id: "",
     employee_id: "",
     name: "",
     designation: "",
     joining_date: "",
     date_of_birth: "",
-    email: "",
+    email: "", // ← MUST BE EMPTY STRING
     mail_address: "",
     personal_phone: "",
     office_phone: "",
@@ -102,34 +125,95 @@ const EditEmployeePage = () => {
 
   const handleSubmit = async () => {
     try {
-      const formData = new FormData();
-      Object.keys(employee).forEach((key) => {
-        if (key !== "customer" && key !== "image1" && employee[key] != null) {
-          formData.append(key, employee[key]);
-        }
+      // === BUILD JSON DATA ===
+      const jsonData = {
+        employee_id: employee.employee_id || "",
+        name: employee.name || "",
+        designation: employee.designation || "",
+        joining_date: employee.joining_date || "",
+        date_of_birth: employee.date_of_birth || "",
+        mail_address: employee.mail_address || "",
+        personal_phone: employee.personal_phone || "",
+        office_phone: employee.office_phone || "",
+        reference_phone: employee.reference_phone || "",
+        job_title: employee.job_title || "",
+        reporting_leader: employee.reporting_leader || "",
+        special_skills: employee.special_skills || "",
+        remarks: employee.remarks || "",
+        permanent_address: employee.permanent_address || "",
+        emergency_contact: employee.emergency_contact || "",
+        nid_number: employee.nid_number || "",
+        blood_group: employee.blood_group || "",
+        gender: employee.gender || "",
+      };
+
+      // === EMAIL: ONLY SEND IF CHANGED OR TO CLEAR ===
+      if (employee.email === "") {
+        jsonData.email = null; // ← CLEAR EMAIL
+      } else if (employee.email) {
+        jsonData.email = employee.email; // ← KEEP OR UPDATE
+      }
+      // If email not touched → NOT SENT → keeps old value
+
+      // === FOREIGN KEYS: ONLY IF SELECTED ===
+      if (employee.department)
+        jsonData.department = Number(employee.department);
+      if (employee.company) jsonData.company = Number(employee.company);
+      if (employee.salary) jsonData.salary = Number(employee.salary);
+
+      // === REMOVE UNDEFINED ===
+      Object.keys(jsonData).forEach((key) => {
+        if (jsonData[key] === undefined) delete jsonData[key];
       });
 
-      if (employee.image1 && typeof employee.image1 === "object") {
-        formData.append("image1", employee.image1);
-      }
-
+      // === UPDATE EMPLOYEE ===
       await axios.put(
         `http://119.148.51.38:8000/api/hrms/api/employees/${id}/`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        jsonData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
+      // === UPLOAD IMAGE ===
+      if (employee.image1 && typeof employee.image1 === "object") {
+        const imageFormData = new FormData();
+        imageFormData.append("image1", employee.image1);
+
+        await axios.patch(
+          `http://119.148.51.38:8000/api/hrms/api/employees/${id}/`,
+          imageFormData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+      }
+
+      // === UPDATE CUSTOMERS ===
       await axios.patch(
         `http://119.148.51.38:8000/api/hrms/api/employees/${id}/update_customers/`,
-        { customers: employee.customer }
+        { customers: employee.customer },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
+      alert("Employee updated successfully!");
       navigate(`/employee/${id}`);
     } catch (error) {
-      console.error("Error updating employee:", error);
+      console.error("Update failed:", error.response || error);
+      const msg = error.response?.data
+        ? JSON.stringify(error.response.data, null, 2)
+        : error.message;
+      alert("Update failed:\n" + msg);
     }
   };
-
   const labelStyle = {
     fontWeight: "bold",
     fontSize: "14px",

@@ -2,9 +2,11 @@
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/texweave_Logo_1.png";
 import React, { useEffect, useState } from "react";
-import { loginUser, setToken } from "../../api/employeeApi"; // Import the login function
+import { loginUser, setToken } from "../../api/employeeApi";
 
 const LoginPage = () => {
+  const [employee_id, setEmployeeId] = useState("");
+  const [designation, setDesignation] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -25,7 +27,12 @@ const LoginPage = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      navigate("/hr-work", { replace: true }); // Redirect to chat instead of hr-work
+      const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
+      if (permissions.full_access) {
+        navigate("/hr-work");
+      } else {
+        navigate("/dashboard");
+      }
     }
   }, [navigate]);
 
@@ -34,34 +41,31 @@ const LoginPage = () => {
     setError("");
     setLoading(true);
 
-    if (!username.trim() || !password.trim()) {
-      setError("Please enter both username and password");
+    // Basic validation
+    if (!employee_id.trim() || !username.trim() || !password.trim()) {
+      setError("Employee ID, username, and password are required");
       setLoading(false);
       return;
     }
 
+    const payload = {
+      username: username.trim(),
+      password: password.trim(),
+      employee_id: employee_id.trim(),
+      designation: designation.trim(),
+    };
+
     try {
-      console.log('Starting login process...');
-      const data = await loginUser(username, password);
-
-      if (!data.token) {
-        throw new Error('No token received from server');
+      const data = await loginUser(payload);
+      
+      // Redirect based on permissions
+      if (data.permissions?.full_access) {
+        navigate("/hr-work");
+      } else {
+        navigate("/dashboard");
       }
-
-      // Store authentication data using the API function
-      setToken(data.token);
-      localStorage.setItem("username", data.username);
-      localStorage.setItem("user_id", data.user_id);
-
-      console.log("Login successful, token stored");
-      setUsername("");
-      setPassword("");
-
-      // Redirect to chat page
-      navigate("/hr-work", { replace: true });
     } catch (err) {
-      console.error("Login error:", err);
-      setError(err.message || "An error occurred. Please try again later.");
+      setError(err.message || "Login failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
@@ -134,6 +138,7 @@ const LoginPage = () => {
             border-radius: 4px;
             border: 1px solid #ccc;
             font-size: 14px;
+            box-sizing: border-box;
           }
           .login-btn {
             width: 100%;
@@ -144,11 +149,23 @@ const LoginPage = () => {
             border-radius: 4px;
             font-size: 16px;
             cursor: pointer;
+            transition: background-color 0.3s;
+          }
+          .login-btn:hover:not(:disabled) {
+            background-color: #0056b3;
+          }
+          .login-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
           }
           .error {
             color: red;
             font-size: 14px;
             margin-bottom: 10px;
+            background-color: #ffe6e6;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ffcccc;
           }
           .content {
             position: relative;
@@ -162,6 +179,10 @@ const LoginPage = () => {
             justify-content: center;
             align-items: center;
             text-align: center;
+          }
+          .required::after {
+            content: " *";
+            color: red;
           }
         `}
       </style>
@@ -178,22 +199,44 @@ const LoginPage = () => {
           }}
         />
         <div className="login-container">
-          <h2>Login</h2>
+          <h2>Employee Login</h2>
           {error && <p className="error">{error}</p>}
           <form onSubmit={handleLogin}>
             <div className="input-group">
-              <label htmlFor="username">Username</label>
+              <label htmlFor="employee_id" className="required">Employee ID</label>
+              <input
+                type="text"
+                id="employee_id"
+                value={employee_id}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
+            <div className="input-group">
+              <label htmlFor="designation">Designation</label>
+              <input
+                type="text"
+                id="designation"
+                value={designation}
+                onChange={(e) => setDesignation(e.target.value)}
+                disabled={loading}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="input-group">
+              <label htmlFor="username" className="required">Username</label>
               <input
                 type="text"
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                required
                 disabled={loading}
+                required
               />
             </div>
             <div className="input-group">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password" className="required">Password</label>
               <input
                 type="password"
                 id="password"
@@ -224,9 +267,24 @@ const LoginPage = () => {
             />
           </defs>
           <g className="parallax">
-            <use xlinkHref="#gentle-wave" x="48" y="0" fill="rgba(209, 62, 62, 0.35)" />
-            <use xlinkHref="#gentle-wave" x="48" y="3" fill="rgba(8, 213, 249, 0.55)" />
-            <use xlinkHref="#gentle-wave" x="48" y="5" fill="rgba(156, 216, 121, 0.69)" />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="0"
+              fill="rgba(209, 62, 62, 0.35)"
+            />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="3"
+              fill="rgba(8, 213, 249, 0.55)"
+            />
+            <use
+              xlinkHref="#gentle-wave"
+              x="48"
+              y="5"
+              fill="rgba(156, 216, 121, 0.69)"
+            />
             <use xlinkHref="#gentle-wave" x="48" y="7" fill="#fff" />
           </g>
         </svg>

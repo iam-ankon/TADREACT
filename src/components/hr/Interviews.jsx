@@ -6,6 +6,8 @@ import { FaArrowDown } from "react-icons/fa";
 
 const API_URL = "http://119.148.51.38:8000/api/hrms/api/interviews/";
 
+axios.defaults.withCredentials = true;
+
 const Interviews = () => {
   const location = useLocation();
   const [showPopup, setShowPopup] = useState(false);
@@ -55,6 +57,19 @@ const Interviews = () => {
   const [activeTab, setActiveTab] = useState("details");
 
   const [offerLetterSent, setOfferLetterSent] = useState(false);
+
+  // GET CSRF TOKEN FROM DJANGO
+  const getCsrfToken = () => {
+    const name = "csrftoken";
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.startsWith(name + "=")) {
+        return cookie.substring(name.length + 1);
+      }
+    }
+    return null;
+  };
 
   const checkOfferLetterSent = async (email) => {
     try {
@@ -284,55 +299,87 @@ const Interviews = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      let response;
+    const jsonData = { ...formData };
 
-      // Convert formData to JSON instead of FormData
-      const jsonData = { ...formData };
-
-      // Remove any undefined or null values
-      Object.keys(jsonData).forEach((key) => {
-        if (jsonData[key] === null || jsonData[key] === undefined) {
-          jsonData[key] = "";
-        }
-      });
-
-      console.log("📤 JSON data being sent:", jsonData);
-
-      if (selectedInterview) {
-        response = await axios.put(
-          `${API_URL}${selectedInterview.id}/`,
-          jsonData, // Send as JSON instead of FormData
-          {
-            headers: {
-              "Content-Type": "application/json", // Change content type
-            },
-          }
-        );
-        console.log("🔄 Update response:", response.data);
-        showToast("Interview updated successfully", "success");
+    // === 1. EVALUATION FIELDS (0-20) ===
+    const evalFields = [
+      "education",
+      "job_knowledge",
+      "work_experience",
+      "communication",
+      "personality",
+      "potential",
+      "general_knowledge",
+      "assertiveness",
+    ];
+    evalFields.forEach((field) => {
+      const value = jsonData[field];
+      if (value === "" || value == null) {
+        jsonData[field] = 0;
       } else {
-        response = await axios.post(API_URL, jsonData, {
-          headers: { "Content-Type": "application/json" },
+        jsonData[field] = parseInt(value, 10) || 0;
+      }
+    });
+
+    // === 2. AUTO-CALCULATED MARK ===
+    if (jsonData.interview_mark === "" || jsonData.interview_mark == null) {
+      jsonData.interview_mark = 0;
+    } else {
+      jsonData.interview_mark = parseInt(jsonData.interview_mark, 10) || 0;
+    }
+
+    // === 3. SALARY FIELDS (INTEGER, NOT STRING) ===
+    const salaryFields = [
+      "current_remuneration",
+      "expected_package",
+      "notice_period_required",
+    ];
+    salaryFields.forEach((field) => {
+      const value = jsonData[field];
+      if (value === "" || value == null || value === undefined) {
+        jsonData[field] = 0;
+      } else {
+        jsonData[field] = parseInt(value, 10) || 0;
+      }
+    });
+
+    console.log("JSON data being sent:", jsonData);
+
+    // === CSRF TOKEN ===
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) {
+      showToast("CSRF token missing. Refresh page.", "error");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      let res;
+      if (selectedInterview) {
+        res = await axios.put(`${API_URL}${selectedInterview.id}/`, jsonData, {
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken,
+          },
         });
-        console.log("🆕 Create response:", response.data);
-        showToast("Interview created successfully", "success");
+        showToast("Interview updated!", "success");
+      } else {
+        res = await axios.post(API_URL, jsonData, {
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken,
+          },
+        });
+        showToast("Interview created!", "success");
       }
 
       fetchInterviews();
-
-      if (!selectedInterview && response.data?.id) {
-        navigate(`/interviews?interview_id=${response.data.id}`, {
-          replace: true,
-        });
+      if (!selectedInterview && res.data?.id) {
+        navigate(`/interviews?interview_id=${res.data.id}`, { replace: true });
       }
-
-      return response.data;
     } catch (error) {
-      console.error("❌ Error submitting interview:", error);
-      console.error("❌ Error details:", error.response?.data);
-      showToast("Error submitting interview", "error");
-      return null;
+      console.error("Submit error:", error.response?.data);
+      showToast("Failed to save", "error");
     } finally {
       setIsLoading(false);
     }
@@ -384,15 +431,27 @@ const Interviews = () => {
 
   // Delete interview
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this interview?")) {
-      try {
-        await axios.delete(`${API_URL}${id}/`);
-        showToast("Interview deleted successfully", "success");
-        fetchInterviews();
-        resetForm();
-      } catch (error) {
-        showToast("Error deleting interview", "error");
-      }
+    if (!window.confirm("Delete this interview?")) return;
+
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) {
+      showToast("CSRF token missing. Please refresh.", "error");
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_URL}${id}/`, {
+        headers: {
+          "X-CSRFToken": csrfToken,
+        },
+      });
+      showToast("Interview deleted!", "success");
+      fetchInterviews();
+      resetForm();
+      setSelectedInterview(null);
+    } catch (error) {
+      console.error("Delete error:", error.response?.data);
+      showToast("Failed to delete", "error");
     }
   };
 
