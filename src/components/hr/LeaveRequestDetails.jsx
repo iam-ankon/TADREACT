@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
 import Sidebars from "./sidebars";
+import { 
+  getEmployeeLeaveById, 
+  getEmployeeLeaveBalances, 
+  getEmployeeLeaveTypes,
+  getEmployeeDetailsByCode // ADD THIS IMPORT
+} from "../../api/employeeApi";
 
 const LeaveRequestDetails = () => {
   const { id } = useParams();
@@ -17,33 +22,61 @@ const LeaveRequestDetails = () => {
     sick_leave: 0,
     earned_leave: 0,
   });
+  const [designation, setDesignation] = useState(""); // ADD THIS STATE
   const [loading, setLoading] = useState(true);
   const formRef = useRef();
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // Fetch all required data
+        // Fetch all required data using centralized API
         const [leaveRes, balancesRes, typesRes] = await Promise.all([
-          axios.get(
-            `http://119.148.51.38:8000/api/hrms/api/employee_leaves/${id}/`
-          ),
-          axios.get(
-            "http://119.148.51.38:8000/api/hrms/api/employee_leave_balances/"
-          ),
-          axios.get(
-            "http://119.148.51.38:8000/api/hrms/api/employee_leave_types/"
-          ),
+          getEmployeeLeaveById(id),
+          getEmployeeLeaveBalances(),
+          getEmployeeLeaveTypes(),
         ]);
 
-        setLeave(leaveRes.data);
+        const leaveData = leaveRes.data;
+        setLeave(leaveData);
+
+        // FETCH DESIGNATION SEPARATELY
+        let correctDesignation = "";
+        const employeeCode = leaveData.employee_code || leaveData.employee?.employee_id;
+
+        // Try to get designation from multiple sources
+        if (leaveData.employee && typeof leaveData.employee === 'object') {
+          correctDesignation = leaveData.employee.designation || "";
+        } else if (leaveData.designation) {
+          correctDesignation = leaveData.designation;
+        }
+
+        // If still no designation, fetch employee details
+        if (!correctDesignation && employeeCode) {
+          try {
+            console.log("🔄 Fetching employee details for designation...");
+            const employeeData = await getEmployeeDetailsByCode(employeeCode);
+            
+            if (employeeData) {
+              correctDesignation = employeeData.designation || "";
+              console.log("✅ Fetched designation:", correctDesignation);
+            } else {
+              console.warn("⚠️ No employee data found for code:", employeeCode);
+            }
+          } catch (empError) {
+            console.warn("❌ Could not fetch employee details:", empError);
+          }
+        }
+
+        setDesignation(correctDesignation);
+        console.log("🎯 Final designation:", correctDesignation);
 
         // Process leave balances
         const employeeBalance = balancesRes.data.find(
           (balance) =>
-            balance.employee === leaveRes.data?.employee_id ||
-            balance.employee_name === leaveRes.data?.employee_name
+            balance.employee === leaveData?.employee_id ||
+            balance.employee_name === leaveData?.employee_name
         );
 
         if (employeeBalance) {
@@ -211,10 +244,6 @@ const LeaveRequestDetails = () => {
     printWindow.document.close();
   };
 
-  if (!leave) {
-    return <div style={{ padding: "20px" }}>Loading...</div>;
-  }
-
   // Main styles
   const styles = {
     formContainer: {
@@ -334,7 +363,6 @@ const LeaveRequestDetails = () => {
   };
   const containerStyle = {
     display: "flex",
-
     backgroundColor: "#f4f6f9",
     minHeight: "100vh",
   };
@@ -368,13 +396,13 @@ const LeaveRequestDetails = () => {
                   <label style={styles.label}>Employee ID:</label>
                   <div style={styles.field}>{leave.employee_code}</div>
                 </div>
-                <div style={styles.formRow}>
+                {/* <div style={styles.formRow}>
                   <label style={styles.label}>Joining Date:</label>
                   <div style={styles.field}>{leave.joining_date}</div>
-                </div>
+                </div> */}
                 <div style={styles.formRow}>
                   <label style={styles.label}>To:</label>
-                  <div style={styles.field}>{leave.to || "HR Department"}</div>
+                  <div style={styles.field}>{leave.to_email || "HR Department"}</div>
                 </div>
               </div>
               <div style={{ flex: "1", minWidth: "250px" }}>
@@ -384,7 +412,7 @@ const LeaveRequestDetails = () => {
                 </div>
                 <div style={styles.formRow}>
                   <label style={styles.label}>Designation:</label>
-                  <div style={styles.field}>{leave.designation}</div>
+                  <div style={styles.field}>{designation || "N/A"}</div> {/* USE DESIGNATION STATE */}
                 </div>
                 <div style={styles.formRow}>
                   <label style={styles.label}>Company:</label>
@@ -397,6 +425,7 @@ const LeaveRequestDetails = () => {
               </div>
             </div>
 
+            {/* Rest of your component remains the same */}
             {/* Compact Leave Duration Row */}
             <div style={styles.compactRow}>
               <span>I wish to apply for</span>

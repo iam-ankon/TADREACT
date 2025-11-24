@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
-import axios from "axios";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  addLetterSend,
+  updateInterviewOfferLetterStatus,
+} from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
 const LETTER_CHOICES = [
@@ -12,15 +15,23 @@ const LETTER_CHOICES = [
 const AddLetterPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { name = "", email = "" } = location.state || {};
+  const interviewData = location.state || {};
+
+  console.log("📨 AddLetterPage received state:", interviewData);
 
   const [cvData, setCvData] = useState({
-    name: name,
-    email: email,
+    name: interviewData.name || "",
+    email: interviewData.email || "",
     letterFile: null,
-    letterType: "",
+    letterType: "offer_letter",
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -28,6 +39,10 @@ const AddLetterPage = () => {
       ...prevData,
       [name]: value,
     }));
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -36,62 +51,119 @@ const AddLetterPage = () => {
         ...prevData,
         letterFile: e.target.files[0],
       }));
+
+      if (errors.letterFile) {
+        setErrors((prev) => ({ ...prev, letterFile: "" }));
+      }
     }
   };
 
-  const addLetterSend = async (formData) => {
-    try {
-      const response = await axios.post(
-        "http://119.148.51.38:8000/api/hrms/api/letter_send/",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      return response.data;
-    } catch (error) {
-      throw error;
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!cvData.name?.trim()) {
+      newErrors.name = "Name is required";
     }
+
+    if (!cvData.email?.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!validateEmail(cvData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!cvData.letterFile) {
+      newErrors.letterFile = "Please select a letter file";
+    }
+
+    if (!cvData.letterType) {
+      newErrors.letterType = "Please select a letter type";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setErrors({});
 
     try {
-      if (!cvData.letterFile) {
-        alert("Please select a letter file.");
-        setLoading(false);
-        return;
-      }
-
-      if (!cvData.letterType) {
-        alert("Please select a letter type.");
+      if (!validateForm()) {
         setLoading(false);
         return;
       }
 
       const formData = new FormData();
-      formData.append("name", cvData.name);
-      formData.append("email", cvData.email);
-      formData.append("letter_file", cvData.letterFile);
+      formData.append("name", cvData.name.trim());
+      formData.append("email", cvData.email.trim());
       formData.append("letter_type", cvData.letterType);
 
+      if (cvData.letterFile) {
+        formData.append("letter_file", cvData.letterFile);
+      }
+
+      // Send the letter
       await addLetterSend(formData);
+
+      // CRITICAL: Update the interview record in database to persist offer_letter_sent
+      if (interviewData.id) {
+        try {
+          await updateInterviewOfferLetterStatus(
+            interviewData.id,
+            cvData.email
+          );
+          console.log("✅ Interview offer_letter_sent updated in database");
+
+          // Also store in localStorage for immediate access
+          const sentLetters = JSON.parse(
+            localStorage.getItem("sentOfferLetters") || "{}"
+          );
+          sentLetters[interviewData.id] = {
+            sent: true,
+            email: cvData.email,
+            timestamp: Date.now(),
+          };
+          localStorage.setItem("sentOfferLetters", JSON.stringify(sentLetters));
+        } catch (updateError) {
+          console.warn("⚠️ Could not update interview status:", updateError);
+          // Still store in localStorage as fallback
+          const sentLetters = JSON.parse(
+            localStorage.getItem("sentOfferLetters") || "{}"
+          );
+          sentLetters[interviewData.id] = {
+            sent: true,
+            email: cvData.email,
+            timestamp: Date.now(),
+          };
+          localStorage.setItem("sentOfferLetters", JSON.stringify(sentLetters));
+        }
+      }
+
       alert("Letter sent successfully!");
-      navigate("/interviews", { state: { email: cvData.email } });
+
+      // Navigate back with comprehensive state
+      const returnState = {
+        ...interviewData,
+        letterSent: true,
+        offerLetterSent: true,
+        sentEmail: cvData.email,
+        interviewId: interviewData.id,
+        refresh: true,
+        timestamp: Date.now(),
+      };
+
+      console.log(
+        "🔄 Navigating back to interviews with offer letter sent status"
+      );
+
+      navigate("/interviews", {
+        state: returnState,
+        replace: true,
+      });
     } catch (error) {
       console.error("Error sending letter:", error);
-
-      if (error.response) {
-        alert(
-          `Error: ${error.response.data.message || error.response.statusText}`
-        );
-      } else {
-        alert("Failed to send letter. Please try again.");
-      }
+      alert("Failed to send letter. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -107,6 +179,7 @@ const AddLetterPage = () => {
     flex: 1,
     padding: "30px",
     backgroundColor: "#DCEEF3",
+    overflow: "auto",
   };
 
   const formContainerStyle = {
@@ -150,6 +223,13 @@ const AddLetterPage = () => {
     backgroundColor: "#DCEEF3",
   };
 
+  const errorStyle = {
+    color: "#d32f2f",
+    fontSize: "14px",
+    marginTop: "5px",
+    display: "block",
+  };
+
   const buttonStyle = {
     padding: "10px 20px",
     backgroundColor: "#0078d4",
@@ -160,6 +240,12 @@ const AddLetterPage = () => {
     marginRight: "10px",
   };
 
+  const disabledButtonStyle = {
+    ...buttonStyle,
+    backgroundColor: "#ccc",
+    cursor: "not-allowed",
+  };
+
   const buttonContainerStyle = {
     display: "flex",
     justifyContent: "center",
@@ -168,18 +254,25 @@ const AddLetterPage = () => {
 
   return (
     <div style={containerStyle}>
-      <div style={{ display: "flex" }}>
-        <Sidebars />
-        <div style={{ flex: 1, overflow: "auto" }}>
-          {/* Your page content here */}
-        </div>
-      </div>
+      <Sidebars />
       <div style={mainContentStyle}>
         <div style={formContainerStyle}>
           <h2 style={formHeaderStyle}>Send Letter</h2>
-          <form>
-            {" "}
-            {/* Remove onSubmit from the form tag */}
+          {interviewData.name && (
+            <div
+              style={{
+                backgroundColor: "#e8f4f8",
+                padding: "10px",
+                borderRadius: "4px",
+                marginBottom: "20px",
+                border: "1px solid #0078d4",
+              }}
+            >
+              <strong>Candidate:</strong> {interviewData.name} |{" "}
+              <strong>Position:</strong> {interviewData.position_for}
+            </div>
+          )}
+          <form onSubmit={handleSubmit}>
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Name *</label>
               <input
@@ -190,6 +283,7 @@ const AddLetterPage = () => {
                 required
                 style={inputStyle}
               />
+              {errors.name && <span style={errorStyle}>{errors.name}</span>}
             </div>
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Email *</label>
@@ -201,6 +295,7 @@ const AddLetterPage = () => {
                 required
                 style={inputStyle}
               />
+              {errors.email && <span style={errorStyle}>{errors.email}</span>}
             </div>
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Letter File *</label>
@@ -212,6 +307,9 @@ const AddLetterPage = () => {
                 required
                 style={inputStyle}
               />
+              {errors.letterFile && (
+                <span style={errorStyle}>{errors.letterFile}</span>
+              )}
             </div>
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Letter Type *</label>
@@ -231,25 +329,27 @@ const AddLetterPage = () => {
                   </option>
                 ))}
               </select>
+              {errors.letterType && (
+                <span style={errorStyle}>{errors.letterType}</span>
+              )}
+            </div>
+            <div style={buttonContainerStyle}>
+              <button
+                type="submit"
+                style={loading ? disabledButtonStyle : buttonStyle}
+                disabled={loading}
+              >
+                {loading ? "Sending..." : "Send Letter"}
+              </button>
+              <button
+                type="button"
+                style={{ ...buttonStyle, backgroundColor: "#6c757d" }}
+                onClick={() => navigate("/interviews")}
+              >
+                Back to Interviews
+              </button>
             </div>
           </form>
-          <div style={buttonContainerStyle}>
-            <button
-              type="button"
-              style={buttonStyle}
-              disabled={loading}
-              onClick={handleSubmit}
-            >
-              {loading ? "Adding..." : "Save"}
-            </button>
-            <button
-              type="button"
-              style={buttonStyle}
-              onClick={() => navigate("/letter-send")}
-            >
-              View All Letters
-            </button>
-          </div>
         </div>
       </div>
     </div>

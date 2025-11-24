@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import Sidebars from "./sidebars";
+import { addCV } from "../../api/employeeApi";
 
 const CVAdd = () => {
   const [formData, setFormData] = useState({
@@ -11,9 +11,9 @@ const CVAdd = () => {
     reference: "",
     email: "",
     phone: "",
-    cvFile: null,
+    cv_file: null,
   });
-  const [isLoading, setIsLoading] = useState(false); // Add loading state
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -23,34 +23,47 @@ const CVAdd = () => {
   };
 
   const handleFileChange = (e) => {
-    setFormData({ ...formData, cvFile: e.target.files[0] });
+    setFormData({ ...formData, cv_file: e.target.files[0] });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.cvFile) {
+    if (!formData.cv_file) {
       alert("Please select a CV file");
       return;
     }
 
-    setIsLoading(true); // Set loading to true when submitting
-
-    const uploadData = new FormData();
-    for (const key in formData) {
-      uploadData.append(key === "cvFile" ? "cv_file" : key, formData[key]);
+    // Validate required fields
+    if (!formData.name.trim()) {
+      alert("Please enter candidate name");
+      return;
     }
 
+    setIsLoading(true);
+
     try {
-      await axios.post(
-        "http://119.148.51.38:8000/api/hrms/api/CVAdd/",
-        uploadData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
+      // Prepare data according to the API requirements
+      const cvData = {
+        name: formData.name.trim(),
+        position_for: formData.position_for.trim(),
+        age: formData.age,
+        reference: formData.reference.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        cv_file: formData.cv_file,
+        employee: localStorage.getItem("employee_id") || 1,
+      };
+
+      console.log("Submitting CV data:", {
+        ...cvData,
+        cv_file: cvData.cv_file ? cvData.cv_file.name : "No file"
+      });
+
+      await addCV(cvData);
 
       alert("CV uploaded successfully");
+      // Reset form
       setFormData({
         name: "",
         position_for: "",
@@ -58,13 +71,41 @@ const CVAdd = () => {
         reference: "",
         email: "",
         phone: "",
-        cvFile: null,
+        cv_file: null,
       });
+      
+      // Reset file input
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = "";
+      
     } catch (error) {
       console.error("Error uploading CV:", error);
-      alert("Failed to upload CV");
+      let errorMessage = "Failed to upload CV";
+      
+      if (error.response?.data) {
+        console.error("API Error Response:", error.response.data);
+        // Handle specific error messages from the API
+        if (typeof error.response.data === 'object') {
+          // Extract all error messages
+          const errors = [];
+          for (const [key, value] of Object.entries(error.response.data)) {
+            if (Array.isArray(value)) {
+              errors.push(`${key}: ${value.join(', ')}`);
+            } else {
+              errors.push(`${key}: ${value}`);
+            }
+          }
+          errorMessage = errors.join('\n');
+        } else {
+          errorMessage = error.response.data;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(`Error: ${errorMessage}`);
     } finally {
-      setIsLoading(false); // Set loading to false when done
+      setIsLoading(false);
     }
   };
 
@@ -72,7 +113,6 @@ const CVAdd = () => {
     appContainer: {
       display: "flex",
       height: "100vh",
-
       backgroundColor: "#DCEEF3",
     },
     formContainer: {
@@ -129,7 +169,7 @@ const CVAdd = () => {
     submitBtnDisabled: {
       width: "150px",
       padding: "10px",
-      backgroundColor: "#0078d499", // Semi-transparent version
+      backgroundColor: "#0078d499",
       color: "#fff",
       fontSize: "1rem",
       border: "none",
@@ -175,7 +215,7 @@ const CVAdd = () => {
 
   return (
     <div style={styles.appContainer}>
-      <style>{spinnerStyles}</style> {/* Add the spinner animation */}
+      <style>{spinnerStyles}</style>
       <div style={{ display: "flex" }}>
         <Sidebars />
         <div style={{ flex: 1, overflow: "auto" }}>
@@ -185,7 +225,6 @@ const CVAdd = () => {
       <div style={styles.formContainer}>
         <h2 style={styles.heading}>Add CV</h2>
         <form onSubmit={handleSubmit}>
-          {/* Form fields here */}
           <div style={styles.formRow}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Name:</label>
@@ -196,6 +235,7 @@ const CVAdd = () => {
                 onChange={handleChange}
                 required
                 style={styles.inputField}
+                placeholder="Enter candidate name"
               />
             </div>
             <div style={styles.formGroup}>
@@ -207,6 +247,7 @@ const CVAdd = () => {
                 onChange={handleChange}
                 required
                 style={styles.inputField}
+                placeholder="Enter position"
               />
             </div>
           </div>
@@ -231,6 +272,7 @@ const CVAdd = () => {
                 onChange={handleChange}
                 required
                 style={styles.inputField}
+                placeholder="Enter reference"
               />
             </div>
           </div>
@@ -244,6 +286,7 @@ const CVAdd = () => {
                 onChange={handleChange}
                 required
                 style={styles.inputField}
+                placeholder="Enter email address"
               />
             </div>
             <div style={styles.formGroup}>
@@ -255,6 +298,7 @@ const CVAdd = () => {
                 onChange={handleChange}
                 required
                 style={styles.inputField}
+                placeholder="Enter phone number"
               />
             </div>
           </div>
@@ -262,9 +306,11 @@ const CVAdd = () => {
             <label style={styles.label}>CV File:</label>
             <input
               type="file"
+              name="cv_file"
               onChange={handleFileChange}
               required
               style={styles.inputField}
+              accept=".pdf,.doc,.docx"
             />
           </div>
         </form>

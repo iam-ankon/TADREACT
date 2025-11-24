@@ -3,16 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ChatList from "./ChatList";
 import ChatWindow from "./ChatWindow";
-import {
-  fetchConversations,
-  fetchUsers,
-  getToken,
-  removeToken,
-  testChatEndpoint,
-  getBackendURL,
-  createGroupConversation,
-} from "../../api/employeeApi";
-import axios from "axios";
+import { getToken, removeToken } from "../../api/employeeApi";
+import chatAPI from "../../api/chatApi";
 
 const ChatApp = () => {
   const [conversations, setConversations] = useState([]);
@@ -23,9 +15,52 @@ const ChatApp = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
 
+  // Fetch conversations
+  const fetchConversationsData = async () => {
+    try {
+      setLoading(true);
+      const token = getToken();
+      
+      if (!token) {
+        throw new Error("No authentication token found. Please log in.");
+      }
+
+      console.log("Fetching conversations...");
+      const data = await chatAPI.getConversations();
+      console.log("Conversations data:", data);
+
+      setConversations(data);
+      setError(null);
+    } catch (err) {
+      console.error("Error fetching conversations:", err);
+      handleAuthError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch users
+  const fetchUsersData = async () => {
+    try {
+      const token = getToken();
+      if (!token) {
+        throw new Error("No authentication token found. Please log in.");
+      }
+
+      console.log("Fetching users...");
+      const data = await chatAPI.getUsers();
+      console.log("Users data:", data);
+
+      setUsers(data);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      handleAuthError(err);
+    }
+  };
+
+  // Fetch messages
   const fetchMessages = async (conversation) => {
     if (!conversation) return;
     try {
@@ -35,77 +70,20 @@ const ChatApp = () => {
       }
 
       console.log("📨 Fetching messages for conversation:", conversation.id);
-      const response = await axios.get(
-        `${getBackendURL()}/api/chat/conversations/${conversation.id}/messages/`,
-        { headers: { Authorization: `Token ${token}` } }
-      );
-      console.log("Messages data:", response.data);
-      setMessages(response.data);
+      const data = await chatAPI.getMessages(conversation.id);
+      console.log("Messages data:", data);
+      setMessages(data);
     } catch (err) {
       console.error("Error fetching messages:", err);
       setError(err.response?.data?.detail || "Failed to fetch messages");
     }
   };
 
-  const fetchConversationsData = async () => {
-    try {
-      setLoading(true);
-      const token = getToken();
-      console.log('Current token:', token);
-
-      if (!token) {
-        throw new Error("No authentication token found. Please log in.");
-      }
-
-      console.log("Fetching conversations...");
-      const data = await fetchConversations();
-      console.log("Conversations data:", data);
-
-      setConversations(data);
-      setError(null);
-    } catch (err) {
-      console.error("Error fetching conversations:", err);
-      if (err.response?.status === 401 || err.message.includes('Unauthorized')) {
-        setError("Your session has expired. Please log in again.");
-        removeToken();
-        setTimeout(() => navigate("/", { replace: true }), 2000);
-      } else {
-        setError(err.response?.data?.detail || err.message || "Failed to load conversations.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUsersData = async () => {
-    try {
-      const token = getToken();
-      if (!token) {
-        throw new Error("No authentication token found. Please log in.");
-      }
-
-      console.log("Fetching users...");
-      const data = await fetchUsers();
-      console.log("Users data:", data);
-
-      setUsers(data);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      if (err.response?.status === 401 || err.message.includes('Unauthorized')) {
-        setError("Your session has expired. Please log in again.");
-        removeToken();
-        setTimeout(() => navigate("/", { replace: true }), 2000);
-      } else {
-        setError(err.response?.data?.detail || err.message || "Failed to load users.");
-      }
-    }
-  };
-
+  // Create group chat
   const createGroupChat = async () => {
     if (!newGroupName.trim() || selectedUsers.length === 0) return;
     try {
-      const token = getToken();
-      const response = await createGroupConversation(newGroupName, selectedUsers, token);
+      const response = await chatAPI.createGroupConversation(newGroupName, selectedUsers);
       console.log("Group chat created:", response);
       await fetchConversationsData();
       setSelectedConversation(response);
@@ -119,10 +97,20 @@ const ChatApp = () => {
     }
   };
 
+  // Handle authentication errors
+  const handleAuthError = (err) => {
+    if (err.response?.status === 401 || err.message.includes('Unauthorized')) {
+      setError("Your session has expired. Please log in again.");
+      removeToken();
+      setTimeout(() => navigate("/", { replace: true }), 2000);
+    } else {
+      setError(err.response?.data?.detail || err.message || "Failed to load data.");
+    }
+  };
+
   useEffect(() => {
     fetchConversationsData();
     fetchUsersData();
-    testChatEndpoint();
   }, []);
 
   useEffect(() => {
@@ -174,11 +162,8 @@ const ChatApp = () => {
       display: 'flex',
       height: '100vh',
       background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-      
       overflow: 'hidden',
     }}>
-      
-
       {error && (
         <div style={{
           position: 'fixed',
@@ -224,35 +209,20 @@ const ChatApp = () => {
       )}
 
       <div style={{
-        width: sidebarCollapsed ? 'calc(100% - 80ZZpx)' : 'calc(100% - 250px)',
-        marginLeft: sidebarCollapsed ? '100px' : '250px',
+        width: '100%',
         display: 'flex',
-        transition: 'all 0.3s ease',
         height: '100vh',
         overflow: 'hidden',
-        '@media (max-width: 768px)': {
-          width: '100%',
-          marginLeft: '0',
-          flexDirection: 'column',
-        },
       }}>
         <div style={{
           width: '30%',
           minWidth: '280px',
-          maxWidth: '40px',
           background: 'white',
           borderRight: '1px solid #e1e8ed',
           boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          '@media (max-width: 768px)': {
-            width: '100%',
-            maxWidth: 'none',
-            height: '40%',
-            borderRight: 'none',
-            borderBottom: '1px solid #e1e8ed',
-          },
         }}>
           <ChatList
             conversations={conversations}
@@ -274,9 +244,6 @@ const ChatApp = () => {
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          '@media (max-width: 768px)': {
-            height: '60%',
-          },
         }}>
           <ChatWindow
             conversation={selectedConversation}

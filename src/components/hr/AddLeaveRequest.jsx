@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
+import {
+  getEmployees,
+  getCompanies,
+  getDepartments,
+  addEmployeeLeave,
+  getEmployeeLeaveBalances,
+} from "../../api/employeeApi";
 
 const AddLeaveRequest = () => {
   const [loading, setLoading] = useState(false);
@@ -50,12 +56,10 @@ const AddLeaveRequest = () => {
       try {
         setLoading(true);
         const [empRes, compRes, deptRes, balRes] = await Promise.all([
-          axios.get("http://119.148.51.38:8000/api/hrms/api/employees/"),
-          axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
-          axios.get("http://119.148.51.38:8000/api/hrms/api/departments/"),
-          axios.get(
-            "http://119.148.51.38:8000/api/hrms/api/employee_leave_balances/"
-          ),
+          getEmployees(),
+          getCompanies(),
+          getDepartments(),
+          getEmployeeLeaveBalances(),
         ]);
 
         setEmployees(empRes.data);
@@ -192,18 +196,22 @@ const AddLeaveRequest = () => {
     setLoading(true);
 
     try {
-      await axios.post(
-        "http://119.148.51.38:8000/api/hrms/api/employee_leaves/",
-        {
-          ...newLeave,
-          to: newLeave.to || null,
-          date: newLeave.date || null,
-          reason: newLeave.reason || "",
-          date_of_joining_after_leave:
-            newLeave.date_of_joining_after_leave || null,
-          actual_date_of_joining: newLeave.actual_date_of_joining || null,
-        }
-      );
+      // Prepare the data with all required fields
+      const leaveData = {
+        ...newLeave,
+        to: newLeave.to || null,
+        date: newLeave.date || new Date().toISOString().split("T")[0], // Default to today
+        reason: newLeave.reason || "",
+        date_of_joining_after_leave:
+          newLeave.date_of_joining_after_leave || null,
+        actual_date_of_joining: newLeave.actual_date_of_joining || null,
+        status: "pending",
+      };
+
+      console.log("Submitting leave data:", leaveData); // Debug log
+
+      await addEmployeeLeave(leaveData);
+
       navigate("/employee_leave");
       alert("Leave request submitted successfully!");
     } catch (err) {
@@ -493,7 +501,6 @@ const AddLeaveRequest = () => {
                         value={newLeave.designation}
                         readOnly
                         style={{ ...styles.input, backgroundColor: "#f7fafc" }}
-                        
                       />
                     </div>
 
@@ -504,7 +511,6 @@ const AddLeaveRequest = () => {
                         value={newLeave.department}
                         onChange={handleInputChange}
                         style={{ ...styles.input, ...styles.select }}
-                     
                       >
                         <option value="">Select Department</option>
                         {departments.map((dept) => (
@@ -522,7 +528,6 @@ const AddLeaveRequest = () => {
                         value={newLeave.company}
                         onChange={handleInputChange}
                         style={{ ...styles.input, ...styles.select }}
-                        
                       >
                         <option value="">Select Company</option>
                         {companies.map((comp) => (
@@ -579,10 +584,20 @@ const AddLeaveRequest = () => {
                   </div>
                 </div>
 
-                {/* Rest of the form remains the same */}
                 <div style={styles.section}>
                   <h3 style={styles.sectionTitle}>Leave Details</h3>
                   <div style={styles.formGrid}>
+                    <div style={styles.inputGroup}>
+                      <label style={styles.label}>To (Email)</label>
+                      <input
+                        type="email"
+                        name="to"
+                        value={newLeave.to}
+                        onChange={handleInputChange}
+                        style={styles.input}
+                        placeholder="Recipient email address"
+                      />
+                    </div>
                     <div style={styles.inputGroup}>
                       <label style={styles.label}>
                         Leave Type <span style={styles.requiredField}>*</span>

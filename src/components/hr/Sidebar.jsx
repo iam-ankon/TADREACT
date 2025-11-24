@@ -12,7 +12,8 @@ import {
   FiFileText,
   FiSettings,
   FiUser,
-  FiBriefcase
+  FiBriefcase,
+  FiAward
 } from "react-icons/fi";
 import logo from "../../assets/texweave_Logo_1.png";
 
@@ -97,6 +98,8 @@ const Sidebar = () => {
   const userMode = localStorage.getItem("mode");
   const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
   const hasFullAccess = permissions.full_access === true;
+  const designation = localStorage.getItem("designation") || "";
+  const isTeamLeader = designation.toLowerCase().includes("team leader");
 
   const dashboardPath = hasFullAccess ? "/hr-work" : "/dashboard";
 
@@ -125,16 +128,20 @@ const Sidebar = () => {
 
   // === MENU ITEMS BASED ON USER PERMISSIONS ===
   
-  // Full Access User Menu Items (All buttons except Dashboard)
+  // Full Access User Menu Items
   const fullAccessMenuItems = [
     { to: "/hr-work", icon: <FiHome />, label: "Dashboard" },
     { to: "/finance-provision", icon: <FiDollarSign />, label: "Finance" },
     { to: "/chat", icon: <FiMessageSquare />, label: "Chatbox", onClick: handleChatClick },
   ];
 
-  // Regular User Menu Items (Only Dashboard, Chatbox, Logout)
+  // Regular User Menu Items - Include Performance Appraisal for Team Leaders
   const regularUserMenuItems = [
-    { to: "/dashboard", icon: <FiHome />, label: "Dashboard" },
+    { to: "/dashboard", icon: <FiHome />, label: "Leave Apply" },
+    // Add Performance Appraisal for Team Leaders
+    ...(isTeamLeader ? [
+      { to: "/performance-appraisal", icon: <FiAward />, label: "Performance Appraisal" }
+    ] : []),
     { to: "/chat", icon: <FiMessageSquare />, label: "Chatbox", onClick: handleChatClick },
   ];
 
@@ -239,7 +246,7 @@ const Sidebar = () => {
               <div><strong>{localStorage.getItem("employee_name") || "User"}</strong></div>
               <div>{localStorage.getItem("designation") || "Employee"}</div>
               <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>
-                {hasFullAccess ? "Full Access" : "Regular User"}
+                {hasFullAccess ? "Full Access" : (isTeamLeader ? "Team Leader" : "Regular User")}
               </div>
             </div>
           )}

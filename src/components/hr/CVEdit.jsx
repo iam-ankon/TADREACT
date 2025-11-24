@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
+import { getCVById, updateCV } from "../../api/employeeApi";
 
 const CVEdit = () => {
   const { id } = useParams();
@@ -23,9 +23,7 @@ const CVEdit = () => {
     const fetchCV = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(
-          `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`
-        );
+        const response = await getCVById(id);
         setFormData({
           name: response.data.name,
           position_for: response.data.position_for || "",
@@ -38,6 +36,7 @@ const CVEdit = () => {
         });
       } catch (error) {
         console.error("Error fetching CV:", error);
+        alert("Failed to load CV details");
       } finally {
         setIsLoading(false);
       }
@@ -72,13 +71,7 @@ const CVEdit = () => {
     }
 
     try {
-      await axios.put(
-        `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`,
-        formDataToSubmit,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
+      await updateCV(id, formDataToSubmit);
       alert("CV updated successfully!");
       navigate("/cv-list");
     } catch (error) {
@@ -93,7 +86,6 @@ const CVEdit = () => {
     container: {
       display: "flex",
       minHeight: "100vh",
-
       backgroundColor: "#DCEEF3",
     },
     content: {

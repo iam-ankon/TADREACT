@@ -1,7 +1,6 @@
 // ChatList.jsx
 import React from "react";
-import axios from "axios";
-import { getBackendURL, getToken } from "../../api/employeeApi";
+import chatAPI from "../../api/chatApi";
 
 const ChatList = ({
   conversations,
@@ -34,10 +33,7 @@ const ChatList = ({
   const startDirectMessage = async (userId) => {
     if (!userId) return;
     try {
-      const token = getToken();
-      console.log("🔑 Token:", token);
       console.log("👤 User ID to start DM with:", userId);
-      console.log("👤 User ID type:", typeof userId);
 
       const numericUserId = parseInt(userId);
       if (isNaN(numericUserId)) {
@@ -45,37 +41,20 @@ const ChatList = ({
         return;
       }
 
-      const response = await axios.post(
-        `${getBackendURL()}/api/chat/conversations/`,
-        {
-          user_id: numericUserId,
-          is_group: false,
-        },
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("✅ Direct message created:", response.data);
+      const response = await chatAPI.createDirectConversation(numericUserId);
+      console.log("✅ Direct message created:", response);
+      
       await fetchConversations();
-      setSelectedConversation(response.data);
-      localStorage.setItem("selectedConversationId", response.data.id);
-      await fetchMessages(response.data);
+      setSelectedConversation(response);
+      localStorage.setItem("selectedConversationId", response.id);
+      await fetchMessages(response);
     } catch (err) {
       console.error("❌ Error starting direct message:", err);
       console.log("🔍 Full error response:", err.response?.data);
-      console.log("🔍 Error status:", err.response?.status);
-      if (err.response?.data) {
-        console.log("🔍 Server error details:", err.response.data);
-      }
     }
   };
 
   const getConversationTitle = (conversation) => {
-    console.log("🔍 Conversation data:", JSON.stringify(conversation));
     if (conversation.is_group) {
       return `[Group] ${conversation.title || `Group Chat ${conversation.id}`}`;
     }
@@ -175,10 +154,7 @@ const ChatList = ({
                 style={{
                   padding: "0.75rem",
                   marginBottom: "0.5rem",
-                  background:
-                    conversation.id === localStorage.getItem("selectedConversationId")
-                      ? "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)"
-                      : "#ffffff",
+                  background: "#ffffff",
                   borderRadius: "8px",
                   cursor: "pointer",
                   transition: "all 0.2s ease",
@@ -214,6 +190,7 @@ const ChatList = ({
         )}
       </div>
 
+      {/* Rest of the component remains the same */}
       <div
         style={{
           borderTop: "1px solid #e5e7eb",

@@ -47,9 +47,9 @@ const FinanceProvision = () => {
       try {
         setLoading(true);
         const res = await axios.get(`${API_BASE}/employees/`);
-        const valid = res.data.filter(e => e.salary && e.employee_id);
+        const valid = res.data.filter((e) => e.salary && e.employee_id);
         setEmployees(valid);
-        
+
         // Load cached results if available
         const cachedResults = localStorage.getItem("cachedTaxResults");
         if (cachedResults) {
@@ -67,18 +67,18 @@ const FinanceProvision = () => {
   // Calculate taxes with batch processing and caching
   const calculateAllTaxes = async () => {
     if (calculating) return;
-    
+
     try {
       setCalculating(true);
       setProgress(0);
 
-      const validEmployees = employees.filter(e => e.salary && e.employee_id);
+      const validEmployees = employees.filter((e) => e.salary && e.employee_id);
       const results = {};
       const batchSize = 5; // Process 5 employees at a time
-      
+
       for (let i = 0; i < validEmployees.length; i += batchSize) {
         const batch = validEmployees.slice(i, i + batchSize);
-        
+
         const batchPromises = batch.map(async (emp) => {
           try {
             const gender = emp.gender === "M" ? "Male" : "Female";
@@ -89,39 +89,40 @@ const FinanceProvision = () => {
               gender,
               source_other: parseFloat(other) || 0,
             });
-            
+
             return { empId: emp.employee_id, data: calc.data };
           } catch (err) {
             console.error(`Failed to calculate for ${emp.employee_id}:`, err);
-            return { 
-              empId: emp.employee_id, 
-              data: { error: "Failed", employee_name: emp.name } 
+            return {
+              empId: emp.employee_id,
+              data: { error: "Failed", employee_name: emp.name },
             };
           }
         });
 
         const batchResults = await Promise.allSettled(batchPromises);
-        
+
         // Process batch results
-        batchResults.forEach(result => {
-          if (result.status === 'fulfilled') {
+        batchResults.forEach((result) => {
+          if (result.status === "fulfilled") {
             results[result.value.empId] = result.value.data;
           }
         });
 
         // Update progress
-        const currentProgress = Math.round(((i + batch.length) / validEmployees.length) * 100);
+        const currentProgress = Math.round(
+          ((i + batch.length) / validEmployees.length) * 100
+        );
         setProgress(currentProgress);
-        
+
         // Small delay to prevent overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       setTaxResults(results);
-      
+
       // Cache results
       localStorage.setItem("cachedTaxResults", JSON.stringify(results));
-      
     } catch (err) {
       console.error("Error in tax calculation:", err);
     } finally {
@@ -140,9 +141,10 @@ const FinanceProvision = () => {
     }
   }, [sourceOther, employees.length]);
 
-  const filtered = employees.filter(emp =>
-    emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.employee_id?.toString().includes(searchQuery)
+  const filtered = employees.filter(
+    (emp) =>
+      emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.employee_id?.toString().includes(searchQuery)
   );
 
   const totalPages = Math.ceil(filtered.length / employeesPerPage);
@@ -159,15 +161,74 @@ const FinanceProvision = () => {
     setEditValue(sourceOther[emp.employee_id] || "0");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const val = parseFloat(editValue) || 0;
-    saveSourceOther({ ...sourceOther, [editingId]: val });
-    setEditingId(null);
+
+    try {
+      // Save to backend
+      const response = await axios.post(`${API_BASE}/save-tax-extra/`, {
+        employee_id: editingId,
+        source_other: val,
+      });
+
+      if (response.data.success) {
+        // Update local state only after successful backend save
+        saveSourceOther({ ...sourceOther, [editingId]: val });
+        setEditingId(null);
+
+        // Recalculate taxes for this employee
+        await recalculateEmployeeTax(editingId, val);
+      }
+    } catch (err) {
+      console.error("Failed to save source tax other:", err);
+      alert("Failed to save to server. Please try again.");
+    }
+  };
+
+  // Add this helper function
+  const recalculateEmployeeTax = async (empId, sourceOtherValue) => {
+    try {
+      const emp = employees.find((e) => e.employee_id === empId);
+      if (!emp) return;
+
+      const gender = emp.gender === "M" ? "Male" : "Female";
+
+      const response = await axios.post(`${API_BASE}/calculate/`, {
+        employee_id: empId,
+        gender,
+        source_other: sourceOtherValue,
+      });
+
+      if (response.data && !response.data.error) {
+        // Update tax results for this employee
+        setTaxResults((prev) => ({
+          ...prev,
+          [empId]: response.data,
+        }));
+
+        // Update cache
+        const cachedResults = localStorage.getItem("cachedTaxResults");
+        if (cachedResults) {
+          const parsed = JSON.parse(cachedResults);
+          parsed[empId] = response.data;
+          localStorage.setItem("cachedTaxResults", JSON.stringify(parsed));
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to recalculate tax for ${empId}:`, error);
+    }
   };
 
   const exportCSV = () => {
-    const headers = ["ID", "Name", "Salary", "Source Tax Other", "Net Tax", "Monthly TDS"];
-    const rows = filtered.map(emp => {
+    const headers = [
+      "ID",
+      "Name",
+      "Salary",
+      "Source Tax Other",
+      "Net Tax",
+      "Monthly TDS",
+    ];
+    const rows = filtered.map((emp) => {
       const t = taxResults[emp.employee_id] || {};
       const c = t.tax_calculation || {};
       return [
@@ -179,12 +240,12 @@ const FinanceProvision = () => {
         c.monthly_tds || 0,
       ];
     });
-    const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Tax_Report_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `Tax_Report_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -223,7 +284,9 @@ const FinanceProvision = () => {
             margin: 0 auto 1.5rem;
           }
           @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+              transform: rotate(360deg);
+            }
           }
           p {
             font-size: 1.5rem;
@@ -243,16 +306,27 @@ const FinanceProvision = () => {
           <div className="header">
             <h1>Finance Tax Dashboard</h1>
             <div className="actions">
-              <button onClick={refreshCalculations} className="btn refresh" disabled={calculating}>
-                <FaCalculator /> {calculating ? `Calculating... ${progress}%` : 'Refresh Taxes'}
+              <button
+                onClick={refreshCalculations}
+                className="btn refresh"
+                disabled={calculating}
+              >
+                <FaCalculator />{" "}
+                {calculating ? `Calculating... ${progress}%` : "Refresh Taxes"}
               </button>
               <button onClick={exportCSV} className="btn export">
                 <FaDownload /> Export
               </button>
-              <button onClick={() => navigate("/tax-calculator")} className="btn calc">
+              <button
+                onClick={() => navigate("/tax-calculator")}
+                className="btn calc"
+              >
                 <FaCalculator /> Manual Calc
               </button>
-              <button onClick={() => navigate("/salary-format")} className="btn format">
+              <button
+                onClick={() => navigate("/salary-format")}
+                className="btn format"
+              >
                 <FaFileAlt /> Salary Sheet
               </button>
             </div>
@@ -280,7 +354,10 @@ const FinanceProvision = () => {
           <div className="info-banner">
             <FaExclamationTriangle />
             <span>
-              Showing {filtered.length} employees. {calculating ? 'Calculating taxes...' : 'Click Refresh to update calculations.'}
+              Showing {filtered.length} employees.{" "}
+              {calculating
+                ? "Calculating taxes..."
+                : "Click Refresh to update calculations."}
             </span>
           </div>
 
@@ -299,7 +376,7 @@ const FinanceProvision = () => {
                 </tr>
               </thead>
               <tbody>
-                {current.map(emp => {
+                {current.map((emp) => {
                   const res = taxResults[emp.employee_id] || {};
                   const calc = res.tax_calculation || {};
                   const other = sourceOther[emp.employee_id] || 0;
@@ -308,7 +385,9 @@ const FinanceProvision = () => {
                     <tr
                       key={emp.employee_id}
                       className="row"
-                      onClick={() => navigate(`/tax-calculator/${emp.employee_id}`)}
+                      onClick={() =>
+                        navigate(`/tax-calculator/${emp.employee_id}`)
+                      }
                     >
                       <td>{emp.employee_id}</td>
                       <td className="name">{emp.name}</td>
@@ -320,24 +399,42 @@ const FinanceProvision = () => {
                               type="number"
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && handleSave()
+                              }
                               onClick={(e) => e.stopPropagation()}
                               autoFocus
                             />
-                            <FaSave onClick={(e) => { e.stopPropagation(); handleSave(); }} />
+                            <FaSave
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSave();
+                              }}
+                            />
                           </div>
                         ) : (
                           <div className="source-cell">
                             ৳{parseFloat(other).toLocaleString()}
-                            <FaEdit onClick={(e) => { e.stopPropagation(); handleEdit(emp); }} />
+                            <FaEdit
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(emp);
+                              }}
+                            />
                           </div>
                         )}
                       </td>
-                      <td className="tax">৳{(calc.net_tax_payable || 0).toLocaleString()}</td>
-                      <td className="tds">৳{(calc.monthly_tds || 0).toLocaleString()}</td>
+                      <td className="tax">
+                        ৳{(calc.net_tax_payable || 0).toLocaleString()}
+                      </td>
+                      <td className="tds">
+                        ৳{(calc.monthly_tds || 0).toLocaleString()}
+                      </td>
                       <td>
                         {res.error ? (
-                          <span className="error"><FaExclamationTriangle /> Failed</span>
+                          <span className="error">
+                            <FaExclamationTriangle /> Failed
+                          </span>
                         ) : calc.net_tax_payable ? (
                           <span className="success">Calculated</span>
                         ) : (
@@ -354,11 +451,19 @@ const FinanceProvision = () => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="pagination">
-              <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
                 Prev
               </button>
-              <span>{currentPage} / {totalPages}</span>
-              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+              <span>
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
                 Next
               </button>
             </div>
@@ -380,7 +485,7 @@ const FinanceProvision = () => {
           max-width: 1400px;
           background: white;
           border-radius: 20px;
-          box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
           overflow: hidden;
         }
         .card {
@@ -420,10 +525,22 @@ const FinanceProvision = () => {
           opacity: 0.6;
           cursor: not-allowed;
         }
-        .refresh { background: #f59e0b; color: white; }
-        .export { background: #10b981; color: white; }
-        .calc { background: #7c3aed; color: white; }
-        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .refresh {
+          background: #f59e0b;
+          color: white;
+        }
+        .export {
+          background: #10b981;
+          color: white;
+        }
+        .calc {
+          background: #7c3aed;
+          color: white;
+        }
+        .btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
 
         .progress-bar {
           height: 8px;
@@ -483,7 +600,7 @@ const FinanceProvision = () => {
         .table-wrapper {
           overflow-x: auto;
           border-radius: 12px;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
         .table {
           width: 100%;
@@ -508,13 +625,34 @@ const FinanceProvision = () => {
         .row:hover {
           background: #f8faff;
         }
-        .name { font-weight: 600; color: #1e293b; }
-        .tax, .tds { font-weight: bold; color: #dc2626; }
-        .success { color: #059669; font-weight: bold; }
-        .pending { color: #f59e0b; font-weight: bold; }
-        .error { color: #dc2626; font-weight: bold; display: flex; align-items: center; gap: 0.4rem; justify-content: center; }
+        .name {
+          font-weight: 600;
+          color: #1e293b;
+        }
+        .tax,
+        .tds {
+          font-weight: bold;
+          color: #dc2626;
+        }
+        .success {
+          color: #059669;
+          font-weight: bold;
+        }
+        .pending {
+          color: #f59e0b;
+          font-weight: bold;
+        }
+        .error {
+          color: #dc2626;
+          font-weight: bold;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          justify-content: center;
+        }
 
-        .source-cell, .edit-input {
+        .source-cell,
+        .edit-input {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -526,7 +664,8 @@ const FinanceProvision = () => {
           border: 1px solid #7c3aed;
           border-radius: 6px;
         }
-        .edit-input svg, .source-cell svg {
+        .edit-input svg,
+        .source-cell svg {
           color: #7c3aed;
           cursor: pointer;
           font-size: 1.1rem;
@@ -553,10 +692,23 @@ const FinanceProvision = () => {
         }
 
         @media (max-width: 768px) {
-          .header { flex-direction: column; text-align: center; }
-          .actions { width: 100%; justify-content: center; }
-          .table th, .table td { padding: 0.5rem; font-size: 0.9rem; }
-          .btn { padding: 0.6rem 1rem; font-size: 0.9rem; }
+          .header {
+            flex-direction: column;
+            text-align: center;
+          }
+          .actions {
+            width: 100%;
+            justify-content: center;
+          }
+          .table th,
+          .table td {
+            padding: 0.5rem;
+            font-size: 0.9rem;
+          }
+          .btn {
+            padding: 0.6rem 1rem;
+            font-size: 0.9rem;
+          }
         }
       `}</style>
     </div>

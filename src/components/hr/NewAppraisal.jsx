@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
+import { getEmployees, addPerformanceAppraisal } from "../../api/employeeApi";
 
 const NewAppraisal = () => {
   const [employees, setEmployees] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
-  
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     employee_id: "",
     name: "",
@@ -50,12 +53,11 @@ const NewAppraisal = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await axios.get(
-          "http://119.148.51.38:8000/api/hrms/api/employees/"
-        );
+        const response = await getEmployees();
         setEmployees(response.data);
       } catch (error) {
         console.error("Error fetching employees:", error);
+        alert("Failed to load employees. Please try again.");
       }
     };
     fetchEmployees();
@@ -64,12 +66,13 @@ const NewAppraisal = () => {
   // Filter employees based on search term
   const filteredEmployees = useMemo(() => {
     if (!employeeSearch) return employees;
-    
+
     const searchTerm = employeeSearch.toLowerCase();
-    return employees.filter(emp => 
-      emp.name?.toLowerCase().includes(searchTerm) ||
-      emp.employee_id?.toLowerCase().includes(searchTerm) ||
-      emp.designation?.toLowerCase().includes(searchTerm)
+    return employees.filter(
+      (emp) =>
+        emp.name?.toLowerCase().includes(searchTerm) ||
+        emp.employee_id?.toLowerCase().includes(searchTerm) ||
+        emp.designation?.toLowerCase().includes(searchTerm)
     );
   }, [employees, employeeSearch]);
 
@@ -92,8 +95,10 @@ const NewAppraisal = () => {
         present_salary: selectedEmployee.salary || "",
       }));
     }
-    
-    setEmployeeSearch(employee ? `${employee.name} (${employee.employee_id})` : "");
+
+    setEmployeeSearch(
+      employee ? `${employee.name} (${employee.employee_id})` : ""
+    );
     setShowEmployeeDropdown(false);
   };
 
@@ -105,8 +110,10 @@ const NewAppraisal = () => {
     setFormData({ ...formData, [e.target.name]: e.target.checked });
   };
 
+  // In NewAppraisal.jsx - Update the handleSubmit function
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
     // Convert empty string number fields to null
     const numberFields = [
@@ -132,12 +139,13 @@ const NewAppraisal = () => {
       ),
     };
 
+    console.log("Submitting data:", cleanFormData); // Debug log
+
     try {
-      await axios.post(
-        "http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/",
-        cleanFormData
+      await addPerformanceAppraisal(cleanFormData);
+      alert(
+        "Appraisal Added Successfully! Note: Increments must be approved separately."
       );
-      alert("Appraisal Added Successfully!");
 
       // Reset form
       setFormData({
@@ -180,13 +188,18 @@ const NewAppraisal = () => {
         proposed_designation: "",
       });
       setEmployeeSearch("");
+
+      // Navigate back to appraisals list
+      navigate("/performanse_appraisal");
     } catch (error) {
       console.error("Error adding appraisal:", error);
       alert("Failed to add appraisal. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Styles
+  // Styles (same as original)
   const containerStyle = {
     display: "flex",
     minHeight: "100vh",
@@ -268,17 +281,6 @@ const NewAppraisal = () => {
     ...inputStyle,
     minHeight: "80px",
     resize: "vertical",
-  };
-
-  const selectStyle = {
-    ...inputStyle,
-    appearance: "none",
-    backgroundImage:
-      "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")",
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "right 10px center",
-    backgroundSize: "16px",
-    cursor: "pointer",
   };
 
   const checkboxContainerStyle = {
@@ -377,13 +379,27 @@ const NewAppraisal = () => {
                         <div
                           key={emp.employee_id}
                           style={dropdownItemStyle}
-                          onClick={() => handleEmployeeSelect(emp.employee_id, emp)}
-                          onMouseEnter={(e) => e.target.style.backgroundColor = dropdownItemHoverStyle.backgroundColor}
-                          onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+                          onClick={() =>
+                            handleEmployeeSelect(emp.employee_id, emp)
+                          }
+                          onMouseEnter={(e) =>
+                            (e.target.style.backgroundColor =
+                              dropdownItemHoverStyle.backgroundColor)
+                          }
+                          onMouseLeave={(e) =>
+                            (e.target.style.backgroundColor = "transparent")
+                          }
                         >
-                          <div><strong>{emp.name}</strong></div>
-                          <div>ID: {emp.employee_id} | {emp.designation}</div>
-                          <div>Dept: {emp.department_name} | Phone: {emp.personal_phone}</div>
+                          <div>
+                            <strong>{emp.name}</strong>
+                          </div>
+                          <div>
+                            ID: {emp.employee_id} | {emp.designation}
+                          </div>
+                          <div>
+                            Dept: {emp.department_name} | Phone:{" "}
+                            {emp.personal_phone}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -628,6 +644,19 @@ const NewAppraisal = () => {
                       />
                       <label htmlFor="promotion" style={labelStyle}>
                         Promotion
+                      </label>
+                    </div>
+                    <div style={checkboxContainerStyle}>
+                      <input
+                        type="checkbox"
+                        id="increment"
+                        name="increment"
+                        checked={formData.increment}
+                        onChange={handleCheckboxChange}
+                        style={checkboxStyle}
+                      />
+                      <label htmlFor="increment" style={labelStyle}>
+                        Increment
                       </label>
                     </div>
                     <div style={checkboxContainerStyle}>
@@ -997,17 +1026,29 @@ const NewAppraisal = () => {
             <div style={buttonContainerStyle}>
               <button
                 type="button"
-                style={buttonStyle}
+                style={{
+                  ...buttonStyle,
+                  backgroundColor: loading
+                    ? "#9ca3af"
+                    : buttonStyle.backgroundColor,
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
                 onClick={handleSubmit}
-                onMouseEnter={(e) =>
-                  (e.target.style.backgroundColor =
-                    buttonHoverStyle.backgroundColor)
-                }
-                onMouseLeave={(e) =>
-                  (e.target.style.backgroundColor = buttonStyle.backgroundColor)
-                }
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor =
+                      buttonHoverStyle.backgroundColor;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor =
+                      buttonStyle.backgroundColor;
+                  }
+                }}
+                disabled={loading}
               >
-                Submit Appraisal
+                {loading ? "Submitting..." : "Submit Appraisal"}
               </button>
             </div>
           </div>

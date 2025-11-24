@@ -11,7 +11,6 @@ import LoginPage from "./components/hr/LoginPage";
 
 // HR Pages
 
-import Dashboard from "./components/hr/Dashboard";
 import HRWorkPage from "./components/hr/HRWorkPage";
 import EmployeeDetails from "./components/hr/EmployeeDetails";
 import EmployeeDetailPage from "./components/hr/EmployeeDetailPage";
@@ -49,6 +48,12 @@ import CVDetail from "./components/hr/CVDetail";
 import MailMdSir from "./components/hr/MailMdSir";
 import InviteMail from "./components/hr/InviteMail";
 
+
+//regular user Dashboard
+import Dashboard from "./components/hr/regular_user/Dashboard.jsx";
+import ApplyLeave from "./components/hr/regular_user/ApplyLeave.jsx";
+import PerformanceAppraisal from "./components/hr/regular_user/PerformanceAppraisal.jsx";
+
 // Merchandiser
 import CustomerPage from "./components/merchandiser/CustomerPage";
 import BuyerPage from "./components/merchandiser/BuyerPage";
@@ -76,6 +81,7 @@ import CustomerDetailsPage from "./components/merchandiser/CustomerDetailsPage.j
 import TaxCalculator from "./components/tax/TaxCalculator.jsx";
 import TaxCalculators from "./components/tax/TaxCalculators.jsx";
 import SalaryFormat from "./components/tax/SalaryFormat.jsx";
+import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
 
 
 // chatbox 
@@ -99,7 +105,7 @@ const AppContent = () => {
           {/* Protected HR Routes */}
           =
 
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>}/>
+          
           <Route path="/hr-work" element={<ProtectedRoute><HRWorkPage /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><EmployeeDetails /></ProtectedRoute>} />
           <Route path="/employee/:id" element={<ProtectedRoute><EmployeeDetailPage /></ProtectedRoute>} />
@@ -124,6 +130,14 @@ const AppContent = () => {
           <Route path="/interviews/details/:id" element={<ProtectedRoute><InterviewDetailsPage /></ProtectedRoute>} />
           <Route path="/tad-groups" element={<ProtectedRoute><TADGroups /></ProtectedRoute>} />
           <Route path="/employee-termination" element={<ProtectedRoute><EmployeeTermination /></ProtectedRoute>} />
+
+
+          {/* Regular User Routes */} 
+          <Route path="/apply-leave" element={<ProtectedRoute><ApplyLeave /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>}/>
+          <Route path="/performance-appraisal" element={<ProtectedRoute><PerformanceAppraisal /></ProtectedRoute>} />
+          <Route path="/leave-history" element={<ProtectedRoute><LeaveHistory /></ProtectedRoute>} />
+
 
           {/* Optional Routes (unprotected or publicly safe) */}
           <Route path="/letter-send" element={<ProtectedRoute><LetterSend /></ProtectedRoute>} />

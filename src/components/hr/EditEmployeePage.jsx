@@ -1,30 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
 import Sidebars from "./sidebars";
-
-// === 1. GET CSRF TOKEN FROM COOKIE ===
-const getCsrfToken = () => {
-  const name = "csrftoken";
-  const cookies = document.cookie.split(";");
-  for (let cookie of cookies) {
-    const [key, value] = cookie.trim().split("=");
-    if (key === name) return decodeURIComponent(value);
-  }
-  return null;
-};
-
-// === 2. SET DEFAULTS + INTERCEPTOR ===
-// At top of file
-axios.defaults.withCredentials = true;
-
-axios.interceptors.request.use((config) => {
-  const token = getCsrfToken();
-  if (token) {
-    config.headers["X-CSRFToken"] = token;
-  }
-  return config;
-});
+import {
+  getEmployeeById,
+  getCompanies,
+  getCustomers,
+  getDepartments,
+  updateEmployee,
+  updateEmployeeImage,
+  updateEmployeeCustomers,
+} from "../../api/employeeApi";
 
 const EditEmployeePage = () => {
   const { id } = useParams();
@@ -37,7 +22,7 @@ const EditEmployeePage = () => {
     designation: "",
     joining_date: "",
     date_of_birth: "",
-    email: "", // ← MUST BE EMPTY STRING
+    email: "",
     mail_address: "",
     personal_phone: "",
     office_phone: "",
@@ -66,17 +51,14 @@ const EditEmployeePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [employeeRes, companiesRes, customersRes, departmentsRes] =
-          await Promise.all([
-            axios.get(
-              `http://119.148.51.38:8000/api/hrms/api/employees/${id}/`
-            ),
-            axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
-            axios.get("http://119.148.51.38:8000/api/hrms/api/customers/"),
-            axios.get("http://119.148.51.38:8000/api/hrms/api/departments/"),
-          ]);
+        const [empRes, compRes, custRes, deptRes] = await Promise.all([
+          getEmployeeById(id),
+          getCompanies(),
+          getCustomers(),
+          getDepartments(),
+        ]);
 
-        const emp = employeeRes.data;
+        const emp = empRes.data;
         const customerIds = Array.isArray(emp.customer)
           ? emp.customer.map((c) => (typeof c === "object" ? c.id : c))
           : [];
@@ -87,13 +69,11 @@ const EditEmployeePage = () => {
           customer: customerIds,
         });
 
-        setCompanies(companiesRes.data);
-        setCustomers(customersRes.data);
-        setDepartments(departmentsRes.data);
+        setCompanies(compRes.data);
+        setCustomers(custRes.data);
+        setDepartments(deptRes.data);
 
-        if (emp.image1) {
-          setImagePreview(emp.image1);
-        }
+        if (emp.image1) setImagePreview(emp.image1);
       } catch (err) {
         console.error("Error fetching data:", err);
       }
@@ -104,7 +84,7 @@ const EditEmployeePage = () => {
 
   const handleChange = (e) => {
     const { name, value, type, files } = e.target;
-    if (type === "file" && files && files[0]) {
+    if (type === "file" && files[0]) {
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(files[0]);
@@ -125,7 +105,11 @@ const EditEmployeePage = () => {
 
   const handleSubmit = async () => {
     try {
-      // === BUILD JSON DATA ===
+      console.log("=== EDIT EMPLOYEE SUBMIT DEBUG ===");
+      console.log("Original employee data:", employee);
+      console.log("Customer IDs from state:", employee.customer);
+      console.log("Customer IDs type:", typeof employee.customer);
+
       const jsonData = {
         employee_id: employee.employee_id || "",
         name: employee.name || "",
@@ -147,79 +131,59 @@ const EditEmployeePage = () => {
         gender: employee.gender || "",
       };
 
-      // === EMAIL: ONLY SEND IF CHANGED OR TO CLEAR ===
-      if (employee.email === "") {
-        jsonData.email = null; // ← CLEAR EMAIL
-      } else if (employee.email) {
-        jsonData.email = employee.email; // ← KEEP OR UPDATE
-      }
-      // If email not touched → NOT SENT → keeps old value
+      if (employee.email === "") jsonData.email = null;
+      else if (employee.email) jsonData.email = employee.email;
 
-      // === FOREIGN KEYS: ONLY IF SELECTED ===
       if (employee.department)
         jsonData.department = Number(employee.department);
       if (employee.company) jsonData.company = Number(employee.company);
       if (employee.salary) jsonData.salary = Number(employee.salary);
 
-      // === REMOVE UNDEFINED ===
       Object.keys(jsonData).forEach((key) => {
         if (jsonData[key] === undefined) delete jsonData[key];
       });
 
-      // === UPDATE EMPLOYEE ===
-      await axios.put(
-        `http://119.148.51.38:8000/api/hrms/api/employees/${id}/`,
-        jsonData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      console.log("Basic employee data to update:", jsonData);
 
-      // === UPLOAD IMAGE ===
+      // Update basic employee data first
+      await updateEmployee(id, jsonData);
+
+      // Handle image update
       if (employee.image1 && typeof employee.image1 === "object") {
         const imageFormData = new FormData();
         imageFormData.append("image1", employee.image1);
-
-        await axios.patch(
-          `http://119.148.51.38:8000/api/hrms/api/employees/${id}/`,
-          imageFormData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
+        await updateEmployeeImage(id, imageFormData);
       }
 
-      // === UPDATE CUSTOMERS ===
-      await axios.patch(
-        `http://119.148.51.38:8000/api/hrms/api/employees/${id}/update_customers/`,
-        { customers: employee.customer },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      // Handle customers - ensure they are numbers
+      const customerIds = employee.customer
+        .map((id) => parseInt(id))
+        .filter((id) => !isNaN(id));
+      console.log("Customer IDs to send to API:", customerIds);
+
+      if (customerIds.length > 0) {
+        await updateEmployeeCustomers(id, customerIds);
+        console.log("Customer update API call completed");
+      } else {
+        console.log("No customers to update");
+      }
+
+      console.log("=== END SUBMIT DEBUG ===");
 
       alert("Employee updated successfully!");
       navigate(`/employee/${id}`);
     } catch (error) {
-      console.error("Update failed:", error.response || error);
-      const msg = error.response?.data
-        ? JSON.stringify(error.response.data, null, 2)
-        : error.message;
-      alert("Update failed:\n" + msg);
+      console.error("Update failed:", error);
+      console.error("Error response:", error.response);
+      alert("Update failed: " + (error.response?.data || error.message));
     }
   };
+
   const labelStyle = {
     fontWeight: "bold",
     fontSize: "14px",
     marginBottom: "6px",
   };
-
   const inputStyle = {
     padding: "10px",
     borderRadius: "6px",
@@ -228,13 +192,11 @@ const EditEmployeePage = () => {
     backgroundColor: "#f9f9f9",
     width: "100%",
   };
-
   const textareaStyle = {
     ...inputStyle,
     minHeight: "80px",
     resize: "vertical",
   };
-
   const checkboxContainer = {
     padding: "10px",
     borderRadius: "6px",
@@ -242,7 +204,6 @@ const EditEmployeePage = () => {
     overflowY: "auto",
     backgroundColor: "#f9f9f9",
   };
-
   const imagePreviewStyle = {
     maxWidth: "200px",
     maxHeight: "200px",
@@ -252,11 +213,7 @@ const EditEmployeePage = () => {
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      {/* Fixed Sidebar */}
-
       <Sidebars />
-
-      {/* Scrollable Content */}
       <div
         style={{
           flex: 1,
@@ -287,7 +244,7 @@ const EditEmployeePage = () => {
             }}
           >
             {[
-              { name: "device_user_id", label: "Device User ID" }, // Added device_user_id field
+              { name: "device_user_id", label: "Device User ID" },
               { name: "employee_id", label: "Employee ID" },
               { name: "name", label: "Name" },
               { name: "designation", label: "Designation" },
@@ -299,7 +256,6 @@ const EditEmployeePage = () => {
               { name: "office_phone", label: "Office Phone" },
               { name: "reference_phone", label: "Reference Phone" },
               { name: "job_title", label: "Job Title" },
-
               { name: "nid_number", label: "NID Number" },
               { name: "blood_group", label: "Blood Group" },
               { name: "salary", label: "Salary", type: "number" },
@@ -358,7 +314,7 @@ const EditEmployeePage = () => {
                         display: "flex",
                         alignItems: "center",
                         marginBottom: "6px",
-                        gap: "10px", // space between checkbox and text
+                        gap: "10px",
                         cursor: "pointer",
                       }}
                     >
@@ -381,45 +337,26 @@ const EditEmployeePage = () => {
               </div>
             </div>
 
-            <div>
-              <label style={labelStyle}>Special Skills</label>
-              <textarea
-                name="special_skills"
-                value={employee.special_skills}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Emergency Contact</label>
-              <textarea
-                name="emergency_contact"
-                value={employee.emergency_contact}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Remarks</label>
-              <textarea
-                name="remarks"
-                value={employee.remarks}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div>
-              <label style={labelStyle}>Permanent Address</label>
-              <textarea
-                name="permanent_address"
-                value={employee.permanent_address}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
+            {[
+              "special_skills",
+              "emergency_contact",
+              "remarks",
+              "permanent_address",
+            ].map((field) => (
+              <div key={field}>
+                <label style={labelStyle}>
+                  {field
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase())}
+                </label>
+                <textarea
+                  name={field}
+                  value={employee[field]}
+                  onChange={handleChange}
+                  style={textareaStyle}
+                />
+              </div>
+            ))}
 
             <div>
               <label style={labelStyle}>Company</label>

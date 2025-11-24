@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { getAttendance, getEmployees } from "../../api/employeeApi";
+import { getAttendance, getEmployees, getCompanies } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
-import axios from "axios";
-
-axios.defaults.withCredentials = true;
 
 const Attendance = () => {
   const [attendance, setAttendance] = useState([]);
@@ -49,16 +46,14 @@ const Attendance = () => {
         const [attRes, empRes, compRes] = await Promise.all([
           getAttendance(),
           getEmployees(),
-          axios.get("http://119.148.51.38:8000/api/hrms/api/tad_groups/"),
+          getCompanies(),
         ]);
 
-        // Ensure we always set arrays, even if API returns undefined
         setAttendance(attRes?.data || []);
         setEmployees(empRes?.data || []);
         setCompanies(compRes?.data?.results || compRes?.data || []);
       } catch (error) {
         console.error("Error fetching data:", error);
-        // Set empty arrays on error to prevent undefined states
         setAttendance([]);
         setEmployees([]);
         setCompanies([]);
@@ -84,6 +79,7 @@ const Attendance = () => {
     }
   }, [dateRangeStart, dateRangeEnd]);
 
+  // ... (all the helper functions remain exactly the same)
   const formatTimeToAMPM = (timeStr) => {
     if (!timeStr) return "-";
     try {
@@ -129,7 +125,7 @@ const Attendance = () => {
     };
   };
 
-  // === FILTERS ===
+  // ... (all filter functions remain exactly the same)
   const filterAttendanceByNameAndId = (records) => {
     if (!records || !Array.isArray(records)) return [];
     if (!searchTerm) return records;
@@ -157,7 +153,6 @@ const Attendance = () => {
   };
 
   const filterAttendanceByMonth = (records) => {
-    // Add safety checks
     if (!records || !Array.isArray(records)) return [];
     if (!monthFilter) return records;
     
@@ -166,7 +161,6 @@ const Attendance = () => {
       const prefix = `${year}-${month}`;
       
       return records.filter((r) => {
-        // Check if record and date exist
         if (!r || !r.date) return false;
         
         try {
@@ -213,7 +207,6 @@ const Attendance = () => {
   };
 
   const getFilteredAttendance = () => {
-    // Add safety check - ensure attendance is always an array
     if (!attendance || !Array.isArray(attendance)) {
       console.warn('Attendance data is not available or not an array:', attendance);
       return [];
@@ -227,7 +220,7 @@ const Attendance = () => {
     return filtered;
   };
 
-  // === REPORTS ===
+  // ... (all report generation functions remain exactly the same)
   const generateSmartReport = () => {
     let data = getFilteredAttendance();
     if (!data || data.length === 0) {
@@ -856,7 +849,7 @@ const Attendance = () => {
   );
 };
 
-// Enhanced Styles
+// ... (all the style objects remain exactly the same)
 const headerStyle = {
   display: 'flex',
   justifyContent: 'space-between',

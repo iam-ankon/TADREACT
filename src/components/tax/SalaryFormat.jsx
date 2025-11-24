@@ -46,8 +46,18 @@ const SalaryFormat = () => {
   const BASE_MONTH = 30;
 
   const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
   // Load saved manual data
@@ -85,10 +95,10 @@ const SalaryFormat = () => {
         if (cachedResults) {
           const parsedResults = JSON.parse(cachedResults);
           setTaxResults(parsedResults);
-          
+
           // Set loading states for AIT values
           const loadingStates = {};
-          Object.keys(parsedResults).forEach(empId => {
+          Object.keys(parsedResults).forEach((empId) => {
             loadingStates[empId] = false;
           });
           setLoadingAit(loadingStates);
@@ -104,8 +114,8 @@ const SalaryFormat = () => {
   // Calculate missing AIT values
   useEffect(() => {
     const calculateMissingTaxes = async () => {
-      const employeesWithoutAit = employees.filter(emp => 
-        !taxResults[emp.employee_id] && emp.salary && emp.employee_id
+      const employeesWithoutAit = employees.filter(
+        (emp) => !taxResults[emp.employee_id] && emp.salary && emp.employee_id
       );
 
       if (employeesWithoutAit.length === 0) return;
@@ -113,7 +123,7 @@ const SalaryFormat = () => {
       try {
         // Set loading states for employees without AIT
         const newLoadingStates = { ...loadingAit };
-        employeesWithoutAit.forEach(emp => {
+        employeesWithoutAit.forEach((emp) => {
           newLoadingStates[emp.employee_id] = true;
         });
         setLoadingAit(newLoadingStates);
@@ -132,28 +142,31 @@ const SalaryFormat = () => {
             });
 
             results[emp.employee_id] = response.data;
-            
+
             // Update loading state
-            setLoadingAit(prev => ({
+            setLoadingAit((prev) => ({
               ...prev,
-              [emp.employee_id]: false
+              [emp.employee_id]: false,
             }));
           } catch (error) {
-            console.error(`Failed to calculate tax for ${emp.employee_id}:`, error);
+            console.error(
+              `Failed to calculate tax for ${emp.employee_id}:`,
+              error
+            );
             results[emp.employee_id] = { error: "Failed to calculate" };
-            
-            setLoadingAit(prev => ({
+
+            setLoadingAit((prev) => ({
               ...prev,
-              [emp.employee_id]: false
+              [emp.employee_id]: false,
             }));
           }
 
           // Small delay to prevent overwhelming the server
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
         setTaxResults(results);
-        
+
         // Update cache
         localStorage.setItem("cachedTaxResults", JSON.stringify(results));
       } catch (error) {
@@ -195,7 +208,8 @@ const SalaryFormat = () => {
         const conveyanceFull = Number((monthlySalary * 0.05).toFixed(2));
         const grossFull = Number(monthlySalary.toFixed(2));
 
-        const ait = Number(taxResults[empId]?.tax_calculation?.monthly_tds) || 0;
+        const ait =
+          Number(taxResults[empId]?.tax_calculation?.monthly_tds) || 0;
 
         const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
         const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
@@ -211,12 +225,15 @@ const SalaryFormat = () => {
         const defaultDays = isNewJoiner
           ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
           : totalDaysInMonth;
-        const daysWorked = daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
+        const daysWorked =
+          daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
         const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
 
         const dailyBasic = Number((basicFull / 30).toFixed(2));
         const absentDeduction = Number((dailyBasic * absentDays).toFixed(2));
-        const totalDeduction = Number((ait + advance + absentDeduction).toFixed(2));
+        const totalDeduction = Number(
+          (ait + advance + absentDeduction).toFixed(2)
+        );
 
         const netPayBank = Number(
           (
@@ -226,7 +243,9 @@ const SalaryFormat = () => {
             addition
           ).toFixed(2)
         );
-        const totalPayable = Number((netPayBank + cashPayment + ait).toFixed(2));
+        const totalPayable = Number(
+          (netPayBank + cashPayment + ait).toFixed(2)
+        );
 
         let dojStr = "";
         if (emp.joining_date) {
@@ -310,20 +329,20 @@ const SalaryFormat = () => {
   const toggleCompany = (comp) => {
     setOpenCompanies((prev) => {
       const newState = { ...prev, [comp]: !prev[comp] };
-      
+
       // Check if any company is still open
       const isAnyCompanyOpen = Object.values(newState).some((v) => v);
-      
+
       // Show summary only when no companies are open
       setShowSummary(!isAnyCompanyOpen);
-      
+
       return newState;
     });
   };
 
   const showAllCompanies = () => {
     const allOpen = {};
-    Object.keys(grouped).forEach(comp => {
+    Object.keys(grouped).forEach((comp) => {
       allOpen[comp] = true;
     });
     setOpenCompanies(allOpen);
@@ -367,10 +386,29 @@ const SalaryFormat = () => {
     if (!emps || emps.length === 0) return;
 
     const headers = [
-      "SL", "Name", "ID", "Designation", "DOJ", "Basic", "House Rent", 
-      "Medical", "Conveyance", "Gross Salary", "Total Days", "Days Worked", 
-      "Absent Days", "Absent Deduction", "Advance", "AIT", "Total Deduction", 
-      "OT Hours", "Addition", "Cash Payment", "Net Pay (Bank)", "Total Payable", "Remarks",
+      "SL",
+      "Name",
+      "ID",
+      "Designation",
+      "DOJ",
+      "Basic",
+      "House Rent",
+      "Medical",
+      "Conveyance",
+      "Gross Salary",
+      "Total Days",
+      "Days Worked",
+      "Absent Days",
+      "Absent Deduction",
+      "Advance",
+      "AIT",
+      "Total Deduction",
+      "OT Hours",
+      "Addition",
+      "Cash Payment",
+      "Net Pay (Bank)",
+      "Total Payable",
+      "Remarks",
     ];
 
     const rows = [];
@@ -386,7 +424,7 @@ const SalaryFormat = () => {
       const grossFull = monthlySalary;
 
       const ait = getAitValue(empId);
-      const numericAit = typeof ait === 'number' ? ait : 0;
+      const numericAit = typeof ait === "number" ? ait : 0;
 
       const daysWorkedManual = getManual(empId, "daysWorked");
       const cashPayment = getManual(empId, "cashPayment");
@@ -410,15 +448,34 @@ const SalaryFormat = () => {
       const absentDeduction = dailyBasic * absentDays;
       const totalDeduction = numericAit + advance + absentDeduction;
 
-      const netPayBank = dailyRate * daysWorked - cashPayment - totalDeduction + addition;
+      const netPayBank =
+        dailyRate * daysWorked - cashPayment - totalDeduction + addition;
       const totalPayable = netPayBank + cashPayment + numericAit;
 
       rows.push([
-        idx + 1, emp.name, empId, emp.designation, emp.joining_date,
-        basicFull, houseRentFull, medicalFull, conveyanceFull, grossFull,
-        totalDaysInMonth, daysWorked, absentDays, absentDeduction,
-        advance, numericAit, totalDeduction, 0, addition, cashPayment,
-        netPayBank, totalPayable, remarks,
+        idx + 1,
+        emp.name,
+        empId,
+        emp.designation,
+        emp.joining_date,
+        basicFull,
+        houseRentFull,
+        medicalFull,
+        conveyanceFull,
+        grossFull,
+        totalDaysInMonth,
+        daysWorked,
+        absentDays,
+        absentDeduction,
+        advance,
+        numericAit,
+        totalDeduction,
+        0,
+        addition,
+        cashPayment,
+        netPayBank,
+        totalPayable,
+        remarks,
       ]);
     });
 
@@ -436,13 +493,15 @@ const SalaryFormat = () => {
           : totalDaysInMonth;
         const daysWorked = getManual(empId, "daysWorked") || defaultDays;
         const ait = getAitValue(empId);
-        const numericAit = typeof ait === 'number' ? ait : 0;
-        const absentDed = ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
+        const numericAit = typeof ait === "number" ? ait : 0;
+        const absentDed =
+          ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
         const advance = getManual(empId, "advance");
         const cash = getManual(empId, "cashPayment");
         const addition = getManual(empId, "addition");
         const totalDed = numericAit + advance + absentDed;
-        const netBank = (salary / totalDaysInMonth) * daysWorked - cash - totalDed + addition;
+        const netBank =
+          (salary / totalDaysInMonth) * daysWorked - cash - totalDed + addition;
         const totalPay = netBank + cash + numericAit;
 
         return {
@@ -456,15 +515,63 @@ const SalaryFormat = () => {
           totalPay: acc.totalPay + totalPay,
         };
       },
-      { gross: 0, ait: 0, absentDed: 0, advance: 0, cash: 0, addition: 0, netBank: 0, totalPay: 0 }
+      {
+        gross: 0,
+        ait: 0,
+        absentDed: 0,
+        advance: 0,
+        cash: 0,
+        addition: 0,
+        netBank: 0,
+        totalPay: 0,
+      }
     );
 
     rows.push([]);
-    rows.push(["SUMMARY", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
     rows.push([
-      "Total Employees", emps.length, "Gross Salary", summary.gross, "AIT", summary.ait,
-      "Absent Ded.", summary.absentDed, "Advance", summary.advance, "Cash", summary.cash,
-      "Addition", summary.addition, "Net Pay", summary.netBank, "Total Payable", summary.totalPay,
+      "SUMMARY",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]);
+    rows.push([
+      "Total Employees",
+      emps.length,
+      "Gross Salary",
+      summary.gross,
+      "AIT",
+      summary.ait,
+      "Absent Ded.",
+      summary.absentDed,
+      "Advance",
+      summary.advance,
+      "Cash",
+      summary.cash,
+      "Addition",
+      summary.addition,
+      "Net Pay",
+      summary.netBank,
+      "Total Payable",
+      summary.totalPay,
     ]);
 
     const wb = XLSX.utils.book_new();
@@ -485,7 +592,9 @@ const SalaryFormat = () => {
     const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(
       blob,
-      `${companyName}_Salary_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`
+      `${companyName}_Salary_${
+        monthNames[selectedMonth - 1]
+      }_${selectedYear}.xlsx`
     );
   };
 
@@ -494,6 +603,58 @@ const SalaryFormat = () => {
       setTimeout(() => exportCompanyData(companyName), i * 200);
     });
   };
+
+  const loadTaxDataFromBackend = async () => {
+    try {
+      const results = {};
+
+      for (const emp of employees) {
+        if (emp.salary && emp.employee_id) {
+          try {
+            // Try to get tax extra data from backend
+            const taxExtraRes = await axios.get(
+              `${API_BASE}/tax-extra/${emp.employee_id}/`
+            );
+            const sourceOtherValue = taxExtraRes.data.source_other || 0;
+
+            // Update sourceOther state
+            setSourceOther((prev) => ({
+              ...prev,
+              [emp.employee_id]: sourceOtherValue,
+            }));
+
+            // Calculate tax with backend data
+            const gender = emp.gender === "M" ? "Male" : "Female";
+            const calc = await axios.post(`${API_BASE}/calculate/`, {
+              employee_id: emp.employee_id,
+              gender,
+              source_other: sourceOtherValue,
+            });
+
+            results[emp.employee_id] = calc.data;
+          } catch (error) {
+            console.error(
+              `Failed to load backend data for ${emp.employee_id}:`,
+              error
+            );
+            // Fallback to existing logic
+          }
+        }
+      }
+
+      setTaxResults(results);
+      localStorage.setItem("cachedTaxResults", JSON.stringify(results));
+    } catch (error) {
+      console.error("Error loading tax data from backend:", error);
+    }
+  };
+
+  // Use this in your useEffect instead of loadCachedTaxResults
+  useEffect(() => {
+    if (employees.length > 0) {
+      loadTaxDataFromBackend();
+    }
+  }, [employees.length]);
 
   if (loading) {
     return (
@@ -536,11 +697,17 @@ const SalaryFormat = () => {
                 </div>
 
                 <div className="action-buttons">
-                  <button onClick={exportAllCompanies} className="btn btn-export-all">
+                  <button
+                    onClick={exportAllCompanies}
+                    className="btn btn-export-all"
+                  >
                     <FaFileExport /> Export All
                   </button>
 
-                  <button onClick={() => navigate("/finance-provision")} className="btn btn-back">
+                  <button
+                    onClick={() => navigate("/finance-provision")}
+                    className="btn btn-back"
+                  >
                     <FaArrowLeft /> Back
                   </button>
 
@@ -548,11 +715,17 @@ const SalaryFormat = () => {
                     <FaSave /> Save Data
                   </button>
 
-                  <button onClick={showAllCompanies} className="btn btn-show-all">
+                  <button
+                    onClick={showAllCompanies}
+                    className="btn btn-show-all"
+                  >
                     <FaBuilding /> Show All
                   </button>
 
-                  <button onClick={hideAllCompanies} className="btn btn-hide-all">
+                  <button
+                    onClick={hideAllCompanies}
+                    className="btn btn-hide-all"
+                  >
                     <FaBuilding /> Hide All
                   </button>
                 </div>
@@ -570,7 +743,9 @@ const SalaryFormat = () => {
               {Object.keys(grouped).map((comp) => (
                 <div key={comp} className="company-card">
                   <button
-                    className={`company-toggle-btn ${openCompanies[comp] ? "active" : ""}`}
+                    className={`company-toggle-btn ${
+                      openCompanies[comp] ? "active" : ""
+                    }`}
                     onClick={() => toggleCompany(comp)}
                   >
                     <span className="company-name">{comp}</span>
@@ -604,7 +779,8 @@ const SalaryFormat = () => {
                   <div className="company-title">
                     <h2>{comp}</h2>
                     <h3>
-                      Salary Sheet for {monthNames[selectedMonth - 1]} {selectedYear}
+                      Salary Sheet for {monthNames[selectedMonth - 1]}{" "}
+                      {selectedYear}
                     </h3>
                   </div>
                   <button
@@ -657,9 +833,12 @@ const SalaryFormat = () => {
                           const grossFull = monthlySalary;
 
                           const ait = getAitValue(empId);
-                          const numericAit = typeof ait === 'number' ? ait : 0;
+                          const numericAit = typeof ait === "number" ? ait : 0;
 
-                          const daysWorkedManual = getManual(empId, "daysWorked");
+                          const daysWorkedManual = getManual(
+                            empId,
+                            "daysWorked"
+                          );
                           const cashPayment = getManual(empId, "cashPayment");
                           const addition = getManual(empId, "addition");
                           const advance = getManual(empId, "advance");
@@ -673,37 +852,66 @@ const SalaryFormat = () => {
                           const defaultDays = isNewJoiner
                             ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
                             : totalDaysInMonth;
-                          const daysWorked = daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
+                          const daysWorked =
+                            daysWorkedManual > 0
+                              ? daysWorkedManual
+                              : defaultDays;
                           const absentDays = totalDaysInMonth - daysWorked;
 
                           const dailyRate = monthlySalary / totalDaysInMonth;
                           const dailyBasic = basicFull / BASE_MONTH;
                           const absentDeduction = dailyBasic * absentDays;
-                          const totalDeduction = numericAit + advance + absentDeduction;
+                          const totalDeduction =
+                            numericAit + advance + absentDeduction;
 
-                          const netPayBank = dailyRate * daysWorked - cashPayment - totalDeduction + addition;
-                          const totalPayable = netPayBank + cashPayment + numericAit;
+                          const netPayBank =
+                            dailyRate * daysWorked -
+                            cashPayment -
+                            totalDeduction +
+                            addition;
+                          const totalPayable =
+                            netPayBank + cashPayment + numericAit;
 
                           return (
                             <tr key={empId} className="data-row">
                               <td className="sl-number">{idx + 1}</td>
                               <td className="emp-name">{emp.name}</td>
                               <td className="emp-id">{empId}</td>
-                              <td className="emp-designation">{emp.designation}</td>
+                              <td className="emp-designation">
+                                {emp.designation}
+                              </td>
                               <td className="emp-doj">{emp.joining_date}</td>
-                              <td className="salary-amount">{formatNumber(basicFull)}</td>
-                              <td className="salary-amount">{formatNumber(houseRentFull)}</td>
-                              <td className="salary-amount">{formatNumber(medicalFull)}</td>
-                              <td className="salary-amount">{formatNumber(conveyanceFull)}</td>
-                              <td className="gross-salary">{formatNumber(grossFull)}</td>
+                              <td className="salary-amount">
+                                {formatNumber(basicFull)}
+                              </td>
+                              <td className="salary-amount">
+                                {formatNumber(houseRentFull)}
+                              </td>
+                              <td className="salary-amount">
+                                {formatNumber(medicalFull)}
+                              </td>
+                              <td className="salary-amount">
+                                {formatNumber(conveyanceFull)}
+                              </td>
+                              <td className="gross-salary">
+                                {formatNumber(grossFull)}
+                              </td>
                               <td className="days-count">{totalDaysInMonth}</td>
 
                               <td>
                                 <input
                                   type="number"
-                                  value={daysWorkedManual > 0 ? daysWorkedManual : ""}
+                                  value={
+                                    daysWorkedManual > 0 ? daysWorkedManual : ""
+                                  }
                                   placeholder={defaultDays}
-                                  onChange={(e) => updateManual(empId, "daysWorked", e.target.value)}
+                                  onChange={(e) =>
+                                    updateManual(
+                                      empId,
+                                      "daysWorked",
+                                      e.target.value
+                                    )
+                                  }
                                   className="editable-input days-input"
                                   min="0"
                                   max={totalDaysInMonth}
@@ -711,19 +919,31 @@ const SalaryFormat = () => {
                               </td>
 
                               <td className="absent-days">{absentDays}</td>
-                              <td className="deduction-amount">{formatNumber(absentDeduction)}</td>
+                              <td className="deduction-amount">
+                                {formatNumber(absentDeduction)}
+                              </td>
 
                               <td>
                                 <input
                                   type="number"
                                   value={advance !== 0 ? advance : ""}
                                   placeholder="0"
-                                  onChange={(e) => updateManual(empId, "advance", e.target.value)}
+                                  onChange={(e) =>
+                                    updateManual(
+                                      empId,
+                                      "advance",
+                                      e.target.value
+                                    )
+                                  }
                                   className="editable-input advance-input"
                                 />
                               </td>
 
-                              <td className={`tax-amount ${loadingAit[empId] ? 'loading' : ''}`}>
+                              <td
+                                className={`tax-amount ${
+                                  loadingAit[empId] ? "loading" : ""
+                                }`}
+                              >
                                 {loadingAit[empId] ? (
                                   <span className="loading-dots">...</span>
                                 ) : (
@@ -741,7 +961,13 @@ const SalaryFormat = () => {
                                   type="number"
                                   value={addition !== 0 ? addition : ""}
                                   placeholder="0"
-                                  onChange={(e) => updateManual(empId, "addition", e.target.value)}
+                                  onChange={(e) =>
+                                    updateManual(
+                                      empId,
+                                      "addition",
+                                      e.target.value
+                                    )
+                                  }
                                   className="editable-input addition-input"
                                 />
                               </td>
@@ -751,22 +977,40 @@ const SalaryFormat = () => {
                                   type="number"
                                   value={cashPayment !== 0 ? cashPayment : ""}
                                   placeholder="0"
-                                  onChange={(e) => updateManual(empId, "cashPayment", e.target.value)}
+                                  onChange={(e) =>
+                                    updateManual(
+                                      empId,
+                                      "cashPayment",
+                                      e.target.value
+                                    )
+                                  }
                                   className="editable-input cash-input"
                                 />
                               </td>
 
-                              <td className={`net-pay ${netPayBank < 0 ? "negative" : "positive"}`}>
+                              <td
+                                className={`net-pay ${
+                                  netPayBank < 0 ? "negative" : "positive"
+                                }`}
+                              >
                                 {formatNumber(netPayBank)}
                               </td>
-                              <td className="total-payable">{formatNumber(totalPayable)}</td>
+                              <td className="total-payable">
+                                {formatNumber(totalPayable)}
+                              </td>
 
                               <td>
                                 <input
                                   type="text"
                                   value={remarks}
                                   placeholder="Remarks"
-                                  onChange={(e) => updateManual(empId, "remarks", e.target.value)}
+                                  onChange={(e) =>
+                                    updateManual(
+                                      empId,
+                                      "remarks",
+                                      e.target.value
+                                    )
+                                  }
                                   className="editable-input remarks-input"
                                 />
                               </td>
@@ -797,7 +1041,10 @@ const SalaryFormat = () => {
                   Summary Overview
                 </h2>
                 <div className="summary-actions">
-                  <button onClick={exportAllCompanies} className="btn btn-export-all">
+                  <button
+                    onClick={exportAllCompanies}
+                    className="btn btn-export-all"
+                  >
                     <FaFileExport /> Export All
                   </button>
                 </div>
@@ -805,7 +1052,9 @@ const SalaryFormat = () => {
 
               <div className="summary-stats">
                 <div className="stat-card">
-                  <div className="stat-number">{Object.keys(grouped).length}</div>
+                  <div className="stat-number">
+                    {Object.keys(grouped).length}
+                  </div>
                   <div className="stat-label">Companies</div>
                 </div>
                 <div className="stat-card">
@@ -815,7 +1064,10 @@ const SalaryFormat = () => {
                 <div className="stat-card">
                   <div className="stat-number">
                     {formatNumber(
-                      filteredEmployees.reduce((s, e) => s + (Number(e.salary) || 0), 0)
+                      filteredEmployees.reduce(
+                        (s, e) => s + (Number(e.salary) || 0),
+                        0
+                      )
                     )}
                   </div>
                   <div className="stat-label">Total Gross Salary</div>
@@ -823,13 +1075,10 @@ const SalaryFormat = () => {
                 <div className="stat-card">
                   <div className="stat-number">
                     {formatNumber(
-                      filteredEmployees.reduce(
-                        (s, e) => {
-                          const ait = getAitValue(e.employee_id);
-                          return s + (typeof ait === 'number' ? ait : 0);
-                        },
-                        0
-                      )
+                      filteredEmployees.reduce((s, e) => {
+                        const ait = getAitValue(e.employee_id);
+                        return s + (typeof ait === "number" ? ait : 0);
+                      }, 0)
                     )}
                   </div>
                   <div className="stat-label">Total AIT</div>
@@ -869,15 +1118,23 @@ const SalaryFormat = () => {
                             const defaultDays = isNewJoiner
                               ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
                               : totalDaysInMonth;
-                            const daysWorked = getManual(empId, "daysWorked") || defaultDays;
+                            const daysWorked =
+                              getManual(empId, "daysWorked") || defaultDays;
                             const ait = getAitValue(empId);
-                            const numericAit = typeof ait === 'number' ? ait : 0;
-                            const absentDed = ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
+                            const numericAit =
+                              typeof ait === "number" ? ait : 0;
+                            const absentDed =
+                              ((salary * 0.6) / BASE_MONTH) *
+                              (totalDaysInMonth - daysWorked);
                             const advance = getManual(empId, "advance");
                             const cash = getManual(empId, "cashPayment");
                             const addition = getManual(empId, "addition");
                             const totalDed = numericAit + advance + absentDed;
-                            const netBank = (salary / totalDaysInMonth) * daysWorked - cash - totalDed + addition;
+                            const netBank =
+                              (salary / totalDaysInMonth) * daysWorked -
+                              cash -
+                              totalDed +
+                              addition;
                             const totalPay = netBank + cash + numericAit;
 
                             return {
@@ -891,7 +1148,16 @@ const SalaryFormat = () => {
                               totalPay: acc.totalPay + totalPay,
                             };
                           },
-                          { gross: 0, ait: 0, absentDed: 0, advance: 0, cash: 0, addition: 0, netBank: 0, totalPay: 0 }
+                          {
+                            gross: 0,
+                            ait: 0,
+                            absentDed: 0,
+                            advance: 0,
+                            cash: 0,
+                            addition: 0,
+                            netBank: 0,
+                            totalPay: 0,
+                          }
                         );
 
                         return (
@@ -899,40 +1165,64 @@ const SalaryFormat = () => {
                             <td className="sl-number">{i + 1}</td>
                             <td className="company-name">{comp}</td>
                             <td className="employee-count">{emps.length}</td>
-                            <td className="gross-salary">{formatNumber(summary.gross)}</td>
-                            <td className="tax-amount">{formatNumber(summary.ait)}</td>
-                            <td className="deduction-amount">{formatNumber(summary.absentDed)}</td>
-                            <td className="deduction-amount">{formatNumber(summary.advance)}</td>
-                            <td className="cash-amount">{formatNumber(summary.cash)}</td>
-                            <td className={`addition-amount ${summary.addition < 0 ? "negative" : "positive"}`}>
+                            <td className="gross-salary">
+                              {formatNumber(summary.gross)}
+                            </td>
+                            <td className="tax-amount">
+                              {formatNumber(summary.ait)}
+                            </td>
+                            <td className="deduction-amount">
+                              {formatNumber(summary.absentDed)}
+                            </td>
+                            <td className="deduction-amount">
+                              {formatNumber(summary.advance)}
+                            </td>
+                            <td className="cash-amount">
+                              {formatNumber(summary.cash)}
+                            </td>
+                            <td
+                              className={`addition-amount ${
+                                summary.addition < 0 ? "negative" : "positive"
+                              }`}
+                            >
                               {formatNumber(summary.addition)}
                             </td>
-                            <td className={`net-pay ${summary.netBank < 0 ? "negative" : "positive"}`}>
+                            <td
+                              className={`net-pay ${
+                                summary.netBank < 0 ? "negative" : "positive"
+                              }`}
+                            >
                               {formatNumber(summary.netBank)}
                             </td>
-                            <td className="total-payable">{formatNumber(summary.totalPay)}</td>
+                            <td className="total-payable">
+                              {formatNumber(summary.totalPay)}
+                            </td>
                           </tr>
                         );
                       })}
 
                       {/* GRAND TOTAL ROW - PROPERLY ALIGNED */}
                       <tr className="grand-total">
-                        <td colSpan="2" className="grand-total-label">Grand Total</td>
-                        <td className="grand-total-count">{filteredEmployees.length}</td>
+                        <td colSpan="2" className="grand-total-label">
+                          Grand Total
+                        </td>
+                        <td className="grand-total-count">
+                          {filteredEmployees.length}
+                        </td>
                         <td className="grand-total-gross">
                           {formatNumber(
-                            filteredEmployees.reduce((s, e) => s + (Number(e.salary) || 0), 0)
+                            filteredEmployees.reduce(
+                              (s, e) => s + (Number(e.salary) || 0),
+                              0
+                            )
                           )}
                         </td>
                         <td className="grand-total-tax">
                           {formatNumber(
-                            filteredEmployees.reduce(
-                              (s, e) => {
-                                const ait = getAitValue(e.employee_id);
-                                return s + (typeof ait === 'number' ? ait : 0);
-                              },
-                              0
-                            )
+                            filteredEmployees.reduce((s, e) => {
+                              const ait = getAitValue(e.employee_id);
+                              return s + (typeof ait === "number" ? ait : 0);
+                            }, 0)
                           )}
                         </td>
                         <td className="grand-total-deduction">
@@ -948,46 +1238,88 @@ const SalaryFormat = () => {
                               const defaultDays = isNewJoiner
                                 ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
                                 : totalDaysInMonth;
-                              const daysWorked = getManual(empId, "daysWorked") || defaultDays;
-                              return s + ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
+                              const daysWorked =
+                                getManual(empId, "daysWorked") || defaultDays;
+                              return (
+                                s +
+                                ((salary * 0.6) / BASE_MONTH) *
+                                  (totalDaysInMonth - daysWorked)
+                              );
                             }, 0)
                           )}
                         </td>
                         <td className="grand-total-advance">
-                          {formatNumber(filteredEmployees.reduce((s, e) => s + getManual(e.employee_id, "advance"), 0))}
+                          {formatNumber(
+                            filteredEmployees.reduce(
+                              (s, e) => s + getManual(e.employee_id, "advance"),
+                              0
+                            )
+                          )}
                         </td>
                         <td className="grand-total-cash">
-                          {formatNumber(filteredEmployees.reduce((s, e) => s + getManual(e.employee_id, "cashPayment"), 0))}
+                          {formatNumber(
+                            filteredEmployees.reduce(
+                              (s, e) =>
+                                s + getManual(e.employee_id, "cashPayment"),
+                              0
+                            )
+                          )}
                         </td>
-                        <td className={`grand-total-addition ${
-                          filteredEmployees.reduce((s, e) => s + getManual(e.employee_id, "addition"), 0) < 0 ? "negative" : "positive"
-                        }`}>
-                          {formatNumber(filteredEmployees.reduce((s, e) => s + getManual(e.employee_id, "addition"), 0))}
+                        <td
+                          className={`grand-total-addition ${
+                            filteredEmployees.reduce(
+                              (s, e) =>
+                                s + getManual(e.employee_id, "addition"),
+                              0
+                            ) < 0
+                              ? "negative"
+                              : "positive"
+                          }`}
+                        >
+                          {formatNumber(
+                            filteredEmployees.reduce(
+                              (s, e) =>
+                                s + getManual(e.employee_id, "addition"),
+                              0
+                            )
+                          )}
                         </td>
-                        <td className={`grand-total-net ${
-                          filteredEmployees.reduce((s, e) => {
-                            const empId = e.employee_id;
-                            const salary = Number(e.salary) || 0;
-                            const doj = parseDate(e.joining_date);
-                            const isNewJoiner =
-                              doj &&
-                              doj.getMonth() + 1 === selectedMonth &&
-                              doj.getFullYear() === selectedYear;
-                            const defaultDays = isNewJoiner
-                              ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-                              : totalDaysInMonth;
-                            const daysWorked = getManual(empId, "daysWorked") || defaultDays;
-                            const ait = getAitValue(empId);
-                            const numericAit = typeof ait === 'number' ? ait : 0;
-                            const absentDed = ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
-                            const advance = getManual(empId, "advance");
-                            const cash = getManual(empId, "cashPayment");
-                            const addition = getManual(empId, "addition");
-                            const totalDed = numericAit + advance + absentDed;
-                            const netBank = (salary / totalDaysInMonth) * daysWorked - cash - totalDed + addition;
-                            return s + netBank;
-                          }, 0) < 0 ? "negative" : "positive"
-                        }`}>
+                        <td
+                          className={`grand-total-net ${
+                            filteredEmployees.reduce((s, e) => {
+                              const empId = e.employee_id;
+                              const salary = Number(e.salary) || 0;
+                              const doj = parseDate(e.joining_date);
+                              const isNewJoiner =
+                                doj &&
+                                doj.getMonth() + 1 === selectedMonth &&
+                                doj.getFullYear() === selectedYear;
+                              const defaultDays = isNewJoiner
+                                ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+                                : totalDaysInMonth;
+                              const daysWorked =
+                                getManual(empId, "daysWorked") || defaultDays;
+                              const ait = getAitValue(empId);
+                              const numericAit =
+                                typeof ait === "number" ? ait : 0;
+                              const absentDed =
+                                ((salary * 0.6) / BASE_MONTH) *
+                                (totalDaysInMonth - daysWorked);
+                              const advance = getManual(empId, "advance");
+                              const cash = getManual(empId, "cashPayment");
+                              const addition = getManual(empId, "addition");
+                              const totalDed = numericAit + advance + absentDed;
+                              const netBank =
+                                (salary / totalDaysInMonth) * daysWorked -
+                                cash -
+                                totalDed +
+                                addition;
+                              return s + netBank;
+                            }, 0) < 0
+                              ? "negative"
+                              : "positive"
+                          }`}
+                        >
                           {formatNumber(
                             filteredEmployees.reduce((s, e) => {
                               const empId = e.employee_id;
@@ -1000,15 +1332,23 @@ const SalaryFormat = () => {
                               const defaultDays = isNewJoiner
                                 ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
                                 : totalDaysInMonth;
-                              const daysWorked = getManual(empId, "daysWorked") || defaultDays;
+                              const daysWorked =
+                                getManual(empId, "daysWorked") || defaultDays;
                               const ait = getAitValue(empId);
-                              const numericAit = typeof ait === 'number' ? ait : 0;
-                              const absentDed = ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
+                              const numericAit =
+                                typeof ait === "number" ? ait : 0;
+                              const absentDed =
+                                ((salary * 0.6) / BASE_MONTH) *
+                                (totalDaysInMonth - daysWorked);
                               const advance = getManual(empId, "advance");
                               const cash = getManual(empId, "cashPayment");
                               const addition = getManual(empId, "addition");
                               const totalDed = numericAit + advance + absentDed;
-                              const netBank = (salary / totalDaysInMonth) * daysWorked - cash - totalDed + addition;
+                              const netBank =
+                                (salary / totalDaysInMonth) * daysWorked -
+                                cash -
+                                totalDed +
+                                addition;
                               return s + netBank;
                             }, 0)
                           )}
@@ -1026,15 +1366,23 @@ const SalaryFormat = () => {
                               const defaultDays = isNewJoiner
                                 ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
                                 : totalDaysInMonth;
-                              const daysWorked = getManual(empId, "daysWorked") || defaultDays;
+                              const daysWorked =
+                                getManual(empId, "daysWorked") || defaultDays;
                               const ait = getAitValue(empId);
-                              const numericAit = typeof ait === 'number' ? ait : 0;
-                              const absentDed = ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
+                              const numericAit =
+                                typeof ait === "number" ? ait : 0;
+                              const absentDed =
+                                ((salary * 0.6) / BASE_MONTH) *
+                                (totalDaysInMonth - daysWorked);
                               const advance = getManual(empId, "advance");
                               const cash = getManual(empId, "cashPayment");
                               const addition = getManual(empId, "addition");
                               const totalDed = numericAit + advance + absentDed;
-                              const netBank = (salary / totalDaysInMonth) * daysWorked - cash - totalDed + addition;
+                              const netBank =
+                                (salary / totalDaysInMonth) * daysWorked -
+                                cash -
+                                totalDed +
+                                addition;
                               const totalPay = netBank + cash + numericAit;
                               return s + totalPay;
                             }, 0)
@@ -1055,7 +1403,7 @@ const SalaryFormat = () => {
           min-height: 100vh;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           padding: 1rem;
-          font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         }
 
         .dashboard {
@@ -1211,21 +1559,25 @@ const SalaryFormat = () => {
           background: linear-gradient(135deg, #059669 0%, #047857 100%);
         }
 
-        .btn-export-all, .btn-export-section {
+        .btn-export-all,
+        .btn-export-section {
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
           color: white;
         }
 
-        .btn-export-all:hover, .btn-export-section:hover {
+        .btn-export-all:hover,
+        .btn-export-section:hover {
           background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
         }
 
-        .btn-show-all, .btn-hide-all {
+        .btn-show-all,
+        .btn-hide-all {
           background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
           color: white;
         }
 
-        .btn-show-all:hover, .btn-hide-all:hover {
+        .btn-show-all:hover,
+        .btn-hide-all:hover {
           background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
         }
 
@@ -1447,23 +1799,23 @@ const SalaryFormat = () => {
           transform: scale(1.05);
         }
 
-        .days-input { 
+        .days-input {
           border-color: #f59e0b;
           background: #fffbeb;
         }
-        .advance-input { 
+        .advance-input {
           border-color: #ef4444;
           background: #fef2f2;
         }
-        .addition-input { 
+        .addition-input {
           border-color: #10b981;
           background: #ecfdf5;
         }
-        .cash-input { 
+        .cash-input {
           border-color: #3b82f6;
           background: #eff6ff;
         }
-        .remarks-input { 
+        .remarks-input {
           border-color: #8b5cf6;
           background: #faf5ff;
           width: 130px;
@@ -1484,127 +1836,134 @@ const SalaryFormat = () => {
         }
 
         @keyframes loadingDots {
-          0%, 20% { opacity: 0; }
-          50% { opacity: 1; }
-          100% { opacity: 0; }
+          0%,
+          20% {
+            opacity: 0;
+          }
+          50% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+          }
         }
 
         /* BEAUTIFUL COLOR CODING */
-        .sl-number { 
-          color: #7c3aed; 
+        .sl-number {
+          color: #7c3aed;
           font-weight: 700;
           background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
           padding: 0.5rem;
           border-radius: 10px;
           border: 2px solid #ddd6fe;
         }
-        .emp-name { 
-          color: #1e40af; 
+        .emp-name {
+          color: #1e40af;
           font-weight: 700;
           background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
           padding: 0.5rem 0.8rem;
           border-radius: 10px;
         }
-        .emp-id { 
-          color: #dc2626; 
-          font-weight: 700; 
+        .emp-id {
+          color: #dc2626;
+          font-weight: 700;
           background: linear-gradient(135deg, #fecaca 0%, #fee2e2 100%);
           padding: 0.5rem 0.8rem;
           border-radius: 10px;
           border: 2px solid #fca5a5;
         }
-        .emp-designation { 
-          color: #059669; 
+        .emp-designation {
+          color: #059669;
           font-weight: 600;
           background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
           padding: 0.5rem 0.8rem;
           border-radius: 10px;
         }
-        .emp-doj { 
-          color: #7c2d12; 
+        .emp-doj {
+          color: #7c2d12;
           background: #fef3c7;
           padding: 0.5rem;
           border-radius: 8px;
           font-weight: 500;
         }
-        .salary-amount { 
-          color: #1e3a8a; 
+        .salary-amount {
+          color: #1e3a8a;
           font-weight: 600;
           background: #f0f9ff;
           padding: 0.5rem;
           border-radius: 8px;
         }
-        .gross-salary { 
-          color: #1e3a8a; 
+        .gross-salary {
+          color: #1e3a8a;
           font-weight: 800;
           background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
           padding: 0.8rem 0.5rem;
           border-radius: 12px;
           border: 2px solid #93c5fd;
         }
-        .days-count { 
-          color: #7c2d12; 
+        .days-count {
+          color: #7c2d12;
           font-weight: 600;
           background: #fed7aa;
           padding: 0.5rem;
           border-radius: 8px;
         }
-        .absent-days { 
-          color: #dc2626; 
+        .absent-days {
+          color: #dc2626;
           font-weight: 600;
           background: #fecaca;
           padding: 0.5rem;
           border-radius: 8px;
         }
-        .deduction-amount { 
-          color: #dc2626; 
+        .deduction-amount {
+          color: #dc2626;
           font-weight: 600;
           background: #fee2e2;
           padding: 0.5rem;
           border-radius: 8px;
         }
-        .total-deduction { 
-          color: #b91c1c; 
+        .total-deduction {
+          color: #b91c1c;
           font-weight: 700;
           background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
           padding: 0.8rem 0.5rem;
           border-radius: 12px;
           border: 2px solid #f87171;
         }
-        .tax-amount { 
-          color: #c2410c; 
+        .tax-amount {
+          color: #c2410c;
           font-weight: 600;
           background: #ffedd5;
           padding: 0.5rem;
           border-radius: 8px;
           border: 2px solid #fdba74;
         }
-        .net-pay.positive { 
-          color: #059669; 
+        .net-pay.positive {
+          color: #059669;
           font-weight: 800;
           background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
           padding: 0.8rem 0.5rem;
           border-radius: 12px;
           border: 2px solid #34d399;
         }
-        .net-pay.negative { 
-          color: #dc2626; 
+        .net-pay.negative {
+          color: #dc2626;
           font-weight: 800;
           background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
           padding: 0.8rem 0.5rem;
           border-radius: 12px;
           border: 2px solid #f87171;
         }
-        .total-payable { 
-          color: #1e3a8a; 
+        .total-payable {
+          color: #1e3a8a;
           font-weight: 800;
           background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
           padding: 0.8rem 0.5rem;
           border-radius: 12px;
           border: 2px solid #a5b4fc;
         }
-        .ot-hours { 
-          color: #64748b; 
+        .ot-hours {
+          color: #64748b;
           background: #f1f5f9;
           padding: 0.5rem;
           border-radius: 8px;
@@ -1685,7 +2044,7 @@ const SalaryFormat = () => {
         }
 
         .stat-card::before {
-          content: '';
+          content: "";
           position: absolute;
           top: 0;
           left: 0;
@@ -1720,11 +2079,19 @@ const SalaryFormat = () => {
         }
 
         .summary-row {
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+          background: linear-gradient(
+            135deg,
+            #f8fafc 0%,
+            #f1f5f9 100%
+          ) !important;
         }
 
         .summary-row:hover {
-          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%) !important;
+          background: linear-gradient(
+            135deg,
+            #e0e7ff 0%,
+            #c7d2fe 100%
+          ) !important;
           transform: scale(1.01);
         }
 
@@ -1747,7 +2114,11 @@ const SalaryFormat = () => {
 
         /* GRAND TOTAL STYLES - PROPERLY ALIGNED */
         .grand-total {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+          background: linear-gradient(
+            135deg,
+            #8b5cf6 0%,
+            #7c3aed 100%
+          ) !important;
           color: white !important;
           font-weight: 800;
         }
@@ -1808,7 +2179,9 @@ const SalaryFormat = () => {
         }
 
         @keyframes spin {
-          to { transform: rotate(360deg); }
+          to {
+            transform: rotate(360deg);
+          }
         }
 
         /* RESPONSIVE DESIGN */

@@ -22,7 +22,13 @@ import {
   FiXCircle,
   FiClock as FiClockIcon,
 } from "react-icons/fi";
-import axios from "axios";
+import {
+  getEmployees,
+  getInterviews,
+  getEmployeeLeaves,
+  getCVs,
+  getAttendance
+} from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
 const HRWorkPage = () => {
@@ -40,9 +46,7 @@ const HRWorkPage = () => {
   useEffect(() => {
     const fetchEmployeeCount = async () => {
       try {
-        const response = await axios.get(
-          "http://119.148.51.38:8000/api/hrms/api/employees/"
-        );
+        const response = await getEmployees();
         setEmployeeCount(response.data.length || 0);
       } catch (err) {
         console.error("Fetch error:", err);
@@ -54,9 +58,7 @@ const HRWorkPage = () => {
 
     const fetchInterviews = async () => {
       try {
-        const response = await axios.get(
-          "http://119.148.51.38:8000/api/hrms/api/interviews/"
-        );
+        const response = await getInterviews();
 
         console.log("Interview Data:", response.data);
 
@@ -88,9 +90,7 @@ const HRWorkPage = () => {
 
     const fetchLeaveRequests = async () => {
       try {
-        const response = await axios.get(
-          "http://119.148.51.38:8000/api/hrms/api/employee_leaves/"
-        );
+        const response = await getEmployeeLeaves();
         const sortedRequests = response.data.sort((a, b) => {
           return new Date(b.start_date) - new Date(a.start_date);
         });
@@ -102,9 +102,7 @@ const HRWorkPage = () => {
 
     const fetchCVCount = async () => {
       try {
-        const response = await axios.get(
-          "http://119.148.51.38:8000/api/hrms/api/CVAdd/"
-        );
+        const response = await getCVs();
         setCvCount(response.data.length || 0);
       } catch (error) {
         console.error("Error fetching CV count:", error);
@@ -113,9 +111,7 @@ const HRWorkPage = () => {
 
     const fetchAttendanceData = async () => {
       try {
-        const response = await axios.get(
-          "http://119.148.51.38:8000/api/hrms/api/attendance/"
-        );
+        const response = await getAttendance();
         console.log("Attendance Data Response:", response.data);
         setAttendanceData(response.data);
       } catch (error) {

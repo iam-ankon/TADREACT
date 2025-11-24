@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import axios from "axios";
 import { QRCodeCanvas } from "qrcode.react";
 import Sidebars from "./sidebars";
+import { getCVById, hrmsApi } from "../../api/employeeApi";
 
 const CVDetail = () => {
   const { id } = useParams();
@@ -14,12 +14,11 @@ const CVDetail = () => {
   useEffect(() => {
     const fetchCVDetails = async () => {
       try {
-        const response = await axios.get(
-          `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`
-        );
+        const response = await getCVById(id);
         setCvDetails(response.data);
       } catch (error) {
         console.error("Error fetching CV details:", error);
+        alert("Failed to load CV details");
       }
     };
 
@@ -63,9 +62,9 @@ const CVDetail = () => {
       const formData = new FormData();
       formData.append("qr_code", qrCodeImage);
 
-      // 3. Make API request
-      const response = await axios.post(
-        `http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/update-cv-with-qr/`,
+      // 3. FIXED: Use the correct endpoint - 'cvs' instead of 'CVAdd'
+      const response = await hrmsApi.post(
+        `cvs/${id}/update-cv-with-qr/`, // Changed from CVAdd to cvs
         formData,
         {
           responseType: "blob",
@@ -144,7 +143,6 @@ const CVDetail = () => {
     container: {
       display: "flex",
       height: "100vh",
-
       backgroundColor: "#DCEEF3",
     },
     contentContainer: {

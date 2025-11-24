@@ -1,8 +1,12 @@
 // EmployeeDetailPage.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getEmployeeById } from "../../api/employeeApi";
-import axios from "axios";
+import {
+  getEmployeeById,
+  getCustomerById,
+  getAllCustomers,
+  getPerformanceAppraisalsByEmployeeId, // ADD THIS IMPORT
+} from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 import {
   FaEdit,
@@ -33,33 +37,6 @@ const EmployeeDetailPage = () => {
     return "N/A";
   };
 
-  // useEffect(() => {
-  //   if (!employee?.employee_id) return; // only run if employee exists
-
-  //   axios
-  //     .get(
-  //       `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
-  //     )
-  //     .then((res) => {
-  //       const approvedIncrements = res.data.filter(
-  //         (appraisal) => appraisal.increment === true
-  //       );
-  //       setIncrementHistory(approvedIncrements);
-  //     })
-  //     .catch((err) => console.error(err));
-  // }, [employee]);
-
-  useEffect(() => {
-    if (!employee?.employee_id) return;
-
-    axios
-      .get(
-        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/?employee_id=${employee.employee_id}`
-      )
-      .then((res) => setIncrementHistory(res.data))
-      .catch((err) => console.error(err));
-  }, [employee]);
-
   // Helper function to calculate length of service
   const calculateLengthOfService = (joiningDate) => {
     if (!joiningDate) return "N/A";
@@ -86,12 +63,17 @@ const EmployeeDetailPage = () => {
     return `${years} year(s), ${months} month(s), ${days} day(s)`;
   };
 
+  // Fetch employee details
   useEffect(() => {
     const fetchEmployeeDetails = async () => {
       try {
         setLoading(true);
         const response = await getEmployeeById(id);
-        setEmployee(response.data);
+        const employeeData = response.data;
+
+        console.log("Employee data loaded:", employeeData);
+
+        setEmployee(employeeData);
       } catch (error) {
         console.error("Error fetching employee details", error);
       } finally {
@@ -102,29 +84,173 @@ const EmployeeDetailPage = () => {
     fetchEmployeeDetails();
   }, [id]);
 
+  // Fetch customer names
   useEffect(() => {
     const fetchCustomerNames = async () => {
-      if (employee?.customer && employee.customer.length > 0) {
-        const names = [];
-        for (const customerId of employee.customer) {
-          try {
-            const response = await axios.get(
-              `http://119.148.51.38:8000/api/hrms/api/customers/${customerId}/`
-            );
+      if (!employee?.customer || employee.customer.length === 0) {
+        console.log("No customers to fetch");
+        setCustomerNames([]);
+        return;
+      }
+
+      console.log("Fetching customers for IDs:", employee.customer);
+
+      const names = [];
+      const validCustomerIds = employee.customer.filter(
+        (id) => id != null && id !== "" && id !== undefined
+      );
+
+      if (validCustomerIds.length === 0) {
+        setCustomerNames([]);
+        return;
+      }
+
+      for (const customerId of validCustomerIds) {
+        try {
+          // Ensure we have a numeric ID
+          const numericId = parseInt(customerId);
+          if (isNaN(numericId)) {
+            console.warn(`Invalid customer ID: ${customerId}`);
+            names.push("Invalid ID");
+            continue;
+          }
+
+          const response = await getCustomerById(numericId);
+
+          if (response.data && response.data.customer_name) {
             names.push(response.data.customer_name);
-          } catch (error) {
-            console.error(`Error fetching customer ${customerId}`, error);
-            names.push("N/A");
+          } else {
+            names.push("Unknown Customer");
+          }
+        } catch (error) {
+          console.error(`Error fetching customer ${customerId}:`, error);
+
+          // Try to get customer name from all customers list as fallback
+          try {
+            const allCustomersResponse = await getAllCustomers();
+            const allCustomers = allCustomersResponse.data;
+            const customer = allCustomers.find(
+              (c) => c.id === parseInt(customerId)
+            );
+
+            if (customer && customer.customer_name) {
+              names.push(customer.customer_name);
+            } else {
+              names.push("Not Found");
+            }
+          } catch (altError) {
+            console.error(`Alternative fetch also failed for ${customerId}`);
+            names.push("Error Loading");
           }
         }
-        setCustomerNames(names);
-      } else {
-        setCustomerNames([]);
+      }
+
+      console.log("Final customer names:", names);
+      setCustomerNames(names);
+    };
+
+    if (employee) {
+      fetchCustomerNames();
+    }
+  }, [employee]);
+
+  // Fetch increment history using API wrapper - UPDATED
+  // In EmployeeDetailPage.jsx - Update the fetchIncrementHistory function
+  useEffect(() => {
+    const fetchIncrementHistory = async () => {
+      if (!employee?.employee_id) return;
+
+      try {
+        console.log(
+          "🔍 Fetching increment history for employee:",
+          employee.employee_id
+        );
+
+        // Get all appraisals
+        const response = await getPerformanceAppraisalsByEmployeeId(
+          employee.employee_id
+        );
+
+        console.log("📊 Appraisals response:", response);
+
+        if (response.data) {
+          // Filter only approved increments for THIS specific employee
+          const approvedIncrements = response.data.filter((appraisal) => {
+            const matchesEmployee =
+              appraisal.employee_id === employee.employee_id;
+            const isApprovedIncrement =
+              appraisal.increment === true &&
+              appraisal.increment_approved === true;
+
+            console.log(
+              `📝 Appraisal ${appraisal.id}: employee_id=${appraisal.employee_id}, matches=${matchesEmployee}, approved=${isApprovedIncrement}`
+            );
+
+            return matchesEmployee && isApprovedIncrement;
+          });
+
+          console.log("✅ Approved increments found:", approvedIncrements);
+          setIncrementHistory(approvedIncrements);
+        } else {
+          console.log("❌ No appraisal data found");
+          setIncrementHistory([]);
+        }
+      } catch (err) {
+        console.error("❌ Error fetching increment history:", err);
+        setIncrementHistory([]);
       }
     };
 
-    fetchCustomerNames();
+    if (employee?.employee_id) {
+      fetchIncrementHistory();
+    }
   }, [employee]);
+
+  // Add this function in EmployeeDetailPage.jsx
+  const updateEmployeeSalary = async (employeeId, newSalary) => {
+    try {
+      // You'll need to create this API function
+      await updateEmployeeSalary(employeeId, newSalary);
+      console.log("Salary updated successfully");
+    } catch (error) {
+      console.error("Error updating salary:", error);
+    }
+  };
+
+  // ... rest of the component remains the same (handlePrint, return JSX, etc.)
+  // The rest of your component code stays exactly the same
+
+  const handleApprove = async (appraisalId) => {
+    console.log("Approve button clicked for:", appraisalId);
+
+    if (!appraisalId) {
+      alert("No appraisal ID found");
+      return;
+    }
+
+    if (appraisal.increment) {
+      alert("Increment is already approved");
+      return;
+    }
+
+    try {
+      console.log("Calling approveIncrement API...");
+      const result = await approveIncrement(appraisalId);
+      console.log("API call successful:", result);
+
+      alert("Increment approved successfully");
+
+      // Refresh appraisal data
+      console.log("Refreshing appraisal data...");
+      const updatedAppraisal = await getPerformanceAppraisalById(appraisalId);
+      setAppraisal(updatedAppraisal.data);
+      console.log("Appraisal data updated:", updatedAppraisal.data);
+    } catch (err) {
+      console.error("Detailed error in handleApprove:", err);
+      console.error("Error response:", err.response);
+      alert(`Failed to approve increment: ${err.message}`);
+    }
+  };
 
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=800,height=600");
@@ -134,7 +260,6 @@ const EmployeeDetailPage = () => {
           <title>Employee Details</title>
           <style>
             body {
-              
               margin: 20px;
               color: #333;
             }
@@ -337,11 +462,7 @@ const EmployeeDetailPage = () => {
     }, 500);
   };
 
-  // if (!employee) return;
-  // if (loading) return <div className="loading-spinner">Loading...</div>;
-
   if (!employee) {
-    // Render the skeleton layout with empty/default values
     return (
       <div className="employee-detail-container">
         <Sidebars />
@@ -372,7 +493,10 @@ const EmployeeDetailPage = () => {
                 >
                   <FaEdit /> Edit
                 </button>
-                <button onClick={() => navigate(`/employees`)} className="btn-back">
+                <button
+                  onClick={() => navigate(`/employees`)}
+                  className="btn-back"
+                >
                   <FaArrowLeft /> Back
                 </button>
                 <button onClick={handlePrint} className="btn-print">
@@ -382,10 +506,6 @@ const EmployeeDetailPage = () => {
             </div>
 
             <div id="printable-area">
-              {/* <div className="print-header">
-                <h2>Employee Details</h2>
-              </div> */}
-
               <div className="profile-section">
                 <div className="profile-images">
                   <img
@@ -446,6 +566,8 @@ const EmployeeDetailPage = () => {
                     <span>
                       {customerNames.length > 0
                         ? customerNames.join(", ")
+                        : employee?.customer && employee.customer.length > 0
+                        ? `Customer IDs: ${employee.customer.join(", ")}`
                         : "N/A"}
                     </span>
                   </div>
@@ -503,11 +625,12 @@ const EmployeeDetailPage = () => {
                           <li key={idx}>
                             {inc.last_increment_date || "N/A"} — ৳
                             {inc.present_salary} → ৳{inc.proposed_salary}
+                            {inc.increment && ""}
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p>No increment history available.</p>
+                      <p>No approved increment history available.</p>
                     )}
                   </div>
                 </div>

@@ -1,25 +1,32 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
 import Sidebars from "./sidebars";
+import { 
+  hrmsApi, 
+  getCsrfToken 
+} from "../../api/employeeApi";
 
 const TerminationAttachment = () => {
   const { id } = useParams();
   const [files, setFiles] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchAttachments();
-  }, []);
+  }, [id]);
 
   const fetchAttachments = async () => {
     try {
-      const response = await axios.get(
-        `http://119.148.51.38:8000/api/hrms/api/termination_attachment/?employee_id=${id}`
-      );
+      setLoading(true);
+      const response = await hrmsApi.get(`termination_attachment/?employee_id=${id}`);
       setAttachments(response.data);
     } catch (error) {
       console.error("Error fetching termination attachments:", error);
+      alert("Error fetching termination attachments. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -43,28 +50,32 @@ const TerminationAttachment = () => {
       return;
     }
 
-    const formData = new FormData();
-    files.forEach((fileObj) => {
-      formData.append("file", fileObj.file);
-      formData.append("description", fileObj.description);
-    });
-    formData.append("employee", id);
+    setUploading(true);
 
     try {
-      await axios.post(
-        "http://119.148.51.38:8000/api/hrms/api/termination_attachment/",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-      fetchAttachments();
+      const formData = new FormData();
+      files.forEach((fileObj) => {
+        formData.append("file", fileObj.file);
+        formData.append("description", fileObj.description);
+      });
+      formData.append("employee", id);
+
+      await hrmsApi.post("termination_attachment/", formData, {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          "X-CSRFToken": getCsrfToken()
+        },
+      });
+      
+      await fetchAttachments();
       alert("Termination files uploaded successfully!");
       setFiles([]);
       document.getElementById("fileInput").value = "";
     } catch (error) {
       console.error("Error uploading termination files:", error);
       alert("Error uploading termination files. Please try again.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -75,9 +86,7 @@ const TerminationAttachment = () => {
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(
-        `http://119.148.51.38:8000/api/hrms/api/termination_attachment/${attachmentId}/`
-      );
+      await hrmsApi.delete(`termination_attachment/${attachmentId}/`);
       setAttachments(
         attachments.filter((attachment) => attachment.id !== attachmentId)
       );
@@ -88,22 +97,20 @@ const TerminationAttachment = () => {
     }
   };
 
-  const handleEditDescription = (attachmentId, newDescription) => {
+  const handleEditDescription = async (attachmentId, newDescription) => {
     if (newDescription === null) return; // User cancelled
 
-    axios
-      .patch(
-        `http://119.148.51.38:8000/api/hrms/api/termination_attachment/${attachmentId}/`,
+    try {
+      await hrmsApi.patch(
+        `termination_attachment/${attachmentId}/`,
         { description: newDescription }
-      )
-      .then(() => {
-        fetchAttachments();
-        alert("Description updated successfully!");
-      })
-      .catch((error) => {
-        console.error("Error updating description:", error);
-        alert("Error updating description. Please try again.");
-      });
+      );
+      await fetchAttachments();
+      alert("Description updated successfully!");
+    } catch (error) {
+      console.error("Error updating description:", error);
+      alert("Error updating description. Please try again.");
+    }
   };
 
   return (
@@ -127,10 +134,13 @@ const TerminationAttachment = () => {
               </label>
               <button
                 onClick={handleUpload}
-                style={styles.uploadButton}
-                disabled={files.length === 0}
+                style={{
+                  ...styles.uploadButton,
+                  ...(uploading ? styles.disabledButton : {})
+                }}
+                disabled={files.length === 0 || uploading}
               >
-                Upload {files.length > 0 ? `(${files.length})` : ""}
+                {uploading ? "Uploading..." : `Upload ${files.length > 0 ? `(${files.length})` : ""}`}
               </button>
             </div>
 
@@ -155,7 +165,9 @@ const TerminationAttachment = () => {
 
           <div style={styles.attachmentsSection}>
             <h3 style={styles.sectionHeading}>Uploaded Files</h3>
-            {attachments.length === 0 ? (
+            {loading ? (
+              <p style={styles.loadingText}>Loading attachments...</p>
+            ) : attachments.length === 0 ? (
               <p style={styles.noFiles}>No files uploaded yet</p>
             ) : (
               <ul style={styles.fileList}>
@@ -270,9 +282,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#dee2e6",
-    },
   },
   fileInput: {
     display: "none",
@@ -287,13 +296,10 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#3a5ab5",
-    },
-    ":disabled": {
-      backgroundColor: "#cccccc",
-      cursor: "not-allowed",
-    },
+  },
+  disabledButton: {
+    backgroundColor: "#cccccc",
+    cursor: "not-allowed",
   },
   selectedFiles: {
     marginTop: "16px",
@@ -333,6 +339,11 @@ const styles = {
   attachmentsSection: {
     marginTop: "24px",
   },
+  loadingText: {
+    color: "#6c757d",
+    textAlign: "center",
+    padding: "16px",
+  },
   noFiles: {
     color: "#6c757d",
     fontStyle: "italic",
@@ -349,9 +360,6 @@ const styles = {
     flexDirection: "column",
     padding: "12px 0",
     borderBottom: "1px solid #eaeaea",
-    ":last-child": {
-      borderBottom: "none",
-    },
   },
   fileInfo: {
     display: "flex",
@@ -364,9 +372,6 @@ const styles = {
     textDecoration: "none",
     fontSize: "14px",
     fontWeight: "500",
-    ":hover": {
-      textDecoration: "underline",
-    },
   },
   uploadDate: {
     fontSize: "12px",
@@ -395,9 +400,6 @@ const styles = {
     fontSize: "12px",
     fontWeight: "500",
     transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#dda20a",
-    },
   },
   deleteButton: {
     padding: "6px 12px",
@@ -409,10 +411,48 @@ const styles = {
     fontSize: "12px",
     fontWeight: "500",
     transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#be2617",
-    },
   },
 };
+
+// Add hover effects
+Object.assign(styles.fileInputLabel, {
+  ':hover': {
+    backgroundColor: "#dee2e6",
+  },
+});
+
+Object.assign(styles.uploadButton, {
+  ':hover': {
+    backgroundColor: "#3a5ab5",
+  },
+  ':disabled': {
+    backgroundColor: "#cccccc",
+    cursor: "not-allowed",
+  },
+});
+
+Object.assign(styles.editButton, {
+  ':hover': {
+    backgroundColor: "#dda20a",
+  },
+});
+
+Object.assign(styles.deleteButton, {
+  ':hover': {
+    backgroundColor: "#be2617",
+  },
+});
+
+Object.assign(styles.fileLink, {
+  ':hover': {
+    textDecoration: "underline",
+  },
+});
+
+Object.assign(styles.listItem, {
+  ':last-child': {
+    borderBottom: "none",
+  },
+});
 
 export default TerminationAttachment;

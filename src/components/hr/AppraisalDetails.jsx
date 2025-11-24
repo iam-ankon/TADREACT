@@ -1,42 +1,78 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import {
+  getPerformanceAppraisalById,
+  approveIncrement,
+} from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
 const AppraisalDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [appraisal, setAppraisal] = useState(null);
+  const [loading, setLoading] = useState(false);
   const username = localStorage.getItem("username");
-  // const [employee, setEmployee] = useState(null); // initialize state
-  // const [incrementHistory, setIncrementHistory] = useState([]);
 
-  const handleApprove = (appraisalId) => {
-    axios
-      .post(
-        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${appraisalId}/approve_increment/`
+  const handleApprove = async (appraisalId) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to approve this increment? This will update the employee's salary."
       )
-      .then(() => {
-        alert("Increment approved successfully");
-        axios
-          .get(
-            `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${appraisalId}/`
-          )
-          .then((res) => setAppraisal(res.data));
-      })
-      .catch((err) => console.error("Error approving increment", err));
+    ) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log(
+        `🖱️ Approve button clicked in AppraisalDetails for ID: ${appraisalId}`
+      );
+
+      const result = await approveIncrement(appraisalId);
+      console.log("✅ API call successful:", result);
+
+      alert("Increment approved successfully!");
+
+      // Refresh appraisal data
+      const updatedAppraisal = await getPerformanceAppraisalById(appraisalId);
+      console.log("🔄 Updated appraisal data:", updatedAppraisal.data);
+      setAppraisal(updatedAppraisal.data);
+    } catch (err) {
+      console.error("❌ Error approving increment:", err);
+      console.error("Error response:", err.response?.data);
+      alert(
+        `Failed to approve increment. Please try again. Error: ${err.message}`
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    axios
-      .get(
-        `http://119.148.51.38:8000/api/hrms/api/performanse_appraisals/${id}/`
-      )
-      .then((res) => setAppraisal(res.data))
-      .catch((err) => console.error("Error fetching data:", err));
+    const fetchAppraisal = async () => {
+      try {
+        const response = await getPerformanceAppraisalById(id);
+        setAppraisal(response.data);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      }
+    };
+
+    fetchAppraisal();
   }, [id]);
 
   if (!appraisal) return <p>Loading...</p>;
+
+  // Check if user can approve increments
+  const canApproveIncrement = () => {
+    return username === "Tuhin" || username === "admin" || username === "hr";
+  };
+
+  // Check if this specific increment can be approved
+  const canApproveThisIncrement = () => {
+    return appraisal.increment && !appraisal.increment_approved;
+  };
+
   const criteria = [
     {
       name: "Job Knowledge, technical & office equipments skills",
@@ -105,8 +141,8 @@ const AppraisalDetails = () => {
       additionalText: "Knowledge of legal compliance...",
     },
   ];
-
   const printPage = () => {
+    // ... (printPage function remains exactly the same)
     const performanceItems = criteria
       .map(
         (item) => `
@@ -174,7 +210,6 @@ const AppraisalDetails = () => {
                   <head>
                     <style>
                       body {
-                        
                         line-height: 1.2;
                         color: #333;
                         background-color: #fff;
@@ -220,7 +255,7 @@ const AppraisalDetails = () => {
                       }
                       .vertical-container .item {
                         display: grid;
-                        grid-template-columns: 70% 15% auto; /* Change 45% to auto */
+                        grid-template-columns: 70% 15% auto;
                         align-items: start;
                         gap: 5px;
                         margin-bottom: 3px;
@@ -228,26 +263,26 @@ const AppraisalDetails = () => {
                       }
                       .final-selection {
                       display: flex;
-                      gap: 20px; /* Adds space between the checkboxes */
-                      align-items: center; /* Vertically centers the checkboxes */
+                      gap: 20px;
+                      align-items: center;
                       }
                       .recommended-text {
-                          margin-top: 10px; /* Adds space between checkboxes and "for the following performances" text */
-                          font-style: italic; /* Makes the text italic for emphasis */
-                          color: #555; /* Lightens the text color */
+                          margin-top: 10px;
+                          font-style: italic;
+                          color: #555;
                       }
                       .performances-text {
-                          margin-top: 10px; /* Adds space between checkboxes and "for the following performances" text */
-                          font-style: italic; /* Makes the text italic for emphasis */
-                          color: #555; /* Lightens the text color */
+                          margin-top: 10px;
+                          font-style: italic;
+                          color: #555;
                       }
                       .iteme {
                       display: flex;
-                      align-items: center; /* Aligns label and checkbox horizontally */
+                      align-items: center;
                       }
       
                       .label {
-                      margin-right: 10px; /* Adds space between the label and checkbox */
+                      margin-right: 10px;
                       }
       
                       .numbered-item {
@@ -263,7 +298,7 @@ const AppraisalDetails = () => {
       
                       .item {
                           display: grid;
-                          grid-template-columns: 70% 15% 15%; /* This keeps the three columns in place */
+                          grid-template-columns: 70% 15% 15%;
                           gap: 10px;
                           margin-bottom: 10px;
                       }
@@ -277,7 +312,7 @@ const AppraisalDetails = () => {
                       }
       
                       .item.additional-text {
-                          grid-column: 1 / 3; /* Makes it span from the first to the second column */
+                          grid-column: 1 / 3;
                           padding-left: 10px;
                       }
       
@@ -288,7 +323,7 @@ const AppraisalDetails = () => {
       
                       .salary-designation-columns {
                       display: flex;
-                      justify-content: space-between; /* Distributes the columns evenly */
+                      justify-content: space-between;
                       gap: 20px;
                       }
       
@@ -296,7 +331,7 @@ const AppraisalDetails = () => {
                       display: flex;
                       flex-direction: column;
                       gap: 10px;
-                      flex: 1; /* Ensures all columns take equal width */
+                      flex: 1;
                       }
       
                       .row {
@@ -321,23 +356,23 @@ const AppraisalDetails = () => {
       
                       .signature-column {
                       text-align: center;
-                      width: 23%; /* Adjusts the width to fit 4 columns */
+                      width: 23%;
                       }
       
                       .signature-label {
                       font-weight: bold;
-                      margin-top: 5px; /* Adds space between the line and the label */
+                      margin-top: 5px;
                       }
       
                       .signature-line {
                       width: 100%;
                       border-bottom: 1px solid #000;
-                      margin-bottom: 5px; /* Adds space between the line and the label */
+                      margin-bottom: 5px;
                       }
       
                       .vertical-container .item .value {
-                        word-wrap: break-word; /* Ensures long words wrap */
-                        overflow-wrap: break-word; /* Alternative for older browsers */
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
                       }
       
                     </style>
@@ -556,7 +591,6 @@ const AppraisalDetails = () => {
                 </p>
               </div>
             </div>
-
             {/* Performance Rating Standards Container */}
             <div style={styles.performanceContainer}>
               <div style={styles.performanceText}>
@@ -578,71 +612,9 @@ const AppraisalDetails = () => {
                 </div>
 
                 {/* Loop through the performance areas */}
-                {[
-                  {
-                    name: "Job Knowledge, technical & office equipments skills",
-                    key: "job_knowledge",
-                    additionalText:
-                      "Resourcefulness used in carrying out responsibilities",
-                  },
-                  {
-                    name: "Performance in Meetings deadlines & commitments",
-                    key: "performance_in_meetings",
-                    additionalText:
-                      "Capability of achieving company's goal. It includes his real output of productivity as he is assigned for.",
-                  },
-                  {
-                    name: "Communication Skills",
-                    key: "communication_skills",
-                    additionalText:
-                      "Ability to explain, convince and be understood in oral and written communication with people at all levels.",
-                  },
-                  {
-                    name: "Reliability & Responsibility",
-                    key: "reliability",
-                    additionalText:
-                      "Implies the quality to be trustworthy. This includes employee’s ability to be punctual, work overtime willingly, maintain confidentiality of important documents and be available whenever required.",
-                  },
-                  {
-                    name: "Initiative & Creativity",
-                    key: "initiative",
-                    additionalText:
-                      "Willingness to expand responsibilities. It includes motivation willingness to be self-directed and work without supervision",
-                  },
-                  {
-                    name: "Stress Management & Steadiness under pressure",
-                    key: "stress_management",
-                    additionalText:
-                      "Ability to withstand pressure in emergency situations. This includes ability to meet deadlines when under pressure and how an employee deals with frustration and conflicts in time of crisis.",
-                  },
-                  {
-                    name: "Co-operation, Team-work & developing others",
-                    key: "co_operation",
-                    additionalText:
-                      "Performance or working co-operatively with senior or co-workers. It includes demonstrations of willingness to work jointly and respond positively to requests made of peer and superiors.",
-                  },
-                  {
-                    name: "Leadership, problem-solving & decision-making",
-                    key: "leadership",
-                    additionalText:
-                      "Quality of maintaining enthusiasm, high morale and team spirit among subordinates.",
-                  },
-                  {
-                    name: "Discipline and personal image",
-                    key: "discipline",
-                    additionalText:
-                      "It should reflect attendance, obediency, self confidence and personality.",
-                  },
-                  {
-                    name: "Ethical Considerations",
-                    key: "ethical_considerations",
-                    additionalText:
-                      "Knowledge of legal compliance and implementation and carrying out the same in workplace",
-                  },
-                ].map((item, index) => (
+                {criteria.map((item, index) => (
                   <div key={index} style={styles.tableRow}>
                     <div style={styles.tableColumn}>
-                      {/* Display Bold Text for Job Knowledge and additional text if provided */}
                       <strong>{item.name}</strong>
                       {item.additionalText && (
                         <div style={styles.additionalText}>
@@ -658,38 +630,9 @@ const AppraisalDetails = () => {
                         : "N/A"}
                     </div>
 
-                    {/* Display Comments (if available, assuming there's a comment field) */}
+                    {/* Display Comments */}
                     <div style={styles.tableColumn}>
-                      {item.key === "job_knowledge" && appraisal.job_description
-                        ? appraisal.job_description
-                        : item.key === "performance_in_meetings" &&
-                          appraisal.performance_description
-                        ? appraisal.performance_description
-                        : item.key === "communication_skills" &&
-                          appraisal.communication_description
-                        ? appraisal.communication_description
-                        : item.key === "reliability" &&
-                          appraisal.reliability_description
-                        ? appraisal.reliability_description
-                        : item.key === "initiative" &&
-                          appraisal.initiative_description
-                        ? appraisal.initiative_description
-                        : item.key === "stress_management" &&
-                          appraisal.stress_management_description
-                        ? appraisal.stress_management_description
-                        : item.key === "co_operation" &&
-                          appraisal.co_operation_description
-                        ? appraisal.co_operation_description
-                        : item.key === "leadership" &&
-                          appraisal.leadership_description
-                        ? appraisal.leadership_description
-                        : item.key === "discipline" &&
-                          appraisal.discipline_description
-                        ? appraisal.discipline_description
-                        : item.key === "ethical_considerations" &&
-                          appraisal.ethical_considerations_description
-                        ? appraisal.ethical_considerations_description
-                        : "N/A"}
+                      {appraisal[item.descriptionKey] || "N/A"}
                     </div>
                   </div>
                 ))}
@@ -704,32 +647,56 @@ const AppraisalDetails = () => {
               <div style={styles.detailsRow}>
                 <div style={styles.detailsColumn}>
                   <div style={styles.detail}>
-                    <strong>Promotion:</strong>
+                    <strong>Promotion Recommended:</strong>
                     <input
                       type="checkbox"
                       checked={appraisal.promotion}
                       readOnly
                     />
+                    {appraisal.promotion && (
+                      <span style={{ color: "green", marginLeft: "5px" }}>
+                        ✓ Recommended
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div style={styles.detailsColumn}>
                   <div style={styles.detail}>
-                    <strong>Increment:</strong>
+                    <strong>Increment Recommended:</strong>
                     <input
                       type="checkbox"
                       checked={appraisal.increment}
                       readOnly
                     />
+                    {appraisal.increment && (
+                      <span
+                        style={{
+                          color: appraisal.increment_approved
+                            ? "green"
+                            : "orange",
+                          marginLeft: "5px",
+                        }}
+                      >
+                        {appraisal.increment_approved
+                          ? "✓ Approved"
+                          : "✓ Recommended"}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div style={styles.detailsColumn}>
                   <div style={styles.detail}>
-                    <strong>Performance Reward:</strong>
+                    <strong>Performance Reward Recommended:</strong>
                     <input
                       type="checkbox"
                       checked={appraisal.performance_reward}
                       readOnly
                     />
+                    {appraisal.performance_reward && (
+                      <span style={{ color: "green", marginLeft: "5px" }}>
+                        ✓ Recommended
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -775,10 +742,8 @@ const AppraisalDetails = () => {
             </div>
             {/* Salary & Designation Details Container */}
             <div style={styles.promotionContainer}>
-              {/* Salary & Designation Grid */}
               <h3 style={styles.sectionTitle}>Salary & Designation</h3>
               <div style={styles.salaryDesignationContainer}>
-                {/* Column Titles */}
                 <div style={styles.columnTitle}>
                   <h4>Present</h4>
                   <h4>Proposed</h4>
@@ -823,22 +788,39 @@ const AppraisalDetails = () => {
               🖨️ Print
             </button>
 
-            {username === "Tuhin" && (
+            {/* Show Approve Increment button only if user has permission AND increment is recommended but not approved */}
+            {canApproveIncrement() && canApproveThisIncrement() && (
               <button
-                onClick={() => handleApprove(appraisal.id)} // ✅ FIXED
-                disabled={appraisal.increment} // Disable if already approved
+                onClick={() => handleApprove(appraisal.id)}
+                disabled={loading}
                 style={{
-                  backgroundColor: "green",
+                  backgroundColor: loading ? "#9ca3af" : "green",
                   color: "white",
-                  padding: "8px 14px",
+                  padding: "10px 15px",
                   border: "none",
                   borderRadius: "5px",
-                  cursor: "pointer",
-                  marginTop: "10px",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontSize: "16px",
                 }}
               >
-                Approve Increment
+                {loading ? "Approving..." : "Approve Increment"}
               </button>
+            )}
+
+            {/* Show message if increment is already approved */}
+            {appraisal.increment_approved && (
+              <div
+                style={{
+                  padding: "10px 15px",
+                  backgroundColor: "#dcfce7",
+                  color: "#166534",
+                  borderRadius: "5px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                ✅ Increment Approved
+              </div>
             )}
           </div>
         </div>
@@ -846,9 +828,9 @@ const AppraisalDetails = () => {
     </div>
   );
 };
+
 const containerStyle = {
   display: "flex",
-
   backgroundColor: "#f4f6f9",
   minHeight: "100vh",
 };
@@ -864,9 +846,9 @@ const styles = {
   },
   subTitle: {
     fontSize: "16px",
-    fontWeight: "bold", // Make text bold
-    color: "#0078D4", // Set the color to blue
-    marginBottom: "15px", // Space below the subtitle
+    fontWeight: "bold",
+    color: "#0078D4",
+    marginBottom: "15px",
   },
   title: {
     textAlign: "center",
@@ -947,16 +929,16 @@ const styles = {
   },
   number: {
     fontSize: "16px",
-    color: "#0078D4", // Blue color for numbers
+    color: "#0078D4",
     marginRight: "10px",
   },
   dottedLine: {
     flex: 1,
-    borderBottom: "1px dotted #0078D4", // Blue dotted line
+    borderBottom: "1px dotted #0078D4",
   },
   salaryDesignationContainer: {
     display: "grid",
-    gridTemplateRows: "auto auto auto", // Title row + 2 input rows
+    gridTemplateRows: "auto auto auto",
     gap: "10px",
     marginTop: "10px",
     border: "1px solid #ddd",
@@ -966,12 +948,11 @@ const styles = {
   },
   columnTitle: {
     display: "flex",
-    justifyContent: "space-between", // This creates space between the items
+    justifyContent: "space-between",
     fontWeight: "bold",
     marginBottom: "10px",
-    width: "55%", // Ensure the container takes full width
+    width: "55%",
   },
-
   row: {
     display: "flex",
     justifyContent: "space-between",
@@ -981,59 +962,34 @@ const styles = {
     flexDirection: "column",
     flex: 1,
   },
-
-  submitButton: {
-    marginTop: "20px",
-    padding: "10px",
-    background: "#0078D4",
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
-    marginleft: "20px",
-  },
-  printButton: {
-    padding: "10px 20px",
-    backgroundColor: "#4CAF50",
-    color: "white",
-    border: "none",
-    cursor: "pointer",
-    marginTop: "20px",
-    marginr: "20px",
-  },
   buttonsContainer: {
     display: "flex",
     justifyContent: "space-between",
-    marginTop: "20px", // Add some space above the buttons
+    alignItems: "center",
+    marginTop: "20px",
     padding: "10px",
-    backgroundColor: "#f8f8f8", // Light background for the button container
-    borderRadius: "5px", // Rounded corners for the container
-    border: "1px solid #e0e0e0", // Light border
+    backgroundColor: "#f8f8f8",
+    borderRadius: "5px",
+    border: "1px solid #e0e0e0",
+    gap: "10px",
   },
   goBackButton: {
-    backgroundColor: "#e0e0e0", // Light gray background
-    color: "#333", // Dark text color
+    backgroundColor: "#e0e0e0",
+    color: "#333",
     padding: "10px 15px",
     border: "none",
     borderRadius: "5px",
     cursor: "pointer",
     fontSize: "16px",
-    transition: "background-color 0.3s ease", // Smooth transition for hover effect
-    ":hover": {
-      backgroundColor: "#d0d0d0", // Darker gray on hover
-    },
   },
   buttonPrint: {
-    backgroundColor: "#4CAF50", // Green background
+    backgroundColor: "#4CAF50",
     color: "white",
     padding: "10px 15px",
     border: "none",
     borderRadius: "5px",
     cursor: "pointer",
     fontSize: "16px",
-    transition: "background-color 0.3s ease",
-    ":hover": {
-      backgroundColor: "#45a049", // Darker green on hover
-    },
   },
 };
 

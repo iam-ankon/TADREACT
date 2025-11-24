@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
 import Sidebars from "./sidebars";
+import { hrmsApi } from "../../api/employeeApi"; // Import your API wrapper
 
 const EmployeeAttachments = () => {
   const { id } = useParams();
   const [files, setFiles] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchAttachments();
-  }, []);
+  }, [id]);
 
   const fetchAttachments = async () => {
     try {
-      const response = await axios.get(
-        `http://119.148.51.38:8000/api/hrms/api/employee_attachments/?employee_id=${id}`
-      );
+      setLoading(true);
+      const response = await hrmsApi.get(`employee_attachments/?employee_id=${id}`);
       setAttachments(response.data);
     } catch (error) {
       console.error("Error fetching attachments:", error);
+      alert("Error fetching attachments. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -43,28 +46,30 @@ const EmployeeAttachments = () => {
       return;
     }
 
-    const formData = new FormData();
-    files.forEach((fileObj) => {
-      formData.append("file", fileObj.file);
-      formData.append("description", fileObj.description);
-    });
-    formData.append("employee", id);
-
     try {
-      await axios.post(
-        "http://119.148.51.38:8000/api/hrms/api/employee_attachments/",
-        formData,
-        {
+      setLoading(true);
+      
+      // Upload files one by one to handle multiple files properly
+      for (const fileObj of files) {
+        const formData = new FormData();
+        formData.append("file", fileObj.file);
+        formData.append("description", fileObj.description);
+        formData.append("employee", id);
+
+        await hrmsApi.post("employee_attachments/", formData, {
           headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-      fetchAttachments();
+        });
+      }
+
+      await fetchAttachments();
       alert("Files uploaded successfully!");
       setFiles([]);
       document.getElementById("fileInput").value = "";
     } catch (error) {
       console.error("Error uploading files:", error);
       alert("Error uploading files. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,9 +80,7 @@ const EmployeeAttachments = () => {
     if (!confirmDelete) return;
 
     try {
-      await axios.delete(
-        `http://119.148.51.38:8000/api/hrms/api/employee_attachments/${attachmentId}/`
-      );
+      await hrmsApi.delete(`employee_attachments/${attachmentId}/`);
       setAttachments(
         attachments.filter((attachment) => attachment.id !== attachmentId)
       );
@@ -88,22 +91,27 @@ const EmployeeAttachments = () => {
     }
   };
 
-  const handleEditDescription = (attachmentId, newDescription) => {
+  const handleEditDescription = async (attachmentId, newDescription) => {
     if (newDescription === null) return; // User cancelled
 
-    axios
-      .patch(
-        `http://119.148.51.38:8000/api/hrms/api/employee_attachments/${attachmentId}/`,
-        { description: newDescription }
-      )
-      .then(() => {
-        fetchAttachments();
-        alert("Description updated successfully!");
-      })
-      .catch((error) => {
-        console.error("Error updating description:", error);
-        alert("Error updating description. Please try again.");
+    try {
+      await hrmsApi.patch(`employee_attachments/${attachmentId}/`, {
+        description: newDescription,
       });
+      await fetchAttachments();
+      alert("Description updated successfully!");
+    } catch (error) {
+      console.error("Error updating description:", error);
+      alert("Error updating description. Please try again.");
+    }
+  };
+
+  const getFileUrl = (filePath) => {
+    if (filePath.startsWith("http")) {
+      return filePath;
+    }
+    // Use the backend URL from your API configuration
+    return `http://119.148.51.38:8000${filePath}`;
   };
 
   return (
@@ -130,14 +138,15 @@ const EmployeeAttachments = () => {
                     onChange={handleFileChange}
                     id="fileInput"
                     style={styles.fileInput}
+                    disabled={loading}
                   />
                 </label>
                 <button
                   onClick={handleUpload}
                   style={styles.uploadButton}
-                  disabled={files.length === 0}
+                  disabled={files.length === 0 || loading}
                 >
-                  Upload {files.length > 0 ? `(${files.length})` : ""}
+                  {loading ? "Uploading..." : `Upload ${files.length > 0 ? `(${files.length})` : ""}`}
                 </button>
               </div>
 
@@ -153,6 +162,7 @@ const EmployeeAttachments = () => {
                         value={fileObj.description}
                         onChange={(event) => handleTextChange(index, event)}
                         style={styles.descriptionInput}
+                        disabled={loading}
                       />
                     </div>
                   ))}
@@ -162,7 +172,9 @@ const EmployeeAttachments = () => {
 
             <div style={styles.attachmentsSection}>
               <h3 style={styles.sectionHeading}>Uploaded Files</h3>
-              {attachments.length === 0 ? (
+              {loading ? (
+                <p style={styles.loading}>Loading attachments...</p>
+              ) : attachments.length === 0 ? (
                 <p style={styles.noFiles}>No files uploaded yet</p>
               ) : (
                 <ul style={styles.fileList}>
@@ -170,11 +182,7 @@ const EmployeeAttachments = () => {
                     <li key={attachment.id} style={styles.listItem}>
                       <div style={styles.fileInfo}>
                         <a
-                          href={
-                            attachment.file.startsWith("http")
-                              ? attachment.file
-                              : `http://119.148.51.38:8000${attachment.file}`
-                          }
+                          href={getFileUrl(attachment.file)}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={styles.fileLink}
@@ -203,6 +211,7 @@ const EmployeeAttachments = () => {
                           }
                           style={styles.editButton}
                           title="Edit description"
+                          disabled={loading}
                         >
                           Edit
                         </button>
@@ -210,6 +219,7 @@ const EmployeeAttachments = () => {
                           onClick={() => handleDelete(attachment.id)}
                           style={styles.deleteButton}
                           title="Delete file"
+                          disabled={loading}
                         >
                           Delete
                         </button>
@@ -278,9 +288,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#dee2e6",
-    },
   },
   fileInput: {
     display: "none",
@@ -295,13 +302,6 @@ const styles = {
     fontSize: "14px",
     fontWeight: "500",
     transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#3a5ab5",
-    },
-    ":disabled": {
-      backgroundColor: "#cccccc",
-      cursor: "not-allowed",
-    },
   },
   selectedFiles: {
     marginTop: "16px",
@@ -341,6 +341,11 @@ const styles = {
   attachmentsSection: {
     marginTop: "24px",
   },
+  loading: {
+    color: "#6c757d",
+    textAlign: "center",
+    padding: "16px",
+  },
   noFiles: {
     color: "#6c757d",
     fontStyle: "italic",
@@ -357,9 +362,6 @@ const styles = {
     flexDirection: "column",
     padding: "12px 0",
     borderBottom: "1px solid #eaeaea",
-    ":last-child": {
-      borderBottom: "none",
-    },
   },
   fileInfo: {
     display: "flex",
@@ -372,9 +374,6 @@ const styles = {
     textDecoration: "none",
     fontSize: "14px",
     fontWeight: "500",
-    ":hover": {
-      textDecoration: "underline",
-    },
   },
   uploadDate: {
     fontSize: "12px",
@@ -402,10 +401,6 @@ const styles = {
     cursor: "pointer",
     fontSize: "12px",
     fontWeight: "500",
-    transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#dda20a",
-    },
   },
   deleteButton: {
     padding: "6px 12px",
@@ -416,11 +411,37 @@ const styles = {
     cursor: "pointer",
     fontSize: "12px",
     fontWeight: "500",
-    transition: "background-color 0.2s",
-    ":hover": {
-      backgroundColor: "#be2617",
-    },
   },
+};
+
+// Add hover effects
+styles.fileInputLabel[":hover"] = {
+  backgroundColor: "#dee2e6",
+};
+
+styles.uploadButton[":hover"] = {
+  backgroundColor: "#3a5ab5",
+};
+
+styles.uploadButton[":disabled"] = {
+  backgroundColor: "#cccccc",
+  cursor: "not-allowed",
+};
+
+styles.editButton[":hover"] = {
+  backgroundColor: "#dda20a",
+};
+
+styles.deleteButton[":hover"] = {
+  backgroundColor: "#be2617",
+};
+
+styles.listItem[":last-child"] = {
+  borderBottom: "none",
+};
+
+styles.fileLink[":hover"] = {
+  textDecoration: "underline",
 };
 
 export default EmployeeAttachments;

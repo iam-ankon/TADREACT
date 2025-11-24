@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { getITProvisions, deleteITProvision, updateITProvision, addITProvision } from "../../api/employeeApi"; // Adjust according to your file structure
+import { 
+  getITProvisions, 
+  deleteITProvision, 
+  updateITProvision, 
+  addITProvision 
+} from "../../api/employeeApi";
 import Sidebars from './sidebars';
 
 const ITProvision = () => {
@@ -12,19 +17,35 @@ const ITProvision = () => {
     it_equipment: false,
     laptop: false,
   });
-  const [searchTerm, setSearchTerm] = useState(""); // State for search term
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchProvisions = async () => {
-      const response = await getITProvisions();
-      setProvisions(response.data);
+      setLoading(true);
+      try {
+        const response = await getITProvisions();
+        setProvisions(response.data);
+      } catch (error) {
+        console.error("Error fetching IT provisions:", error);
+        alert("Failed to load IT provisions. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     };
     fetchProvisions();
   }, []);
 
   const handleDelete = async (id) => {
-    await deleteITProvision(id);
-    setProvisions(provisions.filter((provision) => provision.id !== id));
+    if (window.confirm("Are you sure you want to delete this provision?")) {
+      try {
+        await deleteITProvision(id);
+        setProvisions(provisions.filter((provision) => provision.id !== id));
+      } catch (error) {
+        console.error("Error deleting provision:", error);
+        alert("Failed to delete provision. Please try again.");
+      }
+    }
   };
 
   const handleEdit = (provision) => {
@@ -44,22 +65,32 @@ const ITProvision = () => {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    await updateITProvision(editProvision.id, editProvision);
-    setProvisions(
-      provisions.map((item) =>
-        item.id === editProvision.id ? editProvision : item
-      )
-    );
-    setIsModalOpen(false);
-    setEditProvision(null);
+    try {
+      await updateITProvision(editProvision.id, editProvision);
+      setProvisions(
+        provisions.map((item) =>
+          item.id === editProvision.id ? editProvision : item
+        )
+      );
+      setIsModalOpen(false);
+      setEditProvision(null);
+    } catch (error) {
+      console.error("Error updating provision:", error);
+      alert("Failed to update provision. Please try again.");
+    }
   };
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    const response = await addITProvision(newProvision);
-    setProvisions([...provisions, response.data]);
-    setIsAddModalOpen(false);
-    setNewProvision({ employee: "", it_equipment: false, laptop: false });
+    try {
+      const response = await addITProvision(newProvision);
+      setProvisions([...provisions, response.data]);
+      setIsAddModalOpen(false);
+      setNewProvision({ employee: "", it_equipment: false, laptop: false });
+    } catch (error) {
+      console.error("Error adding provision:", error);
+      alert("Failed to add provision. Please try again.");
+    }
   };
 
   const handleInputChange = (e) => {
@@ -69,7 +100,7 @@ const ITProvision = () => {
         ...editProvision,
         [name]: type === "checkbox" ? checked : value,
       });
-    } else if (newProvision) {
+    } else {
       setNewProvision({
         ...newProvision,
         [name]: type === "checkbox" ? checked : value,
@@ -79,12 +110,12 @@ const ITProvision = () => {
 
   // Filter provisions based on search term
   const filteredProvisions = provisions.filter((provision) =>
-    provision.employee.toLowerCase().includes(searchTerm.toLowerCase())
+    provision.employee?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
   const containerStyle = {
     display: "flex",
     height: "100vh",
-    
     backgroundColor: "#f4f6f9",
     minHeight: "100vh",
   };
@@ -93,9 +124,7 @@ const ITProvision = () => {
     <div style={containerStyle}>
       <div style={{ display: 'flex' }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          {/* Your page content here */}
-        </div>
+        <div style={{ flex: 1, overflow: 'auto' }}></div>
       </div>
       <div className="it-provision-container">
         <h2 className="heading">IT Provision</h2>
@@ -105,7 +134,7 @@ const ITProvision = () => {
           type="text"
           placeholder="Search by employee name"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)} // Update search term
+          onChange={(e) => setSearchTerm(e.target.value)}
           className="search-bar"
         />
 
@@ -116,30 +145,38 @@ const ITProvision = () => {
           Add New Provision
         </button>
 
+        {loading && (
+          <div className="loading">Loading provisions...</div>
+        )}
+
         <div className="card-container">
-          {filteredProvisions.map((provision) => (
-            <div key={provision.id} className="card">
-              <h3 className="employee-name">{provision.employee}</h3>
-              <p className="provision-details">
-                ID Card: {provision.it_equipment ? "Yes" : "No"}
-              </p>
-              <p className="provision-details">
-                Laptop Provided: {provision.laptop ? "Yes" : "No"}
-              </p>
-              <button
-                onClick={() => handleEdit(provision)}
-                className="edit-button"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => handleDelete(provision.id)}
-                className="delete-button"
-              >
-                Delete
-              </button>
-            </div>
-          ))}
+          {filteredProvisions.length > 0 ? (
+            filteredProvisions.map((provision) => (
+              <div key={provision.id} className="card">
+                <h3 className="employee-name">{provision.employee || "Unknown Employee"}</h3>
+                <p className="provision-details">
+                  ID Card: {provision.it_equipment ? "Yes" : "No"}
+                </p>
+                <p className="provision-details">
+                  Laptop Provided: {provision.laptop ? "Yes" : "No"}
+                </p>
+                <button
+                  onClick={() => handleEdit(provision)}
+                  className="edit-button"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(provision.id)}
+                  className="delete-button"
+                >
+                  Delete
+                </button>
+              </div>
+            ))
+          ) : (
+            !loading && <div className="no-data">No IT provisions found</div>
+          )}
         </div>
 
         {/* Edit Modal */}
@@ -158,27 +195,29 @@ const ITProvision = () => {
                   />
                 </label>
                 <label>
-                  ID Card:
                   <input
                     type="checkbox"
                     name="it_equipment"
                     checked={editProvision.it_equipment || false}
                     onChange={handleInputChange}
                   />
+                  ID Card
                 </label>
                 <label>
-                  Laptop Provided:
                   <input
                     type="checkbox"
                     name="laptop"
                     checked={editProvision.laptop || false}
                     onChange={handleInputChange}
                   />
+                  Laptop Provided
                 </label>
-                <button type="submit">Save Changes</button>
-                <button type="button" onClick={handleModalClose}>
-                  Close
-                </button>
+                <div className="modal-buttons">
+                  <button type="submit">Save Changes</button>
+                  <button type="button" onClick={handleModalClose}>
+                    Close
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -197,30 +236,33 @@ const ITProvision = () => {
                     name="employee"
                     value={newProvision.employee}
                     onChange={handleInputChange}
+                    required
                   />
                 </label>
                 <label>
-                  ID Card:
                   <input
                     type="checkbox"
                     name="it_equipment"
                     checked={newProvision.it_equipment}
                     onChange={handleInputChange}
                   />
+                  ID Card
                 </label>
                 <label>
-                  Laptop Provided:
                   <input
                     type="checkbox"
                     name="laptop"
                     checked={newProvision.laptop}
                     onChange={handleInputChange}
                   />
+                  Laptop Provided
                 </label>
-                <button type="submit">Add Provision</button>
-                <button type="button" onClick={handleAddModalClose}>
-                  Close
-                </button>
+                <div className="modal-buttons">
+                  <button type="submit">Add Provision</button>
+                  <button type="button" onClick={handleAddModalClose}>
+                    Close
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -228,176 +270,213 @@ const ITProvision = () => {
 
         {/* CSS Styling */}
         <style jsx>{`
-        .it-provision-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 40px;
-          background-color: #f4f7fc;
-          min-height: 100vh;
-          
-        }
+          .it-provision-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            background-color: #f4f7fc;
+            min-height: 100vh;
+            flex: 1;
+          }
 
-        .heading {
-          font-size: 2.5rem;
-          margin-bottom: 30px;
-          font-weight: bold;
-          color: #0078d4;
-          text-align: center;
-        }
+          .heading {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            font-weight: bold;
+            color: #0078d4;
+            text-align: center;
+          }
 
-        .add-button {
-          background-color: #28a745;
-          color: white;
-          padding: 10px 20px;
-          font-size: 1rem;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          margin-bottom: 30px;
-          transition: background-color 0.3s ease;
-        }
+          .add-button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 30px;
+            transition: background-color 0.3s ease;
+          }
 
-        .add-button:hover {
-          background-color: #218838;
-        }
+          .add-button:hover {
+            background-color: #218838;
+          }
 
-        .search-bar {
-          padding: 10px;
-          margin-bottom: 20px;
-          width: 100%;
-          max-width: 500px;
-          border-radius: 4px;
-          border: 1px solid #ccc;
-          font-size: 1rem;
-        }
+          .search-bar {
+            padding: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 500px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+          }
 
-        .card-container {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 20px;
-          width: 100%;
-          max-width: 1200px;
-          margin-top: 30px;
-        }
+          .loading, .no-data {
+            padding: 20px;
+            font-size: 1.1rem;
+            color: #666;
+          }
 
-        .card {
-          background-color: white;
-          padding: 20px;
-          border-radius: 8px;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-          text-align: center;
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: space-between;
-        }
+          .card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 30px;
+          }
 
-        .card:hover {
-          transform: translateY(-10px);
-          box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
-        }
+          .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+          }
 
-        .employee-name {
-          font-size: 1.2rem;
-          font-weight: bold;
-          color: #333;
-          margin-bottom: 10px;
-        }
+          .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+          }
 
-        .provision-details {
-          font-size: 1rem;
-          color: #555;
-          margin: 5px 0;
-        }
+          .employee-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+          }
 
-        .edit-button,
-        .delete-button {
-          margin-top: 10px;
-          padding: 8px 16px;
-          font-size: 1rem;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          transition: background-color 0.3s ease;
-        }
+          .provision-details {
+            font-size: 1rem;
+            color: #555;
+            margin: 5px 0;
+          }
 
-        .edit-button {
-          background-color: #f0ad4e;
-          color: white;
-        }
+          .edit-button,
+          .delete-button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 80px;
+          }
 
-        .edit-button:hover {
-          background-color: #ec971f;
-        }
+          .edit-button {
+            background-color: #f0ad4e;
+            color: white;
+          }
 
-        .delete-button {
-          background-color: #d9534f;
-          color: white;
-        }
+          .edit-button:hover {
+            background-color: #ec971f;
+          }
 
-        .delete-button:hover {
-          background-color: #c9302c;
-        }
+          .delete-button {
+            background-color: #d9534f;
+            color: white;
+          }
 
-        /* Modal Styling */
-        .modal {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
+          .delete-button:hover {
+            background-color: #c9302c;
+          }
 
-        .modal-content {
-          background-color: white;
-          padding: 20px;
-          border-radius: 8px;
-          width: 400px;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
+          /* Modal Styling */
+          .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+          }
 
-        .modal-content form {
-          display: flex;
-          flex-direction: column;
-        }
+          .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+          }
 
-        .modal-content form label {
-          margin-bottom: 10px;
-          font-weight: bold;
-        }
+          .modal-content h3 {
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+          }
 
-        .modal-content form input {
-          margin-bottom: 15px;
-          padding: 8px;
-          font-size: 1rem;
-          border-radius: 4px;
-          border: 1px solid #ccc;
-        }
+          .modal-content form {
+            display: flex;
+            flex-direction: column;
+          }
 
-        .modal-content form button {
-          padding: 10px;
-          font-size: 1rem;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-        }
+          .modal-content form label {
+            margin-bottom: 15px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
 
-        .modal-content form button[type="submit"] {
-          background-color: #0078d4;
-          color: white;
-        }
+          .modal-content form input[type="text"] {
+            margin-bottom: 15px;
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 100%;
+          }
 
-        .modal-content form button[type="button"] {
-          background-color: #d9534f;
-          color: white;
-        }
-      `}</style>
+          .modal-content form input[type="checkbox"] {
+            margin: 0;
+          }
+
+          .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+          }
+
+          .modal-content form button {
+            padding: 10px 15px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+          }
+
+          .modal-content form button[type="submit"] {
+            background-color: #0078d4;
+            color: white;
+          }
+
+          .modal-content form button[type="submit"]:hover {
+            background-color: #005a9e;
+          }
+
+          .modal-content form button[type="button"] {
+            background-color: #6c757d;
+            color: white;
+          }
+
+          .modal-content form button[type="button"]:hover {
+            background-color: #545b62;
+          }
+        `}</style>
       </div>
     </div>
   );

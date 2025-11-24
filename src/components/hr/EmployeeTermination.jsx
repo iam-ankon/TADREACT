@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
 import {
@@ -9,8 +8,7 @@ import {
   FiTrash2,
   FiUser,
 } from "react-icons/fi";
-
-const API_URL = "http://119.148.51.38:8000/api/hrms/api/employees/";
+import { getEmployees, deleteEmployee } from "../../api/employeeApi"; // Import from API file
 
 const EmployeeTermination = () => {
   const [employees, setEmployees] = useState([]);
@@ -24,7 +22,7 @@ const EmployeeTermination = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await axios.get(API_URL);
+        const response = await getEmployees(); // Use centralized API
         setEmployees(response.data);
       } catch (err) {
         console.error("Error fetching employees:", err);
@@ -44,7 +42,7 @@ const EmployeeTermination = () => {
       )
     ) {
       try {
-        await axios.delete(`${API_URL}${id}/`);
+        await deleteEmployee(id); // Use centralized API
         setEmployees(employees.filter((emp) => emp.id !== id));
       } catch (error) {
         console.error("Error deleting employee:", error);

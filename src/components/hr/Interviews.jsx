@@ -1,12 +1,59 @@
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
 import { FaArrowDown } from "react-icons/fa";
+// Update your imports at the top of the file
+import {
+  getInterviews,
+  getInterviewById,
+  addInterview,
+  updateInterview,
+  deleteInterview,
+  checkOfferLetter,
+  getCsrfToken,
+  getBackendURL, // Add this import
+} from "../../api/employeeApi";
 
-const API_URL = "http://119.148.51.38:8000/api/hrms/api/interviews/";
+// localStorage helpers for persisting offer letter status
+const getPersistedOfferLetterStatus = (interviewId) => {
+  try {
+    const sentLetters = JSON.parse(
+      localStorage.getItem("sentOfferLetters") || "{}"
+    );
+    return sentLetters[interviewId]?.sent || false;
+  } catch (error) {
+    console.error("Error reading from localStorage:", error);
+    return false;
+  }
+};
 
-axios.defaults.withCredentials = true;
+const setPersistedOfferLetterStatus = (interviewId, email) => {
+  try {
+    const sentLetters = JSON.parse(
+      localStorage.getItem("sentOfferLetters") || "{}"
+    );
+    sentLetters[interviewId] = {
+      sent: true,
+      email: email,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem("sentOfferLetters", JSON.stringify(sentLetters));
+  } catch (error) {
+    console.error("Error writing to localStorage:", error);
+  }
+};
+
+const clearPersistedOfferLetterStatus = (interviewId) => {
+  try {
+    const sentLetters = JSON.parse(
+      localStorage.getItem("sentOfferLetters") || "{}"
+    );
+    delete sentLetters[interviewId];
+    localStorage.setItem("sentOfferLetters", JSON.stringify(sentLetters));
+  } catch (error) {
+    console.error("Error clearing from localStorage:", error);
+  }
+};
 
 const Interviews = () => {
   const location = useLocation();
@@ -56,37 +103,13 @@ const Interviews = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
 
-  const [offerLetterSent, setOfferLetterSent] = useState(false);
-
-  // GET CSRF TOKEN FROM DJANGO
-  const getCsrfToken = () => {
-    const name = "csrftoken";
-    const cookies = document.cookie.split(";");
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.startsWith(name + "=")) {
-        return cookie.substring(name.length + 1);
-      }
+  const [offerLetterSent, setOfferLetterSent] = useState(() => {
+    // Initialize from localStorage if we have a selected interview
+    if (location.state?.interviewId) {
+      return getPersistedOfferLetterStatus(location.state.interviewId);
     }
-    return null;
-  };
-
-  const checkOfferLetterSent = async (email) => {
-    try {
-      const res = await axios.get(
-        "http://119.148.51.38:8000/api/hrms/api/check_offer_letter/",
-        {
-          params: { email },
-        }
-      );
-      const isSent = res.data?.offer_letter_sent === true;
-      setOfferLetterSent(isSent);
-      console.log("✅ Offer letter sent result for", email, "=>", isSent);
-    } catch (error) {
-      console.error("❌ Error checking offer letter status:", error);
-      setOfferLetterSent(false);
-    }
-  };
+    return false;
+  });
 
   // Calculate interview mark and result
   const calculateInterviewMark = (formData) => {
@@ -175,27 +198,7 @@ const Interviews = () => {
 
     if (interviewId) {
       // 👇 Fetch interview data by ID
-      axios
-        .get(`${API_URL}${interviewId}/`)
-        .then((res) => {
-          const interview = res.data;
-          setSelectedInterview(interview);
-          setFormData({
-            ...interview,
-            interview_date: interview.interview_date
-              ? new Date(interview.interview_date).toISOString().slice(0, 16)
-              : "",
-          });
-
-          // ✅ also check here
-          if (interview.email) {
-            checkOfferLetterSent(interview.email);
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to load interview from URL:", err);
-        });
-
+      fetchInterviewById(interviewId);
       navigate(location.pathname, { replace: true });
     }
   }, [location, id, navigate]);
@@ -207,21 +210,68 @@ const Interviews = () => {
     }
   }, [formData.email]);
 
+  const fetchInterviewById = async (interviewId) => {
+    try {
+      const interview = await getInterviewById(interviewId);
+      console.log("📥 Fetched interview:", interview.data);
+
+      setSelectedInterview(interview.data);
+      setFormData({
+        ...interview.data,
+        interview_date: interview.data.interview_date
+          ? new Date(interview.data.interview_date).toISOString().slice(0, 16)
+          : "",
+      });
+
+      // Check ALL sources for offer letter status
+      const apiStatus = interview.data.offer_letter_sent === true;
+      const localStorageStatus = getPersistedOfferLetterStatus(interviewId);
+
+      console.log("📧 Offer letter status check:", {
+        api: apiStatus,
+        localStorage: localStorageStatus,
+        interviewId: interviewId,
+      });
+
+      if (apiStatus || localStorageStatus) {
+        console.log(
+          "✅ Setting offerLetterSent to true from persistent sources"
+        );
+        setOfferLetterSent(true);
+
+        // Ensure localStorage is in sync
+        if (apiStatus && !localStorageStatus) {
+          setPersistedOfferLetterStatus(interviewId, interview.data.email);
+        }
+      }
+
+      if (interview.data.email) {
+        checkOfferLetterSent(interview.data.email);
+      }
+    } catch (err) {
+      console.error("Failed to load interview from URL:", err);
+      showToast("Failed to load interview", "error");
+    }
+  };
+
   // Fetch candidate data from API
   const fetchCandidateData = async (candidateId) => {
     try {
-      const response = await axios.get(
+      // Note: You might need to add getCVById to employeeApi.js
+      // For now, using the direct API call as in original
+      const response = await fetch(
         `http://119.148.51.38:8000/api/hrms/api/CVAdd/${candidateId}/`
       );
-      setCandidateData(response.data);
+      const data = await response.json();
+      setCandidateData(data);
       setFormData((prev) => ({
         ...prev,
-        name: response.data.name || "",
-        position_for: response.data.position_for || "",
-        age: response.data.age || "",
-        email: response.data.email || "",
-        phone: response.data.phone || "",
-        reference: response.data.reference || "",
+        name: data.name || "",
+        position_for: data.position_for || "",
+        age: data.age || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        reference: data.reference || "",
       }));
     } catch (error) {
       console.error("Error fetching candidate data:", error);
@@ -280,11 +330,107 @@ const Interviews = () => {
     });
   };
 
+  // Add this useEffect to track letter sending status
+  useEffect(() => {
+    // Check if we're returning from letter sending
+    if (location.state?.letterSent && location.state?.offerLetterSent) {
+      console.log("🎯 Letter was just sent for:", location.state.email);
+      setOfferLetterSent(true);
+
+      // Also update the selected interview if it exists
+      if (selectedInterview) {
+        setSelectedInterview((prev) => ({
+          ...prev,
+          offer_letter_sent: true,
+        }));
+
+        // Update form data to reflect the change
+        setFormData((prev) => ({
+          ...prev,
+          offer_letter_sent: true,
+        }));
+      }
+
+      // Clear the navigation state to prevent repeated triggers
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, selectedInterview, navigate]);
+
+  const checkOfferLetterSent = async (email) => {
+    if (!email) return false;
+
+    try {
+      const res = await checkOfferLetter(email);
+      const isSent = res?.offer_letter_sent === true;
+      console.log(`📧 Offer letter API check for ${email}:`, isSent);
+
+      if (isSent && selectedInterview?.id) {
+        console.log("✅ Offer letter confirmed sent via API");
+        setOfferLetterSent(true);
+        setPersistedOfferLetterStatus(selectedInterview.id, email);
+
+        // Update the form data and selected interview
+        setFormData((prev) => ({ ...prev, offer_letter_sent: true }));
+        if (selectedInterview) {
+          setSelectedInterview((prev) => ({
+            ...prev,
+            offer_letter_sent: true,
+          }));
+        }
+      }
+
+      return isSent;
+    } catch (error) {
+      console.error("Error checking offer letter:", error);
+      return false;
+    }
+  };
+
+  // Add this useEffect to handle navigation state updates
+  useEffect(() => {
+    console.log("📍 Location state changed:", location.state);
+
+    if (
+      location.state?.offerLetterSent === true &&
+      location.state?.interviewId
+    ) {
+      console.log("🚨 OFFER LETTER SENT DETECTED IN LOCATION STATE!");
+
+      const interviewId = location.state.interviewId;
+
+      // Update all persistent sources
+      setOfferLetterSent(true);
+      setPersistedOfferLetterStatus(interviewId, location.state.sentEmail);
+
+      // Update selected interview if it matches
+      if (selectedInterview && interviewId === selectedInterview.id) {
+        console.log("🔄 Updating selected interview offer_letter_sent status");
+        setSelectedInterview((prev) => ({
+          ...prev,
+          offer_letter_sent: true,
+        }));
+
+        setFormData((prev) => ({
+          ...prev,
+          offer_letter_sent: true,
+        }));
+      }
+
+      // Force refresh interviews list to get updated data from API
+      fetchInterviews();
+
+      // Clear the state to prevent repeated triggers
+      setTimeout(() => {
+        navigate(location.pathname, { replace: true });
+      }, 100);
+    }
+  }, [location.state]);
+
   // Fetch all interviews
   const fetchInterviews = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(API_URL);
+      const response = await getInterviews();
       setInterviews(response.data);
     } catch (error) {
       showToast("Error fetching interviews", "error");
@@ -294,15 +440,46 @@ const Interviews = () => {
     }
   };
 
-  // In your handleSubmit function, add logging:
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate form data first
+    if (!validateFormData(formData)) {
+      return;
+    }
+
     setIsLoading(true);
 
+    // === CSRF TOKEN HANDLING ===
+    let csrfToken = getCsrfToken();
+
+    if (!csrfToken) {
+      console.log("🔄 CSRF token not found, trying to fetch...");
+      showToast("Setting up security token...", "info");
+
+      // Try to get CSRF token by making a request to Django
+      try {
+        const response = await fetch(`${getBackendURL()}/api/csrf/`, {
+          credentials: "include", // Important for cookies
+        });
+        csrfToken = getCsrfToken(); // Check again after the request
+        console.log("🔄 CSRF token after fetch attempt:", csrfToken);
+      } catch (error) {
+        console.error("❌ Failed to fetch CSRF token:", error);
+      }
+    }
+
+    if (!csrfToken) {
+      showToast("Security token missing. Please refresh the page.", "error");
+      setIsLoading(false);
+      return;
+    }
+
+    // Prepare data for API - convert numeric fields to integers
     const jsonData = { ...formData };
 
-    // === 1. EVALUATION FIELDS (0-20) ===
-    const evalFields = [
+    // Convert numeric fields to integers (handle empty strings as null)
+    const numericFields = [
       "education",
       "job_knowledge",
       "work_experience",
@@ -311,65 +488,42 @@ const Interviews = () => {
       "potential",
       "general_knowledge",
       "assertiveness",
-    ];
-    evalFields.forEach((field) => {
-      const value = jsonData[field];
-      if (value === "" || value == null) {
-        jsonData[field] = 0;
-      } else {
-        jsonData[field] = parseInt(value, 10) || 0;
-      }
-    });
-
-    // === 2. AUTO-CALCULATED MARK ===
-    if (jsonData.interview_mark === "" || jsonData.interview_mark == null) {
-      jsonData.interview_mark = 0;
-    } else {
-      jsonData.interview_mark = parseInt(jsonData.interview_mark, 10) || 0;
-    }
-
-    // === 3. SALARY FIELDS (INTEGER, NOT STRING) ===
-    const salaryFields = [
+      "interview_mark",
       "current_remuneration",
       "expected_package",
       "notice_period_required",
     ];
-    salaryFields.forEach((field) => {
+
+    numericFields.forEach((field) => {
       const value = jsonData[field];
-      if (value === "" || value == null || value === undefined) {
-        jsonData[field] = 0;
+      if (value === "" || value == null) {
+        jsonData[field] = null; // Send null for empty values
       } else {
+        // Convert to integer, default to 0 if conversion fails
         jsonData[field] = parseInt(value, 10) || 0;
       }
     });
 
-    console.log("JSON data being sent:", jsonData);
-
-    // === CSRF TOKEN ===
-    const csrfToken = getCsrfToken();
-    if (!csrfToken) {
-      showToast("CSRF token missing. Refresh page.", "error");
-      setIsLoading(false);
-      return;
+    // Handle empty Date of Birth - send null instead of empty string
+    if (!jsonData.age || jsonData.age === "") {
+      jsonData.age = null;
     }
+
+    // Ensure interview_mark is calculated if not set
+    if (!jsonData.interview_mark) {
+      const { interviewMark } = calculateInterviewMark(jsonData);
+      jsonData.interview_mark = interviewMark;
+    }
+
+    console.log("✅ Final JSON data:", jsonData);
 
     try {
       let res;
       if (selectedInterview) {
-        res = await axios.put(`${API_URL}${selectedInterview.id}/`, jsonData, {
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken,
-          },
-        });
+        res = await updateInterview(selectedInterview.id, jsonData);
         showToast("Interview updated!", "success");
       } else {
-        res = await axios.post(API_URL, jsonData, {
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken,
-          },
-        });
+        res = await addInterview(jsonData);
         showToast("Interview created!", "success");
       }
 
@@ -379,10 +533,105 @@ const Interviews = () => {
       }
     } catch (error) {
       console.error("Submit error:", error.response?.data);
-      showToast("Failed to save", "error");
+      showToast(
+        "Failed to save: " + (error.response?.data?.detail || error.message),
+        "error"
+      );
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Update the validateFormData function in your Interviews.jsx component
+  const validateFormData = (formData) => {
+    // Required fields validation
+    if (!formData.name?.trim()) {
+      showToast("Candidate name is required", "error");
+      return false;
+    }
+
+    if (!formData.position_for?.trim()) {
+      showToast("Position is required", "error");
+      return false;
+    }
+
+    if (!formData.email?.trim()) {
+      showToast("Email is required", "error");
+      return false;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      showToast("Please enter a valid email address", "error");
+      return false;
+    }
+
+    if (!formData.phone?.trim()) {
+      showToast("Phone number is required", "error");
+      return false;
+    }
+
+    if (!formData.interview_date) {
+      showToast("Interview date is required", "error");
+      return false;
+    }
+
+    // Interview date validation - only check for future dates for NEW interviews
+    // Allow past dates for editing existing interviews
+    if (!selectedInterview) {
+      const interviewDate = new Date(formData.interview_date);
+      const now = new Date();
+
+      // Remove seconds/milliseconds for fair comparison
+      interviewDate.setSeconds(0, 0);
+      now.setSeconds(0, 0);
+
+      if (interviewDate < now) {
+        showToast(
+          "Interview date cannot be in the past for new interviews",
+          "error"
+        );
+        return false;
+      }
+    }
+
+    // Score validation - ensure scores are within valid ranges
+    const scoreFields = [
+      { name: "education", max: 20 },
+      { name: "job_knowledge", max: 20 },
+      { name: "work_experience", max: 10 },
+      { name: "communication", max: 10 },
+      { name: "personality", max: 10 },
+      { name: "potential", max: 10 },
+      { name: "general_knowledge", max: 10 },
+      { name: "assertiveness", max: 10 },
+    ];
+
+    for (const field of scoreFields) {
+      const value = parseInt(formData[field.name]) || 0;
+      if (value < 0 || value > field.max) {
+        showToast(
+          `${field.name.replace("_", " ")} must be between 0 and ${field.max}`,
+          "error"
+        );
+        return false;
+      }
+    }
+
+    // Status validation - only one status can be selected
+    const statusFields = ["immediate_recruitment", "on_hold", "no_good"];
+    const selectedStatuses = statusFields.filter((field) => formData[field]);
+
+    if (selectedStatuses.length > 1) {
+      showToast(
+        "Only one status can be selected (Immediate Recruitment, On Hold, or No Good)",
+        "error"
+      );
+      return false;
+    }
+
+    return true;
   };
 
   // Handle interview action with confirmation
@@ -433,18 +682,8 @@ const Interviews = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this interview?")) return;
 
-    const csrfToken = getCsrfToken();
-    if (!csrfToken) {
-      showToast("CSRF token missing. Please refresh.", "error");
-      return;
-    }
-
     try {
-      await axios.delete(`${API_URL}${id}/`, {
-        headers: {
-          "X-CSRFToken": csrfToken,
-        },
-      });
+      await deleteInterview(id);
       showToast("Interview deleted!", "success");
       fetchInterviews();
       resetForm();
@@ -468,7 +707,6 @@ const Interviews = () => {
         <head>
           <style>
             body {
-              
               line-height: 1.2;
               color: #333;
               background-color: #fff;
@@ -690,6 +928,7 @@ const Interviews = () => {
     newWindow.print();
     newWindow.close();
   };
+
   // Print all interviews
   const printAllInterviews = () => {
     const printWindow = window.open(
@@ -702,7 +941,6 @@ const Interviews = () => {
         <head>
           <style>
             body {
-              
               line-height: 1.2;
               color: #333;
               background-color: #fff;
@@ -933,7 +1171,12 @@ const Interviews = () => {
   const handleInviteMail = (interview) =>
     navigate("/invitemail", { state: interview });
   const handleLetterSend = (interview) =>
-    navigate("/add-letter", { state: interview });
+    navigate("/add-letter", {
+      state: {
+        ...interview,
+        id: interview.id, // Make sure the interview ID is passed
+      },
+    });
   const handleSelectedAsEmployee = (interview) =>
     navigate("/add-employee", {
       state: {
@@ -943,29 +1186,68 @@ const Interviews = () => {
     });
 
   const getArrowStage = () => {
+    // Get current offer letter status from multiple persistent sources
+    const currentInterviewId = selectedInterview?.id;
+
+    const isOfferLetterSentFromAPI =
+      selectedInterview?.offer_letter_sent === true;
+    const isOfferLetterSentFromState = offerLetterSent;
+    const isOfferLetterSentFromLocalStorage = currentInterviewId
+      ? getPersistedOfferLetterStatus(currentInterviewId)
+      : false;
+    const isOfferLetterSentFromLocation =
+      location.state?.offerLetterSent === true;
+
+    // Combine all sources - if ANY source says it's sent, consider it sent
+    const isOfferLetterSent =
+      isOfferLetterSentFromAPI ||
+      isOfferLetterSentFromState ||
+      isOfferLetterSentFromLocalStorage ||
+      isOfferLetterSentFromLocation;
+
+    console.log("🎯 Calculating arrow stage...", {
+      interviewId: currentInterviewId,
+      api: isOfferLetterSentFromAPI,
+      state: isOfferLetterSentFromState,
+      localStorage: isOfferLetterSentFromLocalStorage,
+      location: isOfferLetterSentFromLocation,
+      final: isOfferLetterSent,
+      finalRemarks: !!formData.final_selection_remarks,
+      noGood: formData.no_good,
+    });
+
+    if (formData.no_good) {
+      console.log("➡️ Arrow stage: delete_interview (no_good)");
+      return "delete_interview";
+    }
+
+    if (isOfferLetterSent) {
+      console.log("➡️ Arrow stage: create_employee (offer letter sent)");
+      return "create_employee";
+    }
+
+    if (formData.final_selection_remarks) {
+      console.log("➡️ Arrow stage: send_offer (has final remarks)");
+      return "send_offer";
+    }
+
+    const hasEvaluation = formData.education || formData.job_knowledge;
+    if (hasEvaluation) {
+      console.log("➡️ Arrow stage: send_md (has evaluation)");
+      return "send_md";
+    }
+
     const hasCandidateInfo =
       formData.name &&
       formData.position_for &&
       formData.email &&
       formData.phone;
+    if (hasCandidateInfo) {
+      console.log("➡️ Arrow stage: invite (has candidate info)");
+      return "invite";
+    }
 
-    const hasEvaluation =
-      formData.education ||
-      formData.job_knowledge ||
-      formData.work_experience ||
-      formData.communication ||
-      formData.personality ||
-      formData.potential ||
-      formData.general_knowledge ||
-      formData.assertiveness;
-
-    const hasFinalSelectionRemarks = formData.final_selection_remarks;
-
-    if (formData.no_good) return "delete_interview";
-    if (offerLetterSent) return "create_employee"; // ✅ Important
-    if (hasFinalSelectionRemarks) return "send_offer";
-    if (hasEvaluation) return "send_md";
-    if (hasCandidateInfo) return "invite";
+    console.log("➡️ Arrow stage: none");
     return "";
   };
 
@@ -1043,7 +1325,6 @@ const Interviews = () => {
       marginBottom: "20px",
       border: "none",
       borderRadius: "4px",
-
       outline: "none",
     },
     button: {
@@ -1068,7 +1349,6 @@ const Interviews = () => {
     interviewItem: {
       padding: "12px",
       marginBottom: "8px",
-      // backgroundColor: "#34495e",
       borderRadius: "4px",
       cursor: "pointer",
       transition: "background-color 0.3s",
@@ -1104,8 +1384,8 @@ const Interviews = () => {
       marginBottom: "15px",
     },
     formGroup: {
-      flex: "1", // Equal distribution
-      minWidth: "200px", // Prevent squeezing
+      flex: "1",
+      minWidth: "200px",
       margin: "0 8px",
     },
     label: {
@@ -1404,10 +1684,10 @@ const Interviews = () => {
                           ).toLocaleString()}
                         </div>
                       </div>
-                      <dev style={styles.formGroup}>
+                      <div style={styles.formGroup}>
                         <span style={styles.label}>Position</span>
                         <div>{selectedInterview.position_for}</div>
-                      </dev>
+                      </div>
                       <div style={styles.formGroup}>
                         <span style={styles.label}>Place</span>
                         <div>{selectedInterview.place}</div>

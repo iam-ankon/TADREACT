@@ -37,21 +37,50 @@ const TaxCalculators = () => {
         setEmployee(emp);
         setGender(emp.gender === "M" ? "Male" : "Female");
 
-        // Load Source Tax Other
-        const saved = localStorage.getItem("sourceTaxOther");
-        const savedVal = saved ? JSON.parse(saved)[employeeId] || 0 : 0;
-        setSourceOther(savedVal);
-        setEditValue(savedVal.toString());
+        // Load from backend first
+        try {
+          const taxExtraRes = await axios.get(
+            `${API_BASE}/tax-extra/${employeeId}/`
+          );
+          const backendSourceOther = taxExtraRes.data.source_other || 0;
+          const backendBonus = taxExtraRes.data.bonus || 0;
 
-        // Load Bonus Override
-        const savedBonus = localStorage.getItem("bonusOverride");
-        const savedBonusVal = savedBonus
-          ? JSON.parse(savedBonus)[employeeId] || 0
-          : 0;
-        setBonus(savedBonusVal);
-        setEditBonusValue(savedBonusVal.toString());
+          setSourceOther(backendSourceOther);
+          setEditValue(backendSourceOther.toString());
+          setBonus(backendBonus);
+          setEditBonusValue(backendBonus.toString());
 
-        await calculate(savedVal, savedBonusVal);
+          // Sync with localStorage as fallback
+          const savedSource = JSON.parse(
+            localStorage.getItem("sourceTaxOther") || "{}"
+          );
+          savedSource[employeeId] = backendSourceOther;
+          localStorage.setItem("sourceTaxOther", JSON.stringify(savedSource));
+
+          const savedBonus = JSON.parse(
+            localStorage.getItem("bonusOverride") || "{}"
+          );
+          savedBonus[employeeId] = backendBonus;
+          localStorage.setItem("bonusOverride", JSON.stringify(savedBonus));
+
+          await calculate(backendSourceOther, backendBonus);
+        } catch (backendError) {
+          console.log("Backend load failed, falling back to localStorage");
+          // Fallback to localStorage if backend fails
+          const saved = localStorage.getItem("sourceTaxOther");
+          const savedVal = saved ? JSON.parse(saved)[employeeId] || 0 : 0;
+          setSourceOther(savedVal);
+          setEditValue(savedVal.toString());
+
+          const savedBonus = localStorage.getItem("bonusOverride");
+          const savedBonusVal = savedBonus
+            ? JSON.parse(savedBonus)[employeeId] || 0
+            : 0;
+          setBonus(savedBonusVal);
+          setEditBonusValue(savedBonusVal.toString());
+
+          await calculate(savedVal, savedBonusVal);
+        }
       } catch (err) {
         setError(err.message || "Failed to load");
       } finally {
@@ -59,71 +88,102 @@ const TaxCalculators = () => {
       }
     };
 
-    const calculate = async (other = sourceOther, bonusVal = bonus) => {
-      const res = await axios.post(`${API_BASE}/calculate/`, {
-        employee_id: employeeId,
-        gender,
-        source_other: parseFloat(other) || 0,
-        bonus: parseFloat(bonusVal) || 0,
-      });
-      setResult(res.data);
-    };
-
     if (employeeId) load();
   }, [employeeId]);
+
+  const calculate = async (sourceVal, bonusVal) => {
+    try {
+      const response = await axios.post(`${API_BASE}/calculate/`, {
+        employee_id: employeeId,
+        gender,
+        source_other: sourceVal,
+        bonus: bonusVal,
+      });
+      setResult(response.data);
+    } catch (err) {
+      setError(err.response?.data?.error || "Calculation failed");
+    }
+  };
 
   // Auto recalculate on input change
   useEffect(() => {
     if (!employee) return;
     const timer = setTimeout(() => {
-      axios
-        .post(`${API_BASE}/calculate/`, {
-          employee_id: employeeId,
-          gender,
-          source_other: sourceOther,
-          bonus: bonus,
-        })
-        .then((r) => setResult(r.data));
+      calculate(sourceOther, bonus);
     }, 500);
     return () => clearTimeout(timer);
-  }, [gender, sourceOther, bonus]);
+  }, [gender, sourceOther, bonus, employee]);
 
   const handleSave = async () => {
     const val = parseFloat(editValue) || 0;
-    setSourceOther(val);
-    setEditing(false);
+
     try {
-      await axios.post(`${API_BASE}/save-tax-extra/`, {
+      // Save to backend
+      const response = await axios.post(`${API_BASE}/save-tax-extra/`, {
         employee_id: employeeId,
         source_other: val,
-        bonus: bonus, // Keep current bonus
+        // Keep current bonus value
+        bonus: bonus,
       });
+
+      if (response.data.success) {
+        // Update state only after successful backend save
+        setSourceOther(val);
+        setEditing(false);
+
+        // Update localStorage as fallback
+        const saved = JSON.parse(
+          localStorage.getItem("sourceTaxOther") || "{}"
+        );
+        saved[employeeId] = val;
+        localStorage.setItem("sourceTaxOther", JSON.stringify(saved));
+      }
     } catch (err) {
       console.error("Save source failed:", err);
+      alert("Failed to save to server. Using local storage only.");
+
+      // Fallback to localStorage only
+      setSourceOther(val);
+      setEditing(false);
+      const saved = JSON.parse(localStorage.getItem("sourceTaxOther") || "{}");
+      saved[employeeId] = val;
+      localStorage.setItem("sourceTaxOther", JSON.stringify(saved));
     }
-    // Fallback localStorage
-    const saved = JSON.parse(localStorage.getItem("sourceTaxOther") || "{}");
-    saved[employeeId] = val;
-    localStorage.setItem("sourceTaxOther", JSON.stringify(saved));
   };
 
   const handleSaveBonus = async () => {
     const val = parseFloat(editBonusValue) || 0;
-    setBonus(val);
-    setEditingBonus(false);
+
     try {
-      await axios.post(`${API_BASE}/save-tax-extra/`, {
+      // Save to backend
+      const response = await axios.post(`${API_BASE}/save-tax-extra/`, {
         employee_id: employeeId,
-        source_other: sourceOther, // Keep current source
         bonus: val,
+        // Keep current source_other value
+        source_other: sourceOther,
       });
+
+      if (response.data.success) {
+        // Update state only after successful backend save
+        setBonus(val);
+        setEditingBonus(false);
+
+        // Update localStorage as fallback
+        const saved = JSON.parse(localStorage.getItem("bonusOverride") || "{}");
+        saved[employeeId] = val;
+        localStorage.setItem("bonusOverride", JSON.stringify(saved));
+      }
     } catch (err) {
       console.error("Save bonus failed:", err);
+      alert("Failed to save to server. Using local storage only.");
+
+      // Fallback to localStorage only
+      setBonus(val);
+      setEditingBonus(false);
+      const saved = JSON.parse(localStorage.getItem("bonusOverride") || "{}");
+      saved[employeeId] = val;
+      localStorage.setItem("bonusOverride", JSON.stringify(saved));
     }
-    // Fallback localStorage
-    const saved = JSON.parse(localStorage.getItem("bonusOverride") || "{}");
-    saved[employeeId] = val;
-    localStorage.setItem("bonusOverride", JSON.stringify(saved));
   };
 
   // Styles (unchanged)
@@ -237,7 +297,7 @@ const TaxCalculators = () => {
       </div>
     );
 
-  if (error || !result)
+  if (error || !employee)
     return (
       <div style={containerStyle}>
         <Alert
@@ -268,6 +328,8 @@ const TaxCalculators = () => {
         </button>
       </div>
     );
+
+  if (!result) return null;
 
   const b = result.salary_breakdown;
   const r = result.rebate;
@@ -891,42 +953,6 @@ const TaxCalculators = () => {
               </Table>
             </Card.Body>
           </Card>
-
-          {/* PDF Button */}
-          {result.payroll_pdf && (
-            <div style={{ textAlign: "center", margin: "40px 0" }}>
-              <a
-                href={result.payroll_pdf}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                  color: "white",
-                  padding: "16px 50px",
-                  borderRadius: "16px",
-                  textDecoration: "none",
-                  fontWeight: "700",
-                  fontSize: "1.2rem",
-                  boxShadow: "0 8px 25px rgba(16, 185, 129, 0.3)",
-                  display: "inline-block",
-                  transition: "all 0.3s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.transform = "translateY(-2px)";
-                  e.target.style.boxShadow =
-                    "0 12px 30px rgba(16, 185, 129, 0.4)";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.transform = "translateY(0)";
-                  e.target.style.boxShadow =
-                    "0 8px 25px rgba(16, 185, 129, 0.3)";
-                }}
-              >
-                View Payroll PDF
-              </a>
-            </div>
-          )}
         </div>
       )}
     </div>

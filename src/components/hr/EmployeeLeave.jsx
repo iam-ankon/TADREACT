@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { getEmployeeLeaves, deleteEmployeeLeave } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
 const EmployeeLeave = () => {
@@ -13,17 +13,45 @@ const EmployeeLeave = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios
-      .get("http://119.148.51.38:8000/api/hrms/api/employee_leaves/")
-      .then((response) => {
-        setLeaves(response.data);
-        setFilteredLeaves(response.data);
+    // In EmployeeLeave.jsx, update the fetchLeaves function:
+    // In EmployeeLeave.jsx, update the fetchLeaves function:
+    const fetchLeaves = async () => {
+      try {
+        console.log("🔄 Fetching leave data...");
+        const response = await getEmployeeLeaves();
+
+        // Debug the full response
+
+
+        if (response.data && Array.isArray(response.data)) {
+          console.log("✅ Valid array received, length:", response.data.length);
+          // Log first item to check structure
+          if (response.data.length > 0) {
+           
+            console.log(
+              "👤 Employee name in data:",
+              response.data[0].employee_name
+            );
+            console.log("🆔 Employee ID in data:", response.data[0].employee);
+          }
+
+          setLeaves(response.data);
+          setFilteredLeaves(response.data);
+        } else {
+          console.warn("❌ Invalid data format received");
+          setLeaves([]);
+          setFilteredLeaves([]);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching leave data:", error);
+        console.error("Error details:", error.response?.data);
+        alert("Failed to load leave data. Please try again.");
+      } finally {
         setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching leave data:", error);
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchLeaves();
   }, []);
 
   useEffect(() => {
@@ -50,29 +78,38 @@ const EmployeeLeave = () => {
     setFilteredLeaves(results);
   }, [nameSearch, startDate, endDate, leaves]);
 
-  const handleDelete = (id) => {
-    axios
-      .delete(`http://119.148.51.38:8000/api/hrms/api/employee_leaves/${id}/`)
-      .then(() => {
-        setLeaves(leaves.filter((leave) => leave.id !== id));
-      })
-      .catch((error) => {
-        console.error("Error deleting leave record:", error);
-      });
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this leave record?")) {
+      return;
+    }
+
+    try {
+      await deleteEmployeeLeave(id);
+      setLeaves(leaves.filter((leave) => leave.id !== id));
+      alert("Leave record deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting leave record:", error);
+      alert("Failed to delete leave record. Please try again.");
+    }
   };
 
   const handleRowClick = (id) => {
     navigate(`/leave-request-details/${id}`);
   };
 
+  if (loading) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div>Loading leave records...</div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
-      <div style={{ display: "flex" }}>
-        <Sidebars />
-      </div>
-
+      <Sidebars />
       <div style={styles.mainContent}>
-        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
+        <div style={styles.scrollContainer}>
           <h2 style={styles.heading}>Employee Leave Records</h2>
 
           {/* Search Filters */}
@@ -166,12 +203,12 @@ const EmployeeLeave = () => {
                     >
                       <td style={cellStyle}>{leave.employee_name}</td>
                       <td style={cellStyle}>
-                        {leave.leave_type.replace(/_/g, " ")}
+                        {leave.leave_type?.replace(/_/g, " ") || "N/A"}
                       </td>
                       <td style={cellStyle}>{leave.start_date}</td>
                       <td style={cellStyle}>{leave.end_date}</td>
                       <td style={cellStyle}>{leave.reason || "N/A"}</td>
-                      <td style={cellStyle}>{leave.status}</td>
+                      <td style={cellStyle}>{leave.status || "Pending"}</td>
                       <td style={cellStyle}>
                         <button
                           onClick={(e) => {
@@ -228,11 +265,22 @@ const styles = {
     minHeight: "100vh",
     backgroundColor: "#A7D5E1",
   },
+  loadingContainer: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    height: "100vh",
+    fontSize: "18px",
+  },
   mainContent: {
     padding: "2rem",
     flex: 1,
     width: "10%",
     boxSizing: "border-box",
+  },
+  scrollContainer: {
+    maxHeight: "calc(100vh - 100px)",
+    overflowY: "auto",
   },
   heading: {
     color: "#0078D4",
@@ -256,7 +304,7 @@ const styles = {
   },
   table: {
     width: "100%",
-    minWidth: "1000px", // ensures scroll for portrait
+    minWidth: "1000px",
     borderCollapse: "collapse",
     fontFamily: "Segoe UI, sans-serif",
     fontSize: "14px",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Sidebars from "./sidebars";
+import { hrmsApi } from "../../api/employeeApi";
 
 const MailMdSir = () => {
   const [email, setEmail] = useState("");
@@ -18,46 +19,32 @@ const MailMdSir = () => {
   }, [location.state, navigate]);
 
   const handleSendMail = async () => {
+    if (!email) {
+      alert("Please enter recipient's email");
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch(
-        "http://119.148.51.38:8000/api/hrms/api/mdsir/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCSRFToken(),
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            email,
-            interview_details: interviewDetails,
-          }),
-        }
-      );
+      const response = await hrmsApi.post("/mdsir/", {
+        email,
+        interview_details: interviewDetails,
+      });
 
-      const result = await response.json();
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         alert("Email sent successfully and saved!");
         navigate(`/interviews?interview_id=${interviewDetails.id}`, {
           replace: true,
         });
       } else {
-        alert(`Error sending email: ${result.error || "Unknown error"}`);
+        alert(`Error sending email: ${response.data.error || "Unknown error"}`);
       }
     } catch (error) {
-      alert("Error sending email");
+      console.error("Error sending email:", error);
+      alert("Error sending email. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const getCSRFToken = () => {
-    const name = "csrftoken";
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(";").shift();
-    return "";
   };
 
   return (
@@ -94,6 +81,7 @@ const MailMdSir = () => {
               onChange={(e) => setEmail(e.target.value)}
               style={styles.input}
               placeholder="Enter recipient's email"
+              required
             />
           </div>
 

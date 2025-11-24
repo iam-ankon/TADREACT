@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
 import {
@@ -9,11 +8,14 @@ import {
   FaBarcode,
   FaSearch,
 } from "react-icons/fa";
+import { getCVs, deleteCV } from "../../api/employeeApi";
 
 const CVList = () => {
   const [cvs, setCvs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const cvsPerPage = 10;
   const navigate = useNavigate();
 
@@ -27,10 +29,11 @@ const CVList = () => {
     setSearchQuery(savedSearch);
     setCurrentPage(savedPage);
 
-    axios
-      .get("http://119.148.51.38:8000/api/hrms/api/CVAdd/")
-      .then((res) => {
-        const data = res.data;
+    const fetchCVs = async () => {
+      try {
+        setLoading(true);
+        const response = await getCVs();
+        const data = response.data;
         setCvs(data);
 
         const filtered = savedSearch
@@ -44,8 +47,15 @@ const CVList = () => {
 
         setCurrentPage(validPage);
         localStorage.setItem("cvListCurrentPage", validPage.toString());
-      })
-      .catch((err) => console.error("Error fetching CVs:", err));
+      } catch (err) {
+        console.error("Error fetching CVs:", err);
+        setError("Failed to load CVs. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCVs();
   }, []); // ← ONLY ONCE
 
   /* ------------------------------------------------------------------ *
@@ -67,12 +77,7 @@ const CVList = () => {
   );
 
   /* ------------------------------------------------------------------ *
-   *  4. DO NOT CLAMP during search — only clamp on mount (above)
-   * ------------------------------------------------------------------ */
-  // ← REMOVED CLAMP EFFECT — THIS IS THE KEY FIX
-
-  /* ------------------------------------------------------------------ *
-   *  5. Pagination logic (uses currentPage directly if valid)
+   *  4. Pagination logic (uses currentPage directly if valid)
    * ------------------------------------------------------------------ */
   const totalPages = Math.ceil(filteredCvs.length / cvsPerPage);
   const validCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
@@ -86,10 +91,11 @@ const CVList = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this CV?")) return;
     try {
-      await axios.delete(`http://119.148.51.38:8000/api/hrms/api/CVAdd/${id}/`);
+      await deleteCV(id);
       setCvs((prev) => prev.filter((cv) => cv.id !== id));
     } catch (e) {
       console.error("Delete error:", e);
+      alert("Failed to delete CV. Please try again.");
     }
   };
 
@@ -126,190 +132,208 @@ const CVList = () => {
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
           <h2 style={styles.heading}>All CVs</h2>
 
-          {/* Search + Add */}
-          <div style={responsiveStyles.responsiveFlex}>
-            <div style={responsiveStyles.responsiveColumn}>
-              <label style={labelStyle}>Search by Name:</label>
-              <div style={styles.searchBox}>
-                <FaSearch />
-                <input
-                  type="text"
-                  placeholder="Enter name..."
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  style={inputStyle}
-                />
-                {searchQuery && (
-                  <button onClick={clearSearch} style={styles.clearInputBtn}>
-                    ×
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div style={responsiveStyles.responsiveColumn}>
-              <Link to="/cv-add" style={btnStyle("#0078D4")}>
-                Add CV
-              </Link>
-            </div>
-          </div>
-
-          {searchQuery && (
-            <div style={styles.searchInfo}>
-              <span>
-                Found {filteredCvs.length} CV(s) matching "{searchQuery}"
-              </span>
-              <button onClick={clearSearch} style={styles.clearSearchBtn}>
-                Clear search
-              </button>
+          {/* Loading State */}
+          {loading && (
+            <div style={styles.loading}>
+              Loading CVs...
             </div>
           )}
 
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={{ backgroundColor: "#e1e9f3" }}>
-                  <th style={cellStyle}>Name</th>
-                  <th style={cellStyle}>Position</th>
-                  <th style={cellStyle}>Age</th>
-                  <th style={cellStyle}>Email</th>
-                  <th style={cellStyle}>Phone</th>
-                  <th style={cellStyle}>Reference</th>
-                  <th style={cellStyle}>CV</th>
-                  <th style={cellStyle}>QR Code</th>
-                  <th style={cellStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentCvs.length > 0 ? (
-                  currentCvs.map((cv) => (
-                    <tr key={cv.id}>
-                      <td style={cellStyle}>{cv.name}</td>
-                      <td style={cellStyle}>{cv.position_for}</td>
-                      <td style={cellStyle}>{cv.age}</td>
-                      <td style={cellStyle}>{cv.email}</td>
-                      <td style={cellStyle}>{cv.phone}</td>
-                      <td style={cellStyle}>{cv.reference}</td>
-                      <td style={cellStyle}>
-                        <a href={cv.cv_file} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-                          <FaFilePdf /> View
-                        </a>
-                      </td>
-                      <td style={cellStyle}>
-                        <Link to={`/cv-detail/${cv.id}`} style={linkStyle}>
-                          <FaBarcode />
-                        </Link>
-                      </td>
-                      <td style={cellStyle}>
-                        <button onClick={() => handleEdit(cv.id)} style={{ ...actionButton, backgroundColor: "#ffaa00" }}>
-                          <FaEdit />
-                        </button>
-                        <button onClick={() => handleDelete(cv.id)} style={{ ...actionButton, backgroundColor: "#ff4d4d" }}>
-                          <FaTrash />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="9" style={{ ...cellStyle, textAlign: "center" }}>
-                      {searchQuery ? "No CVs found matching your search." : "No CVs found."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {/* Error State */}
+          {error && (
+            <div style={styles.error}>
+              {error}
+            </div>
+          )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={styles.pagination}>
-              <button
-                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === 1 && styles.disabledPageButton),
-                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                }}
-              >
-                Previous
-              </button>
+          {/* Search + Add */}
+          {!loading && !error && (
+            <>
+              <div style={responsiveStyles.responsiveFlex}>
+                <div style={responsiveStyles.responsiveColumn}>
+                  <label style={labelStyle}>Search by Name:</label>
+                  <div style={styles.searchBox}>
+                    <FaSearch />
+                    <input
+                      type="text"
+                      placeholder="Enter name..."
+                      value={searchQuery}
+                      onChange={handleSearchChange}
+                      style={inputStyle}
+                    />
+                    {searchQuery && (
+                      <button onClick={clearSearch} style={styles.clearInputBtn}>
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-              <button
-                onClick={() => handlePageChange(1)}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === 1 && styles.activePageButton),
-                }}
-              >
-                1
-              </button>
+                <div style={responsiveStyles.responsiveColumn}>
+                  <Link to="/cv-add" style={btnStyle("#0078D4")}>
+                    Add CV
+                  </Link>
+                </div>
+              </div>
 
-              {currentPage > 4 && <span style={styles.ellipsis}>...</span>}
-
-              {Array.from({ length: Math.min(5, totalPages - 2) }, (_, i) => {
-                let page;
-                if (currentPage <= 4) page = i + 2;
-                else if (currentPage >= totalPages - 3) page = totalPages - 4 + i;
-                else page = currentPage - 2 + i;
-
-                if (page > 1 && page < totalPages) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      style={{
-                        ...styles.pageButton,
-                        ...(currentPage === page && styles.activePageButton),
-                      }}
-                    >
-                      {page}
-                    </button>
-                  );
-                }
-                return null;
-              }).filter(Boolean)}
-
-              {currentPage < totalPages - 3 && <span style={styles.ellipsis}>...</span>}
-
-              {totalPages > 1 && (
-                <button
-                  onClick={() => handlePageChange(totalPages)}
-                  style={{
-                    ...styles.pageButton,
-                    ...(currentPage === totalPages && styles.activePageButton),
-                  }}
-                >
-                  {totalPages}
-                </button>
+              {searchQuery && (
+                <div style={styles.searchInfo}>
+                  <span>
+                    Found {filteredCvs.length} CV(s) matching "{searchQuery}"
+                  </span>
+                  <button onClick={clearSearch} style={styles.clearSearchBtn}>
+                    Clear search
+                  </button>
+                </div>
               )}
 
-              <button
-                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === totalPages && styles.disabledPageButton),
-                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                }}
-              >
-                Next
-              </button>
-            </div>
-          )}
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#e1e9f3" }}>
+                      <th style={cellStyle}>Name</th>
+                      <th style={cellStyle}>Position</th>
+                      <th style={cellStyle}>Age</th>
+                      <th style={cellStyle}>Email</th>
+                      <th style={cellStyle}>Phone</th>
+                      <th style={cellStyle}>Reference</th>
+                      <th style={cellStyle}>CV</th>
+                      <th style={cellStyle}>QR Code</th>
+                      <th style={cellStyle}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentCvs.length > 0 ? (
+                      currentCvs.map((cv) => (
+                        <tr key={cv.id}>
+                          <td style={cellStyle}>{cv.name}</td>
+                          <td style={cellStyle}>{cv.position_for}</td>
+                          <td style={cellStyle}>{cv.age}</td>
+                          <td style={cellStyle}>{cv.email}</td>
+                          <td style={cellStyle}>{cv.phone}</td>
+                          <td style={cellStyle}>{cv.reference}</td>
+                          <td style={cellStyle}>
+                            <a href={cv.cv_file} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+                              <FaFilePdf /> View
+                            </a>
+                          </td>
+                          <td style={cellStyle}>
+                            <Link to={`/cv-detail/${cv.id}`} style={linkStyle}>
+                              <FaBarcode />
+                            </Link>
+                          </td>
+                          <td style={cellStyle}>
+                            <button onClick={() => handleEdit(cv.id)} style={{ ...actionButton, backgroundColor: "#ffaa00" }}>
+                              <FaEdit />
+                            </button>
+                            <button onClick={() => handleDelete(cv.id)} style={{ ...actionButton, backgroundColor: "#ff4d4d" }}>
+                              <FaTrash />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="9" style={{ ...cellStyle, textAlign: "center" }}>
+                          {searchQuery ? "No CVs found matching your search." : "No CVs found."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-          <div style={styles.pageInfo}>
-            Page {validCurrentPage} of {totalPages} • Showing {currentCvs.length} of {filteredCvs.length} CV(s)
-            {searchQuery && ` for "${searchQuery}"`}
-          </div>
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={styles.pagination}>
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    style={{
+                      ...styles.pageButton,
+                      ...(currentPage === 1 && styles.disabledPageButton),
+                      cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Previous
+                  </button>
+
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    style={{
+                      ...styles.pageButton,
+                      ...(currentPage === 1 && styles.activePageButton),
+                    }}
+                  >
+                    1
+                  </button>
+
+                  {currentPage > 4 && <span style={styles.ellipsis}>...</span>}
+
+                  {Array.from({ length: Math.min(5, totalPages - 2) }, (_, i) => {
+                    let page;
+                    if (currentPage <= 4) page = i + 2;
+                    else if (currentPage >= totalPages - 3) page = totalPages - 4 + i;
+                    else page = currentPage - 2 + i;
+
+                    if (page > 1 && page < totalPages) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          style={{
+                            ...styles.pageButton,
+                            ...(currentPage === page && styles.activePageButton),
+                          }}
+                        >
+                          {page}
+                        </button>
+                      );
+                    }
+                    return null;
+                  }).filter(Boolean)}
+
+                  {currentPage < totalPages - 3 && <span style={styles.ellipsis}>...</span>}
+
+                  {totalPages > 1 && (
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      style={{
+                        ...styles.pageButton,
+                        ...(currentPage === totalPages && styles.activePageButton),
+                      }}
+                    >
+                      {totalPages}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      ...styles.pageButton,
+                      ...(currentPage === totalPages && styles.disabledPageButton),
+                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              <div style={styles.pageInfo}>
+                Page {validCurrentPage} of {totalPages} • Showing {currentCvs.length} of {filteredCvs.length} CV(s)
+                {searchQuery && ` for "${searchQuery}"`}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-/* ===================== Styles (unchanged) ===================== */
+/* ===================== Styles ===================== */
 const styles = {
   container: { display: "flex", minHeight: "100vh", backgroundColor: "#A7D5E1" },
   mainContent: { padding: "2rem", flex: 1, boxSizing: "border-box", overflowY: "auto" },
@@ -326,6 +350,24 @@ const styles = {
   searchInfo: { backgroundColor: "#e8f4ff", padding: "10px 15px", borderRadius: "4px", marginBottom: "15px", border: "1px solid #0078D4", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "14px", fontWeight: "500" },
   clearSearchBtn: { backgroundColor: "#ff6b6b", color: "white", border: "none", padding: "5px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" },
   pageInfo: { textAlign: "center", marginTop: "10px", fontSize: "12px", color: "#666", fontStyle: "italic" },
+  loading: { 
+    textAlign: "center", 
+    padding: "2rem", 
+    fontSize: "16px", 
+    color: "#0078D4",
+    backgroundColor: "#e8f4ff",
+    borderRadius: "6px",
+    marginBottom: "15px"
+  },
+  error: { 
+    textAlign: "center", 
+    padding: "2rem", 
+    fontSize: "16px", 
+    color: "#ff4d4d",
+    backgroundColor: "#ffe8e8",
+    borderRadius: "6px",
+    marginBottom: "15px"
+  },
 };
 
 const responsiveStyles = {
