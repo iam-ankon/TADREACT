@@ -47,12 +47,14 @@ import TerminationAttachment from "./components/hr/TerminationAttachment";
 import CVDetail from "./components/hr/CVDetail";
 import MailMdSir from "./components/hr/MailMdSir";
 import InviteMail from "./components/hr/InviteMail";
+import WeeklyAttendanceGraph from "./components/hr/WeeklyAttendanceGraph.jsx";
 
 
 //regular user Dashboard
 import Dashboard from "./components/hr/regular_user/Dashboard.jsx";
 import ApplyLeave from "./components/hr/regular_user/ApplyLeave.jsx";
 import PerformanceAppraisal from "./components/hr/regular_user/PerformanceAppraisal.jsx";
+import TeamLeaves from "./components/hr/regular_user/TeamLeaves.jsx";
 
 // Merchandiser
 import CustomerPage from "./components/merchandiser/CustomerPage";
@@ -82,6 +84,7 @@ import TaxCalculator from "./components/tax/TaxCalculator.jsx";
 import TaxCalculators from "./components/tax/TaxCalculators.jsx";
 import SalaryFormat from "./components/tax/SalaryFormat.jsx";
 import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
+import SalaryRecords from "./components/tax/SalaryRecords.jsx";
 
 
 // chatbox 
@@ -130,6 +133,7 @@ const AppContent = () => {
           <Route path="/interviews/details/:id" element={<ProtectedRoute><InterviewDetailsPage /></ProtectedRoute>} />
           <Route path="/tad-groups" element={<ProtectedRoute><TADGroups /></ProtectedRoute>} />
           <Route path="/employee-termination" element={<ProtectedRoute><EmployeeTermination /></ProtectedRoute>} />
+          <Route path="/weekly-attendance-graph" element={<ProtectedRoute><WeeklyAttendanceGraph /></ProtectedRoute>} />
 
 
           {/* Regular User Routes */} 
@@ -137,6 +141,8 @@ const AppContent = () => {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>}/>
           <Route path="/performance-appraisal" element={<ProtectedRoute><PerformanceAppraisal /></ProtectedRoute>} />
           <Route path="/leave-history" element={<ProtectedRoute><LeaveHistory /></ProtectedRoute>} />
+          <Route path="/team-leaves" element={<ProtectedRoute><TeamLeaves /></ProtectedRoute>} />
+          <Route path="/salary-records" element={<ProtectedRoute><SalaryRecords /></ProtectedRoute>} />
 
 
           {/* Optional Routes (unprotected or publicly safe) */}

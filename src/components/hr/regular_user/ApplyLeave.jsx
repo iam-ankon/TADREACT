@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   getEmployeeLeaveBalances,
   addEmployeeLeave,
+  getEmployeeDetailsByCode,
 } from "../../../api/employeeApi";
 
 const ApplyLeave = () => {
@@ -22,6 +23,7 @@ const ApplyLeave = () => {
     designation: localStorage.getItem("designation") || "",
     department: localStorage.getItem("department") || "",
     email: localStorage.getItem("email") || "",
+    reporting_leader: localStorage.getItem("reporting_leader") || "",
   };
 
   const [leaveForm, setLeaveForm] = useState({
@@ -42,13 +44,35 @@ const ApplyLeave = () => {
 
   useEffect(() => {
     fetchLeaveBalances();
+    fetchEmployeeReportingLeader();
 
     // Debug localStorage
     console.log("🔍 localStorage contents:");
     console.log("employee_db_id:", localStorage.getItem("employee_db_id"));
     console.log("employee_id:", localStorage.getItem("employee_id"));
     console.log("employee_name:", localStorage.getItem("employee_name"));
+    console.log("reporting_leader:", localStorage.getItem("reporting_leader"));
   }, []);
+
+  const fetchEmployeeReportingLeader = async () => {
+    try {
+      const employeeId = localStorage.getItem("employee_id");
+      console.log("🔍 Fetching employee details for reporting leader:", employeeId);
+
+      if (employeeId) {
+        const employeeData = await getEmployeeDetailsByCode(employeeId);
+        if (employeeData && employeeData.reporting_leader) {
+          console.log("✅ Found reporting leader:", employeeData.reporting_leader);
+          localStorage.setItem("reporting_leader", employeeData.reporting_leader);
+          employeeInfo.reporting_leader = employeeData.reporting_leader;
+        } else {
+          console.log("⚠️ No reporting leader found for employee");
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error fetching employee details:", error);
+    }
+  };
 
   const fetchLeaveBalances = async () => {
     try {
@@ -128,7 +152,6 @@ const ApplyLeave = () => {
     });
   };
 
-  // In ApplyLeave.jsx - Update the handleSubmit function
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -169,11 +192,13 @@ const ApplyLeave = () => {
       // Get both employee_db_id and employee_id
       const employeeDbId = localStorage.getItem("employee_db_id");
       const employeeId = localStorage.getItem("employee_id");
+      const reportingLeader = localStorage.getItem("reporting_leader") || employeeInfo.reporting_leader || "";
 
       console.log("📝 Creating leave with:", {
         employeeDbId,
         employeeId,
         employeeName: employeeInfo.name,
+        reportingLeader,
       });
 
       // Format dates properly for backend
@@ -201,11 +226,13 @@ const ApplyLeave = () => {
           leaveForm.date_of_joining_after_leave
         ),
         date: new Date().toISOString().split("T")[0], // Current date in YYYY-MM-DD format
+        // Add reporting leader to the leave record
+        reporting_leader: reportingLeader,
       };
 
-      console.log("📦 Final leave data:", leaveData);
+      console.log("📦 Final leave data with reporting leader:", leaveData);
       await addEmployeeLeave(leaveData);
-      alert("Leave request submitted successfully!");
+      alert("Leave request submitted successfully! Your reporting leader will be notified.");
       navigate("/dashboard");
     } catch (error) {
       console.error("Error submitting leave:", error);
@@ -396,6 +423,13 @@ const ApplyLeave = () => {
       marginBottom: "20px",
       border: "1px solid #e2d4f7",
     },
+    reportingLeaderSection: {
+      backgroundColor: "#fff3cd",
+      padding: "16px",
+      borderRadius: "6px",
+      marginBottom: "20px",
+      border: "1px solid #ffeaa7",
+    },
   };
 
   return (
@@ -446,8 +480,29 @@ const ApplyLeave = () => {
                   {employeeInfo.employee_db_id || "Not set"}
                 </div>
               </div>
+              <div style={styles.infoItem}>
+                <div style={styles.infoLabel}>Reporting Leader</div>
+                <div style={styles.infoValue}>
+                  {employeeInfo.reporting_leader || "Not assigned"}
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Reporting Leader Information */}
+          {employeeInfo.reporting_leader && (
+            <div style={styles.reportingLeaderSection}>
+              <h3 style={{ ...styles.sectionTitle, color: "#856404" }}>
+                Reporting Leader Information
+              </h3>
+              <p style={{ margin: 0, color: "#856404" }}>
+                Your leave request will be visible to your reporting leader: <strong>{employeeInfo.reporting_leader}</strong>
+              </p>
+              <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#856404" }}>
+                They will be able to review and comment on your leave request.
+              </p>
+            </div>
+          )}
 
           {/* Leave Balances */}
           <div style={{ marginBottom: "24px" }}>

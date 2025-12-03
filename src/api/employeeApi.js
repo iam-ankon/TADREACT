@@ -33,6 +33,7 @@ export const removeToken = () => {
     "permissions",
     "mode",
     "token_timestamp",
+    "reporting_leader",
   ];
   keys.forEach((k) => localStorage.removeItem(k));
   console.log("All auth data cleared");
@@ -303,9 +304,9 @@ export const testHRMSEndpoint = () => hrmsApi.get("employees/");
 /* -------------------------------------------------------------------------- */
 /*  4.  AUTHENTICATION                                                       */
 /* -------------------------------------------------------------------------- */
+// In employeeApi.js - Update the loginUser function
 export const loginUser = async (payload) => {
-  const { username, password, employee_id, designation, department, email } =
-    payload;
+  const { username, password, employee_id, designation, department, email } = payload;
 
   const resp = await fetch(`${getBackendURL()}/users/login/`, {
     method: "POST",
@@ -335,27 +336,31 @@ export const loginUser = async (payload) => {
 
   setToken(data.token);
 
-  // Enhanced storage function with employee_db_id
+  // Enhanced storage function with reporting_leader
   const store = (k, v) => {
-    if (v !== undefined && v !== null) {
+    if (v !== undefined && v !== null && v !== "") {
       localStorage.setItem(k, v.toString());
       console.log(`💾 Stored ${k}:`, v);
     } else {
       console.warn(`⚠️ No value for ${k}`);
+      localStorage.removeItem(k); // Remove if empty
     }
   };
 
-  // Store all user data including employee_db_id
+  // Store all user data including employee_db_id and reporting_leader
   store("username", data.username);
   store("user_id", data.user_id);
   store("employee_id", data.employee_id);
-  store("employee_db_id", data.employee_db_id); // CRITICAL: Add this line
+  store("employee_db_id", data.employee_db_id);
   store("employee_name", data.employee_name);
   store("designation", data.designation);
   store("department", data.department);
   store("email", data.email || data.username);
   store("mode", data.mode || "restricted");
   store("permissions", JSON.stringify(data.permissions || {}));
+  
+  // CRITICAL: Add reporting leader information
+  store("reporting_leader", data.reporting_leader);
 
   console.log("📋 Final stored data:", {
     employee_id: localStorage.getItem("employee_id"),
@@ -363,6 +368,7 @@ export const loginUser = async (payload) => {
     employee_name: localStorage.getItem("employee_name"),
     designation: localStorage.getItem("designation"),
     department: localStorage.getItem("department"),
+    reporting_leader: localStorage.getItem("reporting_leader"),
   });
 
   return data;
@@ -500,10 +506,25 @@ export const updateEmployee = (id, data) =>
 export const deleteEmployee = (id) => hrmsApi.delete(`employees/${id}/`);
 
 /* ---- image & customers (partial updates) ---- */
-export const updateEmployeeImage = (id, file) => {
-  const fd = new FormData();
-  fd.append("image1", file);
-  return hrmsApi.patch(`employees/${id}/`, fd);
+export const updateEmployeeImage = (id, formData) => {
+  console.log("=== updateEmployeeImage DEBUG ===");
+  console.log("Employee ID:", id);
+  console.log("FormData received:", formData);
+  
+  // Log FormData contents
+  if (formData instanceof FormData) {
+    for (let [key, value] of formData.entries()) {
+      console.log(`FormData - ${key}:`, value);
+    }
+  }
+  
+  console.log("=== END DEBUG ===");
+  
+  return hrmsApi.patch(`employees/${id}/`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 };
 
 export const updateEmployeeCustomers = (id, customerIds) => {
@@ -529,6 +550,55 @@ export const updateEmployeeCustomers = (id, customerIds) => {
 
   return hrmsApi.patch(`employees/${id}/update_customers/`, payload);
 };
+
+
+
+// In employeeApi.js - Add this function
+export const getTeamLeaves = async () => {
+  try {
+    console.log("🔍 Getting team leaves via dedicated endpoint...");
+    const response = await hrmsApi.get("team_leaves/");
+    console.log("✅ Team leaves response:", response.data);
+    return response;
+  } catch (error) {
+    console.error("❌ Error fetching team leaves:", error);
+    // Fallback to frontend filtering
+    console.log("🔄 Falling back to frontend filtering...");
+    return await getEmployeeLeaves();
+  }
+};
+
+
+// In employeeApi.js - Update the addEmployeeLeave function
+export const addEmployeeLeave = async (data) => {
+  try {
+    console.log("📝 Creating leave request with data:", data);
+    
+    // Get current user's reporting leader from localStorage
+    const reportingLeader = localStorage.getItem("reporting_leader");
+    console.log("👤 Current user reporting leader:", reportingLeader);
+    
+    // Ensure employee field is properly formatted and include reporting_leader
+    const leaveData = {
+      ...data,
+      employee: parseInt(data.employee), // Ensure it's a number
+      employee_code: data.employee_code || localStorage.getItem("employee_id"),
+      status: data.status || "pending",
+      reporting_leader: reportingLeader || "" // CRITICAL: Add reporting leader
+    };
+    
+    console.log("📦 Final API payload:", leaveData);
+    
+    const response = await hrmsApi.post("employee_leaves/", leaveData);
+    console.log("✅ Leave created successfully:", response.data);
+    return response;
+  } catch (error) {
+    console.error("❌ Error creating leave:", error);
+    console.error("Error details:", error.response?.data);
+    throw error;
+  }
+};
+
 
 /* -------------------------------------------------------------------------- */
 /*  7.  CUSTOMER APIs - ADDED MISSING FUNCTION                              */
@@ -709,33 +779,64 @@ export const deleteEmployeeLeave = (id) =>
 
 
 
-// In employeeApi.js - Update the addEmployeeLeave function
-export const addEmployeeLeave = async (data) => {
-  try {
-    console.log("📝 Creating leave request with data:", data);
-    
-    // Ensure employee field is properly formatted
-    const leaveData = {
-      ...data,
-      employee: parseInt(data.employee), // Ensure it's a number
-      employee_code: data.employee_code || localStorage.getItem("employee_id"),
-      status: data.status || "pending"
-    };
-    
-    console.log("📦 Final API payload:", leaveData);
-    
-    const response = await hrmsApi.post("employee_leaves/", leaveData);
-    console.log("✅ Leave created successfully:", response.data);
-    return response;
-  } catch (error) {
-    console.error("❌ Error creating leave:", error);
-    console.error("Error details:", error.response?.data);
-    throw error;
-  }
+
+
+// In employeeApi.js - Add to the ATTENDANCE APIs section
+
+// In employeeApi.js - Update the function
+export const getWeeklyAttendanceStats = (startDate, endDate) => {
+  return hrmsApi.get("api/weekly_attendance_stats/", {  // Try with api/ prefix
+    params: {
+      start_date: startDate,
+      end_date: endDate
+    }
+  }).catch(error => {
+    console.error('Error with api/ prefix, trying without...', error);
+    // Fallback to without api/ prefix
+    return hrmsApi.get("weekly_attendance_stats/", {
+      params: {
+        start_date: startDate,
+        end_date: endDate
+      }
+    });
+  });
 };
 
 
 
+
+
+// In employeeApi.js - Update the addEmployeeLeave function
+// export const addEmployeeLeave = async (data) => {
+//   try {
+//     console.log("📝 Creating leave request with data:", data);
+    
+//     // Ensure employee field is properly formatted
+//     const leaveData = {
+//       ...data,
+//       employee: parseInt(data.employee), // Ensure it's a number
+//       employee_code: data.employee_code || localStorage.getItem("employee_id"),
+//       status: data.status || "pending"
+//     };
+    
+//     console.log("📦 Final API payload:", leaveData);
+    
+//     const response = await hrmsApi.post("employee_leaves/", leaveData);
+//     console.log("✅ Leave created successfully:", response.data);
+//     return response;
+//   } catch (error) {
+//     console.error("❌ Error creating leave:", error);
+//     console.error("Error details:", error.response?.data);
+//     throw error;
+//   }
+// };
+
+
+// CORRECT — use hrmsApi (same as all other employee endpoints)
+export const sendWelcomeEmail = (employeeId) => {
+  console.log("Sending welcome email for employee ID:", employeeId);
+  return hrmsApi.post(`employees/${employeeId}/send-welcome-email/`);
+};
 
 // Update in employeeApi.js - Fix the getEmployeeDetailsByCode function
 export const getEmployeeDetailsByCode = async (employeeCode) => {

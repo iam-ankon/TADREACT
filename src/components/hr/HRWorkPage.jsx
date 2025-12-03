@@ -27,7 +27,7 @@ import {
   getInterviews,
   getEmployeeLeaves,
   getCVs,
-  getAttendance
+  getAttendance,
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
@@ -134,6 +134,89 @@ const HRWorkPage = () => {
     year: "numeric",
   });
 
+  // In HRWorkPage.jsx - Add this function inside the component before the return statement
+
+  const calculateOnTimeAttendancePercentage = (attendanceData) => {
+    if (
+      !attendanceData ||
+      !Array.isArray(attendanceData) ||
+      attendanceData.length === 0
+    ) {
+      return "0%";
+    }
+
+    // Filter for today's attendance only
+    const today = new Date().toISOString().split("T")[0];
+    const todayAttendance = attendanceData.filter((record) => {
+      if (!record.date) return false;
+      const recordDate = new Date(record.date).toISOString().split("T")[0];
+      return recordDate === today;
+    });
+
+    if (todayAttendance.length === 0) {
+      return "0%";
+    }
+
+    // Count employees who checked in at or before 8:00 AM
+    const onTimeCount = todayAttendance.filter((record) => {
+      if (!record.check_in) return false;
+
+      try {
+        // Parse check_in time
+        const checkInTime = new Date(`2000-01-01T${record.check_in}`);
+        const eightAM = new Date("2000-01-01T08:00:00");
+
+        // Check if check-in is at or before 8:00 AM
+        return checkInTime <= eightAM;
+      } catch (error) {
+        console.warn("Error parsing check_in time:", record.check_in);
+        return false;
+      }
+    }).length;
+
+    // Calculate percentage
+    const percentage = Math.round((onTimeCount / todayAttendance.length) * 100);
+    return `${percentage}%`;
+  };
+
+  // Add this function to calculate actual numbers
+  const calculateAttendanceStats = (attendanceData) => {
+    if (!attendanceData || !Array.isArray(attendanceData)) {
+      return { onTime: 0, total: 0, percentage: 0 };
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const todayAttendance = attendanceData.filter((record) => {
+      if (!record.date) return false;
+      const recordDate = new Date(record.date).toISOString().split("T")[0];
+      return recordDate === today;
+    });
+
+    if (todayAttendance.length === 0) {
+      return { onTime: 0, total: 0, percentage: 0 };
+    }
+
+    const onTimeCount = todayAttendance.filter((record) => {
+      if (!record.check_in) return false;
+
+      try {
+        const checkInTime = new Date(`2000-01-01T${record.check_in}`);
+        const eightAM = new Date("2000-01-01T08:00:00");
+        return checkInTime <= eightAM;
+      } catch {
+        return false;
+      }
+    }).length;
+
+    const percentage = Math.round((onTimeCount / todayAttendance.length) * 100);
+
+    return {
+      onTime: onTimeCount,
+      total: todayAttendance.length,
+      percentage: percentage,
+    };
+  };
+
   // Enhanced stats with trends and colors
   const stats = [
     {
@@ -141,17 +224,25 @@ const HRWorkPage = () => {
       value: employeeCount,
       icon: <FiUsers size={24} />,
       link: "/employees",
-      
       trendDirection: "up",
       color: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
       bgColor: "rgba(102, 126, 234, 0.1)",
+    },
+    {
+      title: "On-Time Arrivals",
+      value: calculateOnTimeAttendancePercentage(attendanceData),
+      icon: <FiClockIcon size={24} />,
+      link: "/weekly-attendance-graph",
+      trendDirection: "up",
+      color: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+      bgColor: "rgba(16, 185, 129, 0.1)",
     },
     {
       title: "Interviews",
       value: upcomingInterviews.length,
       icon: <FiBriefcase size={24} />,
       link: "/interviews",
-      
+
       trendDirection: "up",
       color: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
       bgColor: "rgba(245, 87, 108, 0.1)",
@@ -161,7 +252,7 @@ const HRWorkPage = () => {
       value: leaveRequests.filter((req) => req.status === "pending").length,
       icon: <FiCalendar size={24} />,
       link: "/employee_leave",
-      
+
       trendDirection: "up",
       color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
       bgColor: "rgba(79, 172, 254, 0.1)",
@@ -171,7 +262,7 @@ const HRWorkPage = () => {
       value: cvCount,
       icon: <FiFileText size={24} />,
       link: "/cv-list",
-     
+
       trendDirection: "up",
       color: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
       bgColor: "rgba(67, 233, 123, 0.1)",
@@ -227,9 +318,9 @@ const HRWorkPage = () => {
 
   return (
     <div
-      style={{ 
-        display: "flex", 
-        height: "100vh", 
+      style={{
+        display: "flex",
+        height: "100vh",
         backgroundColor: "#f8fafc",
       }}
     >
@@ -240,14 +331,15 @@ const HRWorkPage = () => {
           {/* Your page content here */}
         </div>
       </div>
-      
+
       {/* Main Content */}
       <div style={{ flex: 1, overflow: "auto", padding: "0 1rem" }}>
         {/* Header */}
         <header
           style={{
             backgroundColor: "#ffffff",
-            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+            boxShadow:
+              "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
             borderRadius: "0.75rem",
             margin: "1rem 0",
             padding: "1rem 1.5rem",
@@ -258,31 +350,35 @@ const HRWorkPage = () => {
         >
           <div>
             <h1
-              style={{ 
-                fontSize: "1.5rem", 
-                fontWeight: 700, 
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 700,
                 color: "#1e293b",
-                margin: 0 
+                margin: 0,
               }}
             >
               HR Dashboard
             </h1>
-            <p style={{ 
-              fontSize: "0.875rem", 
-              color: "#64748b", 
-              margin: "0.25rem 0 0 0" 
-            }}>
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#64748b",
+                margin: "0.25rem 0 0 0",
+              }}
+            >
               Welcome back! Here's what's happening today.
             </p>
           </div>
-          <div style={{ 
-            fontSize: "0.875rem", 
-            color: "#64748b",
-            backgroundColor: "#f1f5f9",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            fontWeight: 500
-          }}>
+          <div
+            style={{
+              fontSize: "0.875rem",
+              color: "#64748b",
+              backgroundColor: "#f1f5f9",
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              fontWeight: 500,
+            }}
+          >
             {formattedDate}
           </div>
         </header>
@@ -305,10 +401,12 @@ const HRWorkPage = () => {
                   background: stat.color,
                   padding: "1.5rem",
                   borderRadius: "1rem",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  boxShadow:
+                    "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  transform: activeStat === index ? "translateY(-5px)" : "translateY(0)",
+                  transform:
+                    activeStat === index ? "translateY(-5px)" : "translateY(0)",
                   position: "relative",
                   overflow: "hidden",
                 }}
@@ -356,7 +454,8 @@ const HRWorkPage = () => {
                           marginTop: "0.5rem",
                           backgroundColor: "rgba(255,255,255,0.3)",
                           borderRadius: "0.25rem",
-                          animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                          animation:
+                            "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
                         }}
                       ></div>
                     ) : error && stat.title === "Total Employees" ? (
@@ -375,11 +474,21 @@ const HRWorkPage = () => {
                         {stat.value}
                       </p>
                     )}
-                    <div style={{ display: "flex", alignItems: "center", marginTop: "0.5rem" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginTop: "0.5rem",
+                      }}
+                    >
                       {stat.trendDirection === "up" ? (
                         <FiTrendingUp size={14} color="#ffffff" />
                       ) : (
-                        <FiTrendingUp size={14} color="#ffffff" style={{ transform: "rotate(90deg)" }} />
+                        <FiTrendingUp
+                          size={14}
+                          color="#ffffff"
+                          style={{ transform: "rotate(90deg)" }}
+                        />
                       )}
                       <span
                         style={{
@@ -412,19 +521,24 @@ const HRWorkPage = () => {
           </div>
 
           {/* Quick Actions & Recent Activity */}
-          <div style={{ 
-            display: "grid", 
-            gridTemplateColumns: "1fr 1fr", 
-            gap: "1.5rem",
-            marginBottom: "1.5rem"
-          }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1.5rem",
+              marginBottom: "1.5rem",
+            }}
+          >
             {/* Quick Actions */}
-            <div style={{ 
-              backgroundColor: "white", 
-              borderRadius: "1rem",
-              boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
-              padding: "1.5rem"
-            }}>
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "1rem",
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+                padding: "1.5rem",
+              }}
+            >
               <h2
                 style={{
                   fontSize: "1.125rem",
@@ -465,11 +579,13 @@ const HRWorkPage = () => {
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-5px)";
-                      e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)";
+                      e.currentTarget.style.boxShadow =
+                        "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(0, 0, 0, 0.05)";
+                      e.currentTarget.style.boxShadow =
+                        "0 1px 2px 0 rgba(0, 0, 0, 0.05)";
                     }}
                   >
                     <div
@@ -486,26 +602,33 @@ const HRWorkPage = () => {
                     >
                       {action.icon}
                     </div>
-                    <span style={{ fontWeight: 500, fontSize: "0.875rem" }}>{action.title}</span>
+                    <span style={{ fontWeight: 500, fontSize: "0.875rem" }}>
+                      {action.title}
+                    </span>
                   </Link>
                 ))}
               </div>
             </div>
 
             {/* Recent Interviews */}
-            <div style={{ 
-              backgroundColor: "white", 
-              borderRadius: "1rem",
-              boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
-              overflow: "hidden"
-            }}>
-              <div style={{ 
-                padding: "1.25rem 1.5rem", 
-                borderBottom: "1px solid #f1f5f9",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center"
-              }}>
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "1rem",
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "1.25rem 1.5rem",
+                  borderBottom: "1px solid #f1f5f9",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <h2
                   style={{
                     fontSize: "1.125rem",
@@ -519,14 +642,16 @@ const HRWorkPage = () => {
                   <FiBriefcase style={{ marginRight: "0.5rem" }} />
                   Recent Interviews
                 </h2>
-                <span style={{
-                  backgroundColor: "#f5576c20",
-                  color: "#f5576c",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "1rem"
-                }}>
+                <span
+                  style={{
+                    backgroundColor: "#f5576c20",
+                    color: "#f5576c",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "1rem",
+                  }}
+                >
                   {recentInterviews.length} upcoming
                 </span>
               </div>
@@ -550,31 +675,53 @@ const HRWorkPage = () => {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center" }}>
-                      <div style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        backgroundColor: "#f5576c20",
-                        color: "#f5576c",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: "0.75rem",
-                        fontWeight: 600
-                      }}>
-                        {interview.name ? interview.name.charAt(0).toUpperCase() : "?"}
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "50%",
+                          backgroundColor: "#f5576c20",
+                          color: "#f5576c",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: "0.75rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {interview.name
+                          ? interview.name.charAt(0).toUpperCase()
+                          : "?"}
                       </div>
                       <div>
-                        <h3 style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                        <h3
+                          style={{
+                            fontWeight: 600,
+                            margin: "0 0 0.25rem 0",
+                            fontSize: "0.875rem",
+                          }}
+                        >
                           {interview.name || "No Candidate"}
                         </h3>
-                        <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                        <p
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            margin: 0,
+                          }}
+                        >
                           {interview.position_for || "No Position"}
                         </p>
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <p style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                      <p
+                        style={{
+                          fontWeight: 600,
+                          margin: "0 0 0.25rem 0",
+                          fontSize: "0.875rem",
+                        }}
+                      >
                         {interview.time
                           ? formatTime(interview.time)
                           : interview.interview_datetime
@@ -586,7 +733,13 @@ const HRWorkPage = () => {
                             })
                           : "--:--"}
                       </p>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748b",
+                          margin: 0,
+                        }}
+                      >
                         {interview.interview_date}
                       </p>
                     </div>
@@ -600,8 +753,14 @@ const HRWorkPage = () => {
                       color: "#64748b",
                     }}
                   >
-                    <FiBriefcase size={32} color="#cbd5e1" style={{ marginBottom: "0.5rem" }} />
-                    <p style={{ margin: 0 }}>No upcoming interviews scheduled</p>
+                    <FiBriefcase
+                      size={32}
+                      color="#cbd5e1"
+                      style={{ marginBottom: "0.5rem" }}
+                    />
+                    <p style={{ margin: 0 }}>
+                      No upcoming interviews scheduled
+                    </p>
                   </div>
                 )}
               </div>
@@ -625,7 +784,9 @@ const HRWorkPage = () => {
                   }}
                 >
                   View All Interviews
-                  <FiArrowUp style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }} />
+                  <FiArrowUp
+                    style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }}
+                  />
                 </Link>
               </div>
             </div>
@@ -644,17 +805,18 @@ const HRWorkPage = () => {
               style={{
                 backgroundColor: "white",
                 borderRadius: "1rem",
-                boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
-                overflow: "hidden"
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+                overflow: "hidden",
               }}
             >
               <div
-                style={{ 
-                  padding: "1.25rem 1.5rem", 
+                style={{
+                  padding: "1.25rem 1.5rem",
                   borderBottom: "1px solid #f1f5f9",
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
                 }}
               >
                 <h2
@@ -670,14 +832,16 @@ const HRWorkPage = () => {
                   <FiCalendar style={{ marginRight: "0.5rem" }} />
                   Recent Leave Requests
                 </h2>
-                <span style={{
-                  backgroundColor: "#4facfe20",
-                  color: "#4facfe",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "1rem"
-                }}>
+                <span
+                  style={{
+                    backgroundColor: "#4facfe20",
+                    color: "#4facfe",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "1rem",
+                  }}
+                >
                   {recentPendingLeaveRequests.length} pending
                 </span>
               </div>
@@ -701,31 +865,53 @@ const HRWorkPage = () => {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center" }}>
-                      <div style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        backgroundColor: "#4facfe20",
-                        color: "#4facfe",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: "0.75rem",
-                        fontWeight: 600
-                      }}>
-                        {request.employee_name ? request.employee_name.charAt(0).toUpperCase() : "?"}
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "50%",
+                          backgroundColor: "#4facfe20",
+                          color: "#4facfe",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: "0.75rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {request.employee_name
+                          ? request.employee_name.charAt(0).toUpperCase()
+                          : "?"}
                       </div>
                       <div>
-                        <h3 style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                        <h3
+                          style={{
+                            fontWeight: 600,
+                            margin: "0 0 0.25rem 0",
+                            fontSize: "0.875rem",
+                          }}
+                        >
                           {request.employee_name}
                         </h3>
-                        <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                        <p
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            margin: 0,
+                          }}
+                        >
                           {request.leave_type}
                         </p>
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <p style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                      <p
+                        style={{
+                          fontWeight: 600,
+                          margin: "0 0 0.25rem 0",
+                          fontSize: "0.875rem",
+                        }}
+                      >
                         {request.start_date} to {request.end_date}
                       </p>
                       <span
@@ -752,7 +938,11 @@ const HRWorkPage = () => {
                       color: "#64748b",
                     }}
                   >
-                    <FiCheckCircle size={32} color="#cbd5e1" style={{ marginBottom: "0.5rem" }} />
+                    <FiCheckCircle
+                      size={32}
+                      color="#cbd5e1"
+                      style={{ marginBottom: "0.5rem" }}
+                    />
                     <p style={{ margin: 0 }}>No pending leave requests</p>
                   </div>
                 )}
@@ -777,7 +967,9 @@ const HRWorkPage = () => {
                   }}
                 >
                   View All Leave Requests
-                  <FiArrowUp style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }} />
+                  <FiArrowUp
+                    style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }}
+                  />
                 </Link>
               </div>
             </div>
@@ -787,17 +979,18 @@ const HRWorkPage = () => {
               style={{
                 backgroundColor: "white",
                 borderRadius: "1rem",
-                boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
-                overflow: "hidden"
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+                overflow: "hidden",
               }}
             >
               <div
-                style={{ 
-                  padding: "1.25rem 1.5rem", 
+                style={{
+                  padding: "1.25rem 1.5rem",
                   borderBottom: "1px solid #f1f5f9",
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
                 }}
               >
                 <h2
@@ -813,14 +1006,16 @@ const HRWorkPage = () => {
                   <FiClockIcon style={{ marginRight: "0.5rem" }} />
                   Today's Attendance
                 </h2>
-                <span style={{
-                  backgroundColor: "#43e97b20",
-                  color: "#43e97b",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "1rem"
-                }}>
+                <span
+                  style={{
+                    backgroundColor: "#43e97b20",
+                    color: "#43e97b",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "1rem",
+                  }}
+                >
                   {todayAttendance.length} recorded
                 </span>
               </div>
@@ -848,34 +1043,62 @@ const HRWorkPage = () => {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center" }}>
-                      <div style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        backgroundColor: "#43e97b20",
-                        color: "#43e97b",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: "0.75rem",
-                        fontWeight: 600
-                      }}>
-                        {record.employee_name ? record.employee_name.charAt(0).toUpperCase() : "?"}
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "50%",
+                          backgroundColor: "#43e97b20",
+                          color: "#43e97b",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: "0.75rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {record.employee_name
+                          ? record.employee_name.charAt(0).toUpperCase()
+                          : "?"}
                       </div>
                       <div>
-                        <h3 style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                        <h3
+                          style={{
+                            fontWeight: 600,
+                            margin: "0 0 0.25rem 0",
+                            fontSize: "0.875rem",
+                          }}
+                        >
                           {record.employee_name}
                         </h3>
-                        <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                        <p
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            margin: 0,
+                          }}
+                        >
                           ID: {record.id}
                         </p>
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <p style={{ fontWeight: 600, margin: "0 0 0.25rem 0", fontSize: "0.875rem" }}>
+                      <p
+                        style={{
+                          fontWeight: 600,
+                          margin: "0 0 0.25rem 0",
+                          fontSize: "0.875rem",
+                        }}
+                      >
                         Check-in: {record.check_in || "--:--"}
                       </p>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748b",
+                          margin: 0,
+                        }}
+                      >
                         Check-out: {record.check_out || "--:--"}
                       </p>
                     </div>
@@ -889,7 +1112,11 @@ const HRWorkPage = () => {
                       color: "#64748b",
                     }}
                   >
-                    <FiClockIcon size={32} color="#cbd5e1" style={{ marginBottom: "0.5rem" }} />
+                    <FiClockIcon
+                      size={32}
+                      color="#cbd5e1"
+                      style={{ marginBottom: "0.5rem" }}
+                    />
                     <p style={{ margin: 0 }}>No attendance records for today</p>
                   </div>
                 )}
@@ -914,7 +1141,9 @@ const HRWorkPage = () => {
                   }}
                 >
                   View All Attendance Records
-                  <FiArrowUp style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }} />
+                  <FiArrowUp
+                    style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }}
+                  />
                 </Link>
               </div>
             </div>

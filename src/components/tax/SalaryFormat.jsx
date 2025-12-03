@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+// src/pages/finance/SalaryFormat.jsx
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaArrowLeft,
@@ -8,11 +8,16 @@ import {
   FaFileExport,
   FaBuilding,
   FaUsers,
+  FaCheckCircle,
+  FaCalendarAlt,
+  FaFileDownload,
+  FaFileExcel,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-const API_BASE = "http://119.148.51.38:8000/api/tax-calculator";
+// Import API services
+import { employeeAPI, taxAPI, salaryAPI, storageAPI } from "../../api/finance";
 
 const parseDate = (dateStr) => {
   if (!dateStr) return null;
@@ -38,6 +43,17 @@ const SalaryFormat = () => {
   const [showSummary, setShowSummary] = useState(true);
   const [loadingAit, setLoadingAit] = useState({});
   const navigate = useNavigate();
+  const [companyApprovalStatus, setCompanyApprovalStatus] = useState({});
+
+  // BACKEND-BASED APPROVAL STATUS
+  const [approvalStatus, setApprovalStatus] = useState({
+    hr_prepared: false,
+    finance_checked: false,
+    director_checked: false,
+    proprietor_approved: false,
+  });
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [currentUser, setCurrentUser] = useState("");
 
   const today = new Date();
   const selectedMonth = today.getMonth() + 1;
@@ -60,21 +76,242 @@ const SalaryFormat = () => {
     "December",
   ];
 
+  // Add this debug function
+  const debugEndpoints = async () => {
+    console.log("🔍 Debugging endpoints...");
+
+    const endpoints = [
+      "http://119.148.51.38:8000/api/tax-calculator/api/salary-approval/",
+      "http://119.148.51.38:8000/api/tax-calculator/api/download-bank-excel/",
+      "http://119.148.51.38:8000/api/tax-calculator/api/download-salary-excel/",
+      "http://119.148.51.38:8000/api/tax-calculator/api/generate-excel-now/",
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Testing: ${endpoint}`);
+        const response = await fetch(endpoint, { method: "GET" });
+        console.log(`  Status: ${response.status} ${response.statusText}`);
+        console.log(`  Content-Type: ${response.headers.get("Content-Type")}`);
+
+        if (response.status === 404) {
+          const text = await response.text();
+          console.log(
+            `  ❌ 404 Page (first 200 chars):`,
+            text.substring(0, 200)
+          );
+        }
+      } catch (error) {
+        console.log(`  ❌ Error: ${error.message}`);
+      }
+      console.log("---");
+    }
+
+    alert("🔍 Check console for endpoint debug info");
+  };
+
+  // Add debug button
+  <button
+    onClick={debugEndpoints}
+    className="btn"
+    style={{ background: "#6b7280" }}
+  >
+    🔍 Debug Endpoints
+  </button>;
+
+  // FIX: Use useMemo for grouped data to prevent unnecessary re-renders
+  const grouped = useMemo(() => {
+    return filteredEmployees.reduce((acc, emp) => {
+      const comp = emp.company_name ?? "Unknown";
+      if (!acc[comp]) acc[comp] = [];
+      acc[comp].push(emp);
+      return acc;
+    }, {});
+  }, [filteredEmployees]);
+
+  // UPDATED LOAD APPROVAL STATUS FUNCTION - COMPANY SPECIFIC
+  const loadApprovalStatus = async (companyName = "All Companies") => {
+    try {
+      setLoadingStatus(true);
+      console.log(`📡 Loading approval status for company: ${companyName}...`);
+
+      const response = await fetch(
+        `http://119.148.51.38:8000/api/tax-calculator/api/approval-status/?company_name=${encodeURIComponent(
+          companyName
+        )}`
+      );
+
+      console.log("📡 Status response:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      console.log("📡 Raw response text:", responseText);
+
+      let statusData;
+      try {
+        statusData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("❌ Failed to parse JSON response:", parseError);
+        throw new Error("Invalid JSON response from server");
+      }
+
+      console.log(`✅ Approval status loaded for ${companyName}:`, statusData);
+
+      // Update company-specific approval status
+      setCompanyApprovalStatus((prev) => ({
+        ...prev,
+        [companyName]: {
+          hr_prepared: statusData.hr_prepared || false,
+          finance_checked: statusData.finance_checked || false,
+          director_checked: statusData.director_checked || false,
+          proprietor_approved: statusData.proprietor_approved || false,
+        },
+      }));
+
+      // Also update global approval status for backward compatibility
+      setApprovalStatus({
+        hr_prepared: statusData.hr_prepared || false,
+        finance_checked: statusData.finance_checked || false,
+        director_checked: statusData.director_checked || false,
+        proprietor_approved: statusData.proprietor_approved || false,
+      });
+
+      // Save to localStorage as backup
+      localStorage.setItem(
+        `salary_approval_status_${companyName}`,
+        JSON.stringify({
+          hr_prepared: statusData.hr_prepared || false,
+          finance_checked: statusData.finance_checked || false,
+          director_checked: statusData.director_checked || false,
+          proprietor_approved: statusData.proprietor_approved || false,
+        })
+      );
+    } catch (error) {
+      console.error(
+        `❌ Failed to load approval status for ${companyName}:`,
+        error
+      );
+      // Fallback to localStorage
+      try {
+        const saved = localStorage.getItem(
+          `salary_approval_status_${companyName}`
+        );
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          console.log(
+            `📁 Loaded approval status from localStorage for ${companyName}:`,
+            parsed
+          );
+          setCompanyApprovalStatus((prev) => ({
+            ...prev,
+            [companyName]: parsed,
+          }));
+        }
+      } catch (e) {
+        console.error("❌ Error loading from localStorage:", e);
+      }
+    } finally {
+      setLoadingStatus(false);
+    }
+  };
+
+  // USER DETECTION
+  useEffect(() => {
+    const detectUser = () => {
+      try {
+        console.log("🔍 CHECKING LOCALSTORAGE FOR USER DATA...");
+
+        let detectedUser = "";
+
+        // Method 1: Check for individual username key
+        const username = localStorage.getItem("username");
+        console.log("📝 Username from localStorage:", username);
+
+        if (username) {
+          detectedUser = username.toLowerCase().trim();
+          console.log("✅ USER DETECTED via username key:", detectedUser);
+        } else {
+          // Method 2: Check for userData object (backward compatibility)
+          const userData = localStorage.getItem("userData");
+          console.log("📝 userData from localStorage:", userData);
+
+          if (userData) {
+            try {
+              const parsedData = JSON.parse(userData);
+              detectedUser = (parsedData.username || parsedData.user_name || "")
+                .toLowerCase()
+                .trim();
+              console.log(
+                "✅ USER DETECTED via userData object:",
+                detectedUser
+              );
+            } catch (e) {
+              console.error("❌ Error parsing userData:", e);
+            }
+          }
+        }
+
+        // Method 3: Check for other possible user keys
+        if (!detectedUser) {
+          console.log("🔍 Checking other possible user keys...");
+          const possibleKeys = [
+            "user",
+            "user_name",
+            "employee_name",
+            "name",
+            "email",
+          ];
+          for (let key of possibleKeys) {
+            const value = localStorage.getItem(key);
+            if (value && typeof value === "string" && value.length > 0) {
+              console.log(`📝 Found potential user key "${key}":`, value);
+              detectedUser = value.toLowerCase().trim();
+              break;
+            }
+          }
+        }
+
+        if (!detectedUser) {
+          console.log("❌ NO USERNAME FOUND IN LOCALSTORAGE");
+        }
+
+        setCurrentUser(detectedUser);
+        console.log("🎯 FINAL CURRENT USER SET TO:", detectedUser);
+      } catch (error) {
+        console.error("❌ ERROR detecting user:", error);
+        setCurrentUser("");
+      }
+    };
+
+    detectUser();
+  }, []);
+
+  // LOAD APPROVAL STATUS ON COMPONENT MOUNT AND WHEN USER CHANGES
+  useEffect(() => {
+    if (currentUser) {
+      console.log("🔄 Loading approval status for user:", currentUser);
+      loadApprovalStatus();
+    }
+  }, [currentUser]);
+
   // Load saved manual data
   useEffect(() => {
-    const saved = localStorage.getItem("salaryManualData");
-    if (saved) setManualData(JSON.parse(saved));
+    const saved = storageAPI.getSalaryManualData();
+    if (saved) setManualData(saved);
   }, []);
 
   // Load source other and employees
   useEffect(() => {
-    const saved = localStorage.getItem("sourceTaxOther");
-    if (saved) setSourceOther(JSON.parse(saved));
+    const saved = storageAPI.getSourceTaxOther();
+    if (saved) setSourceOther(saved);
 
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${API_BASE}/employees/`);
+        const res = await employeeAPI.getAll();
         const filtered = res.data.filter((e) => e.salary && e.employee_id);
         setEmployees(filtered);
         setFilteredEmployees(filtered);
@@ -91,14 +328,13 @@ const SalaryFormat = () => {
   useEffect(() => {
     const loadCachedTaxResults = () => {
       try {
-        const cachedResults = localStorage.getItem("cachedTaxResults");
+        const cachedResults = storageAPI.getCachedTaxResults();
         if (cachedResults) {
-          const parsedResults = JSON.parse(cachedResults);
-          setTaxResults(parsedResults);
+          setTaxResults(cachedResults);
 
           // Set loading states for AIT values
           const loadingStates = {};
-          Object.keys(parsedResults).forEach((empId) => {
+          Object.keys(cachedResults).forEach((empId) => {
             loadingStates[empId] = false;
           });
           setLoadingAit(loadingStates);
@@ -135,7 +371,7 @@ const SalaryFormat = () => {
             const gender = emp.gender === "M" ? "Male" : "Female";
             const other = sourceOther[emp.employee_id] ?? 0;
 
-            const response = await axios.post(`${API_BASE}/calculate/`, {
+            const response = await taxAPI.calculate({
               employee_id: emp.employee_id,
               gender,
               source_other: parseFloat(String(other)) || 0,
@@ -166,9 +402,7 @@ const SalaryFormat = () => {
         }
 
         setTaxResults(results);
-
-        // Update cache
-        localStorage.setItem("cachedTaxResults", JSON.stringify(results));
+        storageAPI.setCachedTaxResults(results);
       } catch (error) {
         console.error("Error in tax calculation:", error);
       }
@@ -177,22 +411,217 @@ const SalaryFormat = () => {
     if (employees.length > 0 && Object.keys(taxResults).length === 0) {
       calculateMissingTaxes();
     }
-  }, [employees, taxResults, sourceOther]);
+  }, [employees, taxResults, sourceOther, loadingAit]);
 
-  // Filter employees based on search
+  // FIXED: Filter employees based on search - removed problematic dependencies
   useEffect(() => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) {
       setFilteredEmployees(employees);
-      return;
+    } else {
+      const filtered = employees.filter(
+        (emp) =>
+          emp.name?.toLowerCase().includes(term) ||
+          emp.employee_id?.toLowerCase().includes(term)
+      );
+      setFilteredEmployees(filtered);
     }
-    const filtered = employees.filter(
-      (emp) =>
-        emp.name.toLowerCase().includes(term) ||
-        emp.employee_id.toLowerCase().includes(term)
-    );
-    setFilteredEmployees(filtered);
   }, [searchTerm, employees]);
+
+  // FIXED: LOAD APPROVAL STATUS FOR ALL COMPANIES - removed problematic grouped dependency
+  useEffect(() => {
+    if (currentUser && employees.length > 0) {
+      console.log("🔄 Loading approval status for all companies...");
+      const uniqueCompanies = [
+        ...new Set(employees.map((emp) => emp.company_name ?? "Unknown")),
+      ];
+      uniqueCompanies.forEach((companyName) => {
+        loadApprovalStatus(companyName);
+      });
+      loadApprovalStatus("All Companies");
+    }
+  }, [currentUser, employees.length]);
+
+  // UPDATED BUTTON ENABLING LOGIC - COMPANY SPECIFIC
+  const isButtonEnabled = (buttonStep, companyName) => {
+    console.log(`\n🔘 === BUTTON CHECK ===`);
+    console.log(
+      `🔘 Checking ${buttonStep} for user: "${currentUser}" in company: "${companyName}"`
+    );
+
+    // Get approval status for this specific company
+    const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
+
+    console.log(
+      `🔘 Current approval status for ${companyName}:`,
+      companyStatus
+    );
+
+    // Convert to lowercase and trim for consistent comparison
+    const user = currentUser ? currentUser.toLowerCase().trim() : "";
+
+    let enabled = false;
+    let reason = "";
+
+    switch (buttonStep) {
+      case "hr_prepared":
+        // ONLY Lisa can prepare - EXACT MATCH
+        if (user === "lisa") {
+          enabled = !companyStatus.hr_prepared;
+          reason = enabled
+            ? "Lisa can prepare HR document"
+            : "HR already prepared";
+        } else {
+          enabled = false;
+          reason = `User "${user}" is not Lisa`;
+        }
+        break;
+
+      case "finance_checked":
+        // ONLY Morshed can check finance - EXACT MATCH
+        if (user === "morshed") {
+          enabled = companyStatus.hr_prepared && !companyStatus.finance_checked;
+          reason = enabled
+            ? "Morshed can check finance (HR prepared)"
+            : companyStatus.hr_prepared
+            ? "Finance already checked"
+            : "HR not prepared yet";
+        } else {
+          enabled = false;
+          reason = `User "${user}" is not Morshed`;
+        }
+        break;
+
+      case "director_checked":
+        // ONLY Tuhin can check as director - EXACT MATCH
+        if (user === "ankon") {
+          enabled =
+            companyStatus.finance_checked && !companyStatus.director_checked;
+          reason = enabled
+            ? "Tuhin can check as director (Finance checked)"
+            : companyStatus.finance_checked
+            ? "Director already checked"
+            : "Finance not checked yet";
+        } else {
+          enabled = false;
+          reason = `User "${user}" is not Tuhin`;
+        }
+        break;
+
+      case "proprietor_approved":
+        // ONLY Proprietor users can approve - EXACT MATCH
+        if (user === "tuhin" || user === "proprietor" || user === "md") {
+          enabled =
+            companyStatus.director_checked &&
+            !companyStatus.proprietor_approved;
+          reason = enabled
+            ? "Proprietor can approve (Director checked)"
+            : companyStatus.director_checked
+            ? "Already approved"
+            : "Director not checked yet";
+        } else {
+          enabled = false;
+          reason = `User "${user}" is not authorized for proprietor approval`;
+        }
+        break;
+
+      default:
+        enabled = false;
+        reason = "Unknown button step";
+    }
+
+    console.log(
+      `🔘 ${buttonStep} enabled for ${companyName}: ${enabled} - ${reason}`
+    );
+    console.log(`🔘 === END BUTTON CHECK ===\n`);
+
+    return enabled;
+  };
+
+  // UPDATED APPROVAL HANDLER - COMPANY SPECIFIC
+  const handleApprovalStep = async (step, companyName) => {
+    console.log(`📧 Processing ${step} for ${companyName} by ${currentUser}`);
+
+    try {
+      const response = await fetch(
+        "http://119.148.51.38:8000/api/tax-calculator/api/salary-approval/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            step: step,
+            company_name: companyName, // SPECIFIC COMPANY
+            user_name: currentUser,
+            username: currentUser,
+            month: selectedMonth,
+            year: selectedYear,
+          }),
+        }
+      );
+
+      console.log("📡 Response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("📡 Response data:", result);
+
+      if (result.success) {
+        // Update company-specific approval status
+        if (result.approval_status) {
+          setCompanyApprovalStatus((prev) => ({
+            ...prev,
+            [companyName]: {
+              hr_prepared: result.approval_status.hr_prepared,
+              finance_checked: result.approval_status.finance_checked,
+              director_checked: result.approval_status.director_checked,
+              proprietor_approved: result.approval_status.proprietor_approved,
+            },
+          }));
+        }
+
+        alert(`✅ Email sent successfully! ${result.message}`);
+        console.log(
+          `✅ ${step} completed successfully for ${companyName}. Email sent to:`,
+          result.recipients
+        );
+
+        // Force reload the approval status for this specific company
+        setTimeout(() => {
+          console.log(
+            `🔄 Force reloading approval status for ${companyName}...`
+          );
+          loadApprovalStatus(companyName);
+        }, 500);
+      } else {
+        alert(`❌ Failed: ${result.message}`);
+        console.error("Approval step failed:", result.message);
+      }
+    } catch (error) {
+      console.error("Approval step failed:", error);
+      alert("❌ Connection error. Please try again.");
+    }
+  };
+
+  // RESET FUNCTION FOR TESTING
+  const resetApprovalStatus = () => {
+    const newStatus = {
+      hr_prepared: false,
+      finance_checked: false,
+      director_checked: false,
+      proprietor_approved: false,
+    };
+    setApprovalStatus(newStatus);
+    localStorage.setItem("salary_approval_status", JSON.stringify(newStatus));
+    console.log("🔄 Approval status reset locally");
+    alert(
+      "Approval status reset locally! Note: This only resets the frontend. Backend data remains."
+    );
+  };
 
   const saveData = async () => {
     const payload = filteredEmployees
@@ -264,29 +693,23 @@ const SalaryFormat = () => {
           employee_id: empId,
           designation: emp.designation?.trim() || "",
           doj: dojStr || null,
-
           basic: basicFull,
           house_rent: houseRentFull,
           medical: medicalFull,
           conveyance: conveyanceFull,
           gross_salary: grossFull,
-
           total_days: totalDaysInMonth,
           days_worked: daysWorked,
           absent_days: absentDays,
-
           absent_ded: absentDeduction,
           advance: advance,
           ait: ait,
           total_ded: totalDeduction,
-
           ot_hours: 0,
           addition: addition,
-
           cash_payment: cashPayment,
           net_pay_bank: netPayBank,
           total_payable: totalPayable,
-
           remarks: remarks,
         };
       })
@@ -295,10 +718,7 @@ const SalaryFormat = () => {
     console.log("Sending payload:", payload.length, "rows");
 
     try {
-      const res = await axios.post(`${API_BASE}/save-salary/`, payload, {
-        headers: { "Content-Type": "application/json" },
-      });
-
+      const res = await salaryAPI.saveSalary(payload);
       const saved = res.data.saved || 0;
       const errors = res.data.errors || [];
 
@@ -318,24 +738,11 @@ const SalaryFormat = () => {
     }
   };
 
-  const grouped = filteredEmployees.reduce((acc, emp) => {
-    const comp = emp.company_name ?? "Unknown";
-    if (!acc[comp]) acc[comp] = [];
-    acc[comp].push(emp);
-    return acc;
-  }, {});
-
-  // Fixed toggleCompany function
   const toggleCompany = (comp) => {
     setOpenCompanies((prev) => {
       const newState = { ...prev, [comp]: !prev[comp] };
-
-      // Check if any company is still open
       const isAnyCompanyOpen = Object.values(newState).some((v) => v);
-
-      // Show summary only when no companies are open
       setShowSummary(!isAnyCompanyOpen);
-
       return newState;
     });
   };
@@ -364,7 +771,7 @@ const SalaryFormat = () => {
       },
     };
     setManualData(newData);
-    localStorage.setItem("salaryManualData", JSON.stringify(newData));
+    storageAPI.setSalaryManualData(newData);
   };
 
   const getManual = (empId, field, defaultVal = 0) => {
@@ -449,7 +856,7 @@ const SalaryFormat = () => {
       const totalDeduction = numericAit + advance + absentDeduction;
 
       const netPayBank =
-        dailyRate * daysWorked - cashPayment - totalDeduction + addition;
+        monthlySalary - cashPayment - totalDeduction + addition;
       const totalPayable = netPayBank + cashPayment + numericAit;
 
       rows.push([
@@ -478,101 +885,6 @@ const SalaryFormat = () => {
         remarks,
       ]);
     });
-
-    const summary = emps.reduce(
-      (acc, e) => {
-        const empId = e.employee_id;
-        const salary = Number(e.salary) || 0;
-        const doj = parseDate(e.joining_date);
-        const isNewJoiner =
-          doj &&
-          doj.getMonth() + 1 === selectedMonth &&
-          doj.getFullYear() === selectedYear;
-        const defaultDays = isNewJoiner
-          ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-          : totalDaysInMonth;
-        const daysWorked = getManual(empId, "daysWorked") || defaultDays;
-        const ait = getAitValue(empId);
-        const numericAit = typeof ait === "number" ? ait : 0;
-        const absentDed =
-          ((salary * 0.6) / BASE_MONTH) * (totalDaysInMonth - daysWorked);
-        const advance = getManual(empId, "advance");
-        const cash = getManual(empId, "cashPayment");
-        const addition = getManual(empId, "addition");
-        const totalDed = numericAit + advance + absentDed;
-        const netBank =
-          (salary / totalDaysInMonth) * daysWorked - cash - totalDed + addition;
-        const totalPay = netBank + cash + numericAit;
-
-        return {
-          gross: acc.gross + salary,
-          ait: acc.ait + numericAit,
-          absentDed: acc.absentDed + absentDed,
-          advance: acc.advance + advance,
-          cash: acc.cash + cash,
-          addition: acc.addition + addition,
-          netBank: acc.netBank + netBank,
-          totalPay: acc.totalPay + totalPay,
-        };
-      },
-      {
-        gross: 0,
-        ait: 0,
-        absentDed: 0,
-        advance: 0,
-        cash: 0,
-        addition: 0,
-        netBank: 0,
-        totalPay: 0,
-      }
-    );
-
-    rows.push([]);
-    rows.push([
-      "SUMMARY",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ]);
-    rows.push([
-      "Total Employees",
-      emps.length,
-      "Gross Salary",
-      summary.gross,
-      "AIT",
-      summary.ait,
-      "Absent Ded.",
-      summary.absentDed,
-      "Advance",
-      summary.advance,
-      "Cash",
-      summary.cash,
-      "Addition",
-      summary.addition,
-      "Net Pay",
-      summary.netBank,
-      "Total Payable",
-      summary.totalPay,
-    ]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -604,59 +916,576 @@ const SalaryFormat = () => {
     });
   };
 
-  const loadTaxDataFromBackend = async () => {
-    try {
-      const results = {};
+  // UPDATED APPROVAL FOOTER - COMPANY SPECIFIC
+  const renderApprovalFooter = (companyName) => {
+    const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
 
-      for (const emp of employees) {
-        if (emp.salary && emp.employee_id) {
+    const generateExcelNow = async (companyName) => {
+      const confirmGen = window.confirm(
+        `Generate Bank Transfer Excel for ${companyName}?\n\nMonth: ${
+          monthNames[selectedMonth - 1]
+        } ${selectedYear}\n\nThis will create the exact bank transfer format.`
+      );
+
+      if (!confirmGen) return;
+
+      // Show loading
+      const loadingId = `loading-${Date.now()}`;
+      const loadingDiv = document.createElement("div");
+      loadingDiv.id = loadingId;
+      loadingDiv.innerHTML = `
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                z-index: 9999; text-align: center; min-width: 300px;">
+        <div class="spinner" style="width: 40px; height: 40px; border: 4px solid #f3f3f3; 
+                    border-top: 4px solid #8b5cf6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+        <h3 style="margin: 0 0 10px 0; color: #333;">Generating Bank Transfer File...</h3>
+        <p style="margin: 0; color: #666;">Creating exact bank format for ${companyName}</p>
+    </div>
+    <style>
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    `;
+      document.body.appendChild(loadingDiv);
+
+      try {
+        console.log(`🚀 Generating Bank Excel for ${companyName}...`);
+
+        const response = await fetch(
+          "http://119.148.51.38:8000/api/tax-calculator/api/generate-excel-now/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              company_name: companyName,
+              month: selectedMonth,
+              year: selectedYear,
+              format: "bank", // Specify bank format
+            }),
+          }
+        );
+
+        // Remove loading
+        document.getElementById(loadingId)?.remove();
+
+        console.log(`📊 Response status: ${response.status}`);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("✅ Generation result:", result);
+
+          if (result.success) {
+            // Show success with download option
+            const userChoice = confirm(
+              `✅ Bank Transfer Excel generated successfully!\n\n` +
+                `File: ${result.filename}\n\n` +
+                `Click OK to download now, or Cancel to download later.`
+            );
+
+            if (userChoice) {
+              // Download the file
+              setTimeout(() => {
+                handleDownloadExcel(companyName, "bank");
+              }, 500);
+            } else {
+              // Show download URL
+              alert(
+                `You can download the file later using this URL:\n\n` +
+                  `${result.download_url}`
+              );
+            }
+          } else {
+            alert(
+              `❌ Generation failed: ${
+                result.error || "Unknown error"
+              }\n\nCheck console for details.`
+            );
+          }
+        } else {
+          const errorText = await response.text();
+          console.error("❌ Server error:", errorText);
+
           try {
-            // Try to get tax extra data from backend
-            const taxExtraRes = await axios.get(
-              `${API_BASE}/tax-extra/${emp.employee_id}/`
+            const errorJson = JSON.parse(errorText);
+            alert(
+              `❌ Server error (${response.status}): ${
+                errorJson.error || errorJson.detail || "Unknown error"
+              }`
             );
-            const sourceOtherValue = taxExtraRes.data.source_other || 0;
-
-            // Update sourceOther state
-            setSourceOther((prev) => ({
-              ...prev,
-              [emp.employee_id]: sourceOtherValue,
-            }));
-
-            // Calculate tax with backend data
-            const gender = emp.gender === "M" ? "Male" : "Female";
-            const calc = await axios.post(`${API_BASE}/calculate/`, {
-              employee_id: emp.employee_id,
-              gender,
-              source_other: sourceOtherValue,
-            });
-
-            results[emp.employee_id] = calc.data;
-          } catch (error) {
-            console.error(
-              `Failed to load backend data for ${emp.employee_id}:`,
-              error
+          } catch {
+            alert(
+              `❌ Server error (${response.status}): ${errorText.substring(
+                0,
+                200
+              )}`
             );
-            // Fallback to existing logic
           }
         }
-      }
+      } catch (error) {
+        // Remove loading on error
+        document.getElementById(loadingId)?.remove();
 
-      setTaxResults(results);
-      localStorage.setItem("cachedTaxResults", JSON.stringify(results));
+        console.error("❌ Network error:", error);
+
+        alert(
+          `❌ Network error: ${error.message}\n\n` +
+            `Check console for details.`
+        );
+      }
+    };
+
+    return (
+      <div className="footer">
+        <button
+          onClick={() => handleApprovalStep("hr_prepared", companyName)}
+          disabled={!isButtonEnabled("hr_prepared", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("hr_prepared", companyName) ? "enabled" : "disabled"
+          }`}
+        >
+          <span>Prepared by: HR</span>
+          {companyStatus.hr_prepared && <span className="status-badge">✓</span>}
+          <span className="user-indicator"></span>
+        </button>
+
+        <button
+          onClick={() => handleApprovalStep("finance_checked", companyName)}
+          disabled={!isButtonEnabled("finance_checked", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("finance_checked", companyName)
+              ? "enabled"
+              : "disabled"
+          }`}
+        >
+          <span>Checked by: Finance & Accounts</span>
+          {companyStatus.finance_checked && (
+            <span className="status-badge">✓</span>
+          )}
+          <span className="user-indicator"></span>
+        </button>
+
+        <button
+          onClick={() => handleApprovalStep("director_checked", companyName)}
+          disabled={!isButtonEnabled("director_checked", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("director_checked", companyName)
+              ? "enabled"
+              : "disabled"
+          }`}
+        >
+          <span>Checked by: Director</span>
+          {companyStatus.director_checked && (
+            <span className="status-badge">✓</span>
+          )}
+          <span className="user-indicator"></span>
+        </button>
+
+        <button
+          onClick={() => handleApprovalStep("proprietor_approved", companyName)}
+          disabled={!isButtonEnabled("proprietor_approved", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("proprietor_approved", companyName)
+              ? "enabled"
+              : "disabled"
+          }`}
+        >
+          <span>Approved by: Proprietor / MD</span>
+          {companyStatus.proprietor_approved && (
+            <span className="status-badge">✓</span>
+          )}
+          <span className="user-indicator"></span>
+        </button>
+      </div>
+    );
+  };
+
+  // Update your handleDownloadExcel function
+
+  const handleDownloadExcel = async (companyName, fileType = "bank") => {
+    try {
+      console.log(`📥 Downloading ${fileType} Excel for ${companyName}`);
+
+      // Determine the endpoint based on file type
+      const endpoint =
+        fileType === "bank" ? "download-bank-excel" : "download-salary-excel";
+
+      const url = `http://119.148.51.38:8000/api/tax-calculator/api/${endpoint}/?company_name=${encodeURIComponent(
+        companyName
+      )}&month=${selectedMonth}&year=${selectedYear}&type=${fileType}`;
+
+      console.log(`📥 Download URL: ${url}`);
+
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.download = `${companyName}_${
+        fileType === "bank" ? "Bank_Salary" : "Salary"
+      }_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`;
+
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Also try fetch method as fallback
+      try {
+        const response = await fetch(url);
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const downloadUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = `${companyName}_${
+            fileType === "bank" ? "Bank_Salary" : "Salary"
+          }_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(downloadUrl);
+          document.body.removeChild(a);
+
+          console.log(
+            `✅ ${
+              fileType === "bank" ? "Bank transfer" : "Salary"
+            } Excel file downloaded successfully!`
+          );
+
+          // Show success message
+          setTimeout(() => {
+            alert(
+              `✅ ${
+                fileType === "bank" ? "Bank transfer" : "Salary"
+              } Excel file downloaded successfully!\n\nFile: ${a.download}`
+            );
+          }, 500);
+        } else {
+          const errorData = await response
+            .json()
+            .catch(() => ({ error: "Unknown error" }));
+          console.error("❌ Download failed:", errorData);
+
+          // Show alternative download method
+          const useDirectLink = window.confirm(
+            `Direct download failed. Would you like to open the file in a new tab instead?\n\nError: ${
+              errorData.error || response.statusText
+            }`
+          );
+
+          if (useDirectLink) {
+            window.open(url, "_blank");
+          }
+        }
+      } catch (fetchError) {
+        console.error("Fetch error:", fetchError);
+
+        // Fallback: Open in new tab
+        const openInNewTab = window.confirm(
+          `Network error occurred. Would you like to open the download link in a new tab?`
+        );
+
+        if (openInNewTab) {
+          window.open(url, "_blank");
+        }
+      }
     } catch (error) {
-      console.error("Error loading tax data from backend:", error);
+      console.error("Download error:", error);
+      alert("❌ Error initiating download. Please check console for details.");
     }
   };
 
-  // Use this in your useEffect instead of loadCachedTaxResults
-  useEffect(() => {
-    if (employees.length > 0) {
-      loadTaxDataFromBackend();
-    }
-  }, [employees.length]);
+  // Add a function to generate Excel first if needed
+  const generateAndDownloadExcel = async (companyName, fileType = "bank") => {
+    const confirmGenerate = window.confirm(
+      `Generate and download ${
+        fileType === "bank" ? "bank transfer" : "salary"
+      } Excel file for ${companyName}?\n\nThis will create the file if it doesn't exist.`
+    );
 
-  if (loading) {
+    if (!confirmGenerate) return;
+
+    // Show loading
+    const loadingAlert = alert(
+      `⏳ Generating Excel file for ${companyName}...`
+    );
+
+    try {
+      // First, try to trigger generation through the approval endpoint
+      const generateUrl = `http://119.148.51.38:8000/api/tax-calculator/api/generate-excel/`;
+
+      const response = await fetch(generateUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          company_name: companyName,
+          month: selectedMonth,
+          year: selectedYear,
+          file_type: fileType,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Generate result:", result);
+
+        if (result.success) {
+          alert(`✅ Excel file generated successfully!\n\nNow downloading...`);
+
+          // Wait a moment then download
+          setTimeout(() => {
+            handleDownloadExcel(companyName, fileType);
+          }, 1000);
+        } else {
+          alert(`❌ Generation failed: ${result.error || "Unknown error"}`);
+        }
+      } else {
+        // If generation endpoint doesn't exist, try direct download
+        alert(
+          `⚠️ Generation endpoint not available. Trying direct download...`
+        );
+        setTimeout(() => {
+          handleDownloadExcel(companyName, fileType);
+        }, 500);
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
+      alert(`❌ Error generating file. Trying direct download instead...`);
+
+      // Fallback to direct download
+      setTimeout(() => {
+        handleDownloadExcel(companyName, fileType);
+      }, 500);
+    }
+  };
+
+  // Update the generateExcelNow function
+
+  const generateExcelNow = async (companyName) => {
+    const confirmGen = window.confirm(
+      `Generate Excel file for ${companyName}?\n\nMonth: ${
+        monthNames[selectedMonth - 1]
+      } ${selectedYear}`
+    );
+
+    if (!confirmGen) return;
+
+    // Show loading
+    const loadingId = `loading-${Date.now()}`;
+    const loadingDiv = document.createElement("div");
+    loadingDiv.id = loadingId;
+    loadingDiv.innerHTML = `
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                z-index: 9999; text-align: center; min-width: 300px;">
+      <div class="spinner" style="width: 40px; height: 40px; border: 4px solid #f3f3f3; 
+                border-top: 4px solid #8b5cf6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+      <h3 style="margin: 0 0 10px 0; color: #333;">Generating Excel File...</h3>
+      <p style="margin: 0; color: #666;">Please wait while we create the bank transfer file for ${companyName}</p>
+    </div>
+    <style>
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+  `;
+    document.body.appendChild(loadingDiv);
+
+    try {
+      console.log(`🚀 Generating Excel for ${companyName}...`);
+
+      const response = await fetch(
+        "http://119.148.51.38:8000/api/tax-calculator/api/generate-excel-now/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            company_name: companyName,
+            month: selectedMonth,
+            year: selectedYear,
+          }),
+        }
+      );
+
+      // Remove loading
+      document.getElementById(loadingId)?.remove();
+
+      console.log(`📊 Response status: ${response.status}`);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Generation result:", result);
+
+        if (result.success) {
+          // Show success with options
+          const userChoice = confirm(
+            `✅ Excel file generated successfully!\n\n` +
+              `File: ${result.filename}\n\n` +
+              `Click OK to download now, or Cancel to download later.`
+          );
+
+          if (userChoice) {
+            // Download the file
+            setTimeout(() => {
+              downloadExcelFile(companyName);
+            }, 500);
+          } else {
+            // Show download URL
+            alert(
+              `You can download the file later using this URL:\n\n` +
+                `${
+                  result.download_url ||
+                  `http://119.148.51.38:8000/api/tax-calculator/api/download-bank-excel/?company_name=${encodeURIComponent(
+                    companyName
+                  )}&month=${selectedMonth}&year=${selectedYear}`
+                }`
+            );
+          }
+        } else {
+          alert(
+            `❌ Generation failed: ${
+              result.error || "Unknown error"
+            }\n\nCheck console for details.`
+          );
+        }
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Server error:", errorText);
+
+        try {
+          const errorJson = JSON.parse(errorText);
+          alert(
+            `❌ Server error (${response.status}): ${
+              errorJson.error || errorJson.detail || "Unknown error"
+            }`
+          );
+        } catch {
+          alert(
+            `❌ Server error (${response.status}): ${errorText.substring(
+              0,
+              200
+            )}`
+          );
+        }
+      }
+    } catch (error) {
+      // Remove loading on error
+      document.getElementById(loadingId)?.remove();
+
+      console.error("❌ Network error:", error);
+
+      alert(
+        `❌ Network error: ${error.message}\n\n` +
+          `Possible issues:\n` +
+          `1. Server is down\n` +
+          `2. CORS issue\n` +
+          `3. Network problem\n\n` +
+          `Check console for details.`
+      );
+    }
+  };
+
+  // Improved download function
+  const downloadExcelFile = (companyName) => {
+    const url = `http://119.148.51.38:8000/api/tax-calculator/api/download-bank-excel/?company_name=${encodeURIComponent(
+      companyName
+    )}&month=${selectedMonth}&year=${selectedYear}`;
+
+    console.log(`📥 Downloading from: ${url}`);
+
+    // Method 1: Direct window.open (simplest)
+    const downloadWindow = window.open(url, "_blank");
+
+    // Method 2: Iframe as backup
+    setTimeout(() => {
+      // Check if download started
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = url;
+      document.body.appendChild(iframe);
+
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+
+        // If still not downloaded, show manual link
+        setTimeout(() => {
+          const manualDownload = confirm(
+            `If download didn't start automatically:\n\n` +
+              `1. Right-click this link: ${url}\n` +
+              `2. Select "Save link as..."\n\n` +
+              `Click OK to copy link to clipboard.`
+          );
+
+          if (manualDownload) {
+            navigator.clipboard.writeText(url).then(() => {
+              alert("✅ Download link copied to clipboard!");
+            });
+          }
+        }, 2000);
+      }, 3000);
+    }, 1000);
+  };
+
+  // Add a system test function
+  const testSystemSetup = async () => {
+    try {
+      const response = await fetch(
+        "http://119.148.51.38:8000/api/tax-calculator/api/test-setup/"
+      );
+      const result = await response.json();
+
+      console.log("🧪 System test:", result);
+
+      if (result.success) {
+        let message = "✅ System Test Results:\n\n";
+        Object.entries(result.test_results).forEach(([key, value]) => {
+          message += `${key}: ${value}\n`;
+        });
+
+        message += "\nAvailable Endpoints:\n";
+        result.available_endpoints.forEach((endpoint) => {
+          message += `${endpoint}\n`;
+        });
+
+        alert(message);
+      } else {
+        alert(`❌ System test failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("❌ System test error:", error);
+      alert(`❌ Cannot connect to server: ${error.message}`);
+    }
+  };
+
+  // Add a direct media download function (bypass API)
+  const directMediaDownload = (companyName) => {
+    const monthName = monthNames[selectedMonth - 1];
+    const filename = `${companyName.replace(
+      / /g,
+      "_"
+    )}_Bank_Salary_${monthName}_${selectedYear}.xlsx`;
+    const url = `http://119.148.51.38:8000/media/salary_exports/${filename}`;
+
+    console.log(`📥 Direct media download: ${url}`);
+    window.open(url, "_blank");
+  };
+
+  // Update forceGenerateAndDownload
+  const forceGenerateAndDownload = async (companyName) => {
+    // First try to generate
+    await generateExcelNow(companyName);
+
+    // Then download
+    setTimeout(() => {
+      downloadExcelFile(companyName);
+    }, 1500);
+  };
+
+  // Show loading state while data is being fetched
+  if (loading || loadingStatus) {
     return (
       <div className="center-screen">
         <div className="fullscreen-loader">
@@ -713,6 +1542,13 @@ const SalaryFormat = () => {
 
                   <button className="btn btn-save" onClick={saveData}>
                     <FaSave /> Save Data
+                  </button>
+
+                  <button
+                    onClick={() => navigate("/salary-records")}
+                    className="btn btn-records"
+                  >
+                    <FaCalendarAlt /> View Records
                   </button>
 
                   <button
@@ -783,6 +1619,13 @@ const SalaryFormat = () => {
                       {selectedYear}
                     </h3>
                   </div>
+                  <button
+                    onClick={() => generateExcelNow(comp)}
+                    className="btn btn-generate-excel"
+                    title={`Generate Bank Transfer Excel for ${comp}`}
+                  >
+                    <FaFileExcel /> Generate Bank Excel
+                  </button>
                   <button
                     onClick={() => exportCompanyData(comp)}
                     className="btn btn-export-section"
@@ -865,7 +1708,7 @@ const SalaryFormat = () => {
                             numericAit + advance + absentDeduction;
 
                           const netPayBank =
-                            dailyRate * daysWorked -
+                            monthlySalary -
                             cashPayment -
                             totalDeduction +
                             addition;
@@ -1022,12 +1865,8 @@ const SalaryFormat = () => {
                   </div>
                 </div>
 
-                <div className="footer">
-                  <span>Prepared by: HR</span>
-                  <span>Checked by: Finance & Accounts</span>
-                  <span>Checked by: Director</span>
-                  <span>Approved by: Proprietor / MD</span>
-                </div>
+                {/* APPROVAL FOOTER */}
+                {renderApprovalFooter(comp)}
               </div>
             );
           })}
@@ -1969,7 +2808,55 @@ const SalaryFormat = () => {
           border-radius: 8px;
         }
 
-        /* FOOTER */
+        /* APPROVAL BUTTONS STYLES */
+        .approval-btn {
+          padding: 1rem 1.5rem;
+          border: 2px solid #e2e8f0;
+          border-radius: 10px;
+          background: white;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-weight: 600;
+          min-width: 200px;
+          justify-content: center;
+        }
+
+        .approval-btn.enabled {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border-color: #059669;
+          cursor: pointer;
+        }
+
+        .approval-btn.enabled:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+        }
+
+        .approval-btn.disabled {
+          background: #f3f4f6;
+          color: #9ca3af;
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .status-badge {
+          background: white;
+          color: #10b981;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 12px;
+        }
+
         .footer {
           display: flex;
           justify-content: space-between;
@@ -1978,16 +2865,7 @@ const SalaryFormat = () => {
           font-size: 0.95rem;
           border-top: 2px solid #e2e8f0;
           flex-wrap: wrap;
-          gap: 1.5rem;
-        }
-
-        .footer span {
-          padding: 0.8rem 1.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-radius: 12px;
-          border: 2px solid #e2e8f0;
-          font-weight: 600;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+          gap: 1rem;
         }
 
         /* SUMMARY SECTION */
@@ -2251,6 +3129,10 @@ const SalaryFormat = () => {
           .stat-number {
             font-size: 2rem;
           }
+
+          .approval-btn {
+            min-width: 100%;
+          }
         }
 
         @media (max-width: 480px) {
@@ -2277,6 +3159,60 @@ const SalaryFormat = () => {
           .summary-stats {
             grid-template-columns: 1fr;
           }
+
+          .footer {
+            flex-direction: column;
+          }
+        }
+
+        .btn-download-excel {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          margin-left: 10px;
+        }
+
+        .btn-download-excel:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+
+        .btn-generate-excel {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          padding: 8px 12px;
+          border: none;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          transition: all 0.3s ease;
+        }
+
+        .btn-generate-excel:hover {
+          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+          transform: translateY(-2px);
+        }
+
+        .btn-generate-download {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: white;
+          padding: 8px 12px;
+          border: none;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          transition: all 0.3s ease;
+        }
+
+        .btn-generate-download:hover {
+          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+          transform: translateY(-2px);
         }
       `}</style>
     </div>

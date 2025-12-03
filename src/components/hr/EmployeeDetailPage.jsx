@@ -5,7 +5,8 @@ import {
   getEmployeeById,
   getCustomerById,
   getAllCustomers,
-  getPerformanceAppraisalsByEmployeeId, // ADD THIS IMPORT
+  getPerformanceAppraisalsByEmployeeId,
+  sendWelcomeEmail, // ADD THIS IMPORT
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 import {
@@ -20,6 +21,7 @@ import {
   FaCalendarAlt,
   FaMapMarkerAlt,
   FaStar,
+  FaPaperPlane, // ADD THIS ICON
 } from "react-icons/fa";
 
 const EmployeeDetailPage = () => {
@@ -29,6 +31,8 @@ const EmployeeDetailPage = () => {
   const [customerNames, setCustomerNames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [incrementHistory, setIncrementHistory] = useState([]);
+  const [sendingEmail, setSendingEmail] = useState(false); // ADD STATE FOR EMAIL SENDING
+  const [emailStatus, setEmailStatus] = useState(""); // ADD STATE FOR EMAIL STATUS
 
   // Helper function to display gender
   const displayGender = (gender) => {
@@ -61,6 +65,39 @@ const EmployeeDetailPage = () => {
     const days = remainingDaysAfterYears % 30;
 
     return `${years} year(s), ${months} month(s), ${days} day(s)`;
+  };
+
+  // ADD FUNCTION TO SEND WELCOME EMAIL
+  const handleSendWelcomeEmail = async () => {
+    if (!employee) return;
+
+    try {
+      setSendingEmail(true);
+      setEmailStatus("Sending welcome emails...");
+
+      const response = await sendWelcomeEmail(employee.id);
+
+      if (response.data && response.data.success) {
+        setEmailStatus(`✅ ${response.data.message || "Welcome emails sent successfully!"}`);
+        
+        // Clear status after 5 seconds
+        setTimeout(() => {
+          setEmailStatus("");
+        }, 5000);
+      } else {
+        setEmailStatus("❌ Failed to send welcome emails");
+      }
+    } catch (error) {
+      console.error("Error sending welcome email:", error);
+      setEmailStatus(`❌ Error: ${error.response?.data?.message || error.message}`);
+      
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setEmailStatus("");
+      }, 5000);
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   // Fetch employee details
@@ -155,7 +192,6 @@ const EmployeeDetailPage = () => {
   }, [employee]);
 
   // Fetch increment history using API wrapper - UPDATED
-  // In EmployeeDetailPage.jsx - Update the fetchIncrementHistory function
   useEffect(() => {
     const fetchIncrementHistory = async () => {
       if (!employee?.employee_id) return;
@@ -206,51 +242,7 @@ const EmployeeDetailPage = () => {
     }
   }, [employee]);
 
-  // Add this function in EmployeeDetailPage.jsx
-  const updateEmployeeSalary = async (employeeId, newSalary) => {
-    try {
-      // You'll need to create this API function
-      await updateEmployeeSalary(employeeId, newSalary);
-      console.log("Salary updated successfully");
-    } catch (error) {
-      console.error("Error updating salary:", error);
-    }
-  };
-
-  // ... rest of the component remains the same (handlePrint, return JSX, etc.)
-  // The rest of your component code stays exactly the same
-
-  const handleApprove = async (appraisalId) => {
-    console.log("Approve button clicked for:", appraisalId);
-
-    if (!appraisalId) {
-      alert("No appraisal ID found");
-      return;
-    }
-
-    if (appraisal.increment) {
-      alert("Increment is already approved");
-      return;
-    }
-
-    try {
-      console.log("Calling approveIncrement API...");
-      const result = await approveIncrement(appraisalId);
-      console.log("API call successful:", result);
-
-      alert("Increment approved successfully");
-
-      // Refresh appraisal data
-      console.log("Refreshing appraisal data...");
-      const updatedAppraisal = await getPerformanceAppraisalById(appraisalId);
-      setAppraisal(updatedAppraisal.data);
-      console.log("Appraisal data updated:", updatedAppraisal.data);
-    } catch (err) {
-      console.error("Detailed error in handleApprove:", err);
-      console.error("Error response:", err.response);
-      alert(`Failed to approve increment: ${err.message}`);
-    }
-  };
+  // ... rest of the existing functions (updateEmployeeSalary, handleApprove, handlePrint) remain the same
 
   const handlePrint = () => {
     const printWindow = window.open("", "", "width=800,height=600");
@@ -481,12 +473,28 @@ const EmployeeDetailPage = () => {
       <div className="content-wrapper">
         <div className="employee-detail-card">
           <div style={{ maxHeight: "calc(95vh - 100px)", overflowY: "auto" }}>
+            {/* ADD EMAIL STATUS NOTIFICATION */}
+            {emailStatus && (
+              <div className={`email-status ${emailStatus.includes('✅') ? 'success' : 'error'}`}>
+                {emailStatus}
+              </div>
+            )}
+
             <div className="employee-header">
               <h2>
                 <FaUserTie className="header-icon" />
                 Employee Details
               </h2>
               <div className="action-buttons">
+                {/* ADD SEND WELCOME EMAIL BUTTON */}
+                <button
+                  onClick={handleSendWelcomeEmail}
+                  className="btn-email"
+                  disabled={sendingEmail}
+                >
+                  <FaPaperPlane /> 
+                  {sendingEmail ? "Sending..." : "Send Welcome Email"}
+                </button>
                 <button
                   onClick={() => navigate(`/edit-employee/${id}`)}
                   className="btn-edit"
@@ -603,6 +611,10 @@ const EmployeeDetailPage = () => {
                     <span>Emergency Contact:</span>
                     <span>{employee.emergency_contact || "N/A"}</span>
                   </div>
+                  <div className="detail-row">
+                    <span>Bank Account:</span>
+                    <span>{employee.bank_account || "N/A"}</span>
+                  </div>
                 </div>
 
                 <div className="detail-section">
@@ -697,6 +709,39 @@ const EmployeeDetailPage = () => {
           margin: 0 auto;
         }
 
+        /* ADD EMAIL STATUS STYLES */
+        .email-status {
+          padding: 12px 16px;
+          border-radius: 8px;
+          margin-bottom: 1rem;
+          font-weight: 600;
+          text-align: center;
+          animation: slideIn 0.3s ease-out;
+        }
+
+        .email-status.success {
+          background-color: #d4edda;
+          color: #155724;
+          border: 1px solid #c3e6cb;
+        }
+
+        .email-status.error {
+          background-color: #f8d7da;
+          color: #721c24;
+          border: 1px solid #f5c6cb;
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
         .employee-header {
           display: flex;
           justify-content: space-between;
@@ -722,6 +767,7 @@ const EmployeeDetailPage = () => {
         .action-buttons {
           display: flex;
           gap: 0.8rem;
+          flex-wrap: wrap;
         }
 
         .action-buttons button {
@@ -735,6 +781,23 @@ const EmployeeDetailPage = () => {
           gap: 0.5rem;
           transition: all 0.2s;
           font-size: 0.9rem;
+          white-space: nowrap;
+        }
+
+        /* ADD EMAIL BUTTON STYLE */
+        .btn-email {
+          background-color: #9b59b6;
+          color: white;
+        }
+
+        .btn-email:hover:not(:disabled) {
+          background-color: #8e44ad;
+        }
+
+        .btn-email:disabled {
+          background-color: #bdc3c7;
+          cursor: not-allowed;
+          opacity: 0.7;
         }
 
         .btn-edit {
@@ -885,6 +948,31 @@ const EmployeeDetailPage = () => {
           .action-buttons button {
             width: 100%;
             justify-content: center;
+          }
+
+          .employee-header {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+          }
+
+          .employee-header h2 {
+            font-size: 1.5rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .content-wrapper {
+            padding: 1rem;
+          }
+
+          .employee-detail-card {
+            padding: 1rem;
+          }
+
+          .action-buttons button {
+            font-size: 0.8rem;
+            padding: 0.5rem 0.8rem;
           }
         }
       `}</style>

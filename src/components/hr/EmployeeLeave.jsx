@@ -13,21 +13,14 @@ const EmployeeLeave = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // In EmployeeLeave.jsx, update the fetchLeaves function:
-    // In EmployeeLeave.jsx, update the fetchLeaves function:
     const fetchLeaves = async () => {
       try {
         console.log("🔄 Fetching leave data...");
         const response = await getEmployeeLeaves();
 
-        // Debug the full response
-
-
         if (response.data && Array.isArray(response.data)) {
           console.log("✅ Valid array received, length:", response.data.length);
-          // Log first item to check structure
           if (response.data.length > 0) {
-           
             console.log(
               "👤 Employee name in data:",
               response.data[0].employee_name
@@ -97,10 +90,41 @@ const EmployeeLeave = () => {
     navigate(`/leave-request-details/${id}`);
   };
 
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pending: { color: "#f59e0b", bgColor: "#fef3c7", label: "⏳ Pending" },
+      approved: { color: "#10b981", bgColor: "#d1fae5", label: "✅ Approved" },
+      rejected: { color: "#ef4444", bgColor: "#fee2e2", label: "❌ Rejected" },
+    };
+
+    const config = statusConfig[status?.toLowerCase()] || statusConfig.pending;
+
+    return (
+      <span
+        style={{
+          color: config.color,
+          backgroundColor: config.bgColor,
+          padding: "4px 8px",
+          borderRadius: "12px",
+          fontSize: "12px",
+          fontWeight: "600",
+          display: "inline-block",
+          minWidth: "80px",
+          textAlign: "center",
+        }}
+      >
+        {config.label}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div style={styles.loadingContainer}>
-        <div>Loading leave records...</div>
+        <div style={styles.loadingSpinner}>
+          <div style={styles.spinner}></div>
+          <p>Loading leave records...</p>
+        </div>
       </div>
     );
   }
@@ -109,269 +133,598 @@ const EmployeeLeave = () => {
     <div style={styles.container}>
       <Sidebars />
       <div style={styles.mainContent}>
-        <div style={styles.scrollContainer}>
-          <h2 style={styles.heading}>Employee Leave Records</h2>
-
-          {/* Search Filters */}
-          <div style={responsiveStyles.responsiveFlex}>
-            <div style={responsiveStyles.responsiveColumn}>
-              <label style={labelStyle}>Search by Name:</label>
-              <input
-                type="text"
-                value={nameSearch}
-                onChange={(e) => setNameSearch(e.target.value)}
-                placeholder="Enter employee name"
-                style={inputStyle}
-              />
+        <div style={styles.header}>
+          <div>
+            <h1 style={styles.headerTitle}>Employee Leave Management</h1>
+            <p style={styles.headerSubtitle}>
+              Manage and track employee leave requests
+            </p>
+          </div>
+          <div style={styles.headerStats}>
+            <div style={styles.statCard}>
+              <span style={styles.statNumber}>{filteredLeaves.length}</span>
+              <span style={styles.statLabel}>Total Records</span>
             </div>
+          </div>
+        </div>
 
-            <div style={responsiveStyles.responsiveColumn}>
-              <label style={labelStyle}>Start Date:</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                style={inputStyle}
-              />
+        <div style={styles.contentCard}>
+          {/* Search and Filters Section */}
+          <div style={styles.filtersSection}>
+            <h3 style={styles.sectionTitle}>Search & Filters</h3>
+            <div style={styles.filtersGrid}>
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>Search by Employee Name</label>
+                <input
+                  type="text"
+                  value={nameSearch}
+                  onChange={(e) => setNameSearch(e.target.value)}
+                  placeholder="Enter employee name..."
+                  style={styles.filterInput}
+                />
+              </div>
+
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>Start Date Range</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  style={styles.filterInput}
+                />
+              </div>
+
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>End Date Range</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={styles.filterInput}
+                />
+              </div>
+
+              <div style={styles.filterGroup}>
+                <button
+                  onClick={() => {
+                    setNameSearch("");
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  style={styles.clearButton}
+                >
+                  🗑️ Clear Filters
+                </button>
+              </div>
             </div>
-
-            <div style={responsiveStyles.responsiveColumn}>
-              <label style={labelStyle}>End Date:</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <button
-              onClick={() => {
-                setNameSearch("");
-                setStartDate("");
-                setEndDate("");
-              }}
-              style={clearButtonStyle}
-            >
-              Clear Filters
-            </button>
           </div>
 
-          {/* Action Buttons */}
-          <div style={styles.buttonGroup}>
-            <button
-              onClick={() => navigate("/add-leave-request")}
-              style={btnStyle("#0078D4")}
-            >
-              Add New Leave Record
-            </button>
-            <button
-              onClick={() => navigate("/employee_leave_type")}
-              style={btnStyle("#28a745")}
-            >
-              Employee Leave Type
-            </button>
-            <button
-              onClick={() => navigate("/employee_leave_balance")}
-              style={btnStyle("#6f42c1")}
-            >
-              Employee Leave Balance
-            </button>
+          {/* Quick Actions Section */}
+          <div style={styles.actionsSection}>
+            <h3 style={styles.sectionTitle}>Quick Actions</h3>
+            <div style={styles.actionsGrid}>
+              <button
+                onClick={() => navigate("/add-leave-request")}
+                style={styles.primaryButton}
+              >
+                ➕ Add New Leave Record
+              </button>
+              <button
+                onClick={() => navigate("/employee_leave_type")}
+                style={styles.secondaryButton}
+              >
+                📊 Leave Types
+              </button>
+              <button
+                onClick={() => navigate("/employee_leave_balance")}
+                style={styles.secondaryButton}
+              >
+                ⚖️ Leave Balance
+              </button>
+            </div>
           </div>
 
-          {/* Table */}
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={{ backgroundColor: "#e1e9f3" }}>
-                  <th style={cellStyle}>Employee</th>
-                  <th style={cellStyle}>Leave Type</th>
-                  <th style={cellStyle}>Start Date</th>
-                  <th style={cellStyle}>End Date</th>
-                  <th style={cellStyle}>Reason</th>
-                  <th style={cellStyle}>Status</th>
-                  <th style={cellStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLeaves.length > 0 ? (
-                  filteredLeaves.map((leave) => (
-                    <tr
-                      key={leave.id}
-                      style={{ backgroundColor: "#fff", cursor: "pointer" }}
-                      onClick={() => handleRowClick(leave.id)}
-                    >
-                      <td style={cellStyle}>{leave.employee_name}</td>
-                      <td style={cellStyle}>
-                        {leave.leave_type?.replace(/_/g, " ") || "N/A"}
-                      </td>
-                      <td style={cellStyle}>{leave.start_date}</td>
-                      <td style={cellStyle}>{leave.end_date}</td>
-                      <td style={cellStyle}>{leave.reason || "N/A"}</td>
-                      <td style={cellStyle}>{leave.status || "Pending"}</td>
-                      <td style={cellStyle}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(leave.id);
-                          }}
-                          style={{
-                            ...actionButton,
-                            backgroundColor: "#ff4d4d",
-                          }}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/edit-leave-request/${leave.id}`);
-                          }}
-                          style={{
-                            ...actionButton,
-                            backgroundColor: "#ffaa00",
-                          }}
-                        >
-                          Edit
-                        </button>
+          {/* Leave Records Table */}
+          <div style={styles.tableSection}>
+            <div style={styles.tableHeader}>
+              <h3 style={styles.sectionTitle}>Leave Records</h3>
+              <span style={styles.resultsCount}>
+                {filteredLeaves.length} record{filteredLeaves.length !== 1 ? 's' : ''} found
+              </span>
+            </div>
+
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHeaderRow}>
+                    <th style={styles.tableHeaderCell}>Employee</th>
+                    <th style={styles.tableHeaderCell}>Leave Type</th>
+                    <th style={styles.tableHeaderCell}>Start Date</th>
+                    <th style={styles.tableHeaderCell}>End Date</th>
+                    <th style={styles.tableHeaderCell}>Duration</th>
+                    <th style={styles.tableHeaderCell}>Status</th>
+                    <th style={styles.tableHeaderCell}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLeaves.length > 0 ? (
+                    filteredLeaves.map((leave, index) => (
+                      <tr
+                        key={leave.id}
+                        style={{
+                          ...styles.tableRow,
+                          backgroundColor: index % 2 === 0 ? '#fff' : '#f8fafc',
+                        }}
+                        onClick={() => handleRowClick(leave.id)}
+                      >
+                        <td style={styles.tableCell}>
+                          <div style={styles.employeeCell}>
+                            <div style={styles.avatar}>
+                              {leave.employee_name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                            <div>
+                              <div style={styles.employeeName}>
+                                {leave.employee_name}
+                              </div>
+                              {leave.employee_code && (
+                                <div style={styles.employeeId}>
+                                  ID: {leave.employee_code}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td style={styles.tableCell}>
+                          <span style={styles.leaveType}>
+                            {leave.leave_type?.replace(/_/g, " ") || "N/A"}
+                          </span>
+                        </td>
+                        <td style={styles.tableCell}>
+                          {new Date(leave.start_date).toLocaleDateString()}
+                        </td>
+                        <td style={styles.tableCell}>
+                          {new Date(leave.end_date).toLocaleDateString()}
+                        </td>
+                        <td style={styles.tableCell}>
+                          <span style={styles.durationBadge}>
+                            {leave.leave_days || 'N/A'} day{leave.leave_days !== 1 ? 's' : ''}
+                          </span>
+                        </td>
+                        <td style={styles.tableCell}>
+                          {getStatusBadge(leave.status)}
+                        </td>
+                        <td style={styles.tableCell}>
+                          <div style={styles.actionButtons}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/edit-leave-request/${leave.id}`);
+                              }}
+                              style={styles.editButton}
+                              title="Edit leave record"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(leave.id);
+                              }}
+                              style={styles.deleteButton}
+                              title="Delete leave record"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" style={styles.noDataCell}>
+                        <div style={styles.noData}>
+                          <div style={styles.noDataIcon}>📝</div>
+                          <h4>No leave records found</h4>
+                          <p>Try adjusting your search criteria or add a new leave record.</p>
+                        </div>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      style={{ ...cellStyle, textAlign: "center" }}
-                    >
-                      No leave records found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Add CSS for animations and scrollbars */}
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          /* Main content scrollbar */
+          .main-content-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+          }
+          
+          .main-content-scroll::-webkit-scrollbar {
+            width: 12px;
+          }
+          
+          .main-content-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 6px;
+          }
+          
+          .main-content-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 6px;
+            border: 2px solid #f1f5f9;
+          }
+          
+          .main-content-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+          }
+          
+          /* Table container scrollbar */
+          .table-container-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+          }
+          
+          .table-container-scroll::-webkit-scrollbar {
+            height: 8px;
+          }
+          
+          .table-container-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+          }
+          
+          .table-container-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+          }
+          
+          .table-container-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+          }
+        `}
+      </style>
     </div>
   );
 };
 
 // ========================
-// Styles
+// Simplified Styles with Proper Scroll
 // ========================
 const styles = {
   container: {
     display: "flex",
-    minHeight: "100vh",
-    backgroundColor: "#A7D5E1",
+    height: "100vh", // Use full viewport height
+    backgroundColor: "#f8fafc",
+
+    overflow: "hidden", // Prevent container scrolling
   },
   loadingContainer: {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
     height: "100vh",
-    fontSize: "18px",
+    backgroundColor: "#f8fafc",
+  },
+  loadingSpinner: {
+    textAlign: "center",
+    color: "#64748b",
+  },
+  spinner: {
+    width: "40px",
+    height: "40px",
+    border: "4px solid #e2e8f0",
+    borderTop: "4px solid #3b82f6",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    margin: "0 auto 16px",
   },
   mainContent: {
-    padding: "2rem",
     flex: 1,
-    width: "10%",
-    boxSizing: "border-box",
-  },
-  scrollContainer: {
-    maxHeight: "calc(100vh - 100px)",
-    overflowY: "auto",
-  },
-  heading: {
-    color: "#0078D4",
-    borderBottom: "1px solid #ccc",
-    paddingBottom: "10px",
-    marginBottom: "20px",
-  },
-  buttonGroup: {
     display: "flex",
-    gap: "15px",
-    marginBottom: "20px",
+    flexDirection: "column",
+    overflow: "hidden",
+    padding: "10px",
+    height: "100vh", // Full height
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: "4px",
+    paddingBottom: "1px",
+    borderBottom: "1px solid #e2e8f0",
+    flexShrink: 0, // Prevent header from shrinking
+  },
+  headerTitle: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#1e293b",
+    margin: "0 0 8px 0",
+  },
+  headerSubtitle: {
+    fontSize: "16px",
+    color: "#64748b",
+    margin: "0",
+  },
+  headerStats: {
+    display: "flex",
+    gap: "16px",
+  },
+  statCard: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: "16px 20px",
+    backgroundColor: "#fff",
+    borderRadius: "8px",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+    border: "1px solid #e2e8f0",
+  },
+  statNumber: {
+    fontSize: "24px",
+    fontWeight: "700",
+    color: "#3b82f6",
+  },
+  statLabel: {
+    fontSize: "12px",
+    color: "#64748b",
+    marginTop: "4px",
+  },
+  contentCard: {
+    backgroundColor: "#fff",
+    borderRadius: "12px",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    overflow: "hidden",
+    flex: 1, // Take remaining space
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0, // Important for flexbox scrolling
+  },
+  filtersSection: {
+    padding: "24px",
+    borderBottom: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
+    flexShrink: 0, // Prevent shrinking
+  },
+  actionsSection: {
+    padding: "10px",
+    borderBottom: "1px solid #e2e8f0",
+    flexShrink: 0, // Prevent shrinking
+  },
+  tableSection: {
+    padding: "24px",
+    flex: 1, // Take remaining space
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0, // Important for flexbox scrolling
+    overflow: "hidden", // Contain table scrolling
+  },
+  sectionTitle: {
+    fontSize: "18px",
+    fontWeight: "600",
+    color: "#1e293b",
+    margin: "0 0 16px 0",
+  },
+  filtersGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "16px",
+    alignItems: "end",
+  },
+  filterGroup: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  filterLabel: {
+    fontWeight: "600",
+    marginBottom: "8px",
+    color: "#374151",
+    fontSize: "14px",
+  },
+  filterInput: {
+    padding: "10px 12px",
+    borderRadius: "6px",
+    border: "1px solid #d1d5db",
+    fontSize: "14px",
+    backgroundColor: "#fff",
+    transition: "all 0.2s ease",
+  },
+  clearButton: {
+    padding: "10px 16px",
+    backgroundColor: "#6b7280",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+  },
+  actionsGrid: {
+    display: "flex",
+    gap: "12px",
     flexWrap: "wrap",
   },
-  tableWrapper: {
-    width: "100%",
-    overflowX: "auto",
-    marginTop: "15px",
-    backgroundColor: "#fff",
+  primaryButton: {
+    padding: "12px 20px",
+    backgroundColor: "#3b82f6",
+    color: "white",
+    border: "none",
     borderRadius: "6px",
-    boxShadow: "0 0 10px rgba(0,0,0,0.05)",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  secondaryButton: {
+    padding: "12px 20px",
+    backgroundColor: "#f8fafc",
+    color: "#374151",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  tableHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "16px",
+    flexShrink: 0, // Prevent shrinking
+  },
+  resultsCount: {
+    fontSize: "14px",
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  tableContainer: {
+    flex: 1, // Take remaining space
+    overflow: "auto", // Enable scrolling for table
+    borderRadius: "8px",
+    border: "1px solid #e2e8f0",
   },
   table: {
     width: "100%",
-    minWidth: "1000px",
     borderCollapse: "collapse",
-    fontFamily: "Segoe UI, sans-serif",
+    minWidth: "1000px",
+  },
+  tableHeaderRow: {
+    backgroundColor: "#f1f5f9",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+  },
+  tableHeaderCell: {
+    padding: "16px 12px",
+    textAlign: "left",
+    fontWeight: "600",
+    color: "#374151",
+    fontSize: "14px",
+    borderBottom: "1px solid #e2e8f0",
+  },
+  tableRow: {
+    cursor: "pointer",
+    transition: "background-color 0.2s ease",
+  },
+  tableCell: {
+    padding: "16px 12px",
+    textAlign: "left",
+    fontSize: "14px",
+    borderBottom: "1px solid #e2e8f0",
+    verticalAlign: "middle",
+  },
+  employeeCell: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  avatar: {
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    backgroundColor: "#3b82f6",
+    color: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "600",
     fontSize: "14px",
   },
-};
-
-const responsiveStyles = {
-  responsiveFlex: {
+  employeeName: {
+    fontWeight: "600",
+    color: "#1e293b",
+  },
+  employeeId: {
+    fontSize: "12px",
+    color: "#64748b",
+    marginTop: "2px",
+  },
+  leaveType: {
+    backgroundColor: "#f1f5f9",
+    color: "#475569",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontWeight: "500",
+  },
+  durationBadge: {
+    backgroundColor: "#dbeafe",
+    color: "#1e40af",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontWeight: "500",
+  },
+  actionButtons: {
     display: "flex",
-    flexWrap: "wrap",
-    gap: "15px",
-    marginBottom: "20px",
-    alignItems: "flex-end",
+    gap: "8px",
   },
-  responsiveColumn: {
-    flex: "1 1 200px",
-    minWidth: "200px",
+  editButton: {
+    padding: "6px 12px",
+    backgroundColor: "#f59e0b",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+  },
+  deleteButton: {
+    padding: "6px 12px",
+    backgroundColor: "#ef4444",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+  },
+  noDataCell: {
+    padding: "40px 20px",
+    textAlign: "center",
+  },
+  noData: {
+    color: "#64748b",
+  },
+  noDataIcon: {
+    fontSize: "48px",
+    marginBottom: "16px",
   },
 };
 
-const cellStyle = {
-  border: "1px solid #d1dbe8",
-  padding: "10px",
-  textAlign: "center",
-};
-
-const labelStyle = {
-  display: "block",
-  marginBottom: "5px",
-  fontWeight: "bold",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "8px",
-  borderRadius: "4px",
-  border: "1px solid #d1dbe8",
-};
-
-const clearButtonStyle = {
-  alignSelf: "flex-end",
-  backgroundColor: "#6c757d",
-  color: "white",
-  padding: "8px 15px",
-  border: "none",
-  borderRadius: "4px",
-  cursor: "pointer",
-  height: "38px",
-};
-
-const btnStyle = (bgColor) => ({
-  backgroundColor: bgColor,
-  color: "white",
-  padding: "10px 20px",
-  border: "none",
-  borderRadius: "5px",
-  cursor: "pointer",
-  minWidth: "180px",
-});
-
-const actionButton = {
-  color: "white",
-  padding: "5px 10px",
-  border: "none",
-  borderRadius: "5px",
-  cursor: "pointer",
-  marginRight: "8px",
-};
+// Apply scrollbar classes
+setTimeout(() => {
+  const mainContent = document.querySelector('[style*="mainContent"]');
+  const tableContainer = document.querySelector('[style*="tableContainer"]');
+  
+  if (mainContent) {
+    mainContent.classList.add('main-content-scroll');
+  }
+  if (tableContainer) {
+    tableContainer.classList.add('table-container-scroll');
+  }
+}, 100);
 
 export default EmployeeLeave;

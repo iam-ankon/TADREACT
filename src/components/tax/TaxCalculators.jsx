@@ -1,11 +1,11 @@
 // src/pages/finance/TaxCalculators.jsx
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import { Form, Button, Table, Alert, Card } from "react-bootstrap";
 import { FaArrowLeft, FaEdit, FaSave } from "react-icons/fa";
 
-const API_BASE = "http://119.148.51.38:8000/api/tax-calculator";
+// Import API services
+import { employeeAPI, taxAPI, storageAPI } from "../../api/finance";
 
 const TaxCalculators = () => {
   const { employeeId } = useParams();
@@ -26,56 +26,71 @@ const TaxCalculators = () => {
   const n = (val) =>
     (val ?? 0).toLocaleString("en-BD", { maximumFractionDigits: 0 });
 
+  // Function to update cached results
+  const updateCachedTaxResults = async (newResult) => {
+    try {
+      const cached = await storageAPI.getCachedTaxResults() || {};
+      cached[employeeId] = newResult;
+      await storageAPI.setCachedTaxResults(cached);
+      
+      // Broadcast to other tabs
+      if (typeof window !== 'undefined' && window.broadcastUpdate) {
+        window.broadcastUpdate("taxResults", cached);
+      }
+      
+      console.log("Updated cached tax results for employee:", employeeId);
+    } catch (err) {
+      console.error("Failed to update cache:", err);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const empRes = await axios.get(`${API_BASE}/employees/`);
-        const emp = empRes.data.find((e) => e.employee_id === employeeId);
+        const emp = await employeeAPI.getById(employeeId);
         if (!emp) throw new Error("Employee not found");
 
         setEmployee(emp);
         setGender(emp.gender === "M" ? "Male" : "Female");
 
-        // Load from backend first
+        // ALWAYS try to load from backend first with enhanced error handling
         try {
-          const taxExtraRes = await axios.get(
-            `${API_BASE}/tax-extra/${employeeId}/`
-          );
+          const taxExtraRes = await taxAPI.getTaxExtra(employeeId);
           const backendSourceOther = taxExtraRes.data.source_other || 0;
           const backendBonus = taxExtraRes.data.bonus || 0;
+
+          console.log(`Loaded from backend: Source Other: ${backendSourceOther}, Bonus: ${backendBonus}`);
 
           setSourceOther(backendSourceOther);
           setEditValue(backendSourceOther.toString());
           setBonus(backendBonus);
           setEditBonusValue(backendBonus.toString());
 
-          // Sync with localStorage as fallback
-          const savedSource = JSON.parse(
-            localStorage.getItem("sourceTaxOther") || "{}"
-          );
+          // Always sync with localStorage
+          const savedSource = await storageAPI.getSourceTaxOther(employeeId);
           savedSource[employeeId] = backendSourceOther;
-          localStorage.setItem("sourceTaxOther", JSON.stringify(savedSource));
+          await storageAPI.setSourceTaxOther(savedSource);
 
-          const savedBonus = JSON.parse(
-            localStorage.getItem("bonusOverride") || "{}"
-          );
+          const savedBonus = await storageAPI.getBonusOverride(employeeId);
           savedBonus[employeeId] = backendBonus;
-          localStorage.setItem("bonusOverride", JSON.stringify(savedBonus));
+          await storageAPI.setBonusOverride(savedBonus);
 
           await calculate(backendSourceOther, backendBonus);
         } catch (backendError) {
-          console.log("Backend load failed, falling back to localStorage");
-          // Fallback to localStorage if backend fails
-          const saved = localStorage.getItem("sourceTaxOther");
-          const savedVal = saved ? JSON.parse(saved)[employeeId] || 0 : 0;
+          console.log("Backend load failed, trying localStorage fallback");
+          
+          // Enhanced fallback: try to get from localStorage with sync
+          const savedSource = await storageAPI.getSourceTaxOther(employeeId);
+          const savedVal = savedSource[employeeId] || 0;
+          
+          const savedBonus = await storageAPI.getBonusOverride(employeeId);
+          const savedBonusVal = savedBonus[employeeId] || 0;
+
+          console.log(`Loaded from localStorage: Source Other: ${savedVal}, Bonus: ${savedBonusVal}`);
+
           setSourceOther(savedVal);
           setEditValue(savedVal.toString());
-
-          const savedBonus = localStorage.getItem("bonusOverride");
-          const savedBonusVal = savedBonus
-            ? JSON.parse(savedBonus)[employeeId] || 0
-            : 0;
           setBonus(savedBonusVal);
           setEditBonusValue(savedBonusVal.toString());
 
@@ -83,6 +98,7 @@ const TaxCalculators = () => {
         }
       } catch (err) {
         setError(err.message || "Failed to load");
+        console.error("Load error:", err);
       } finally {
         setLoading(false);
       }
@@ -93,13 +109,19 @@ const TaxCalculators = () => {
 
   const calculate = async (sourceVal, bonusVal) => {
     try {
-      const response = await axios.post(`${API_BASE}/calculate/`, {
+      const response = await taxAPI.calculate({
         employee_id: employeeId,
         gender,
         source_other: sourceVal,
         bonus: bonusVal,
       });
-      setResult(response.data);
+      
+      const newResult = response.data;
+      setResult(newResult);
+      
+      // Update cache with new result
+      await updateCachedTaxResults(newResult);
+      
     } catch (err) {
       setError(err.response?.data?.error || "Calculation failed");
     }
@@ -119,10 +141,9 @@ const TaxCalculators = () => {
 
     try {
       // Save to backend
-      const response = await axios.post(`${API_BASE}/save-tax-extra/`, {
+      const response = await taxAPI.saveTaxExtra({
         employee_id: employeeId,
         source_other: val,
-        // Keep current bonus value
         bonus: bonus,
       });
 
@@ -130,24 +151,40 @@ const TaxCalculators = () => {
         // Update state only after successful backend save
         setSourceOther(val);
         setEditing(false);
-
-        // Update localStorage as fallback
-        const saved = JSON.parse(
-          localStorage.getItem("sourceTaxOther") || "{}"
-        );
+        
+        // Update localStorage
+        const saved = await storageAPI.getSourceTaxOther(employeeId);
         saved[employeeId] = val;
-        localStorage.setItem("sourceTaxOther", JSON.stringify(saved));
+        await storageAPI.setSourceTaxOther(saved);
+        
+        // Broadcast sourceOther update
+        if (typeof window !== 'undefined' && window.broadcastUpdate) {
+          window.broadcastUpdate("sourceTaxOther", saved);
+        }
+        
+        // Trigger calculation which will update cache
+        await calculate(val, bonus);
+        
+        console.log("Successfully saved source tax other to backend and localStorage");
       }
     } catch (err) {
       console.error("Save source failed:", err);
       alert("Failed to save to server. Using local storage only.");
-
+      
       // Fallback to localStorage only
       setSourceOther(val);
       setEditing(false);
-      const saved = JSON.parse(localStorage.getItem("sourceTaxOther") || "{}");
+      const saved = await storageAPI.getSourceTaxOther(employeeId);
       saved[employeeId] = val;
-      localStorage.setItem("sourceTaxOther", JSON.stringify(saved));
+      await storageAPI.setSourceTaxOther(saved);
+      
+      // Broadcast update
+      if (typeof window !== 'undefined' && window.broadcastUpdate) {
+        window.broadcastUpdate("sourceTaxOther", saved);
+      }
+      
+      // Trigger calculation with local data
+      await calculate(val, bonus);
     }
   };
 
@@ -156,10 +193,9 @@ const TaxCalculators = () => {
 
     try {
       // Save to backend
-      const response = await axios.post(`${API_BASE}/save-tax-extra/`, {
+      const response = await taxAPI.saveTaxExtra({
         employee_id: employeeId,
         bonus: val,
-        // Keep current source_other value
         source_other: sourceOther,
       });
 
@@ -167,23 +203,39 @@ const TaxCalculators = () => {
         // Update state only after successful backend save
         setBonus(val);
         setEditingBonus(false);
-
-        // Update localStorage as fallback
-        const saved = JSON.parse(localStorage.getItem("bonusOverride") || "{}");
+        
+        // Update localStorage
+        const saved = await storageAPI.getBonusOverride(employeeId);
         saved[employeeId] = val;
-        localStorage.setItem("bonusOverride", JSON.stringify(saved));
+        await storageAPI.setBonusOverride(saved);
+        
+        // Trigger calculation which will update cache
+        await calculate(sourceOther, val);
+        
+        console.log("Successfully saved bonus to backend and localStorage");
       }
     } catch (err) {
       console.error("Save bonus failed:", err);
       alert("Failed to save to server. Using local storage only.");
-
+      
       // Fallback to localStorage only
       setBonus(val);
       setEditingBonus(false);
-      const saved = JSON.parse(localStorage.getItem("bonusOverride") || "{}");
+      const saved = await storageAPI.getBonusOverride(employeeId);
       saved[employeeId] = val;
-      localStorage.setItem("bonusOverride", JSON.stringify(saved));
+      await storageAPI.setBonusOverride(saved);
+      
+      await calculate(sourceOther, val);
     }
+  };
+
+  // Function to navigate back with updated data
+  const handleBackToDashboard = () => {
+    // Update the cache before navigating back
+    if (result) {
+      updateCachedTaxResults(result);
+    }
+    navigate('/finance-provision');
   };
 
   // Styles (unchanged)
@@ -313,7 +365,7 @@ const TaxCalculators = () => {
           {error}
         </Alert>
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBackToDashboard}
           style={backButtonStyle}
           onMouseEnter={(e) => {
             e.target.style.transform = "translateY(-2px)";
@@ -324,7 +376,7 @@ const TaxCalculators = () => {
             e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.3)";
           }}
         >
-          <FaArrowLeft /> Back
+          <FaArrowLeft /> Back to Dashboard
         </button>
       </div>
     );
@@ -375,7 +427,7 @@ const TaxCalculators = () => {
         }}
       >
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBackToDashboard}
           style={backButtonStyle}
           onMouseEnter={(e) => {
             e.target.style.transform = "translateY(-2px)";
@@ -386,7 +438,7 @@ const TaxCalculators = () => {
             e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.3)";
           }}
         >
-          <FaArrowLeft /> Back
+          <FaArrowLeft /> Back to Dashboard
         </button>
         <h2 style={{ margin: 0, color: "#2c3e50" }}>
           {employee.name} (ID: {employeeId})

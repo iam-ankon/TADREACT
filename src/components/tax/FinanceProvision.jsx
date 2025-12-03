@@ -1,9 +1,7 @@
 // src/pages/finance/FinanceProvision.jsx
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { FaFileAlt } from "react-icons/fa";
-
+import { FaFileAlt, FaSync } from "react-icons/fa";
 import {
   FaSearch,
   FaDownload,
@@ -13,12 +11,22 @@ import {
   FaCalculator,
 } from "react-icons/fa";
 
-const API_BASE = "http://119.148.51.38:8000/api/tax-calculator";
+// Import API services
+import {
+  employeeAPI,
+  taxAPI,
+  storageAPI,
+  smartSyncData,
+  setupCrossTabSync,
+  broadcastUpdate,
+  forceSyncEmployees,
+} from "../../api/finance";
 
 const FinanceProvision = () => {
   const [employees, setEmployees] = useState([]);
   const [taxResults, setTaxResults] = useState({});
   const [sourceOther, setSourceOther] = useState({});
+  const [bonusOverride, setBonusOverride] = useState({});
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,42 +38,126 @@ const FinanceProvision = () => {
   const navigate = useNavigate();
   const isInitialMount = useRef(true);
 
-  // Load saved Source Other
+  // Load and sync data on component mount
   useEffect(() => {
-    const saved = localStorage.getItem("sourceTaxOther");
-    if (saved) setSourceOther(JSON.parse(saved));
-  }, []);
-
-  const saveSourceOther = (data) => {
-    setSourceOther(data);
-    localStorage.setItem("sourceTaxOther", JSON.stringify(data));
-  };
-
-  // Fetch employees only on mount
-  useEffect(() => {
-    const fetchEmployees = async () => {
+    const load = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${API_BASE}/employees/`);
-        const valid = res.data.filter((e) => e.salary && e.employee_id);
-        setEmployees(valid);
+
+        // First, fetch employees
+        const res = await employeeAPI.getAll();
+        const validEmployees = res.data.filter(
+          (e) => e.salary && e.employee_id
+        );
+        setEmployees(validEmployees);
+
+        // Extract employee IDs for syncing
+        const employeeIds = validEmployees.map((emp) => emp.employee_id);
+
+        // Load local data immediately for fast display
+        const localSourceData = JSON.parse(
+          localStorage.getItem("sourceTaxOther") || "{}"
+        );
+        setSourceOther(localSourceData);
+
+        const localBonusData = JSON.parse(
+          localStorage.getItem("bonusOverride") || "{}"
+        );
+        setBonusOverride(localBonusData);
 
         // Load cached results if available
-        const cachedResults = localStorage.getItem("cachedTaxResults");
+        const cachedResults = storageAPI.getCachedTaxResults();
         if (cachedResults) {
-          setTaxResults(JSON.parse(cachedResults));
+          setTaxResults(cachedResults);
         }
+
+        // Smart sync in background
+        setTimeout(async () => {
+          try {
+            const syncedData = await smartSyncData(employeeIds);
+            if (syncedData.sourceTaxOther) {
+              setSourceOther(syncedData.sourceTaxOther);
+            }
+            if (syncedData.bonusOverride) {
+              setBonusOverride(syncedData.bonusOverride);
+            }
+
+            // Calculate taxes with synced data
+            await calculateAllTaxes();
+          } catch (error) {
+            console.error("Background sync failed:", error);
+          }
+        }, 100);
       } catch (err) {
-        console.error("Failed to fetch employees:", err);
+        console.error("Failed to load data:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchEmployees();
+
+    load();
   }, []);
 
-  // Calculate taxes with batch processing and caching
-  const calculateAllTaxes = async () => {
+  // Setup cross-tab synchronization with immediate updates
+  useEffect(() => {
+    const handleDataUpdate = () => {
+      console.log("Cross-tab update detected, reloading data...");
+
+      // Reload data from localStorage immediately
+      const localSourceData = JSON.parse(
+        localStorage.getItem("sourceTaxOther") || "{}"
+      );
+      setSourceOther(localSourceData);
+
+      const localBonusData = JSON.parse(
+        localStorage.getItem("bonusOverride") || "{}"
+      );
+      setBonusOverride(localBonusData);
+
+      // Recalculate taxes with updated data
+      setTimeout(() => {
+        calculateAllTaxes();
+      }, 1000);
+    };
+
+    const cleanup = setupCrossTabSync(handleDataUpdate);
+    return cleanup;
+  }, []);
+
+  const saveSourceOther = (data) => {
+    setSourceOther(data);
+    storageAPI.setSourceTaxOther(data);
+  };
+
+  // Enhanced function to sync individual employee data
+  const syncEmployeeData = async (employeeId) => {
+    try {
+      const backendData = await taxAPI.getTaxExtra(employeeId);
+      const backendSourceOther = backendData.data.source_other || 0;
+      const backendBonus = backendData.data.bonus || 0;
+
+      // Update local state
+      const updatedSourceOther = {
+        ...sourceOther,
+        [employeeId]: backendSourceOther,
+      };
+      setSourceOther(updatedSourceOther);
+
+      // Update localStorage and broadcast to other tabs
+      broadcastUpdate("sourceTaxOther", updatedSourceOther);
+
+      const bonusData = storageAPI.getBonusOverride();
+      const updatedBonus = { ...bonusData, [employeeId]: backendBonus };
+      broadcastUpdate("bonusOverride", updatedBonus);
+
+      return { sourceOther: backendSourceOther, bonus: backendBonus };
+    } catch (error) {
+      console.warn(`Failed to sync data for employee ${employeeId}`);
+      return null;
+    }
+  };
+
+  const calculateAllTaxes = async (specificEmployeeIds = null) => {
     if (calculating) return;
 
     try {
@@ -73,21 +165,31 @@ const FinanceProvision = () => {
       setProgress(0);
 
       const validEmployees = employees.filter((e) => e.salary && e.employee_id);
-      const results = {};
-      const batchSize = 5; // Process 5 employees at a time
 
-      for (let i = 0; i < validEmployees.length; i += batchSize) {
-        const batch = validEmployees.slice(i, i + batchSize);
+      // Filter to specific employees if provided
+      const employeesToCalculate = specificEmployeeIds
+        ? validEmployees.filter((emp) =>
+            specificEmployeeIds.includes(emp.employee_id)
+          )
+        : validEmployees;
+
+      const results = { ...taxResults };
+      const batchSize = 10;
+
+      for (let i = 0; i < employeesToCalculate.length; i += batchSize) {
+        const batch = employeesToCalculate.slice(i, i + batchSize);
 
         const batchPromises = batch.map(async (emp) => {
           try {
             const gender = emp.gender === "M" ? "Male" : "Female";
             const other = sourceOther[emp.employee_id] || 0;
+            const bonusVal = bonusOverride[emp.employee_id] || 0;
 
-            const calc = await axios.post(`${API_BASE}/calculate/`, {
+            const calc = await taxAPI.calculate({
               employee_id: emp.employee_id,
               gender,
               source_other: parseFloat(other) || 0,
+              bonus: parseFloat(bonusVal) || 0,
             });
 
             return { empId: emp.employee_id, data: calc.data };
@@ -102,27 +204,24 @@ const FinanceProvision = () => {
 
         const batchResults = await Promise.allSettled(batchPromises);
 
-        // Process batch results
         batchResults.forEach((result) => {
           if (result.status === "fulfilled") {
             results[result.value.empId] = result.value.data;
           }
         });
 
-        // Update progress
         const currentProgress = Math.round(
-          ((i + batch.length) / validEmployees.length) * 100
+          ((i + batch.length) / employeesToCalculate.length) * 100
         );
         setProgress(currentProgress);
 
-        // Small delay to prevent overwhelming the server
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (i + batchSize < employeesToCalculate.length) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
       }
 
       setTaxResults(results);
-
-      // Cache results
-      localStorage.setItem("cachedTaxResults", JSON.stringify(results));
+      storageAPI.setCachedTaxResults(results);
     } catch (err) {
       console.error("Error in tax calculation:", err);
     } finally {
@@ -130,16 +229,20 @@ const FinanceProvision = () => {
     }
   };
 
-  // Calculate taxes only when explicitly requested or when sourceOther changes significantly
+  // Debounced tax calculation
   useEffect(() => {
-    if (employees.length > 0 && Object.keys(sourceOther).length > 0) {
+    if (
+      employees.length > 0 &&
+      Object.keys(sourceOther).length > 0 &&
+      Object.keys(bonusOverride).length > 0
+    ) {
       const calculateTimeout = setTimeout(() => {
         calculateAllTaxes();
-      }, 1000); // Debounce calculation
+      }, 2000);
 
       return () => clearTimeout(calculateTimeout);
     }
-  }, [sourceOther, employees.length]);
+  }, [sourceOther, bonusOverride, employees.length]);
 
   const filtered = employees.filter(
     (emp) =>
@@ -161,207 +264,138 @@ const FinanceProvision = () => {
     setEditValue(sourceOther[emp.employee_id] || "0");
   };
 
-  const handleSave = async () => {
+  // Enhanced save function that ensures backend sync and cross-tab update
+  const handleSave = async (employeeId) => {
     const val = parseFloat(editValue) || 0;
 
     try {
       // Save to backend
-      const response = await axios.post(`${API_BASE}/save-tax-extra/`, {
-        employee_id: editingId,
+      const response = await taxAPI.saveTaxExtra({
+        employee_id: employeeId,
         source_other: val,
+        bonus: bonusOverride[employeeId] || 0,
       });
 
       if (response.data.success) {
-        // Update local state only after successful backend save
-        saveSourceOther({ ...sourceOther, [editingId]: val });
+        // Update state only after successful backend save
+        const updatedSourceOther = { ...sourceOther, [employeeId]: val };
+        setSourceOther(updatedSourceOther);
         setEditingId(null);
 
-        // Recalculate taxes for this employee
-        await recalculateEmployeeTax(editingId, val);
+        // Update localStorage
+        storageAPI.setSourceTaxOther(updatedSourceOther);
+
+        // Broadcast sourceOther update
+        broadcastUpdate("sourceTaxOther", updatedSourceOther);
+
+        // Trigger calculation which will update cache
+        await calculateAllTaxes([employeeId]);
+
+        console.log(
+          "Successfully saved source tax other to backend and localStorage"
+        );
       }
     } catch (err) {
-      console.error("Failed to save source tax other:", err);
-      alert("Failed to save to server. Please try again.");
+      console.error("Save source failed:", err);
+      alert("Failed to save to server. Using local storage only.");
+
+      // Fallback to localStorage only
+      const updatedSourceOther = { ...sourceOther, [employeeId]: val };
+      setSourceOther(updatedSourceOther);
+      setEditingId(null);
+      storageAPI.setSourceTaxOther(updatedSourceOther);
+
+      // Broadcast update
+      broadcastUpdate("sourceTaxOther", updatedSourceOther);
+
+      // Trigger calculation with local data
+      await calculateAllTaxes([employeeId]);
     }
   };
 
-  // Add this helper function
-  const recalculateEmployeeTax = async (empId, sourceOtherValue) => {
+  const handleNavigate = (empId) => {
+    navigate(`/tax-calculator/${empId}`);
+  };
+
+  const handleExport = () => {
+    // Implementation for export (e.g., CSV or Excel)
+    console.log("Exporting data...");
+  };
+
+  const handleQuickSync = async () => {
     try {
-      const emp = employees.find((e) => e.employee_id === empId);
-      if (!emp) return;
-
-      const gender = emp.gender === "M" ? "Male" : "Female";
-
-      const response = await axios.post(`${API_BASE}/calculate/`, {
-        employee_id: empId,
-        gender,
-        source_other: sourceOtherValue,
-      });
-
-      if (response.data && !response.data.error) {
-        // Update tax results for this employee
-        setTaxResults((prev) => ({
-          ...prev,
-          [empId]: response.data,
-        }));
-
-        // Update cache
-        const cachedResults = localStorage.getItem("cachedTaxResults");
-        if (cachedResults) {
-          const parsed = JSON.parse(cachedResults);
-          parsed[empId] = response.data;
-          localStorage.setItem("cachedTaxResults", JSON.stringify(parsed));
-        }
-      }
+      const employeeIds = employees.map((emp) => emp.employee_id);
+      const syncedData = await forceSyncEmployees(employeeIds);
+      setSourceOther(syncedData.sourceTaxOther);
+      setBonusOverride(syncedData.bonusOverride);
+      await calculateAllTaxes();
+      alert("Quick sync completed!");
     } catch (error) {
-      console.error(`Failed to recalculate tax for ${empId}:`, error);
+      alert("Quick sync failed: " + error.message);
     }
   };
 
-  const exportCSV = () => {
-    const headers = [
-      "ID",
-      "Name",
-      "Salary",
-      "Source Tax Other",
-      "Net Tax",
-      "Monthly TDS",
-    ];
-    const rows = filtered.map((emp) => {
-      const t = taxResults[emp.employee_id] || {};
-      const c = t.tax_calculation || {};
-      return [
-        emp.employee_id,
-        emp.name,
-        emp.salary,
-        sourceOther[emp.employee_id] || 0,
-        c.net_tax_payable || 0,
-        c.monthly_tds || 0,
-      ];
-    });
-    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Tax_Report_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleFullSync = async () => {
+    try {
+      const employeeIds = employees.map((emp) => emp.employee_id);
+      const syncedData = await syncAllDataFromBackend(employeeIds); // Assuming this function exists
+      setSourceOther(syncedData.sourceTaxOther);
+      setBonusOverride(syncedData.bonusOverride);
+      await calculateAllTaxes();
+      alert("Full sync completed!");
+    } catch (error) {
+      alert("Full sync failed: " + error.message);
+    }
   };
-
-  const refreshCalculations = () => {
-    calculateAllTaxes();
-  };
-
-  // CENTERED FULL-SCREEN LOADER
-  if (loading) {
-    return (
-      <div className="center-screen">
-        <div className="fullscreen-loader">
-          <div className="spinner"></div>
-          <p>Loading Employees...</p>
-        </div>
-        <style jsx>{`
-          .center-screen {
-            display: flex;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-          }
-          .fullscreen-loader {
-            text-align: center;
-          }
-          .spinner {
-            width: 80px;
-            height: 80px;
-            border: 8px solid #f0f0f0;
-            border-top: 8px solid #7c3aed;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1.5rem;
-          }
-          @keyframes spin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-          p {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: white;
-          }
-        `}</style>
-      </div>
-    );
-  }
 
   return (
     <div className="center-screen">
       <div className="dashboard">
         <div className="card">
-          {/* Header */}
           <div className="header">
-            <h1>Finance Tax Dashboard</h1>
+            <h1>Finance Provision Dashboard</h1>
             <div className="actions">
-              <button
-                onClick={refreshCalculations}
-                className="btn refresh"
-                disabled={calculating}
-              >
-                <FaCalculator />{" "}
-                {calculating ? `Calculating... ${progress}%` : "Refresh Taxes"}
-              </button>
-              <button onClick={exportCSV} className="btn export">
-                <FaDownload /> Export
-              </button>
-              <button
-                onClick={() => navigate("/tax-calculator")}
-                className="btn calc"
-              >
-                <FaCalculator /> Manual Calc
-              </button>
               <button
                 onClick={() => navigate("/salary-format")}
                 className="btn format"
               >
                 <FaFileAlt /> Salary Sheet
               </button>
+              <button className="btn export" onClick={handleExport}>
+                <FaDownload /> Export
+              </button>
+              <button
+                className="btn calc"
+                onClick={() => calculateAllTaxes()}
+                disabled={calculating}
+              >
+                <FaCalculator /> Recalculate All
+              </button>
             </div>
           </div>
 
-          {/* Progress Bar - Only show when calculating */}
           {calculating && (
             <div className="progress-bar">
               <div style={{ width: `${progress}%` }}></div>
-              <span>Calculating Taxes... {Math.round(progress)}%</span>
+              <span>Calculating: {progress}%</span>
             </div>
           )}
 
-          {/* Search */}
+          <div className="info-banner">
+            <FaFileAlt />
+            Showing tax provisions for {filtered.length} employees
+          </div>
+
           <div className="search">
             <FaSearch />
             <input
-              placeholder="Search Name / ID..."
+              type="text"
+              placeholder="Search by name or ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          {/* Info Banner */}
-          <div className="info-banner">
-            <FaExclamationTriangle />
-            <span>
-              Showing {filtered.length} employees.{" "}
-              {calculating
-                ? "Calculating taxes..."
-                : "Click Refresh to update calculations."}
-            </span>
-          </div>
-
-          {/* Table */}
           <div className="table-wrapper">
             <table className="table">
               <thead>
@@ -369,8 +403,8 @@ const FinanceProvision = () => {
                   <th>ID</th>
                   <th>Name</th>
                   <th>Salary</th>
-                  <th>Source Tax Other</th>
-                  <th>Net Tax</th>
+                  <th>Source Other</th>
+                  <th>Net Tax Payable</th>
                   <th>Monthly TDS</th>
                   <th>Status</th>
                 </tr>
@@ -379,19 +413,15 @@ const FinanceProvision = () => {
                 {current.map((emp) => {
                   const res = taxResults[emp.employee_id] || {};
                   const calc = res.tax_calculation || {};
-                  const other = sourceOther[emp.employee_id] || 0;
-
                   return (
                     <tr
                       key={emp.employee_id}
                       className="row"
-                      onClick={() =>
-                        navigate(`/tax-calculator/${emp.employee_id}`)
-                      }
+                      onClick={() => handleNavigate(emp.employee_id)}
                     >
                       <td>{emp.employee_id}</td>
                       <td className="name">{emp.name}</td>
-                      <td>৳{emp.salary?.toLocaleString()}</td>
+                      <td>৳{emp.salary.toLocaleString()}</td>
                       <td>
                         {editingId === emp.employee_id ? (
                           <div className="edit-input">
@@ -399,22 +429,21 @@ const FinanceProvision = () => {
                               type="number"
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={(e) =>
-                                e.key === "Enter" && handleSave()
-                              }
                               onClick={(e) => e.stopPropagation()}
-                              autoFocus
                             />
                             <FaSave
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleSave();
+                                handleSave(emp.employee_id);
                               }}
                             />
                           </div>
                         ) : (
                           <div className="source-cell">
-                            ৳{parseFloat(other).toLocaleString()}
+                            ৳
+                            {(
+                              sourceOther[emp.employee_id] || 0
+                            ).toLocaleString()}
                             <FaEdit
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -533,8 +562,16 @@ const FinanceProvision = () => {
           background: #10b981;
           color: white;
         }
-        .calc {
+        .quick-sync {
+          background: #3b82f6;
+          color: white;
+        }
+        .sync {
           background: #7c3aed;
+          color: white;
+        }
+        .calc {
+          background: #ef4444;
           color: white;
         }
         .btn:hover:not(:disabled) {

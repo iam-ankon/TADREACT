@@ -41,12 +41,14 @@ const EditEmployeePage = () => {
     nid_number: "",
     blood_group: "",
     gender: "",
+    bank_account: "",
   });
 
   const [companies, setCompanies] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [imagePreview, setImagePreview] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -76,6 +78,7 @@ const EditEmployeePage = () => {
         if (emp.image1) setImagePreview(emp.image1);
       } catch (err) {
         console.error("Error fetching data:", err);
+        alert("Error loading employee data: " + err.message);
       }
     };
 
@@ -104,11 +107,13 @@ const EditEmployeePage = () => {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
     try {
       console.log("=== EDIT EMPLOYEE SUBMIT DEBUG ===");
       console.log("Original employee data:", employee);
-      console.log("Customer IDs from state:", employee.customer);
-      console.log("Customer IDs type:", typeof employee.customer);
 
       const jsonData = {
         employee_id: employee.employee_id || "",
@@ -131,37 +136,76 @@ const EditEmployeePage = () => {
         gender: employee.gender || "",
       };
 
+      // Handle email separately to allow null values
       if (employee.email === "") jsonData.email = null;
       else if (employee.email) jsonData.email = employee.email;
 
+      // Convert to numbers where applicable
       if (employee.department)
         jsonData.department = Number(employee.department);
       if (employee.company) jsonData.company = Number(employee.company);
       if (employee.salary) jsonData.salary = Number(employee.salary);
 
+      // Remove undefined values
       Object.keys(jsonData).forEach((key) => {
         if (jsonData[key] === undefined) delete jsonData[key];
       });
 
       console.log("Basic employee data to update:", jsonData);
 
-      // Update basic employee data first
+      // Step 1: Update basic employee data first
+      console.log("Updating basic employee data...");
       await updateEmployee(id, jsonData);
+      console.log("Basic data update successful");
 
-      // Handle image update
+      // Step 2: Handle image update separately
       if (employee.image1 && typeof employee.image1 === "object") {
+        console.log("Updating image...");
+        
         const imageFormData = new FormData();
         imageFormData.append("image1", employee.image1);
-        await updateEmployeeImage(id, imageFormData);
+        
+        // Log FormData contents for debugging
+        console.log("FormData contents:");
+        for (let [key, value] of imageFormData.entries()) {
+          console.log(`- ${key}:`, value);
+        }
+        
+        try {
+          await updateEmployeeImage(id, imageFormData);
+          console.log("Image update successful");
+        } catch (imageError) {
+          console.error("Image update failed:", imageError);
+          console.error("Image error response:", imageError.response?.data);
+          
+          // Handle specific image errors
+          if (imageError.response?.data) {
+            const errorData = imageError.response.data;
+            if (errorData.image1) {
+              const imageErrors = Array.isArray(errorData.image1) 
+                ? errorData.image1.join(', ') 
+                : errorData.image1;
+              alert(`Image upload error: ${imageErrors}`);
+            } else {
+              alert(`Image upload error: ${JSON.stringify(errorData)}`);
+            }
+          } else {
+            alert("Image upload failed. Please check file format and size.");
+          }
+          // Continue with other updates even if image fails
+        }
+      } else {
+        console.log("No image to update or image is URL string");
       }
 
-      // Handle customers - ensure they are numbers
+      // Step 3: Handle customers update
       const customerIds = employee.customer
         .map((id) => parseInt(id))
         .filter((id) => !isNaN(id));
       console.log("Customer IDs to send to API:", customerIds);
 
       if (customerIds.length > 0) {
+        console.log("Updating customers...");
         await updateEmployeeCustomers(id, customerIds);
         console.log("Customer update API call completed");
       } else {
@@ -174,8 +218,28 @@ const EditEmployeePage = () => {
       navigate(`/employee/${id}`);
     } catch (error) {
       console.error("Update failed:", error);
-      console.error("Error response:", error.response);
-      alert("Update failed: " + (error.response?.data || error.message));
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+      
+      let errorMessage = "Update failed: ";
+      if (error.response?.data) {
+        // Display server validation errors
+        const errorData = error.response.data;
+        if (typeof errorData === 'object') {
+          Object.keys(errorData).forEach(key => {
+            const errorValue = errorData[key];
+            errorMessage += `\n${key}: ${Array.isArray(errorValue) ? errorValue.join(', ') : errorValue}`;
+          });
+        } else {
+          errorMessage += errorData;
+        }
+      } else {
+        errorMessage += error.message;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -183,7 +247,9 @@ const EditEmployeePage = () => {
     fontWeight: "bold",
     fontSize: "14px",
     marginBottom: "6px",
+    display: "block",
   };
+  
   const inputStyle = {
     padding: "10px",
     borderRadius: "6px",
@@ -191,24 +257,42 @@ const EditEmployeePage = () => {
     fontSize: "14px",
     backgroundColor: "#f9f9f9",
     width: "100%",
+    boxSizing: "border-box",
   };
+  
   const textareaStyle = {
     ...inputStyle,
     minHeight: "80px",
     resize: "vertical",
+    fontFamily: "inherit",
   };
+  
   const checkboxContainer = {
     padding: "10px",
     borderRadius: "6px",
-    maxHeight: "80px",
+    maxHeight: "120px",
     overflowY: "auto",
     backgroundColor: "#f9f9f9",
+    border: "1px solid #ccc",
   };
+  
   const imagePreviewStyle = {
     maxWidth: "200px",
     maxHeight: "200px",
     borderRadius: "6px",
     marginTop: "10px",
+    display: "block",
+  };
+
+  const buttonStyle = {
+    backgroundColor: isSubmitting ? "#ccc" : "#3182ce",
+    color: "white",
+    padding: "12px 24px",
+    fontSize: "16px",
+    border: "none",
+    borderRadius: "8px",
+    cursor: isSubmitting ? "not-allowed" : "pointer",
+    opacity: isSubmitting ? 0.7 : 1,
   };
 
   return (
@@ -242,6 +326,7 @@ const EditEmployeePage = () => {
               gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
               gap: "20px",
             }}
+            onSubmit={(e) => e.preventDefault()} // Prevent default form submission
           >
             {[
               { name: "device_user_id", label: "Device User ID" },
@@ -256,6 +341,7 @@ const EditEmployeePage = () => {
               { name: "office_phone", label: "Office Phone" },
               { name: "reference_phone", label: "Reference Phone" },
               { name: "job_title", label: "Job Title" },
+              { name: "bank_account", label: "Bank Account Number" },
               { name: "nid_number", label: "NID Number" },
               { name: "blood_group", label: "Blood Group" },
               { name: "salary", label: "Salary", type: "number" },
@@ -282,6 +368,7 @@ const EditEmployeePage = () => {
                     value={employee[name]}
                     onChange={handleChange}
                     style={inputStyle}
+                    disabled={isSubmitting}
                   >
                     {options.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -297,6 +384,7 @@ const EditEmployeePage = () => {
                     value={employee[name]}
                     onChange={handleChange}
                     style={inputStyle}
+                    disabled={isSubmitting}
                   />
                 )}
               </div>
@@ -315,18 +403,19 @@ const EditEmployeePage = () => {
                         alignItems: "center",
                         marginBottom: "6px",
                         gap: "10px",
-                        cursor: "pointer",
+                        cursor: isSubmitting ? "not-allowed" : "pointer",
                       }}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => handleCustomerCheckboxChange(c.id)}
+                        onChange={() => !isSubmitting && handleCustomerCheckboxChange(c.id)}
                         style={{
                           width: "18px",
                           height: "18px",
-                          cursor: "pointer",
+                          cursor: isSubmitting ? "not-allowed" : "pointer",
                         }}
+                        disabled={isSubmitting}
                       />
                       <span style={{ fontSize: "14px", color: "#333" }}>
                         {c.customer_name}
@@ -354,6 +443,7 @@ const EditEmployeePage = () => {
                   value={employee[field]}
                   onChange={handleChange}
                   style={textareaStyle}
+                  disabled={isSubmitting}
                 />
               </div>
             ))}
@@ -365,6 +455,7 @@ const EditEmployeePage = () => {
                 value={employee.company}
                 onChange={handleChange}
                 style={inputStyle}
+                disabled={isSubmitting}
               >
                 <option value="">Select Company</option>
                 {companies.map((c) => (
@@ -382,6 +473,7 @@ const EditEmployeePage = () => {
                 value={employee.department}
                 onChange={handleChange}
                 style={inputStyle}
+                disabled={isSubmitting}
               >
                 <option value="">Select Department</option>
                 {departments.map((d) => (
@@ -407,6 +499,7 @@ const EditEmployeePage = () => {
                 accept="image/*"
                 onChange={handleChange}
                 style={inputStyle}
+                disabled={isSubmitting}
               />
             </div>
           </form>
@@ -415,17 +508,10 @@ const EditEmployeePage = () => {
             <button
               type="button"
               onClick={handleSubmit}
-              style={{
-                backgroundColor: "#3182ce",
-                color: "white",
-                padding: "12px 24px",
-                fontSize: "16px",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
+              style={buttonStyle}
+              disabled={isSubmitting}
             >
-              Update Employee
+              {isSubmitting ? "Updating..." : "Update Employee"}
             </button>
           </div>
         </div>

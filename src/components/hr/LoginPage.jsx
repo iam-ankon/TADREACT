@@ -56,7 +56,7 @@ const LoginPage = () => {
       label: "Designation", 
       type: "text", 
       required: false, 
-      placeholder: "Your job title (optional)" 
+      placeholder: "Your job title " 
     },
     { 
       id: "department", 
@@ -77,7 +77,7 @@ const LoginPage = () => {
       label: "Email Address", 
       type: "email", 
       required: false, 
-      placeholder: "your.email@company.com (optional)" 
+      placeholder: "your.email@company.com " 
     },
     { 
       id: "password", 

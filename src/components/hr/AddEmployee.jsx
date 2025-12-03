@@ -40,6 +40,7 @@ const AddEmployee = () => {
     nid_number: "",
     blood_group: "",
     gender: "",
+    bank_account: "",
   });
 
   const [companies, setCompanies] = useState([]);
@@ -228,6 +229,7 @@ const AddEmployee = () => {
         { name: "personal_phone", label: "Personal Phone" },
         { name: "emergency_contact", label: "Emergency Contact" },
         { name: "nid_number", label: "NID Number" },
+        { name: "bank_account", label: "Bank Account Number" },
         { name: "blood_group", label: "Blood Group" },
         {
           name: "gender",

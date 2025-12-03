@@ -13,7 +13,7 @@ import {
   FiSettings,
   FiUser,
   FiBriefcase,
-  FiAward
+  FiAward,
 } from "react-icons/fi";
 import logo from "../../assets/texweave_Logo_1.png";
 
@@ -30,7 +30,11 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      return <div className="p-4 text-red-500">Error loading sidebar. Please refresh.</div>;
+      return (
+        <div className="p-4 text-red-500">
+          Error loading sidebar. Please refresh.
+        </div>
+      );
     }
     return this.props.children;
   }
@@ -46,6 +50,15 @@ const Sidebar = () => {
   });
   const sidebarRef = useRef(null);
   const toggleBtnRef = useRef(null);
+
+  // Get employee info from localStorage
+  const employeeInfo = {
+    employee_id: localStorage.getItem("employee_id") || "",
+    name: localStorage.getItem("employee_name") || "",
+    designation: localStorage.getItem("designation") || "",
+    department: localStorage.getItem("department") || "",
+    reporting_leader: localStorage.getItem("reporting_leader") || "",
+  };
 
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => {
@@ -77,6 +90,8 @@ const Sidebar = () => {
       localStorage.removeItem("employee_id");
       localStorage.removeItem("employee_name");
       localStorage.removeItem("designation");
+      localStorage.removeItem("department");
+      localStorage.removeItem("reporting_leader");
       sessionStorage.clear();
 
       console.log("Logout successful, redirecting to login...");
@@ -99,7 +114,50 @@ const Sidebar = () => {
   const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
   const hasFullAccess = permissions.full_access === true;
   const designation = localStorage.getItem("designation") || "";
-  const isTeamLeader = designation.toLowerCase().includes("team leader");
+
+  const isTeamLeaderDigital =
+    designation.toLowerCase().includes("digital-team leader") ||
+    designation.toLowerCase().includes("digital team leader");
+
+  const isTeamLeaderQC =
+    designation.toLowerCase().includes("team leader-qa") ||
+    designation.toLowerCase().includes("team leader qa");
+
+  const isTeamLeader =
+    designation.toLowerCase().includes("team leader") &&
+    !designation.toLowerCase().includes("qa") &&
+    !designation.toLowerCase().includes("digital") &&
+    !designation.toLowerCase().includes("compliance");
+
+  const isProjectArchitect = designation
+    .toLowerCase()
+    .includes("project architect");
+
+  const isBusinessOperationManager = designation
+    .toLowerCase()
+    .includes("business operation manager");
+
+  const isSrMerchandiser = designation
+    .toLowerCase()
+    .includes("sr. merchandiser-t");
+
+  const isHeadOfDepartment = designation
+    .toLowerCase()
+    .includes("head of department");
+
+  const isGroupHeadOfAdmin = designation
+    .toLowerCase()
+    .includes("group head of admin");
+
+  const isTeamLeaderCompliance = designation
+    .toLowerCase()
+    .includes("team leader-compliance");
+
+  const isHeadOfFinance = designation
+    .toLowerCase()
+    .includes("head of finance & accounts");  
+
+  const isHeadOfDesign = designation.toLowerCase().includes("head of design");
 
   const dashboardPath = hasFullAccess ? "/hr-work" : "/dashboard";
 
@@ -127,22 +185,81 @@ const Sidebar = () => {
   }, []);
 
   // === MENU ITEMS BASED ON USER PERMISSIONS ===
-  
+
   // Full Access User Menu Items
   const fullAccessMenuItems = [
     { to: "/hr-work", icon: <FiHome />, label: "Dashboard" },
     { to: "/finance-provision", icon: <FiDollarSign />, label: "Finance" },
-    { to: "/chat", icon: <FiMessageSquare />, label: "Chatbox", onClick: handleChatClick },
+    {
+      to: "/chat",
+      icon: <FiMessageSquare />,
+      label: "Chatbox",
+      onClick: handleChatClick,
+    },
   ];
 
   // Regular User Menu Items - Include Performance Appraisal for Team Leaders
   const regularUserMenuItems = [
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply" },
+
+    ...(employeeInfo.reporting_leader ||
+    isTeamLeader ||
+    isTeamLeaderQC ||
+    isTeamLeaderDigital ||
+    isTeamLeaderCompliance ||
+    isProjectArchitect ||
+    isBusinessOperationManager ||
+    isSrMerchandiser ||
+    isHeadOfDepartment ||
+    isGroupHeadOfAdmin ||
+    isHeadOfDesign ||
+    isHeadOfFinance
+      ? [
+          {
+            to: "/team-leaves",
+            icon: <FiUsers />,
+            label: "Team Leaves",
+          },
+        ]
+      : []),
+
     // Add Performance Appraisal for Team Leaders
-    ...(isTeamLeader ? [
-      { to: "/performance-appraisal", icon: <FiAward />, label: "Performance Appraisal" }
-    ] : []),
-    { to: "/chat", icon: <FiMessageSquare />, label: "Chatbox", onClick: handleChatClick },
+    ...(isTeamLeader ||
+    isTeamLeaderQC ||
+    isProjectArchitect ||
+    isBusinessOperationManager ||
+    isSrMerchandiser ||
+    isHeadOfDepartment ||
+    isGroupHeadOfAdmin ||
+    isHeadOfDesign ||
+    isTeamLeaderDigital ||
+    isTeamLeaderCompliance ||
+    isHeadOfFinance
+      ? [
+          {
+            to: "/performance-appraisal",
+            icon: <FiAward />,
+            label: "Performance Appraisal",
+          },
+        ]
+      : []),
+
+    ...(isHeadOfFinance
+      ? [
+          {
+            to: "/finance-provision",
+            icon: <FiDollarSign />,
+            label: "Finance",
+          },
+        ]
+      : []),    
+
+    {
+      to: "/chat",
+      icon: <FiMessageSquare />,
+      label: "Chatbox",
+      onClick: handleChatClick,
+    },
   ];
 
   // Select menu items based on user permissions
@@ -154,7 +271,8 @@ const Sidebar = () => {
     top: "0",
     height: "100vh",
     width: "250px",
-    background: "linear-gradient(135deg, rgb(127, 137, 147), rgb(46, 116, 181))",
+    background:
+      "linear-gradient(135deg, rgb(127, 137, 147), rgb(46, 116, 181))",
     color: "white",
     transition: "left 0.3s ease-in-out",
     display: "flex",
@@ -204,7 +322,8 @@ const Sidebar = () => {
     alignItems: "center",
     padding: "0.5rem 1rem",
     borderRadius: "0.375rem",
-    backgroundColor: location.pathname === path ? "rgba(255, 255, 255, 0.2)" : "transparent",
+    backgroundColor:
+      location.pathname === path ? "rgba(255, 255, 255, 0.2)" : "transparent",
     color: "white",
     textDecoration: "none",
     transition: "background-color 0.2s ease",
@@ -237,17 +356,56 @@ const Sidebar = () => {
             <div style={logoStyle}>
               <img src={logo} alt="Logo" style={logoImageStyle} />
             </div>
-            <span>{isSidebarOpen ? (hasFullAccess ? "HR Dashboard" : "Dashboard") : "D"}</span>
+            <span>
+              {isSidebarOpen
+                ? hasFullAccess
+                  ? "HR Dashboard"
+                  : "Dashboard"
+                : "D"}
+            </span>
           </div>
 
           {/* User Info */}
           {isSidebarOpen && (
             <div style={userInfoStyle}>
-              <div><strong>{localStorage.getItem("employee_name") || "User"}</strong></div>
-              <div>{localStorage.getItem("designation") || "Employee"}</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>
-                {hasFullAccess ? "Full Access" : (isTeamLeader ? "Team Leader" : "Regular User")}
+              <div>
+                <strong>{employeeInfo.name || "User"}</strong>
               </div>
+              <div>{employeeInfo.designation || "Employee"}</div>
+              <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>
+                {hasFullAccess
+                  ? "Full Access"
+                  : isTeamLeader
+                  ? "Merchandising Team Leader"
+                  : isTeamLeaderQC
+                  ? "Team Leader - QA"
+                  : isTeamLeaderDigital
+                  ? "Digital Markeing Team Leader"
+                  : isProjectArchitect
+                  ? "Project Architect"
+                  : isBusinessOperationManager
+                  ? "KLOTHEN Bangladesh"
+                  : isSrMerchandiser
+                  ? "Sr. Merchandiser-T"
+                  : isHeadOfDepartment
+                  ? "Head of Department"
+                  : isGroupHeadOfAdmin
+                  ? "Group Head of Admin"
+                  : isHeadOfDesign
+                  ? "Head of Design"
+                  : isTeamLeaderCompliance
+                  ? "Team Leader - CSR"
+                  : isHeadOfFinance
+                  ? "Team Leader Finance & Accounts"
+                  : "Regular User"}
+              </div>
+              {employeeInfo.reporting_leader && (
+                <div
+                  style={{ fontSize: "0.7rem", opacity: 0.8, marginTop: "4px" }}
+                >
+                  Reports to: {employeeInfo.reporting_leader}
+                </div>
+              )}
             </div>
           )}
 
@@ -255,9 +413,9 @@ const Sidebar = () => {
             <ul style={ulStyle}>
               {menuItems.map(({ to, icon, label, onClick }) => (
                 <li key={to}>
-                  <Link 
-                    to={to} 
-                    style={linkStyle(to)} 
+                  <Link
+                    to={to}
+                    style={linkStyle(to)}
                     onClick={onClick}
                     title={label}
                   >
@@ -299,7 +457,11 @@ const Sidebar = () => {
 
         {/* Toggle Button */}
         <div className="main-content">
-          <button ref={toggleBtnRef} onClick={toggleSidebar} className="menu-btn">
+          <button
+            ref={toggleBtnRef}
+            onClick={toggleSidebar}
+            className="menu-btn"
+          >
             <FiMenu size={24} />
           </button>
         </div>
@@ -321,7 +483,7 @@ const Sidebar = () => {
             color: white;
             border: none;
             padding: 10px 12px;
-            border-radius: 50%;
+            border-radius: "50%";
             cursor: pointer;
             z-index: 1500;
             display: flex;

@@ -70,95 +70,252 @@ const PerformanceAppraisal = () => {
     initializeData();
   }, []);
 
-const fetchAppraisals = async () => {
-  try {
-    setLoading(true);
-    
-    // Fetch both employees and appraisals
-    const [appraisalsResponse, employeesResponse] = await Promise.all([
-      getPerformanceAppraisals(),
-      getEmployees()
-    ]);
-    
-    let allAppraisals = appraisalsResponse.data || appraisalsResponse || [];
-    let allEmployees = employeesResponse.data || employeesResponse || [];
-    
-    const currentUsername = localStorage.getItem("username") || "";
-    
-    console.log(`🔍 Filtering for user: ${currentUsername}`);
-    console.log(`📊 Appraisals: ${allAppraisals.length}, Employees: ${allEmployees.length}`);
+  const fetchAppraisals = async () => {
+    try {
+      setLoading(true);
 
-    let filteredAppraisals = [];
+      // Fetch both employees and appraisals
+      const [appraisalsResponse, employeesResponse] = await Promise.all([
+        getPerformanceAppraisals(),
+        getEmployees(),
+      ]);
 
-    if (currentUsername === 'mizan') {
-      filteredAppraisals = allAppraisals.filter(appraisal => {
-        const employee = allEmployees.find(emp => emp.employee_id === appraisal.employee_id);
-        if (employee) {
-          const reportingLeader = (employee.reporting_leader || "").toLowerCase().trim();
-          const mizanVariations = ["mizan", "mizanur", "rahman", "mr. mizan", "md. mizan"];
-          return mizanVariations.some(variation => 
-            reportingLeader.includes(variation.toLowerCase())
-          );
-        }
-        return false;
-      });
-    } 
-    else if (currentUsername === 'shafiq') {
-      filteredAppraisals = allAppraisals.filter(appraisal => {
-        const employee = allEmployees.find(emp => emp.employee_id === appraisal.employee_id);
-        if (employee) {
-          const reportingLeader = (employee.reporting_leader || "").toLowerCase().trim();
-          const shafiqVariations = ["shafiq", "shafique", "shafik", "mr. shafiq", "md. shafiq", "shafiqul", "shafiqur"];
-          return shafiqVariations.some(variation => 
-            reportingLeader.includes(variation.toLowerCase())
-          );
-        }
-        return false;
-      });
-    } 
-    else {
-      const currentUserEmployeeId = localStorage.getItem("employee_id") || "";
-      filteredAppraisals = allAppraisals.filter(appraisal => 
-        appraisal.employee_id === currentUserEmployeeId
+      let allAppraisals = appraisalsResponse.data || appraisalsResponse || [];
+      let allEmployees = employeesResponse.data || employeesResponse || [];
+
+      const currentUsername = localStorage.getItem("username") || "";
+
+      console.log(`🔍 Filtering for user: ${currentUsername}`);
+      console.log(
+        `📊 Appraisals: ${allAppraisals.length}, Employees: ${allEmployees.length}`
       );
+
+      let filteredAppraisals = [];
+
+      if (currentUsername === "Mizanur") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const mizanVariations = ["mr. mizan"];
+            return mizanVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Shafiq") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shafiqVariations = ["md. shafiql islam"];
+            return shafiqVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Shamoly") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Ms. Shamoly Sultana"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Habib") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Habib"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Atiq") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Atiquzzaman"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Soyeb") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Soyeb Rahman"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Amran") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Amran"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Auhona") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Ms. Auhona Rashid"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Ananda") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Ananda"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Mahmuda") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Ms. Mahmuda"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Sohel") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Sohel Rana"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Nayeem") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Nayeem"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Morshed") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Morshed"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else {
+        const currentUserEmployeeId = localStorage.getItem("employee_id") || "";
+        filteredAppraisals = allAppraisals.filter(
+          (appraisal) => appraisal.employee_id === currentUserEmployeeId
+        );
+      }
+
+      console.log(`📋 Final appraisals: ${filteredAppraisals.length}`);
+      setAppraisals(filteredAppraisals);
+    } catch (err) {
+      setError("Failed to fetch performance appraisals");
+      console.error("Error fetching appraisals:", err);
+    } finally {
+      setLoading(false);
     }
-    
-    console.log(`📋 Final appraisals: ${filteredAppraisals.length}`);
-    setAppraisals(filteredAppraisals);
-  } catch (err) {
-    setError("Failed to fetch performance appraisals");
-    console.error("Error fetching appraisals:", err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // const fetchEmployees = async () => {
-  //   try {
-  //     const response = await getEmployees();
-  //     let allEmployees = [];
-
-  //     if (Array.isArray(response.data)) {
-  //       allEmployees = response.data;
-  //     }
-
-  //     const currentUserName = localStorage.getItem("employee_name") || "MD. MIZANUR RAHMAN";
-
-  //     const filteredEmployees = allEmployees.filter((employee) => {
-  //       const reportingLeader = (employee.reporting_leader || "").toLowerCase().trim();
-  //       const mizanVariations = ["mr. mizan"];
-
-  //       return mizanVariations.some((variation) =>
-  //         reportingLeader.includes(variation.toLowerCase())
-  //       );
-  //     });
-
-  //     setEmployees(filteredEmployees);
-  //   } catch (err) {
-  //     console.error("Error fetching employees:", err);
-  //     setEmployees([]);
-  //   }
-  // };
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -176,7 +333,7 @@ const fetchAppraisals = async () => {
       let filteredEmployees = [];
 
       // For mizan user
-      if (currentUsername === "mizan") {
+      if (currentUsername === "Mizanur") {
         console.log("👤 Filtering for mizan's team...");
         filteredEmployees = allEmployees.filter((employee) => {
           const reportingLeader = (employee.reporting_leader || "")
@@ -198,7 +355,7 @@ const fetchAppraisals = async () => {
         });
       }
       // For shafiq user
-      else if (currentUsername === "shafiq") {
+      else if (currentUsername === "Shafiq") {
         console.log("👤 Filtering for shafiq's team...");
         filteredEmployees = allEmployees.filter((employee) => {
           const reportingLeader = (employee.reporting_leader || "")
@@ -216,6 +373,230 @@ const fetchAppraisals = async () => {
             );
           }
 
+          return matches;
+        });
+      }
+      // For Shamoly user
+      else if (currentUsername === "Shamoly") {
+        console.log("👤 Filtering for shafiq's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const shamolyVariations = ["ms. shamoly sultana"];
+
+          const matches = shamolyVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+
+          return matches;
+        });
+      }
+      // For Habib user
+      else if (currentUsername === "Habib") {
+        console.log("👤 Filtering for Habib's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const habibVariations = ["mr. habib"];
+
+          const matches = habibVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+
+          return matches;
+        });
+      }
+      // For Atiq user
+      else if (currentUsername === "Atiq") {
+        console.log("👤 Filtering for Atiq's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Atiquzzaman"];
+
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+
+          return matches;
+        });
+      }
+      // For Soyeb user
+      else if (currentUsername === "Soyeb") {
+        console.log("👤 Filtering for Soyeb's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Soyeb Rahman"];
+
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+
+          return matches;
+        });
+      }
+      // For Amran user
+      else if (currentUsername === "Amran") {
+        console.log("👤 Filtering for Soyeb's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Amran"];
+
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+
+          return matches;
+        });
+      }
+      // For Auhona user
+      else if (currentUsername === "Auhona") {
+        console.log("👤 Filtering for Auhona's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Ms. Auhona Rashid"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
+      // For Ananda user
+      else if (currentUsername === "Ananda") {
+        console.log("👤 Filtering for Ananda's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Ananda"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
+      // For Mahmuda user
+      else if (currentUsername === "Mahmuda") {
+        console.log("👤 Filtering for Ananda's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Ms. Mahmuda"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
+      // For Sohel user
+      else if (currentUsername === "Sohel") {
+        console.log("👤 Filtering for Sohel's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Sohel Rana"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
+      // For Nayeem user
+      else if (currentUsername === "Nayeem") {
+        console.log("👤 Filtering for Nayeem's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Nayeem"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
+      // For Morshed user
+      else if (currentUsername === "Morshed") {
+        console.log("👤 Filtering for Morshed's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Morshed"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
           return matches;
         });
       }
@@ -1275,7 +1656,7 @@ const fetchAppraisals = async () => {
 
               <div style={fieldContainerStyle}>
                 <label htmlFor="last_increment_date" style={labelStyle}>
-                  Last Increment Date
+                  Increment Date
                 </label>
                 <input
                   type="date"
@@ -1289,7 +1670,7 @@ const fetchAppraisals = async () => {
 
               <div style={fieldContainerStyle}>
                 <label htmlFor="last_promotion_date" style={labelStyle}>
-                  Last Promotion Date
+                  Promotion Date
                 </label>
                 <input
                   type="date"
