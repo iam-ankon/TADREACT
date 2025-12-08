@@ -33,12 +33,12 @@ const LoginPage = () => {
     "CSR",
     "Merchandising",
     "Digital Marketing Department & E-Commerce",
-    "Finance Department",
+    "Finance & Accounts",
     "KLOTHEN Bangladesh",
     "IT Department",
     "LOGISTICS DEPARTMENT",
     "KOITHE Bangladesh",
-    "Ladies-Mens Dept",
+    "Management",
     "Software Development",
   ];
 

@@ -615,6 +615,10 @@ const EmployeeDetailPage = () => {
                     <span>Bank Account:</span>
                     <span>{employee.bank_account || "N/A"}</span>
                   </div>
+                  <div className="detail-row">
+                    <span>Branch Code:</span>
+                    <span>{employee.branch_name || "N/A"}</span>
+                  </div>
                 </div>
 
                 <div className="detail-section">

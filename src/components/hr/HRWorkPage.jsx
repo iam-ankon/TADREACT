@@ -134,7 +134,6 @@ const HRWorkPage = () => {
     year: "numeric",
   });
 
-  // In HRWorkPage.jsx - Add this function inside the component before the return statement
 
   const calculateOnTimeAttendancePercentage = (attendanceData) => {
     if (
@@ -157,17 +156,30 @@ const HRWorkPage = () => {
       return "0%";
     }
 
-    // Count employees who checked in at or before 8:00 AM
+    // Count employees who checked in at or before 9:30 AM
     const onTimeCount = todayAttendance.filter((record) => {
       if (!record.check_in) return false;
 
       try {
         // Parse check_in time
-        const checkInTime = new Date(`2000-01-01T${record.check_in}`);
-        const eightAM = new Date("2000-01-01T08:00:00");
+        const checkInStr = record.check_in.trim();
 
-        // Check if check-in is at or before 8:00 AM
-        return checkInTime <= eightAM;
+        // Check if it's already a full time (HH:MM:SS)
+        if (checkInStr.includes(":")) {
+          const timeParts = checkInStr.split(":");
+          const hours = parseInt(timeParts[0]);
+          const minutes = parseInt(timeParts[1]);
+
+          // Simple comparison: before or at 9:30 AM
+          if (hours < 9) return true; // Before 9 AM
+          if (hours === 9) {
+            // At 9 AM, check minutes
+            if (minutes <= 30) return true; // At or before 9:30
+          }
+          return false; // After 9:30
+        }
+
+        return false;
       } catch (error) {
         console.warn("Error parsing check_in time:", record.check_in);
         return false;
@@ -179,43 +191,6 @@ const HRWorkPage = () => {
     return `${percentage}%`;
   };
 
-  // Add this function to calculate actual numbers
-  const calculateAttendanceStats = (attendanceData) => {
-    if (!attendanceData || !Array.isArray(attendanceData)) {
-      return { onTime: 0, total: 0, percentage: 0 };
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-    const todayAttendance = attendanceData.filter((record) => {
-      if (!record.date) return false;
-      const recordDate = new Date(record.date).toISOString().split("T")[0];
-      return recordDate === today;
-    });
-
-    if (todayAttendance.length === 0) {
-      return { onTime: 0, total: 0, percentage: 0 };
-    }
-
-    const onTimeCount = todayAttendance.filter((record) => {
-      if (!record.check_in) return false;
-
-      try {
-        const checkInTime = new Date(`2000-01-01T${record.check_in}`);
-        const eightAM = new Date("2000-01-01T08:00:00");
-        return checkInTime <= eightAM;
-      } catch {
-        return false;
-      }
-    }).length;
-
-    const percentage = Math.round((onTimeCount / todayAttendance.length) * 100);
-
-    return {
-      onTime: onTimeCount,
-      total: todayAttendance.length,
-      percentage: percentage,
-    };
-  };
 
   // Enhanced stats with trends and colors
   const stats = [
@@ -236,6 +211,7 @@ const HRWorkPage = () => {
       trendDirection: "up",
       color: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
       bgColor: "rgba(16, 185, 129, 0.1)",
+      description: "Arrived by 9:30 AM", // Added description
     },
     {
       title: "Interviews",
@@ -463,16 +439,30 @@ const HRWorkPage = () => {
                         Error loading
                       </p>
                     ) : (
-                      <p
-                        style={{
-                          fontSize: "1.875rem",
-                          fontWeight: 700,
-                          margin: "0.5rem 0 0 0",
-                          color: "white",
-                        }}
-                      >
-                        {stat.value}
-                      </p>
+                      <div>
+                        <p
+                          style={{
+                            fontSize: "1.875rem",
+                            fontWeight: 700,
+                            margin: "0.5rem 0 0 0",
+                            color: "white",
+                          }}
+                        >
+                          {stat.value}
+                        </p>
+                        {stat.description && (
+                          <p
+                            style={{
+                              fontSize: "0.7rem",
+                              color: "rgba(255,255,255,0.8)",
+                              marginTop: "0.25rem",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            {stat.description}
+                          </p>
+                        )}
+                      </div>
                     )}
                     <div
                       style={{

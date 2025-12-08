@@ -64,7 +64,7 @@ const Interviews = () => {
   const [candidateData, setCandidateData] = useState(null);
   const [interviews, setInterviews] = useState([]);
   const currentUser = localStorage.getItem("username");
-
+  const [localInterviewDate, setLocalInterviewDate] = useState("");
   const [selectedInterview, setSelectedInterview] = useState(null);
   const { name, position_for, age, email, phone, reference } =
     location.state || {};
@@ -110,6 +110,38 @@ const Interviews = () => {
     }
     return false;
   });
+
+  useEffect(() => {
+    if (formData.interview_date) {
+      const date = new Date(formData.interview_date);
+      const bangladeshTime = new Date(date.getTime() + 6 * 60 * 60 * 1000);
+
+      const year = bangladeshTime.getFullYear();
+      const month = String(bangladeshTime.getMonth() + 1).padStart(2, "0");
+      const day = String(bangladeshTime.getDate()).padStart(2, "0");
+      const hours = String(bangladeshTime.getHours()).padStart(2, "0");
+      const minutes = String(bangladeshTime.getMinutes()).padStart(2, "0");
+
+      setLocalInterviewDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+    } else {
+      setLocalInterviewDate("");
+    }
+  }, [formData.interview_date]);
+
+  const handleInterviewDateChange = (e) => {
+    const bangladeshDateTime = e.target.value;
+    setLocalInterviewDate(bangladeshDateTime);
+
+    if (bangladeshDateTime) {
+      const bangladeshDate = new Date(bangladeshDateTime);
+      const utcDate = new Date(bangladeshDate.getTime() - 6 * 60 * 60 * 1000);
+
+      setFormData((prev) => ({
+        ...prev,
+        interview_date: utcDate.toISOString(),
+      }));
+    }
+  };
 
   // Calculate interview mark and result
   const calculateInterviewMark = (formData) => {
@@ -1679,9 +1711,18 @@ const Interviews = () => {
                       <div style={styles.formGroup}>
                         <span style={styles.label}>Interview Date</span>
                         <div>
-                          {new Date(
-                            selectedInterview.interview_date
-                          ).toLocaleString()}
+                          {selectedInterview.interview_date
+                            ? new Date(
+                                selectedInterview.interview_date
+                              ).toLocaleString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                            : "N/A"}
                         </div>
                       </div>
                       <div style={styles.formGroup}>
@@ -2062,13 +2103,23 @@ const Interviews = () => {
                       <div style={styles.formRow}>
                         <div style={styles.formGroup}>
                           <label style={styles.label}>Interview Date</label>
-                          <input
-                            type="datetime-local"
-                            name="interview_date"
-                            value={formData.interview_date}
-                            onChange={handleInputChange}
-                            style={styles.input}
-                          />
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                            }}
+                          >
+                            <input
+                              type="datetime-local"
+                              value={localInterviewDate}
+                              onChange={handleInterviewDateChange}
+                              style={styles.input}
+                            />
+                            <span style={{ fontSize: "12px", color: "#666" }}>
+                              (Bangladesh Time)
+                            </span>
+                          </div>
                         </div>
                         <div style={styles.formGroup}>
                           <label style={styles.label}>Place</label>

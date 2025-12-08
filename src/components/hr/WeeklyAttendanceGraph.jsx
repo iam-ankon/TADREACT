@@ -244,7 +244,7 @@ const WeeklyAttendanceGraph = () => {
           <div style={styles.legend}>
             <div style={styles.legendItem}>
               <div style={{...styles.legendColor, backgroundColor: '#10b981'}}></div>
-              <span>On-Time (≤ 8:00 AM)</span>
+              <span>On-Time (≤ 9:30 AM)</span>
             </div>
             <div style={styles.legendItem}>
               <div style={{...styles.legendColor, backgroundColor: '#ef4444'}}></div>

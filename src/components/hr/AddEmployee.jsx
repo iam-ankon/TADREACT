@@ -41,6 +41,7 @@ const AddEmployee = () => {
     blood_group: "",
     gender: "",
     bank_account: "",
+    branch_name: "",
   });
 
   const [companies, setCompanies] = useState([]);
@@ -230,6 +231,7 @@ const AddEmployee = () => {
         { name: "emergency_contact", label: "Emergency Contact" },
         { name: "nid_number", label: "NID Number" },
         { name: "bank_account", label: "Bank Account Number" },
+        { name: "branch_name", label: "Branch Code" },
         { name: "blood_group", label: "Blood Group" },
         {
           name: "gender",

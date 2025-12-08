@@ -88,7 +88,7 @@ const Attendance = () => {
 
   // ... (all the helper functions remain exactly the same)
   const formatTimeToAMPM = (timeStr) => {
-    if (!timeStr) return "8:00 AM"; // Default to 8:00 AM when no time provided
+    if (!timeStr) return "9:30 AM"; // Default to 8:00 AM when no time provided
 
     try {
       const timePart = timeStr.includes("T")
@@ -99,7 +99,7 @@ const Attendance = () => {
       const hours12 = hours % 12 || 12;
       return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
     } catch {
-      return "8:00 AM"; // Default to 8:00 AM on error
+      return "9:30 AM"; // Default to 8:00 AM on error
     }
   };
 

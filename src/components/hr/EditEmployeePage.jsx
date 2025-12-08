@@ -42,6 +42,7 @@ const EditEmployeePage = () => {
     blood_group: "",
     gender: "",
     bank_account: "",
+    branch_name: "",
   });
 
   const [companies, setCompanies] = useState([]);
@@ -134,6 +135,8 @@ const EditEmployeePage = () => {
         nid_number: employee.nid_number || "",
         blood_group: employee.blood_group || "",
         gender: employee.gender || "",
+        bank_account: employee.bank_account || "",
+        branch_name: employee.branch_name || "",
       };
 
       // Handle email separately to allow null values
@@ -342,6 +345,7 @@ const EditEmployeePage = () => {
               { name: "reference_phone", label: "Reference Phone" },
               { name: "job_title", label: "Job Title" },
               { name: "bank_account", label: "Bank Account Number" },
+              { name: "branch_name", label: "Branch Code" },
               { name: "nid_number", label: "NID Number" },
               { name: "blood_group", label: "Blood Group" },
               { name: "salary", label: "Salary", type: "number" },

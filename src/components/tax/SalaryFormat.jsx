@@ -1,3 +1,4 @@
+
 // src/pages/finance/SalaryFormat.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -637,8 +638,11 @@ const SalaryFormat = () => {
         const conveyanceFull = Number((monthlySalary * 0.05).toFixed(2));
         const grossFull = Number(monthlySalary.toFixed(2));
 
-        const ait =
-          Number(taxResults[empId]?.tax_calculation?.monthly_tds) || 0;
+        // Get tax calculation with deduction logic
+        const taxResult = taxResults[empId] || {};
+        const taxCalc = taxResult.tax_calculation || {};
+        const shouldDeduct = taxCalc.should_deduct_tax || false;
+        const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0; // Only deduct if salary > 41K
 
         const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
         const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
@@ -703,7 +707,7 @@ const SalaryFormat = () => {
           absent_days: absentDays,
           absent_ded: absentDeduction,
           advance: advance,
-          ait: ait,
+          ait: ait, // This will be 0 for salary <= 41K
           total_ded: totalDeduction,
           ot_hours: 0,
           addition: addition,
@@ -711,6 +715,8 @@ const SalaryFormat = () => {
           net_pay_bank: netPayBank,
           total_payable: totalPayable,
           remarks: remarks,
+          bank_account: emp.bank_account?.trim() || "",
+          branch_name: emp.branch_name?.trim() || "",
         };
       })
       .filter(Boolean);
@@ -780,12 +786,19 @@ const SalaryFormat = () => {
 
   const getAitValue = (empId) => {
     if (loadingAit[empId]) {
-      return "Loading...";
+      return { ait: 0, calculatedAit: 0, shouldDeduct: false };
     }
+    
     const result = taxResults[empId];
-    if (!result) return 0;
-    if (result.error) return "Error";
-    return result.tax_calculation?.monthly_tds || 0;
+    if (!result) return { ait: 0, calculatedAit: 0, shouldDeduct: false };
+    if (result.error) return { ait: 0, calculatedAit: 0, shouldDeduct: false };
+    
+    const taxCalc = result.tax_calculation || {};
+    const calculatedAit = taxCalc.monthly_tds || 0;
+    const shouldDeduct = taxCalc.should_deduct_tax || false;
+    const ait = shouldDeduct ? calculatedAit : 0;
+    
+    return { ait, calculatedAit, shouldDeduct };
   };
 
   const exportCompanyData = (companyName) => {
@@ -816,6 +829,8 @@ const SalaryFormat = () => {
       "Net Pay (Bank)",
       "Total Payable",
       "Remarks",
+      "Bank Account",
+      "Branch Code",
     ];
 
     const rows = [];
@@ -830,8 +845,8 @@ const SalaryFormat = () => {
       const conveyanceFull = monthlySalary * 0.05;
       const grossFull = monthlySalary;
 
-      const ait = getAitValue(empId);
-      const numericAit = typeof ait === "number" ? ait : 0;
+      // Get tax calculation with deduction logic
+      const { ait, calculatedAit, shouldDeduct } = getAitValue(empId);
 
       const daysWorkedManual = getManual(empId, "daysWorked");
       const cashPayment = getManual(empId, "cashPayment");
@@ -853,11 +868,11 @@ const SalaryFormat = () => {
       const dailyRate = monthlySalary / totalDaysInMonth;
       const dailyBasic = basicFull / BASE_MONTH;
       const absentDeduction = dailyBasic * absentDays;
-      const totalDeduction = numericAit + advance + absentDeduction;
+      const totalDeduction = ait + advance + absentDeduction;
 
       const netPayBank =
         monthlySalary - cashPayment - totalDeduction + addition;
-      const totalPayable = netPayBank + cashPayment + numericAit;
+      const totalPayable = netPayBank + cashPayment + ait;
 
       rows.push([
         idx + 1,
@@ -875,7 +890,7 @@ const SalaryFormat = () => {
         absentDays,
         absentDeduction,
         advance,
-        numericAit,
+        ait, // This will be 0 for salary <= 41K
         totalDeduction,
         0,
         addition,
@@ -883,6 +898,8 @@ const SalaryFormat = () => {
         netPayBank,
         totalPayable,
         remarks,
+        emp.bank_account,
+        emp.branch_name,
       ]);
     });
 
@@ -1031,6 +1048,10 @@ const SalaryFormat = () => {
 
         alert(
           `❌ Network error: ${error.message}\n\n` +
+            `Possible issues:\n` +
+            `1. Server is down\n` +
+            `2. CORS issue\n` +
+            `3. Network problem\n\n` +
             `Check console for details.`
         );
       }
@@ -1102,7 +1123,6 @@ const SalaryFormat = () => {
   };
 
   // Update your handleDownloadExcel function
-
   const handleDownloadExcel = async (companyName, fileType = "bank") => {
     try {
       console.log(`📥 Downloading ${fileType} Excel for ${companyName}`);
@@ -1263,7 +1283,6 @@ const SalaryFormat = () => {
   };
 
   // Update the generateExcelNow function
-
   const generateExcelNow = async (companyName) => {
     const confirmGen = window.confirm(
       `Generate Excel file for ${companyName}?\n\nMonth: ${
@@ -1620,13 +1639,6 @@ const SalaryFormat = () => {
                     </h3>
                   </div>
                   <button
-                    onClick={() => generateExcelNow(comp)}
-                    className="btn btn-generate-excel"
-                    title={`Generate Bank Transfer Excel for ${comp}`}
-                  >
-                    <FaFileExcel /> Generate Bank Excel
-                  </button>
-                  <button
                     onClick={() => exportCompanyData(comp)}
                     className="btn btn-export-section"
                   >
@@ -1662,6 +1674,8 @@ const SalaryFormat = () => {
                           <th>Net Pay (Bank)</th>
                           <th>Total Payable</th>
                           <th>Remarks</th>
+                          <th>Bank Account</th>
+                          <th>Branch Code</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1675,8 +1689,12 @@ const SalaryFormat = () => {
                           const conveyanceFull = monthlySalary * 0.05;
                           const grossFull = monthlySalary;
 
-                          const ait = getAitValue(empId);
-                          const numericAit = typeof ait === "number" ? ait : 0;
+                          // Get tax calculation with deduction logic
+                          const taxResult = taxResults[empId] || {};
+                          const taxCalc = taxResult.tax_calculation || {};
+                          const shouldDeduct = taxCalc.should_deduct_tax || false;
+                          const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                          const calculatedAit = taxCalc.monthly_tds || 0;
 
                           const daysWorkedManual = getManual(
                             empId,
@@ -1705,7 +1723,7 @@ const SalaryFormat = () => {
                           const dailyBasic = basicFull / BASE_MONTH;
                           const absentDeduction = dailyBasic * absentDays;
                           const totalDeduction =
-                            numericAit + advance + absentDeduction;
+                            ait + advance + absentDeduction;
 
                           const netPayBank =
                             monthlySalary -
@@ -1713,7 +1731,7 @@ const SalaryFormat = () => {
                             totalDeduction +
                             addition;
                           const totalPayable =
-                            netPayBank + cashPayment + numericAit;
+                            netPayBank + cashPayment + ait;
 
                           return (
                             <tr key={empId} className="data-row">
@@ -1785,12 +1803,26 @@ const SalaryFormat = () => {
                               <td
                                 className={`tax-amount ${
                                   loadingAit[empId] ? "loading" : ""
+                                } ${
+                                  calculatedAit > 0 && !shouldDeduct ? "calculated-no-deduct" : ""
                                 }`}
                               >
                                 {loadingAit[empId] ? (
                                   <span className="loading-dots">...</span>
                                 ) : (
-                                  formatNumber(numericAit)
+                                  <div className="tax-breakdown">
+                                    <div className="tax-amount-main">
+                                      {formatNumber(ait)}
+                                    </div>
+                                    {calculatedAit > 0 && !shouldDeduct && (
+                                      <div 
+                                        className="tax-note" 
+                                        title={`Calculated: ${formatNumber(calculatedAit)} (Not deducted - Salary ≤ 41,000)`}
+                                      >
+                                        (Calc: {formatNumber(calculatedAit)})
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                               <td className="deduction-amount total-deduction">
@@ -1857,11 +1889,62 @@ const SalaryFormat = () => {
                                   className="editable-input remarks-input"
                                 />
                               </td>
+                              <td className="bank-account">
+                                {emp.bank_account || "N/A"}
+                              </td> 
+                              <td className="branch-code">
+                                {emp.branch_name || "N/A"}
+                              </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+
+                {/* TAX SUMMARY SECTION */}
+                <div className="tax-summary-note">
+                  <h4>📊 Tax Deduction Summary for {comp}</h4>
+                  <div className="summary-stats">
+                    <div className="summary-stat">
+                      <span className="stat-label">Total Employees:</span>
+                      <span className="stat-value">{emps.length}</span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Tax-Deductible Employees (Salary &gt; 41K):</span>
+                      <span className="stat-value">
+                        {emps.filter(e => Number(e.salary || 0) > 41000).length}
+                      </span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Tax-Exempt Employees (Salary ≤ 41K):</span>
+                      <span className="stat-value">
+                        {emps.filter(e => Number(e.salary || 0) <= 41000).length}
+                      </span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Total Calculated Tax:</span>
+                      <span className="stat-value">
+                        {formatNumber(emps.reduce((sum, e) => {
+                          const result = taxResults[e.employee_id] || {};
+                          const taxCalc = result.tax_calculation || {};
+                          return sum + (taxCalc.monthly_tds || 0);
+                        }, 0))}
+                      </span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Total Deducted Tax:</span>
+                      <span className="stat-value">
+                        {formatNumber(emps.reduce((sum, e) => {
+                          const result = taxResults[e.employee_id] || {};
+                          const taxCalc = result.tax_calculation || {};
+                          const shouldDeduct = taxCalc.should_deduct_tax || false;
+                          const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                          return sum + ait;
+                        }, 0))}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -1915,12 +1998,15 @@ const SalaryFormat = () => {
                   <div className="stat-number">
                     {formatNumber(
                       filteredEmployees.reduce((s, e) => {
-                        const ait = getAitValue(e.employee_id);
-                        return s + (typeof ait === "number" ? ait : 0);
+                        const result = taxResults[e.employee_id] || {};
+                        const taxCalc = result.tax_calculation || {};
+                        const shouldDeduct = taxCalc.should_deduct_tax || false;
+                        const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                        return s + ait;
                       }, 0)
                     )}
                   </div>
-                  <div className="stat-label">Total AIT</div>
+                  <div className="stat-label">Total Deducted AIT</div>
                 </div>
               </div>
 
@@ -1933,7 +2019,7 @@ const SalaryFormat = () => {
                         <th>Company</th>
                         <th>Employees</th>
                         <th>Gross Salary</th>
-                        <th>AIT</th>
+                        <th>AIT (Deducted)</th>
                         <th>Absent Ded.</th>
                         <th>Advance</th>
                         <th>Cash</th>
@@ -1959,26 +2045,32 @@ const SalaryFormat = () => {
                               : totalDaysInMonth;
                             const daysWorked =
                               getManual(empId, "daysWorked") || defaultDays;
-                            const ait = getAitValue(empId);
-                            const numericAit =
-                              typeof ait === "number" ? ait : 0;
+                            
+                            // Get tax calculation with deduction logic
+                            const result = taxResults[empId] || {};
+                            const taxCalc = result.tax_calculation || {};
+                            const shouldDeduct = taxCalc.should_deduct_tax || false;
+                            const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                            const calculatedAit = taxCalc.monthly_tds || 0;
+                            
                             const absentDed =
                               ((salary * 0.6) / BASE_MONTH) *
                               (totalDaysInMonth - daysWorked);
                             const advance = getManual(empId, "advance");
                             const cash = getManual(empId, "cashPayment");
                             const addition = getManual(empId, "addition");
-                            const totalDed = numericAit + advance + absentDed;
+                            const totalDed = ait + advance + absentDed;
                             const netBank =
                               (salary / totalDaysInMonth) * daysWorked -
                               cash -
                               totalDed +
                               addition;
-                            const totalPay = netBank + cash + numericAit;
+                            const totalPay = netBank + cash + ait;
 
                             return {
                               gross: acc.gross + salary,
-                              ait: acc.ait + numericAit,
+                              ait: acc.ait + ait,
+                              calculatedAit: acc.calculatedAit + calculatedAit,
                               absentDed: acc.absentDed + absentDed,
                               advance: acc.advance + advance,
                               cash: acc.cash + cash,
@@ -1990,6 +2082,7 @@ const SalaryFormat = () => {
                           {
                             gross: 0,
                             ait: 0,
+                            calculatedAit: 0,
                             absentDed: 0,
                             advance: 0,
                             cash: 0,
@@ -2008,7 +2101,12 @@ const SalaryFormat = () => {
                               {formatNumber(summary.gross)}
                             </td>
                             <td className="tax-amount">
-                              {formatNumber(summary.ait)}
+                              <div className="tax-breakdown">
+                                <div className="tax-amount-main">{formatNumber(summary.ait)}</div>
+                                {summary.calculatedAit > summary.ait && (
+                                  <div className="tax-note">(Calc: {formatNumber(summary.calculatedAit)})</div>
+                                )}
+                              </div>
                             </td>
                             <td className="deduction-amount">
                               {formatNumber(summary.absentDed)}
@@ -2057,12 +2155,30 @@ const SalaryFormat = () => {
                           )}
                         </td>
                         <td className="grand-total-tax">
-                          {formatNumber(
-                            filteredEmployees.reduce((s, e) => {
-                              const ait = getAitValue(e.employee_id);
-                              return s + (typeof ait === "number" ? ait : 0);
-                            }, 0)
-                          )}
+                          <div className="tax-breakdown">
+                            <div className="tax-amount-main">
+                              {formatNumber(
+                                filteredEmployees.reduce((s, e) => {
+                                  const result = taxResults[e.employee_id] || {};
+                                  const taxCalc = result.tax_calculation || {};
+                                  const shouldDeduct = taxCalc.should_deduct_tax || false;
+                                  const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                                  return s + ait;
+                                }, 0)
+                              )}
+                            </div>
+                            <div className="tax-note">
+                              (Calc:{" "}
+                              {formatNumber(
+                                filteredEmployees.reduce((s, e) => {
+                                  const result = taxResults[e.employee_id] || {};
+                                  const taxCalc = result.tax_calculation || {};
+                                  return s + (taxCalc.monthly_tds || 0);
+                                }, 0)
+                              )}
+                              )
+                            </div>
+                          </div>
                         </td>
                         <td className="grand-total-deduction">
                           {formatNumber(
@@ -2138,16 +2254,17 @@ const SalaryFormat = () => {
                                 : totalDaysInMonth;
                               const daysWorked =
                                 getManual(empId, "daysWorked") || defaultDays;
-                              const ait = getAitValue(empId);
-                              const numericAit =
-                                typeof ait === "number" ? ait : 0;
+                              const result = taxResults[empId] || {};
+                              const taxCalc = result.tax_calculation || {};
+                              const shouldDeduct = taxCalc.should_deduct_tax || false;
+                              const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
                               const absentDed =
                                 ((salary * 0.6) / BASE_MONTH) *
                                 (totalDaysInMonth - daysWorked);
                               const advance = getManual(empId, "advance");
                               const cash = getManual(empId, "cashPayment");
                               const addition = getManual(empId, "addition");
-                              const totalDed = numericAit + advance + absentDed;
+                              const totalDed = ait + advance + absentDed;
                               const netBank =
                                 (salary / totalDaysInMonth) * daysWorked -
                                 cash -
@@ -2173,16 +2290,17 @@ const SalaryFormat = () => {
                                 : totalDaysInMonth;
                               const daysWorked =
                                 getManual(empId, "daysWorked") || defaultDays;
-                              const ait = getAitValue(empId);
-                              const numericAit =
-                                typeof ait === "number" ? ait : 0;
+                              const result = taxResults[empId] || {};
+                              const taxCalc = result.tax_calculation || {};
+                              const shouldDeduct = taxCalc.should_deduct_tax || false;
+                              const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
                               const absentDed =
                                 ((salary * 0.6) / BASE_MONTH) *
                                 (totalDaysInMonth - daysWorked);
                               const advance = getManual(empId, "advance");
                               const cash = getManual(empId, "cashPayment");
                               const addition = getManual(empId, "addition");
-                              const totalDed = numericAit + advance + absentDed;
+                              const totalDed = ait + advance + absentDed;
                               const netBank =
                                 (salary / totalDaysInMonth) * daysWorked -
                                 cash -
@@ -2207,22 +2325,23 @@ const SalaryFormat = () => {
                                 : totalDaysInMonth;
                               const daysWorked =
                                 getManual(empId, "daysWorked") || defaultDays;
-                              const ait = getAitValue(empId);
-                              const numericAit =
-                                typeof ait === "number" ? ait : 0;
+                              const result = taxResults[empId] || {};
+                              const taxCalc = result.tax_calculation || {};
+                              const shouldDeduct = taxCalc.should_deduct_tax || false;
+                              const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
                               const absentDed =
                                 ((salary * 0.6) / BASE_MONTH) *
                                 (totalDaysInMonth - daysWorked);
                               const advance = getManual(empId, "advance");
                               const cash = getManual(empId, "cashPayment");
                               const addition = getManual(empId, "addition");
-                              const totalDed = numericAit + advance + absentDed;
+                              const totalDed = ait + advance + absentDed;
                               const netBank =
                                 (salary / totalDaysInMonth) * daysWorked -
                                 cash -
                                 totalDed +
                                 addition;
-                              const totalPay = netBank + cash + numericAit;
+                              const totalPay = netBank + cash + ait;
                               return s + totalPay;
                             }, 0)
                           )}
@@ -2687,6 +2806,34 @@ const SalaryFormat = () => {
           }
         }
 
+        /* TAX BREAKDOWN STYLES */
+        .tax-breakdown {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .tax-amount-main {
+          font-weight: 700;
+          font-size: 1rem;
+        }
+
+        .tax-note {
+          font-size: 0.7rem;
+          color: #8b5cf6;
+          background: #f3f4f6;
+          padding: 1px 4px;
+          border-radius: 4px;
+          font-weight: 500;
+          cursor: help;
+        }
+
+        .calculated-no-deduct {
+          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+          border: 2px solid #f59e0b !important;
+        }
+
         /* BEAUTIFUL COLOR CODING */
         .sl-number {
           color: #7c3aed;
@@ -2806,6 +2953,22 @@ const SalaryFormat = () => {
           background: #f1f5f9;
           padding: 0.5rem;
           border-radius: 8px;
+        }
+
+        /* TAX SUMMARY SECTION */
+        .tax-summary-note {
+          margin-top: 1rem;
+          padding: 1.5rem;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .tax-summary-note h4 {
+          margin-top: 0;
+          color: #1e293b;
+          margin-bottom: 1rem;
+          font-size: 1.2rem;
         }
 
         /* APPROVAL BUTTONS STYLES */
