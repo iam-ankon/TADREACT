@@ -202,8 +202,7 @@ const Sidebar = () => {
   const regularUserMenuItems = [
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply" },
 
-    ...(employeeInfo.reporting_leader ||
-    isTeamLeader ||
+    ...(isTeamLeader ||
     isTeamLeaderQC ||
     isTeamLeaderDigital ||
     isTeamLeaderCompliance ||

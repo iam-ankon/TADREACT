@@ -303,8 +303,6 @@ export const testHRMSEndpoint = () => hrmsApi.get("employees/");
 
 /* -------------------------------------------------------------------------- */
 /*  4.  AUTHENTICATION                                                       */
-/* -------------------------------------------------------------------------- */
-// In employeeApi.js - Update the loginUser function
 export const loginUser = async (payload) => {
   const { username, password, employee_id, designation, department, email } = payload;
 
@@ -553,20 +551,7 @@ export const updateEmployeeCustomers = (id, customerIds) => {
 
 
 
-// In employeeApi.js - Add this function
-export const getTeamLeaves = async () => {
-  try {
-    console.log("🔍 Getting team leaves via dedicated endpoint...");
-    const response = await hrmsApi.get("team_leaves/");
-    console.log("✅ Team leaves response:", response.data);
-    return response;
-  } catch (error) {
-    console.error("❌ Error fetching team leaves:", error);
-    // Fallback to frontend filtering
-    console.log("🔄 Falling back to frontend filtering...");
-    return await getEmployeeLeaves();
-  }
-};
+
 
 
 // In employeeApi.js - Update the addEmployeeLeave function
@@ -772,8 +757,7 @@ export const getNotifications = () => hrmsApi.get("notifications/");
 export const getEmployeeLeaveById = (id) =>
   hrmsApi.get(`employee_leaves/${id}/`);
 
-export const updateEmployeeLeave = (id, data) =>
-  hrmsApi.patch(`employee_leaves/${id}/`, data);
+
 export const deleteEmployeeLeave = (id) =>
   hrmsApi.delete(`employee_leaves/${id}/`);
 
@@ -803,8 +787,38 @@ export const getWeeklyAttendanceStats = (startDate, endDate) => {
 };
 
 
+// In employeeApi.js - Add this function
+export const getTeamLeaves = async () => {
+  try {
+    console.log("🔍 Getting team leaves via dedicated endpoint...");
+    const response = await hrmsApi.get("team_leaves/");
+    
+    return response;
+  } catch (error) {
+
+    return await getEmployeeLeaves();
+  }
+};
 
 
+// In employeeApi.js - Update the updateEmployeeLeave function
+export const updateEmployeeLeave = (id, data) => {
+  console.log("📤 Updating leave with ID:", id);
+  console.log("📦 Update data:", data);
+  
+  return hrmsApi.patch(`employee_leaves/${id}/`, data);
+};
+
+
+// In employeeApi.js - Add this function
+export const addTeamLeaderComment = (leaveId, comment) => {
+  console.log("💬 Adding team leader comment for leave:", leaveId);
+  console.log("📝 Comment:", comment);
+  
+  return hrmsApi.post(`employee_leaves/${leaveId}/add_team_comment/`, {
+    teamleader: comment  // Match the field name in your model
+  });
+};
 
 // In employeeApi.js - Update the addEmployeeLeave function
 // export const addEmployeeLeave = async (data) => {
@@ -1293,4 +1307,7 @@ export default {
 
   // Fallback
   apiRequest,
+
+  getWeeklyAttendanceStats,
+  
 };

@@ -31,8 +31,10 @@ const FinanceProvision = () => {
   const [progress, setProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [editingId, setEditingId] = useState(null);
-  const [editValue, setEditValue] = useState("");
+  const [editingSourceId, setEditingSourceId] = useState(null);
+  const [editingBonusId, setEditingBonusId] = useState(null);
+  const [editSourceValue, setEditSourceValue] = useState("");
+  const [editBonusValue, setEditBonusValue] = useState("");
   const [calculating, setCalculating] = useState(false);
   const employeesPerPage = 10;
   const navigate = useNavigate();
@@ -143,12 +145,15 @@ const FinanceProvision = () => {
       };
       setSourceOther(updatedSourceOther);
 
+      const updatedBonusOverride = {
+        ...bonusOverride,
+        [employeeId]: backendBonus,
+      };
+      setBonusOverride(updatedBonusOverride);
+
       // Update localStorage and broadcast to other tabs
       broadcastUpdate("sourceTaxOther", updatedSourceOther);
-
-      const bonusData = storageAPI.getBonusOverride();
-      const updatedBonus = { ...bonusData, [employeeId]: backendBonus };
-      broadcastUpdate("bonusOverride", updatedBonus);
+      broadcastUpdate("bonusOverride", updatedBonusOverride);
 
       return { sourceOther: backendSourceOther, bonus: backendBonus };
     } catch (error) {
@@ -259,14 +264,19 @@ const FinanceProvision = () => {
     else isInitialMount.current = false;
   }, [searchQuery]);
 
-  const handleEdit = (emp) => {
-    setEditingId(emp.employee_id);
-    setEditValue(sourceOther[emp.employee_id] || "0");
+  const handleEditSource = (emp) => {
+    setEditingSourceId(emp.employee_id);
+    setEditSourceValue(sourceOther[emp.employee_id] || "0");
   };
 
-  // Enhanced save function that ensures backend sync and cross-tab update
-  const handleSave = async (employeeId) => {
-    const val = parseFloat(editValue) || 0;
+  const handleEditBonus = (emp) => {
+    setEditingBonusId(emp.employee_id);
+    setEditBonusValue(bonusOverride[emp.employee_id] || "0");
+  };
+
+  // Enhanced save function for source other that ensures backend sync and cross-tab update
+  const handleSaveSource = async (employeeId) => {
+    const val = parseFloat(editSourceValue) || 0;
 
     try {
       // Save to backend
@@ -280,7 +290,7 @@ const FinanceProvision = () => {
         // Update state only after successful backend save
         const updatedSourceOther = { ...sourceOther, [employeeId]: val };
         setSourceOther(updatedSourceOther);
-        setEditingId(null);
+        setEditingSourceId(null);
 
         // Update localStorage
         storageAPI.setSourceTaxOther(updatedSourceOther);
@@ -302,11 +312,60 @@ const FinanceProvision = () => {
       // Fallback to localStorage only
       const updatedSourceOther = { ...sourceOther, [employeeId]: val };
       setSourceOther(updatedSourceOther);
-      setEditingId(null);
+      setEditingSourceId(null);
       storageAPI.setSourceTaxOther(updatedSourceOther);
 
       // Broadcast update
       broadcastUpdate("sourceTaxOther", updatedSourceOther);
+
+      // Trigger calculation with local data
+      await calculateAllTaxes([employeeId]);
+    }
+  };
+
+  // Enhanced save function for bonus that ensures backend sync and cross-tab update
+  const handleSaveBonus = async (employeeId) => {
+    const val = parseFloat(editBonusValue) || 0;
+
+    try {
+      // Save to backend
+      const response = await taxAPI.saveTaxExtra({
+        employee_id: employeeId,
+        source_other: sourceOther[employeeId] || 0,
+        bonus: val,
+      });
+
+      if (response.data.success) {
+        // Update state only after successful backend save
+        const updatedBonusOverride = { ...bonusOverride, [employeeId]: val };
+        setBonusOverride(updatedBonusOverride);
+        setEditingBonusId(null);
+
+        // Update localStorage
+        storageAPI.setBonusOverride(updatedBonusOverride);
+
+        // Broadcast bonus update
+        broadcastUpdate("bonusOverride", updatedBonusOverride);
+
+        // Trigger calculation which will update cache
+        await calculateAllTaxes([employeeId]);
+
+        console.log(
+          "Successfully saved bonus to backend and localStorage"
+        );
+      }
+    } catch (err) {
+      console.error("Save bonus failed:", err);
+      alert("Failed to save to server. Using local storage only.");
+
+      // Fallback to localStorage only
+      const updatedBonusOverride = { ...bonusOverride, [employeeId]: val };
+      setBonusOverride(updatedBonusOverride);
+      setEditingBonusId(null);
+      storageAPI.setBonusOverride(updatedBonusOverride);
+
+      // Broadcast update
+      broadcastUpdate("bonusOverride", updatedBonusOverride);
 
       // Trigger calculation with local data
       await calculateAllTaxes([employeeId]);
@@ -332,19 +391,6 @@ const FinanceProvision = () => {
       alert("Quick sync completed!");
     } catch (error) {
       alert("Quick sync failed: " + error.message);
-    }
-  };
-
-  const handleFullSync = async () => {
-    try {
-      const employeeIds = employees.map((emp) => emp.employee_id);
-      const syncedData = await syncAllDataFromBackend(employeeIds); // Assuming this function exists
-      setSourceOther(syncedData.sourceTaxOther);
-      setBonusOverride(syncedData.bonusOverride);
-      await calculateAllTaxes();
-      alert("Full sync completed!");
-    } catch (error) {
-      alert("Full sync failed: " + error.message);
     }
   };
 
@@ -404,6 +450,7 @@ const FinanceProvision = () => {
                   <th>Name</th>
                   <th>Salary</th>
                   <th>Source Other</th>
+                  <th>Bonus</th>
                   <th>Net Tax Payable</th>
                   <th>Monthly TDS</th>
                   <th>Status</th>
@@ -423,18 +470,18 @@ const FinanceProvision = () => {
                       <td className="name">{emp.name}</td>
                       <td>৳{emp.salary.toLocaleString()}</td>
                       <td>
-                        {editingId === emp.employee_id ? (
+                        {editingSourceId === emp.employee_id ? (
                           <div className="edit-input">
                             <input
                               type="number"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
+                              value={editSourceValue}
+                              onChange={(e) => setEditSourceValue(e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                             />
                             <FaSave
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleSave(emp.employee_id);
+                                handleSaveSource(emp.employee_id);
                               }}
                             />
                           </div>
@@ -447,7 +494,38 @@ const FinanceProvision = () => {
                             <FaEdit
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleEdit(emp);
+                                handleEditSource(emp);
+                              }}
+                            />
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {editingBonusId === emp.employee_id ? (
+                          <div className="edit-input">
+                            <input
+                              type="number"
+                              value={editBonusValue}
+                              onChange={(e) => setEditBonusValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <FaSave
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveBonus(emp.employee_id);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="bonus-cell">
+                            ৳
+                            {(
+                              bonusOverride[emp.employee_id] || 0
+                            ).toLocaleString()}
+                            <FaEdit
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditBonus(emp);
                               }}
                             />
                           </div>
@@ -554,20 +632,16 @@ const FinanceProvision = () => {
           opacity: 0.6;
           cursor: not-allowed;
         }
-        .refresh {
-          background: #f59e0b;
+        .format {
+          background: #8b5cf6;
           color: white;
         }
         .export {
           background: #10b981;
           color: white;
         }
-        .quick-sync {
-          background: #3b82f6;
-          color: white;
-        }
         .sync {
-          background: #7c3aed;
+          background: #3b82f6;
           color: white;
         }
         .calc {
@@ -689,6 +763,7 @@ const FinanceProvision = () => {
         }
 
         .source-cell,
+        .bonus-cell,
         .edit-input {
           display: flex;
           align-items: center;
@@ -702,7 +777,8 @@ const FinanceProvision = () => {
           border-radius: 6px;
         }
         .edit-input svg,
-        .source-cell svg {
+        .source-cell svg,
+        .bonus-cell svg {
           color: #7c3aed;
           cursor: pointer;
           font-size: 1.1rem;

@@ -637,13 +637,13 @@ const SalaryRecords = () => {
                     <FaArrowLeft /> Back to Current Month
                   </button>
 
-                  <button
+                  {/* <button
                     className="btn btn-save"
                     onClick={saveData}
                     disabled={filteredRecords.length === 0}
                   >
                     <FaSave /> Save Updates
-                  </button>
+                  </button> */}
 
                   <button
                     onClick={showAllCompanies}
@@ -699,13 +699,7 @@ const SalaryRecords = () => {
                         {openCompanies[comp] ? "▲" : "▼"}
                       </span>
                     </button>
-                    <button
-                      onClick={() => exportCompanyData(comp)}
-                      className="btn-export-company"
-                      title={`Export ${comp} data`}
-                    >
-                      <FaFileExport />
-                    </button>
+
                   </div>
                 ))}
               </div>

@@ -1,4 +1,3 @@
-
 // src/pages/finance/SalaryFormat.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -642,7 +641,7 @@ const SalaryFormat = () => {
         const taxResult = taxResults[empId] || {};
         const taxCalc = taxResult.tax_calculation || {};
         const shouldDeduct = taxCalc.should_deduct_tax || false;
-        const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0; // Only deduct if salary > 41K
+        const ait = shouldDeduct ? taxCalc.monthly_tds || 0 : 0; // Only deduct if salary > 41K
 
         const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
         const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
@@ -788,16 +787,16 @@ const SalaryFormat = () => {
     if (loadingAit[empId]) {
       return { ait: 0, calculatedAit: 0, shouldDeduct: false };
     }
-    
+
     const result = taxResults[empId];
     if (!result) return { ait: 0, calculatedAit: 0, shouldDeduct: false };
     if (result.error) return { ait: 0, calculatedAit: 0, shouldDeduct: false };
-    
+
     const taxCalc = result.tax_calculation || {};
     const calculatedAit = taxCalc.monthly_tds || 0;
     const shouldDeduct = taxCalc.should_deduct_tax || false;
     const ait = shouldDeduct ? calculatedAit : 0;
-    
+
     return { ait, calculatedAit, shouldDeduct };
   };
 
@@ -1611,13 +1610,13 @@ const SalaryFormat = () => {
                       {openCompanies[comp] ? "▲" : "▼"}
                     </span>
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => exportCompanyData(comp)}
                     className="btn-export-company"
                     title={`Export ${comp} data`}
                   >
                     <FaFileExport />
-                  </button>
+                  </button> */}
                 </div>
               ))}
             </div>
@@ -1673,9 +1672,9 @@ const SalaryFormat = () => {
                           <th>Cash Payment</th>
                           <th>Net Pay (Bank)</th>
                           <th>Total Payable</th>
-                          <th>Remarks</th>
                           <th>Bank Account</th>
                           <th>Branch Code</th>
+                          <th>Remarks</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1692,8 +1691,11 @@ const SalaryFormat = () => {
                           // Get tax calculation with deduction logic
                           const taxResult = taxResults[empId] || {};
                           const taxCalc = taxResult.tax_calculation || {};
-                          const shouldDeduct = taxCalc.should_deduct_tax || false;
-                          const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                          const shouldDeduct =
+                            taxCalc.should_deduct_tax || false;
+                          const ait = shouldDeduct
+                            ? taxCalc.monthly_tds || 0
+                            : 0;
                           const calculatedAit = taxCalc.monthly_tds || 0;
 
                           const daysWorkedManual = getManual(
@@ -1730,8 +1732,7 @@ const SalaryFormat = () => {
                             cashPayment -
                             totalDeduction +
                             addition;
-                          const totalPayable =
-                            netPayBank + cashPayment + ait;
+                          const totalPayable = netPayBank + cashPayment + ait;
 
                           return (
                             <tr key={empId} className="data-row">
@@ -1804,7 +1805,9 @@ const SalaryFormat = () => {
                                 className={`tax-amount ${
                                   loadingAit[empId] ? "loading" : ""
                                 } ${
-                                  calculatedAit > 0 && !shouldDeduct ? "calculated-no-deduct" : ""
+                                  calculatedAit > 0 && !shouldDeduct
+                                    ? "calculated-no-deduct"
+                                    : ""
                                 }`}
                               >
                                 {loadingAit[empId] ? (
@@ -1815,9 +1818,11 @@ const SalaryFormat = () => {
                                       {formatNumber(ait)}
                                     </div>
                                     {calculatedAit > 0 && !shouldDeduct && (
-                                      <div 
-                                        className="tax-note" 
-                                        title={`Calculated: ${formatNumber(calculatedAit)} (Not deducted - Salary ≤ 41,000)`}
+                                      <div
+                                        className="tax-note"
+                                        title={`Calculated: ${formatNumber(
+                                          calculatedAit
+                                        )} (Not deducted - Salary ≤ 41,000)`}
                                       >
                                         (Calc: {formatNumber(calculatedAit)})
                                       </div>
@@ -1874,6 +1879,12 @@ const SalaryFormat = () => {
                                 {formatNumber(totalPayable)}
                               </td>
 
+                              <td className="bank-account">
+                                {emp.bank_account || "N/A"}
+                              </td>
+                              <td className="branch-code">
+                                {emp.branch_name || "N/A"}
+                              </td>
                               <td>
                                 <input
                                   type="text"
@@ -1888,12 +1899,6 @@ const SalaryFormat = () => {
                                   }
                                   className="editable-input remarks-input"
                                 />
-                              </td>
-                              <td className="bank-account">
-                                {emp.bank_account || "N/A"}
-                              </td> 
-                              <td className="branch-code">
-                                {emp.branch_name || "N/A"}
                               </td>
                             </tr>
                           );
@@ -1912,37 +1917,54 @@ const SalaryFormat = () => {
                       <span className="stat-value">{emps.length}</span>
                     </div>
                     <div className="summary-stat">
-                      <span className="stat-label">Tax-Deductible Employees (Salary &gt; 41K):</span>
+                      <span className="stat-label">
+                        Tax-Deductible Employees (Salary &gt; 41K):
+                      </span>
                       <span className="stat-value">
-                        {emps.filter(e => Number(e.salary || 0) > 41000).length}
+                        {
+                          emps.filter((e) => Number(e.salary || 0) > 41000)
+                            .length
+                        }
                       </span>
                     </div>
                     <div className="summary-stat">
-                      <span className="stat-label">Tax-Exempt Employees (Salary ≤ 41K):</span>
+                      <span className="stat-label">
+                        Tax-Exempt Employees (Salary ≤ 41K):
+                      </span>
                       <span className="stat-value">
-                        {emps.filter(e => Number(e.salary || 0) <= 41000).length}
+                        {
+                          emps.filter((e) => Number(e.salary || 0) <= 41000)
+                            .length
+                        }
                       </span>
                     </div>
                     <div className="summary-stat">
                       <span className="stat-label">Total Calculated Tax:</span>
                       <span className="stat-value">
-                        {formatNumber(emps.reduce((sum, e) => {
-                          const result = taxResults[e.employee_id] || {};
-                          const taxCalc = result.tax_calculation || {};
-                          return sum + (taxCalc.monthly_tds || 0);
-                        }, 0))}
+                        {formatNumber(
+                          emps.reduce((sum, e) => {
+                            const result = taxResults[e.employee_id] || {};
+                            const taxCalc = result.tax_calculation || {};
+                            return sum + (taxCalc.monthly_tds || 0);
+                          }, 0)
+                        )}
                       </span>
                     </div>
                     <div className="summary-stat">
                       <span className="stat-label">Total Deducted Tax:</span>
                       <span className="stat-value">
-                        {formatNumber(emps.reduce((sum, e) => {
-                          const result = taxResults[e.employee_id] || {};
-                          const taxCalc = result.tax_calculation || {};
-                          const shouldDeduct = taxCalc.should_deduct_tax || false;
-                          const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
-                          return sum + ait;
-                        }, 0))}
+                        {formatNumber(
+                          emps.reduce((sum, e) => {
+                            const result = taxResults[e.employee_id] || {};
+                            const taxCalc = result.tax_calculation || {};
+                            const shouldDeduct =
+                              taxCalc.should_deduct_tax || false;
+                            const ait = shouldDeduct
+                              ? taxCalc.monthly_tds || 0
+                              : 0;
+                            return sum + ait;
+                          }, 0)
+                        )}
                       </span>
                     </div>
                   </div>
@@ -2001,7 +2023,7 @@ const SalaryFormat = () => {
                         const result = taxResults[e.employee_id] || {};
                         const taxCalc = result.tax_calculation || {};
                         const shouldDeduct = taxCalc.should_deduct_tax || false;
-                        const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                        const ait = shouldDeduct ? taxCalc.monthly_tds || 0 : 0;
                         return s + ait;
                       }, 0)
                     )}
@@ -2045,14 +2067,17 @@ const SalaryFormat = () => {
                               : totalDaysInMonth;
                             const daysWorked =
                               getManual(empId, "daysWorked") || defaultDays;
-                            
+
                             // Get tax calculation with deduction logic
                             const result = taxResults[empId] || {};
                             const taxCalc = result.tax_calculation || {};
-                            const shouldDeduct = taxCalc.should_deduct_tax || false;
-                            const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                            const shouldDeduct =
+                              taxCalc.should_deduct_tax || false;
+                            const ait = shouldDeduct
+                              ? taxCalc.monthly_tds || 0
+                              : 0;
                             const calculatedAit = taxCalc.monthly_tds || 0;
-                            
+
                             const absentDed =
                               ((salary * 0.6) / BASE_MONTH) *
                               (totalDaysInMonth - daysWorked);
@@ -2102,9 +2127,14 @@ const SalaryFormat = () => {
                             </td>
                             <td className="tax-amount">
                               <div className="tax-breakdown">
-                                <div className="tax-amount-main">{formatNumber(summary.ait)}</div>
+                                <div className="tax-amount-main">
+                                  {formatNumber(summary.ait)}
+                                </div>
                                 {summary.calculatedAit > summary.ait && (
-                                  <div className="tax-note">(Calc: {formatNumber(summary.calculatedAit)})</div>
+                                  <div className="tax-note">
+                                    (Calc: {formatNumber(summary.calculatedAit)}
+                                    )
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -2159,10 +2189,14 @@ const SalaryFormat = () => {
                             <div className="tax-amount-main">
                               {formatNumber(
                                 filteredEmployees.reduce((s, e) => {
-                                  const result = taxResults[e.employee_id] || {};
+                                  const result =
+                                    taxResults[e.employee_id] || {};
                                   const taxCalc = result.tax_calculation || {};
-                                  const shouldDeduct = taxCalc.should_deduct_tax || false;
-                                  const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                                  const shouldDeduct =
+                                    taxCalc.should_deduct_tax || false;
+                                  const ait = shouldDeduct
+                                    ? taxCalc.monthly_tds || 0
+                                    : 0;
                                   return s + ait;
                                 }, 0)
                               )}
@@ -2171,7 +2205,8 @@ const SalaryFormat = () => {
                               (Calc:{" "}
                               {formatNumber(
                                 filteredEmployees.reduce((s, e) => {
-                                  const result = taxResults[e.employee_id] || {};
+                                  const result =
+                                    taxResults[e.employee_id] || {};
                                   const taxCalc = result.tax_calculation || {};
                                   return s + (taxCalc.monthly_tds || 0);
                                 }, 0)
@@ -2256,8 +2291,11 @@ const SalaryFormat = () => {
                                 getManual(empId, "daysWorked") || defaultDays;
                               const result = taxResults[empId] || {};
                               const taxCalc = result.tax_calculation || {};
-                              const shouldDeduct = taxCalc.should_deduct_tax || false;
-                              const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                              const shouldDeduct =
+                                taxCalc.should_deduct_tax || false;
+                              const ait = shouldDeduct
+                                ? taxCalc.monthly_tds || 0
+                                : 0;
                               const absentDed =
                                 ((salary * 0.6) / BASE_MONTH) *
                                 (totalDaysInMonth - daysWorked);
@@ -2292,8 +2330,11 @@ const SalaryFormat = () => {
                                 getManual(empId, "daysWorked") || defaultDays;
                               const result = taxResults[empId] || {};
                               const taxCalc = result.tax_calculation || {};
-                              const shouldDeduct = taxCalc.should_deduct_tax || false;
-                              const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                              const shouldDeduct =
+                                taxCalc.should_deduct_tax || false;
+                              const ait = shouldDeduct
+                                ? taxCalc.monthly_tds || 0
+                                : 0;
                               const absentDed =
                                 ((salary * 0.6) / BASE_MONTH) *
                                 (totalDaysInMonth - daysWorked);
@@ -2327,8 +2368,11 @@ const SalaryFormat = () => {
                                 getManual(empId, "daysWorked") || defaultDays;
                               const result = taxResults[empId] || {};
                               const taxCalc = result.tax_calculation || {};
-                              const shouldDeduct = taxCalc.should_deduct_tax || false;
-                              const ait = shouldDeduct ? (taxCalc.monthly_tds || 0) : 0;
+                              const shouldDeduct =
+                                taxCalc.should_deduct_tax || false;
+                              const ait = shouldDeduct
+                                ? taxCalc.monthly_tds || 0
+                                : 0;
                               const absentDed =
                                 ((salary * 0.6) / BASE_MONTH) *
                                 (totalDaysInMonth - daysWorked);
@@ -2830,7 +2874,11 @@ const SalaryFormat = () => {
         }
 
         .calculated-no-deduct {
-          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+          background: linear-gradient(
+            135deg,
+            #fef3c7 0%,
+            #fde68a 100%
+          ) !important;
           border: 2px solid #f59e0b !important;
         }
 

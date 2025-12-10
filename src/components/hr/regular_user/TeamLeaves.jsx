@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import {
   getEmployeeLeaves,
   updateEmployeeLeave,
+  hrmsApi, // ADD THIS IMPORT
+  getTeamLeaves, // ADD THIS IMPORT
+  addTeamLeaderComment
 } from "../../../api/employeeApi";
 import Sidebar from "../../hr/Sidebar"; // Fixed import path
 
@@ -32,96 +35,94 @@ const TeamLeaves = () => {
       setLoading(true);
       console.log("🔍 Fetching team leaves for:", employeeInfo.name);
 
-      const response = await getEmployeeLeaves();
-      console.log("📋 All leaves response:", response.data);
+      // Try the new endpoint first
+      const response = await getTeamLeaves();
 
-      // Filter leaves where current user is the reporting leader
-      const filteredLeaves = response.data.filter((leave) =>
-        isTeamLeave(leave)
-      );
+      // Check the response structure
+      if (response.data && Array.isArray(response.data)) {
+        // If it returns a direct array (legacy format)
+        console.log("📋 All leaves response (legacy format):", response.data);
 
-      console.log("👥 Team leaves found:", filteredLeaves.length);
-      setTeamLeaves(filteredLeaves);
+        // Filter leaves where current user is the reporting leader
+        const filteredLeaves = response.data.filter((leave) =>
+          isTeamLeave(leave)
+        );
+        console.log("👥 Team leaves found (filtered):", filteredLeaves.length);
+        setTeamLeaves(filteredLeaves);
+      } else if (response.data && response.data.data) {
+        // New endpoint format with nested data
+        console.log("📋 Team leaves response (new format):", response.data);
+        const teamLeavesData = response.data.data || [];
+        console.log("👥 Team leaves found (direct):", teamLeavesData.length);
+        setTeamLeaves(teamLeavesData);
+      } else {
+        console.log("⚠️ Unexpected response format:", response.data);
+        setTeamLeaves([]);
+      }
     } catch (error) {
       console.error("❌ Error fetching team leaves:", error);
+      // Fallback to using getEmployeeLeaves
+      try {
+        console.log("🔄 Falling back to getEmployeeLeaves...");
+        const allLeavesResponse = await getEmployeeLeaves();
+        console.log(
+          "📋 All leaves response (fallback):",
+          allLeavesResponse.data
+        );
+
+        const filteredLeaves = allLeavesResponse.data.filter((leave) =>
+          isTeamLeave(leave)
+        );
+        console.log(
+          "👥 Team leaves found (fallback filtered):",
+          filteredLeaves.length
+        );
+        setTeamLeaves(filteredLeaves);
+      } catch (fallbackError) {
+        console.error("❌ Fallback also failed:", fallbackError);
+        setTeamLeaves([]);
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  // In TeamLeaves.jsx - Replace the entire isTeamLeave function
+  // Simplify since API handles filtering
   const isTeamLeave = (leave) => {
     if (!leave) return false;
 
+    // For fallback mode only - simplified version
     const currentEmployeeId = employeeInfo.employee_id;
     const currentEmployeeName = employeeInfo.name;
 
-    console.log(`🔍 Checking leave ${leave.id}: ${leave.employee_name}`);
-    console.log(`🔍 Leave details:`, {
-      employee_name: leave.employee_name,
-      reporting_leader: leave.reporting_leader,
-      employee: leave.employee,
-    });
-
-    // Check if this is NOT the current user's own leave
+    // Skip own leaves
     const isOwnLeave =
       leave.employee_code === currentEmployeeId ||
       (leave.employee && leave.employee.employee_id === currentEmployeeId) ||
-      (leave.employee_name && leave.employee_name === currentEmployeeName);
+      leave.employee_name === currentEmployeeName;
 
-    if (isOwnLeave) {
-      console.log(
-        `🔍 Leave ${leave.id}: ${leave.employee_name} | SKIP - Own leave`
-      );
-      return false;
-    }
+    if (isOwnLeave) return false;
 
-    // Get the reporting leader from the leave - try multiple sources
-    const reportingLeader =
-      leave.reporting_leader ||
-      (leave.employee && leave.employee.reporting_leader) ||
-      "";
+    // Check if current user is the reporting leader
+    const reportingLeader = leave.reporting_leader || "";
 
-    console.log(
-      `🔍 Leave ${leave.id}: ${leave.employee_name} | Reporting Leader: '${reportingLeader}'`
+    if (!reportingLeader) return false;
+
+    const leaderLower = reportingLeader.toLowerCase();
+    const userNameLower = currentEmployeeName.toLowerCase();
+    const userIdLower = currentEmployeeId.toLowerCase();
+
+    // Simple matching - if current user's name or ID appears in reporting_leader
+    return (
+      leaderLower.includes(userNameLower) ||
+      userNameLower.includes(leaderLower) ||
+      leaderLower.includes(userIdLower)
     );
-    console.log(
-      `🔍 Current user: '${currentEmployeeName}' (ID: ${currentEmployeeId})`
-    );
-
-    // SIMPLIFIED MATCHING - Check if current user is the reporting leader
-    let isUserReportingLeader = false;
-
-    if (reportingLeader) {
-      // Convert both to lowercase for case-insensitive matching
-      const leaderLower = reportingLeader.toLowerCase();
-      const userNameLower = currentEmployeeName.toLowerCase();
-      const userIdLower = currentEmployeeId.toLowerCase();
-
-      // Check multiple matching strategies
-      isUserReportingLeader =
-        leaderLower.includes(userNameLower) ||
-        userNameLower.includes(leaderLower) ||
-        leaderLower.includes(userIdLower) ||
-        // Specific patterns for common reporting leader formats
-        (currentEmployeeId === "2009100201" &&
-          (leaderLower.includes("mr. mizan") ||
-            leaderLower.includes("md sir") ||
-            leaderLower.includes("md. sir"))) ||
-        (currentEmployeeName.toLowerCase().includes("shafiq") &&
-          (leaderLower.includes("shafiq") ||
-            leaderLower.includes("md. shafiqul islam"))) ||
-        (currentEmployeeName.toLowerCase().includes("shamoly") &&
-          (leaderLower.includes("shamoly") ||
-            leaderLower.includes("ms. shamoly")));
-    }
-
-    console.log(
-      `🔍 Leave ${leave.id}: ${leave.employee_name} | Own: ${isOwnLeave} | Reporting Leader Match: ${isUserReportingLeader} | Team Leave: ${isUserReportingLeader}`
-    );
-
-    return isUserReportingLeader;
   };
+
+  // Call this in useEffect to debug:
+  useEffect(() => {
+    fetchTeamLeaves();
+  }, []);
 
   const formatLeaveType = (leaveType) => {
     if (!leaveType) return "Unknown Leave Type";
@@ -203,14 +204,23 @@ const TeamLeaves = () => {
 
     try {
       setUpdating(true);
-      console.log("💬 Submitting comment for leave:", selectedLeave.id);
+      console.log(
+        "💬 Submitting team leader comment for leave:",
+        selectedLeave.id
+      );
+      console.log("📝 Selected leave:", {
+        id: selectedLeave.id,
+        employee_name: selectedLeave.employee_name,
+        reporting_leader: selectedLeave.reporting_leader,
+        current_user: employeeInfo.name,
+      });
 
-      const updateData = {
-        teamleader: comment.trim(),
-        status: selectedLeave.status, // Keep current status
-      };
-
-      await updateEmployeeLeave(selectedLeave.id, updateData);
+      // Use the new team leader comment endpoint
+      const response = await addTeamLeaderComment(
+        selectedLeave.id,
+        comment.trim()
+      );
+      console.log("✅ Comment added successfully:", response.data);
 
       // Update local state
       setTeamLeaves((prev) =>
@@ -221,12 +231,22 @@ const TeamLeaves = () => {
         )
       );
 
-      alert("Comment added successfully!");
+      alert("✅ Comment added successfully!");
       setSelectedLeave(null);
       setComment("");
     } catch (error) {
-      console.error("❌ Error submitting comment:", error);
-      alert("Failed to add comment. Please try again.");
+      console.error("❌ Error adding comment:", error);
+      console.error("Error details:", error.response?.data);
+
+      if (error.response?.status === 403) {
+        alert(
+          "❌ You are not authorized to comment on this leave. You must be the reporting leader."
+        );
+      } else if (error.response?.status === 404) {
+        alert("❌ Leave not found. Please refresh the page and try again.");
+      } else {
+        alert("❌ Failed to add comment. Please try again.");
+      }
     } finally {
       setUpdating(false);
     }

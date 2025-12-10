@@ -149,8 +149,8 @@ const EditLeaveRequest = () => {
         comment: formData.comment || "",
         hrcomment: formData.hrcomment || "",
         teamleader: formData.teamleader || "",
-        from_email: formData.email || "",
-        to_email: formData.to || "",
+        from_email: formData.from_email || "",
+        to_email: formData.to_email || "",
         cc: formData.cc || "",
       };
 

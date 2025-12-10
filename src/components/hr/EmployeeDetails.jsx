@@ -9,6 +9,8 @@ import {
   FaPaperclip,
   FaSearch,
   FaChevronDown,
+  FaCalendarAlt,
+  FaTimes,
 } from "react-icons/fa";
 
 const EmployeeDetails = () => {
@@ -37,10 +39,19 @@ const EmployeeDetails = () => {
       return "";
     }
   });
+  const [birthdateFilter, setBirthdateFilter] = useState(() => {
+    try {
+      return localStorage.getItem("employeeBirthdateFilter") || "";
+    } catch (err) {
+      console.error("Error reading birthdateFilter from localStorage:", err);
+      return "";
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDesignationDropdown, setShowDesignationDropdown] = useState(false);
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
+  const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
   const [designationSearch, setDesignationSearch] = useState("");
   const [departmentSearch, setDepartmentSearch] = useState("");
   const navigate = useNavigate();
@@ -82,10 +93,11 @@ const EmployeeDetails = () => {
       localStorage.setItem("employeeSearchQuery", searchQuery);
       localStorage.setItem("employeeDesignationFilter", designationFilter);
       localStorage.setItem("employeeDepartmentFilter", departmentFilter);
+      localStorage.setItem("employeeBirthdateFilter", birthdateFilter);
     } catch (err) {
       console.error("Error saving to localStorage:", err);
     }
-  }, [searchQuery, designationFilter, departmentFilter]);
+  }, [searchQuery, designationFilter, departmentFilter, birthdateFilter]);
 
   // Skip reset on initial mount to preserve saved page
   useEffect(() => {
@@ -95,7 +107,7 @@ const EmployeeDetails = () => {
     }
     setCurrentPage(1);
     localStorage.setItem("employeeListPage", "1");
-  }, [searchQuery, designationFilter, departmentFilter]);
+  }, [searchQuery, designationFilter, departmentFilter, birthdateFilter]);
 
   // Validate and adjust currentPage
   useEffect(() => {
@@ -113,6 +125,7 @@ const EmployeeDetails = () => {
     searchQuery,
     designationFilter,
     departmentFilter,
+    birthdateFilter,
     currentPage,
   ]);
 
@@ -135,6 +148,27 @@ const EmployeeDetails = () => {
     department.toLowerCase().includes(departmentSearch.toLowerCase())
   );
 
+  // Function to format date for display
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB"); // DD/MM/YYYY format
+  };
+
+  // Function to check if two dates match (ignoring year)
+  const checkBirthdateMatch = (employeeDate, filterDate) => {
+    if (!employeeDate || !filterDate) return false;
+    
+    const empDate = new Date(employeeDate);
+    const filterDateObj = new Date(filterDate);
+    
+    // Check if month and day match (ignoring year)
+    return (
+      empDate.getMonth() === filterDateObj.getMonth() &&
+      empDate.getDate() === filterDateObj.getDate()
+    );
+  };
+
   const filteredEmployees = employees.filter(
     (employee) =>
       employee &&
@@ -153,10 +187,13 @@ const EmployeeDetails = () => {
         (employee.blood_group &&
           employee.blood_group
             .toLowerCase()
-            .includes(searchQuery.toLowerCase()))) &&
+            .includes(searchQuery.toLowerCase())) ||
+        (employee.date_of_birth &&
+          employee.date_of_birth.toLowerCase().includes(searchQuery.toLowerCase()))) &&
       (designationFilter === "" ||
         employee.designation === designationFilter) &&
-      (departmentFilter === "" || employee.department_name === departmentFilter)
+      (departmentFilter === "" || employee.department_name === departmentFilter) &&
+      (birthdateFilter === "" || checkBirthdateMatch(employee.date_of_birth, birthdateFilter))
   );
 
   const indexOfLastEmployee = currentPage * employeesPerPage;
@@ -213,6 +250,7 @@ const EmployeeDetails = () => {
                 <th>Department</th>
                 <th>Company</th>
                 <th>Blood Group</th>
+                <th>Birth Date</th>
                 <th>Join Date</th>
               </tr>
             </thead>
@@ -227,6 +265,7 @@ const EmployeeDetails = () => {
                   <td>${employee.department_name || ""}</td>
                   <td>${employee.company_name || ""}</td>
                   <td>${employee.blood_group ? employee.blood_group : ""}</td>
+                  <td>${formatDateForDisplay(employee.date_of_birth) || ""}</td>
                   <td>${employee.joining_date || ""}</td>
                 </tr>
               `
@@ -248,9 +287,20 @@ const EmployeeDetails = () => {
     }, 500);
   };
 
+  const handleBirthdateChange = (e) => {
+    setBirthdateFilter(e.target.value);
+    setShowBirthdatePicker(false);
+  };
+
+  const clearBirthdateFilter = () => {
+    setBirthdateFilter("");
+    setShowBirthdatePicker(false);
+  };
+
   const closeDropdowns = () => {
     setShowDesignationDropdown(false);
     setShowDepartmentDropdown(false);
+    setShowBirthdatePicker(false);
     setDesignationSearch("");
     setDepartmentSearch("");
   };
@@ -342,6 +392,7 @@ const EmployeeDetails = () => {
                     onClick={() => {
                       setShowDesignationDropdown(!showDesignationDropdown);
                       setShowDepartmentDropdown(false);
+                      setShowBirthdatePicker(false);
                       setDepartmentSearch("");
                     }}
                   >
@@ -409,6 +460,7 @@ const EmployeeDetails = () => {
                     onClick={() => {
                       setShowDepartmentDropdown(!showDepartmentDropdown);
                       setShowDesignationDropdown(false);
+                      setShowBirthdatePicker(false);
                       setDesignationSearch("");
                     }}
                   >
@@ -463,6 +515,76 @@ const EmployeeDetails = () => {
                   )}
                 </div>
               </div>
+
+              {/* Birthdate Filter */}
+              <div className="filter-input">
+                <div className="custom-select-wrapper">
+                  <div
+                    className={`custom-select ${
+                      showBirthdatePicker ? "open" : ""
+                    }`}
+                    onClick={() => {
+                      setShowBirthdatePicker(!showBirthdatePicker);
+                      setShowDesignationDropdown(false);
+                      setShowDepartmentDropdown(false);
+                      setDesignationSearch("");
+                      setDepartmentSearch("");
+                    }}
+                  >
+                    <span className="custom-select-value">
+                      {birthdateFilter ? formatDateForDisplay(birthdateFilter) : "All Birth Dates"}
+                    </span>
+                    <div className="custom-select-icons">
+                      {birthdateFilter && (
+                        <FaTimes
+                          className="clear-icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearBirthdateFilter();
+                          }}
+                        />
+                      )}
+                      <FaCalendarAlt className="calendar-icon" />
+                    </div>
+                  </div>
+                  {showBirthdatePicker && (
+                    <div className="custom-dropdown date-dropdown">
+                      <div className="date-picker-header">
+                        <span>Select Birth Date</span>
+                        {birthdateFilter && (
+                          <button
+                            onClick={clearBirthdateFilter}
+                            className="clear-date-btn"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="date"
+                        value={birthdateFilter}
+                        onChange={handleBirthdateChange}
+                        className="date-input"
+                        max={new Date().toISOString().split('T')[0]}
+                      />
+                      <div className="date-picker-hint">
+                        <small>Select a date to filter employees with matching birth day/month</small>
+                      </div>
+                      {birthdateFilter && (
+                        <div className="selected-date-info">
+                          <p>Showing employees born on:</p>
+                          <p className="selected-date">{formatDateForDisplay(birthdateFilter)}</p>
+                          <p className="matching-count">
+                            {filteredEmployees.filter(emp => 
+                              checkBirthdateMatch(emp.date_of_birth, birthdateFilter)
+                            ).length} employees found
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="table-responsive">
@@ -475,6 +597,7 @@ const EmployeeDetails = () => {
                     <th>Department</th>
                     <th>Company</th>
                     <th>Blood Group</th>
+                    <th>Birth Date</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -492,6 +615,12 @@ const EmployeeDetails = () => {
                         <td>{employee.department_name || "N/A"}</td>
                         <td>{employee.company_name}</td>
                         <td>{employee.blood_group || "N/A"}</td>
+                        <td>
+                          {formatDateForDisplay(employee.date_of_birth) || "N/A"}
+                          {birthdateFilter && checkBirthdateMatch(employee.date_of_birth, birthdateFilter) && (
+                            <span className="birthday-badge">🎂</span>
+                          )}
+                        </td>
                         <td className="action-buttons-cell">
                           <button
                             onClick={(e) => {
@@ -513,7 +642,7 @@ const EmployeeDetails = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="7" className="no-results">
+                      <td colSpan="8" className="no-results">
                         No employees found matching your search criteria
                       </td>
                     </tr>
@@ -755,16 +884,33 @@ const EmployeeDetails = () => {
 
         .custom-select-value {
           flex: 1;
-          color: ${designationFilter || departmentFilter ? "#333" : "#777"};
+          color: ${designationFilter || departmentFilter || birthdateFilter ? "#333" : "#777"};
         }
 
-        .custom-select-icon {
+        .custom-select-icons {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .clear-icon {
+          color: #e53935;
+          cursor: pointer;
+          font-size: 0.9rem;
+          padding: 2px;
+        }
+
+        .clear-icon:hover {
+          background-color: #ffebee;
+          border-radius: 50%;
+        }
+
+        .calendar-icon {
           color: #777;
-          transition: transform 0.2s;
         }
 
-        .custom-select.open .custom-select-icon {
-          transform: rotate(180deg);
+        .custom-select.open .calendar-icon {
+          color: #0078d4;
         }
 
         .custom-dropdown {
@@ -778,8 +924,82 @@ const EmployeeDetails = () => {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           z-index: 1000;
           margin-top: 4px;
-          max-height: 200px;
+          max-height: 300px;
           overflow-y: auto;
+        }
+
+        .date-dropdown {
+          padding: 1rem;
+          min-width: 300px;
+        }
+
+        .date-picker-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid #eee;
+        }
+
+        .date-picker-header span {
+          font-weight: 600;
+          color: #333;
+        }
+
+        .clear-date-btn {
+          background: #ffebee;
+          color: #e53935;
+          border: 1px solid #ffcdd2;
+          border-radius: 4px;
+          padding: 0.3rem 0.8rem;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .clear-date-btn:hover {
+          background: #ffcdd2;
+        }
+
+        .date-input {
+          width: 100%;
+          padding: 0.8rem;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          font-size: 1rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .date-picker-hint {
+          color: #666;
+          font-size: 0.85rem;
+          margin-bottom: 1rem;
+          padding: 0.5rem;
+          background-color: #f5f5f5;
+          border-radius: 4px;
+        }
+
+        .selected-date-info {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #eee;
+        }
+
+        .selected-date-info p {
+          margin: 0.3rem 0;
+          color: #555;
+        }
+
+        .selected-date {
+          font-weight: bold;
+          color: #0078d4 !important;
+          font-size: 1.1rem;
+        }
+
+        .matching-count {
+          color: #107c10 !important;
+          font-weight: 600;
         }
 
         .dropdown-search {
@@ -848,6 +1068,7 @@ const EmployeeDetails = () => {
           color: #333;
           text-align: center;
           font-size: 0.85rem;
+          position: relative;
         }
 
         .employee-row {
@@ -862,6 +1083,11 @@ const EmployeeDetails = () => {
 
         .employee-row:nth-child(even) {
           background-color: #f9f9f9;
+        }
+
+        .birthday-badge {
+          margin-left: 5px;
+          font-size: 1rem;
         }
 
         .action-buttons-cell {
@@ -988,6 +1214,11 @@ const EmployeeDetails = () => {
           .action-buttons-cell {
             flex-direction: column;
             gap: 0.3rem;
+          }
+
+          .date-dropdown {
+            min-width: auto;
+            width: 100%;
           }
         }
       `}</style>

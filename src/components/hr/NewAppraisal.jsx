@@ -128,13 +128,23 @@ const NewAppraisal = () => {
       "discipline",
       "ethical_considerations",
     ];
+    
+    const dateFields = ["last_increment_date", "last_promotion_date"];
 
     const cleanFormData = {
       ...formData,
+      // Convert number fields
       ...Object.fromEntries(
         numberFields.map((field) => [
           field,
           formData[field] === "" ? null : parseInt(formData[field]),
+        ])
+      ),
+      // Convert date fields
+      ...Object.fromEntries(
+        dateFields.map((field) => [
+          field,
+          formData[field] === "" ? null : formData[field],
         ])
       ),
     };
@@ -483,7 +493,7 @@ const NewAppraisal = () => {
 
                 <div style={fieldContainerStyle}>
                   <label htmlFor="last_increment_date" style={labelStyle}>
-                    Last Increment Date
+                    Increment Date
                   </label>
                   <input
                     type="date"
@@ -497,7 +507,7 @@ const NewAppraisal = () => {
 
                 <div style={fieldContainerStyle}>
                   <label htmlFor="last_promotion_date" style={labelStyle}>
-                    Last Promotion Date
+                    Promotion Date
                   </label>
                   <input
                     type="date"
