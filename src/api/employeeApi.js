@@ -493,6 +493,35 @@ export const approveIncrement = async (appraisalId) => {
   }
 };
 
+
+
+// In employeeApi.js - Add this function after the approveIncrement function
+
+/* -------------------------------------------------------------------------- */
+/*  APPROVE DESIGNATION API                                                  */
+/* -------------------------------------------------------------------------- */
+export const approveDesignation = async (appraisalId) => {
+  try {
+    console.log("📡 Approving designation for ID:", appraisalId);
+
+    // Call the custom action endpoint for designation approval
+    const response = await hrmsApi.post(
+      `performance_appraisals/${appraisalId}/approve_designation/`,
+      {} // Empty body since we don't need to send data for approval
+    );
+
+    console.log("✅ API Response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ API Error in approveDesignation:", error);
+    console.error("❌ Error details:", error.response?.data);
+    throw error;
+  }
+};
+
+
+
+
 /* -------------------------------------------------------------------------- */
 /*  6.  EMPLOYEE APIs                                                        */
 /* -------------------------------------------------------------------------- */
@@ -551,6 +580,120 @@ export const updateEmployeeCustomers = (id, customerIds) => {
 
 
 
+
+
+// In employeeApi.js - UPDATE the getEmployeeLeaves function
+export const getEmployeeLeaves = async () => {
+  try {
+    console.log("🔍 Getting leaves for current user...");
+    
+    // Get current user info
+    const username = localStorage.getItem("username");
+    const employeeId = localStorage.getItem("employee_id");
+    const employeeDbId = localStorage.getItem("employee_db_id");
+    const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
+    
+    console.log("📋 User info:", {
+      username,
+      employeeId,
+      employeeDbId,
+      hasFullAccess: permissions.full_access
+    });
+    
+    // Check if user has full access (but exclude Sohel from seeing all leaves)
+    const hasFullAccess = permissions.full_access === true;
+    const isSohel = username === 'Sohel';
+    
+    let url = "employee_leaves/";
+    
+    // If user has full access AND is NOT Sohel, get all leaves
+    if (hasFullAccess && !isSohel) {
+      console.log("👑 Full access user (not Sohel) - getting all leaves");
+    } else {
+      // For regular users and Sohel, only get their own leaves
+      console.log(`👤 ${isSohel ? 'Sohel (restricted)' : 'Regular user'} - getting own leaves`);
+      
+      if (!employeeId && !employeeDbId) {
+        console.error("❌ No employee ID found in localStorage");
+        return { data: [] };
+      }
+      
+      // Add employee_id as query parameter
+      const params = new URLSearchParams();
+      if (employeeId) params.append('employee_id', employeeId);
+      if (employeeDbId) params.append('employee_db_id', employeeDbId);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+    }
+    
+    console.log("🌐 API URL:", url);
+    
+    const response = await hrmsApi.get(url);
+    
+    console.log("📋 API Response:", {
+      status: response.status,
+      dataCount: Array.isArray(response.data) ? response.data.length : 'unknown',
+      data: response.data
+    });
+    
+    // Filter response to ensure only current user's leaves (for regular users and Sohel)
+    let leavesData = [];
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        leavesData = response.data;
+      } else if (response.data.results && Array.isArray(response.data.results)) {
+        leavesData = response.data.results;
+      } else {
+        leavesData = [response.data];
+      }
+    }
+    
+    // If user has full access AND is NOT Sohel, return all leaves
+    if (hasFullAccess && !isSohel) {
+      console.log(`✅ Returning all ${leavesData.length} leaves for full access user`);
+      return { ...response, data: leavesData };
+    }
+    
+    // For regular users and Sohel, filter to only their own leaves
+    console.log("🔍 Filtering leaves for regular user/Sohel...");
+    const filteredLeaves = leavesData.filter(leave => {
+      const leaveEmployeeId = leave.employee?.employee_id || leave.employee_code || leave.employee_id;
+      const leaveEmployeeDbId = leave.employee?.id || leave.employee;
+      const leaveEmployeeName = leave.employee_name || leave.employee?.name;
+      
+      const matches = 
+        leaveEmployeeId === employeeId ||
+        leaveEmployeeDbId?.toString() === employeeDbId ||
+        (leaveEmployeeName && leaveEmployeeName === localStorage.getItem("employee_name"));
+      
+      if (!matches) {
+        console.log(`❌ Filtered out leave ${leave.id}:`, {
+          leaveEmployeeId,
+          leaveEmployeeDbId,
+          leaveEmployeeName,
+          ourEmployeeId: employeeId,
+          ourEmployeeDbId: employeeDbId,
+          ourEmployeeName: localStorage.getItem("employee_name")
+        });
+      }
+      
+      return matches;
+    });
+    
+    console.log(`✅ Filtered leaves: ${filteredLeaves.length} out of ${leavesData.length}`);
+    
+    return { ...response, data: filteredLeaves };
+    
+  } catch (error) {
+    console.error("❌ Error fetching leaves:", error);
+    console.error("❌ Error details:", error.response?.data);
+    
+    // Return empty array on error to prevent frontend crashes
+    return { data: [] };
+  }
+};
 
 
 
@@ -1085,60 +1228,60 @@ export const debugCurrentUserData = async () => {
 };
 
 // In employeeApi.js - REPLACE the getEmployeeLeaves function
-export const getEmployeeLeaves = async () => {
-  try {
-    console.log("🔍 Getting employee leaves...");
+// export const getEmployeeLeaves = async () => {
+//   try {
+//     console.log("🔍 Getting employee leaves...");
     
-    // Get employee_id from localStorage for better filtering
-    const employeeId = localStorage.getItem("employee_id");
-    const employeeDbId = localStorage.getItem("employee_db_id");
+//     // Get employee_id from localStorage for better filtering
+//     const employeeId = localStorage.getItem("employee_id");
+//     const employeeDbId = localStorage.getItem("employee_db_id");
     
-    console.log("📋 Using employee data:", {
-      employeeId,
-      employeeDbId
-    });
+//     console.log("📋 Using employee data:", {
+//       employeeId,
+//       employeeDbId
+//     });
     
-    let url = "employee_leaves/";
+//     let url = "employee_leaves/";
     
-    // Add employee_id as query parameter to help backend filtering
-    if (employeeId) {
-      url += `?employee_id=${employeeId}`;
-    }
+//     // Add employee_id as query parameter to help backend filtering
+//     if (employeeId) {
+//       url += `?employee_id=${employeeId}`;
+//     }
     
-    console.log("🌐 API URL:", url);
+//     console.log("🌐 API URL:", url);
     
-    const response = await hrmsApi.get(url);
+//     const response = await hrmsApi.get(url);
     
-    console.log("📋 Leaves API response:", {
-      status: response.status,
-      data: response.data,
-      count: Array.isArray(response.data) ? response.data.length : 'unknown',
-      dataType: Array.isArray(response.data) ? 'array' : typeof response.data
-    });
+//     console.log("📋 Leaves API response:", {
+//       status: response.status,
+//       data: response.data,
+//       count: Array.isArray(response.data) ? response.data.length : 'unknown',
+//       dataType: Array.isArray(response.data) ? 'array' : typeof response.data
+//     });
     
-    // If data is not an array, try to extract from results or convert
-    let leavesData = response.data;
-    if (response.data && !Array.isArray(response.data)) {
-      if (response.data.results && Array.isArray(response.data.results)) {
-        leavesData = response.data.results;
-        console.log("🔄 Extracted leaves from results:", leavesData.length);
-      } else {
-        leavesData = [response.data];
-        console.log("🔄 Converted single object to array");
-      }
-    }
+//     // If data is not an array, try to extract from results or convert
+//     let leavesData = response.data;
+//     if (response.data && !Array.isArray(response.data)) {
+//       if (response.data.results && Array.isArray(response.data.results)) {
+//         leavesData = response.data.results;
+//         console.log("🔄 Extracted leaves from results:", leavesData.length);
+//       } else {
+//         leavesData = [response.data];
+//         console.log("🔄 Converted single object to array");
+//       }
+//     }
     
-    console.log("✅ Final leaves data:", leavesData);
-    return { ...response, data: leavesData };
+//     console.log("✅ Final leaves data:", leavesData);
+//     return { ...response, data: leavesData };
     
-  } catch (error) {
-    console.error("❌ Error fetching leaves:", error);
-    console.error("❌ Error details:", error.response?.data);
+//   } catch (error) {
+//     console.error("❌ Error fetching leaves:", error);
+//     console.error("❌ Error details:", error.response?.data);
     
-    // Return empty array on error to prevent frontend crashes
-    return { data: [] };
-  }
-};
+//     // Return empty array on error to prevent frontend crashes
+//     return { data: [] };
+//   }
+// };
 
 /* -------------------------------------------------------------------------- */
 /*  21.  INVITE / MD SIR                                                     */
@@ -1193,6 +1336,7 @@ export default {
   updatePerformanceAppraisal,
   deletePerformanceAppraisal,
   approveIncrement,
+  approveDesignation,
   getPerformanceAppraisalsByEmployeeId,
 
   // Companies / Departments / Customers

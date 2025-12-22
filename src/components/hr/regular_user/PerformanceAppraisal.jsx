@@ -9,58 +9,113 @@ import {
   approveIncrement,
 } from "../../../api/employeeApi";
 
+// Initial form data structure
+const initialFormData = {
+  employee_id: "",
+  name: "",
+  designation: "",
+  joining_date: "",
+  department: "",
+  last_increment_date: "",
+  last_promotion_date: "",
+  last_education: "",
+  job_knowledge: "",
+  job_description: "",
+  performance_in_meetings: "",
+  performance_description: "",
+  communication_skills: "",
+  communication_description: "",
+  reliability: "",
+  reliability_description: "",
+  initiative: "",
+  initiative_description: "",
+  stress_management: "",
+  stress_management_description: "",
+  co_operation: "",
+  co_operation_description: "",
+  leadership: "",
+  leadership_description: "",
+  discipline: "",
+  discipline_description: "",
+  ethical_considerations: "",
+  ethical_considerations_description: "",
+  promotion: false,
+  increment: false,
+  performance_reward: false,
+  performance: "",
+  expected_performance: "",
+  present_salary: "",
+  proposed_salary: "",
+  present_designation: "",
+  proposed_designation: "",
+  salary_text: "",
+};
+
+// Load app state from localStorage
+const loadAppStateFromStorage = () => {
+  try {
+    const savedState = localStorage.getItem("performanceAppraisalAppState");
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      return {
+        formData: parsed.formData || initialFormData,
+        viewMode: parsed.viewMode || "list",
+        employeeSearch: parsed.employeeSearch || "",
+      };
+    }
+  } catch (error) {
+    console.error("Error loading app state from storage:", error);
+  }
+  return {
+    formData: initialFormData,
+    viewMode: "list",
+    employeeSearch: "",
+  };
+};
+
+// Save app state to localStorage
+const saveAppStateToStorage = (formData, viewMode, employeeSearch) => {
+  try {
+    localStorage.setItem(
+      "performanceAppraisalAppState",
+      JSON.stringify({
+        formData,
+        viewMode,
+        employeeSearch,
+      })
+    );
+  } catch (error) {
+    console.error("Error saving app state to storage:", error);
+  }
+};
+
+// Clear app state from localStorage
+const clearAppStateFromStorage = () => {
+  try {
+    localStorage.removeItem("performanceAppraisalAppState");
+  } catch (error) {
+    console.error("Error clearing app state from storage:", error);
+  }
+};
+
 const PerformanceAppraisal = () => {
   const [appraisals, setAppraisals] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [viewMode, setViewMode] = useState("list"); // 'list', 'form', 'details'
   const [selectedAppraisal, setSelectedAppraisal] = useState(null);
   const [selectedAppraisalDetails, setSelectedAppraisalDetails] =
     useState(null);
-  const [employeeSearch, setEmployeeSearch] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    employee_id: "",
-    name: "",
-    designation: "",
-    joining_date: "",
-    department: "",
-    last_increment_date: "",
-    last_promotion_date: "",
-    last_education: "",
-    job_knowledge: "",
-    job_description: "",
-    performance_in_meetings: "",
-    performance_description: "",
-    communication_skills: "",
-    communication_description: "",
-    reliability: "",
-    reliability_description: "",
-    initiative: "",
-    initiative_description: "",
-    stress_management: "",
-    stress_management_description: "",
-    co_operation: "",
-    co_operation_description: "",
-    leadership: "",
-    leadership_description: "",
-    discipline: "",
-    discipline_description: "",
-    ethical_considerations: "",
-    ethical_considerations_description: "",
-    promotion: false,
-    increment: false,
-    performance_reward: false,
-    performance: "",
-    expected_performance: "",
-    present_salary: "",
-    proposed_salary: "",
-    present_designation: "",
-    proposed_designation: "",
-  });
+  // Load app state from localStorage on initial render
+  const savedState = loadAppStateFromStorage();
+  const [formData, setFormData] = useState(savedState.formData);
+  const [viewMode, setViewMode] = useState(savedState.viewMode);
+  const [employeeSearch, setEmployeeSearch] = useState(
+    savedState.employeeSearch
+  );
 
   useEffect(() => {
     const initializeData = async () => {
@@ -69,6 +124,13 @@ const PerformanceAppraisal = () => {
     };
     initializeData();
   }, []);
+
+  // Save app state to localStorage whenever relevant states change
+  useEffect(() => {
+    if (viewMode === "form" && !selectedAppraisal) {
+      saveAppStateToStorage(formData, viewMode, employeeSearch);
+    }
+  }, [formData, viewMode, employeeSearch, selectedAppraisal]);
 
   const fetchAppraisals = async () => {
     try {
@@ -294,6 +356,22 @@ const PerformanceAppraisal = () => {
               .toLowerCase()
               .trim();
             const shamolyVariations = ["Mr. Morshed"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Swapon") {
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Swapon"];
             return shamolyVariations.some((variation) =>
               reportingLeader.includes(variation.toLowerCase())
             );
@@ -600,6 +678,25 @@ const PerformanceAppraisal = () => {
           return matches;
         });
       }
+      // For Swapon user
+      else if (currentUsername === "Swapon") {
+        console.log("👤 Filtering for Nayeem's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Swapon"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
       // For other users
       else {
         const currentUserEmployeeId = localStorage.getItem("employee_id") || "";
@@ -738,12 +835,26 @@ const PerformanceAppraisal = () => {
         "ethical_considerations",
       ];
 
+      // Handle date fields - keep empty strings as empty strings or null
+      const dateFields = [
+        "last_increment_date",
+        "last_promotion_date",
+        "joining_date",
+      ];
+
       const cleanFormData = {
         ...formData,
         ...Object.fromEntries(
           numberFields.map((field) => [
             field,
             formData[field] === "" ? null : parseInt(formData[field]),
+          ])
+        ),
+        // Convert empty date strings to null or keep as empty string
+        ...Object.fromEntries(
+          dateFields.map((field) => [
+            field,
+            formData[field] === "" ? null : formData[field],
           ])
         ),
       };
@@ -771,46 +882,9 @@ const PerformanceAppraisal = () => {
   };
 
   const resetForm = () => {
-    setFormData({
-      employee_id: "",
-      name: "",
-      designation: "",
-      joining_date: "",
-      department: "",
-      last_increment_date: "",
-      last_promotion_date: "",
-      last_education: "",
-      job_knowledge: "",
-      job_description: "",
-      performance_in_meetings: "",
-      performance_description: "",
-      communication_skills: "",
-      communication_description: "",
-      reliability: "",
-      reliability_description: "",
-      initiative: "",
-      initiative_description: "",
-      stress_management: "",
-      stress_management_description: "",
-      co_operation: "",
-      co_operation_description: "",
-      leadership: "",
-      leadership_description: "",
-      discipline: "",
-      discipline_description: "",
-      ethical_considerations: "",
-      ethical_considerations_description: "",
-      promotion: false,
-      increment: false,
-      performance_reward: false,
-      performance: "",
-      expected_performance: "",
-      present_salary: "",
-      proposed_salary: "",
-      present_designation: "",
-      proposed_designation: "",
-    });
+    setFormData(initialFormData);
     setEmployeeSearch("");
+    clearAppStateFromStorage(); // Clear from localStorage too
   };
 
   const handleNewAppraisal = () => {
@@ -865,6 +939,7 @@ const PerformanceAppraisal = () => {
       proposed_salary: appraisal.proposed_salary || "",
       present_designation: appraisal.present_designation || "",
       proposed_designation: appraisal.proposed_designation || "",
+      salary_text: appraisal.salary_text || "",
     });
     setEmployeeSearch(`${appraisal.name} (${appraisal.employee_id})`);
     setViewMode("form");
@@ -884,6 +959,7 @@ const PerformanceAppraisal = () => {
   const handleBackToList = () => {
     setViewMode("list");
     setSelectedAppraisalDetails(null);
+    clearAppStateFromStorage(); // Also clear when going back to list
   };
 
   const calculateTotalScore = (appraisal) => {
@@ -943,6 +1019,67 @@ const PerformanceAppraisal = () => {
   // Check if increment can be approved (has increment recommended but not yet approved)
   const canApproveThisIncrement = (appraisal) => {
     return appraisal.increment && !appraisal.increment_approved;
+  };
+
+  const calculateLengthOfService = (joiningDate) => {
+    if (!joiningDate) return "N/A";
+
+    try {
+      const joinDate = new Date(joiningDate);
+      const today = new Date();
+
+      // Calculate the difference in years, months, and days
+      let years = today.getFullYear() - joinDate.getFullYear();
+      let months = today.getMonth() - joinDate.getMonth();
+      let days = today.getDate() - joinDate.getDate();
+
+      // Adjust for negative months or days
+      if (days < 0) {
+        months--;
+        // Get days in previous month
+        const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+        days += prevMonth.getDate();
+      }
+
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+
+      // Calculate total days for precise calculation
+      const diffTime = Math.abs(today - joinDate);
+      const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Format the result
+      if (years > 0) {
+        return `${years} year${years > 1 ? "s" : ""}, ${months} month${
+          months > 1 ? "s" : ""
+        }, ${days} day${days > 1 ? "s" : ""} (${totalDays} days)`;
+      } else if (months > 0) {
+        return `${months} month${months > 1 ? "s" : ""}, ${days} day${
+          days > 1 ? "s" : ""
+        } (${totalDays} days)`;
+      } else {
+        return `${days} day${days > 1 ? "s" : ""} (${totalDays} days)`;
+      }
+    } catch (error) {
+      console.error("Error calculating length of service:", error);
+      return "Invalid date";
+    }
+  };
+
+  // Also add a simple function to calculate just total days
+  const calculateTotalDaysOfService = (joiningDate) => {
+    if (!joiningDate) return 0;
+
+    try {
+      const joinDate = new Date(joiningDate);
+      const today = new Date();
+      const diffTime = Math.abs(today - joinDate);
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } catch (error) {
+      return 0;
+    }
   };
 
   // Styles
@@ -1451,6 +1588,10 @@ const PerformanceAppraisal = () => {
                 <strong>Proposed Salary:</strong> {appraisal.proposed_salary}
               </div>
               <div style={salaryItemStyle}>
+                <strong>Proposed Salary Remarks:</strong>{" "}
+                {appraisal.salary_text}
+              </div>
+              <div style={salaryItemStyle}>
                 <strong>Proposed Designation:</strong>{" "}
                 {appraisal.proposed_designation}
               </div>
@@ -1625,6 +1766,33 @@ const PerformanceAppraisal = () => {
               </div>
 
               <div style={fieldContainerStyle}>
+                <label style={labelStyle}>Length of Service</label>
+                <div
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "14px",
+                    backgroundColor: "#f9fafb",
+                    color: "#374151",
+                  }}
+                >
+                  {formData.joining_date
+                    ? calculateLengthOfService(formData.joining_date)
+                    : "Enter joining date"}
+                </div>
+                <div
+                  style={{
+                    marginTop: "4px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                  }}
+                >
+                  Calculated from joining date
+                </div>
+              </div>
+
+              <div style={fieldContainerStyle}>
                 <label htmlFor="joining_date" style={labelStyle}>
                   Joining Date
                 </label>
@@ -1755,6 +1923,20 @@ const PerformanceAppraisal = () => {
                   value={formData.proposed_salary}
                   onChange={handleInputChange}
                   style={inputStyle}
+                />
+              </div>
+              <div style={fieldContainerStyle}>
+                <label htmlFor="salary_text" style={labelStyle}>
+                  Proposed Salary Remarks
+                </label>
+                <textarea
+                  type="text"
+                  id="salary_text"
+                  name="salary_text"
+                  value={formData.salary_text}
+                  onChange={handleInputChange}
+                  style={inputStyle}
+                  placeholder="Write something about his/her salary..."
                 />
               </div>
 

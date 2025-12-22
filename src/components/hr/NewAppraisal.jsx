@@ -48,6 +48,7 @@ const NewAppraisal = () => {
     proposed_salary: "",
     present_designation: "",
     proposed_designation: "",
+    salary_text: "",
   });
 
   useEffect(() => {
@@ -196,6 +197,7 @@ const NewAppraisal = () => {
         proposed_salary: "",
         present_designation: "",
         proposed_designation: "",
+        salary_text: "",
       });
       setEmployeeSearch("");
 
@@ -596,6 +598,22 @@ const NewAppraisal = () => {
                     style={inputStyle}
                   />
                 </div>
+
+                <div style={fieldContainerStyle}>
+                  <label htmlFor="proposed_salary" style={labelStyle}>
+                    Proposed Salary Remarks
+                  </label>
+                  <textarea
+                    type="text"
+                    id="salary_text"
+                    name="salary_text"
+                    value={formData.salary_text}
+                    onChange={handleChange}
+                    style={inputStyle}
+                    placeholder="Write Something About His/Her Salary..."
+                  />
+                </div>
+
 
                 <div style={fieldContainerStyle}>
                   <label htmlFor="present_designation" style={labelStyle}>

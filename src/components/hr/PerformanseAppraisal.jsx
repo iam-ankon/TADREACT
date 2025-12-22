@@ -95,8 +95,8 @@ const PerformanseAppraisal = () => {
                         <th style={cellStyle}>Name</th>
                         <th style={cellStyle}>Designation</th>
                         <th style={cellStyle}>Department</th>
-                        <th style={cellStyle}>Last Increment</th>
-                        <th style={cellStyle}>Last Promotion</th>
+                        {/* <th style={cellStyle}>Last Increment</th>
+                        <th style={cellStyle}>Last Promotion</th> */}
                         <th style={cellStyle}>Actions</th>
                       </tr>
                     </thead>
@@ -123,12 +123,12 @@ const PerformanseAppraisal = () => {
                             <td style={cellStyle}>{appraisal.name}</td>
                             <td style={cellStyle}>{appraisal.designation}</td>
                             <td style={cellStyle}>{appraisal.department_name}</td>
-                            <td style={cellStyle}>
+                            {/* <td style={cellStyle}>
                               {appraisal.last_increment_date}
                             </td>
                             <td style={cellStyle}>
                               {appraisal.last_promotion_date}
-                            </td>
+                            </td> */}
                             <td style={cellStyle}>
                               <button
                                 onClick={(e) => {

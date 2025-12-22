@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 import {
   getEmployeeLeaves,
   getEmployeeLeaveBalances,
+  getTeamLeaves,
 } from "../../../api/employeeApi";
 
 const Dashboard = () => {
-  const [leaves, setLeaves] = useState([]);
+  const [myLeaves, setMyLeaves] = useState([]);
+  const [teamLeaves, setTeamLeaves] = useState([]);
   const [leaveBalances, setLeaveBalances] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,145 +54,70 @@ const Dashboard = () => {
       console.log("👤 Employee Name:", employeeInfo.name);
       console.log("👤 Reporting Leader:", employeeInfo.reporting_leader);
 
-      const [leavesResponse, balancesResponse] = await Promise.all([
-        getEmployeeLeaves(),
-        getEmployeeLeaveBalances(),
-      ]);
-
-      console.log("📋 Leaves API Response:", leavesResponse);
-      console.log("💰 Balances API Response:", balancesResponse);
+      // Get current user's leaves
+      const leavesResponse = await getEmployeeLeaves();
+      console.log("📋 My leaves API Response:", leavesResponse);
 
       // Handle leaves data - ensure it's an array
-      let leavesData = [];
+      let myLeavesData = [];
       if (Array.isArray(leavesResponse.data)) {
-        leavesData = leavesResponse.data;
+        myLeavesData = leavesResponse.data;
       } else if (
         leavesResponse.data &&
         Array.isArray(leavesResponse.data.results)
       ) {
-        leavesData = leavesResponse.data.results;
+        myLeavesData = leavesResponse.data.results;
       } else if (leavesResponse.data) {
-        // If it's a single object, wrap it in an array
-        leavesData = [leavesResponse.data];
+        myLeavesData = [leavesResponse.data];
       }
 
-      console.log("📊 All leaves from API:", leavesData);
+      console.log("📊 My leaves count:", myLeavesData.length);
 
-      // Get current user's employee details for filtering
-      const currentEmployeeId = employeeInfo.employee_id;
-      const currentEmployeeDbId = localStorage.getItem("employee_db_id");
+      // Get team leaves if user has team members (check if user has reporting_leader responsibilities)
+      let teamLeavesData = [];
+      const hasReportingResponsibilities = employeeInfo.reporting_leader || 
+        employeeInfo.designation.toLowerCase().includes('manager') ||
+        employeeInfo.designation.toLowerCase().includes('lead') ||
+        employeeInfo.designation.toLowerCase().includes('head') ||
+        employeeInfo.designation.toLowerCase().includes('director');
 
-      console.log("🔍 Current user info:", {
-        currentEmployeeId,
-        currentEmployeeDbId,
-        currentEmployeeName: employeeInfo.name,
-      });
-
-      // DEBUG: Log each leave to see its structure
-      leavesData.forEach((leave, index) => {
-        console.log(`🔍 Leave ${index} (ID: ${leave.id}):`, {
-          employee: leave.employee,
-          employee_code: leave.employee_code,
-          employee_name: leave.employee_name,
-          reporting_leader: leave.reporting_leader,
-          employee_object: leave.employee
-            ? {
-                id: leave.employee.id,
-                employee_id: leave.employee.employee_id,
-                name: leave.employee.name,
-              }
-            : "No employee object",
-        });
-      });
-
-      // ENHANCED FILTERING - Include team leaves for reporting leaders
-      const employeeLeaves = leavesData.filter((leave) => {
-        let matches = false;
-
-        // Strategy 1: Check if employee_code matches
-        if (leave.employee_code === currentEmployeeId) {
-          console.log(`✅ Leave ${leave.id} matched by employee_code`);
-          matches = true;
+      if (hasReportingResponsibilities) {
+        try {
+          const teamLeavesResponse = await getTeamLeaves();
+          console.log("👥 Team leaves API Response:", teamLeavesResponse);
+          
+          if (teamLeavesResponse.data && Array.isArray(teamLeavesResponse.data)) {
+            teamLeavesData = teamLeavesResponse.data;
+          } else if (teamLeavesResponse.data?.data && Array.isArray(teamLeavesResponse.data.data)) {
+            teamLeavesData = teamLeavesResponse.data.data;
+          }
+          
+          console.log("📊 Team leaves count:", teamLeavesData.length);
+        } catch (teamError) {
+          console.log("⚠️ Could not fetch team leaves:", teamError.message);
         }
-
-        // Strategy 2: Check if employee object has matching employee_id
-        else if (
-          leave.employee &&
-          leave.employee.employee_id === currentEmployeeId
-        ) {
-          console.log(`✅ Leave ${leave.id} matched by employee.employee_id`);
-          matches = true;
-        }
-
-        // Strategy 3: Check if employee object has matching database ID
-        else if (
-          leave.employee &&
-          leave.employee.id &&
-          leave.employee.id.toString() === currentEmployeeDbId
-        ) {
-          console.log(`✅ Leave ${leave.id} matched by employee.id`);
-          matches = true;
-        }
-
-        // Strategy 4: Check if there's an employee_name that matches (fallback)
-        else if (
-          leave.employee_name &&
-          leave.employee_name === employeeInfo.name
-        ) {
-          console.log(`✅ Leave ${leave.id} matched by employee_name`);
-          matches = true;
-        }
-
-        // Strategy 5: Check if the raw employee field matches database ID
-        else if (
-          leave.employee &&
-          leave.employee.toString() === currentEmployeeDbId
-        ) {
-          console.log(`✅ Leave ${leave.id} matched by raw employee field`);
-          matches = true;
-        }
-
-        // NEW Strategy 6: Check if current user is the reporting leader for this leave
-        else if (
-          leave.reporting_leader &&
-          (leave.reporting_leader.includes(employeeInfo.name) ||
-           leave.reporting_leader.includes(currentEmployeeId) ||
-           (employeeInfo.reporting_leader && leave.reporting_leader.includes(employeeInfo.reporting_leader)))
-        ) {
-          console.log(`✅ Leave ${leave.id} matched by reporting_leader: ${leave.reporting_leader}`);
-          matches = true;
-        }
-
-        if (!matches) {
-          console.log(`❌ Leave ${leave.id} didn't match any criteria:`, {
-            leaveEmployeeCode: leave.employee_code,
-            leaveEmployeeId: leave.employee?.employee_id,
-            leaveEmployeeDbId: leave.employee?.id,
-            leaveEmployeeName: leave.employee_name,
-            leaveReportingLeader: leave.reporting_leader,
-            rawEmployeeField: leave.employee,
-            ourEmployeeId: currentEmployeeId,
-            ourEmployeeDbId: currentEmployeeDbId,
-            ourEmployeeName: employeeInfo.name,
-            ourReportingLeader: employeeInfo.reporting_leader,
-          });
-        }
-
-        return matches;
-      });
-
-      console.log("👤 Final filtered leaves:", employeeLeaves);
+      }
 
       // Sort leaves by date (newest first)
-      employeeLeaves.sort((a, b) => {
+      myLeavesData.sort((a, b) => {
         const dateA = new Date(a.created_at || a.date || a.start_date || a.id);
         const dateB = new Date(b.created_at || b.date || b.start_date || b.id);
         return dateB - dateA;
       });
 
-      setLeaves(employeeLeaves);
+      teamLeavesData.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.date || a.start_date || a.id);
+        const dateB = new Date(b.created_at || b.date || b.start_date || b.id);
+        return dateB - dateA;
+      });
 
-      // Handle leave balances
+      setMyLeaves(myLeavesData);
+      setTeamLeaves(teamLeavesData);
+
+      // Get leave balances
+      const balancesResponse = await getEmployeeLeaveBalances();
+      console.log("💰 Balances API Response:", balancesResponse);
+
       if (balancesResponse.data && Array.isArray(balancesResponse.data)) {
         const userBalance = balancesResponse.data.find(
           (b) =>
@@ -217,6 +144,7 @@ const Dashboard = () => {
 
   const handleApplyLeave = () => navigate("/apply-leave");
   const handleViewLeaveDetails = (id) => navigate(`/leave-history`);
+  const handleViewTeamLeaves = (id) => navigate(`/team-leaves`);
 
   // Format leave type for display
   const formatLeaveType = (leaveType) => {
@@ -286,27 +214,21 @@ const Dashboard = () => {
     }
   };
 
-  // Check if a leave belongs to the current user or is a team leave
+  // Check if a leave belongs to the current user
   const isTeamLeave = (leave) => {
     if (!leave) return false;
     
     const currentEmployeeId = employeeInfo.employee_id;
     const currentEmployeeName = employeeInfo.name;
     
-    // Check if this is NOT the current user's own leave
+    // Check if this is the current user's own leave
     const isOwnLeave = 
         leave.employee_code === currentEmployeeId ||
         (leave.employee && leave.employee.employee_id === currentEmployeeId) ||
         (leave.employee_name && leave.employee_name === currentEmployeeName);
     
-    // Check if the current user is the reporting leader for this leave
-    const isUserReportingLeader = 
-        leave.reporting_leader && 
-        (leave.reporting_leader.includes(currentEmployeeName) ||
-         leave.reporting_leader.includes(currentEmployeeId));
-    
-    // It's a team leave if it's NOT the user's own leave AND user is the reporting leader
-    return !isOwnLeave && isUserReportingLeader;
+    // If it's not the user's own leave, it's a team leave
+    return !isOwnLeave;
   };
 
   // Inline Styles
@@ -496,6 +418,83 @@ const Dashboard = () => {
     },
   };
 
+  // Render Leave Item Component
+  const LeaveItem = ({ leave, isTeamLeave = false }) => {
+    const statusInfo = getStatusInfo(leave.status);
+    const leaveEmployeeName = leave.employee_name || leave.employee?.name || "Unknown";
+
+    return (
+      <div
+        onClick={() => leave.id && handleViewLeaveDetails(leave.id)}
+        style={{
+          ...styles.leaveItem,
+          ...(leave.id ? styles.leaveItemHover : {}),
+          backgroundColor: isTeamLeave ? "#f0f8ff" : "white",
+          borderLeft: isTeamLeave ? "4px solid #1976d2" : "none",
+        }}
+        onMouseEnter={(e) => {
+          if (leave.id)
+            e.currentTarget.style.backgroundColor = isTeamLeave ? "#e3f2fd" : "#f8f9fa";
+        }}
+        onMouseLeave={(e) => {
+          if (leave.id)
+            e.currentTarget.style.backgroundColor = isTeamLeave ? "#f0f8ff" : "white";
+        }}
+      >
+        <div style={styles.leaveHeader}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <h4 style={styles.leaveType}>
+              {formatLeaveType(leave.leave_type)}
+              {isTeamLeave && (
+                <span style={styles.teamLeaveBadge}>
+                  Team Member
+                </span>
+              )}
+            </h4>
+          </div>
+          <span style={statusInfo.style}>{statusInfo.text}</span>
+        </div>
+
+        <p style={styles.leaveDetails}>
+          <strong>Employee:</strong> {leaveEmployeeName}
+        </p>
+
+        <p style={styles.leaveDetails}>
+          <strong>Apply Date:</strong>{" "}
+          {formatDate(leave.date || leave.created_at)}
+        </p>
+
+        <p style={styles.leaveDetails}>
+          <strong>Leave Period:</strong>{" "}
+          {formatDate(leave.start_date)} to{" "}
+          {formatDate(leave.end_date)}
+        </p>
+
+        <p style={styles.leaveDetails}>
+          <strong>Duration:</strong> {leave.leave_days || "N/A"}{" "}
+          day(s)
+        </p>
+
+        {leave.reason && (
+          <p style={styles.leaveReason}>
+            <strong>Reason:</strong> {leave.reason}
+          </p>
+        )}
+
+        {isTeamLeave && leave.reporting_leader && (
+          <p style={styles.leaveDetails}>
+            <strong>Reporting Leader:</strong> {leave.reporting_leader}
+          </p>
+        )}
+
+        <p style={styles.debugInfo}>
+          Leave ID: {leave.id} | Employee: {leaveEmployeeName} | 
+          Type: {leave.leave_type} | Team Leave: {isTeamLeave ? "Yes" : "No"}
+        </p>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -556,8 +555,8 @@ const Dashboard = () => {
                 </p>
               )}
               <p style={styles.debugInfo}>
-                Employee ID: {employeeInfo.employee_id} | Found {leaves.length}{" "}
-                leave requests | Last refresh: {new Date().toLocaleTimeString()}
+                Employee ID: {employeeInfo.employee_id} | My Leaves: {myLeaves.length} | 
+                Team Leaves: {teamLeaves.length} | Last refresh: {new Date().toLocaleTimeString()}
               </p>
             </div>
             <button onClick={handleApplyLeave} style={styles.applyButton}>
@@ -638,13 +637,13 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Leaves */}
+        {/* My Recent Leaves - ONLY show user's own leaves */}
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>
-            Recent Leave Requests {leaves.length > 0 && `(${leaves.length})`}
+            My Recent Leave Requests {myLeaves.length > 0 && `(${myLeaves.length})`}
           </h3>
 
-          {leaves.length === 0 ? (
+          {myLeaves.length === 0 ? (
             <div style={styles.emptyState}>
               <p style={styles.emptyText}>No leave requests found.</p>
               <p style={{ ...styles.emptyText, fontSize: "14px" }}>
@@ -659,86 +658,11 @@ const Dashboard = () => {
             </div>
           ) : (
             <div>
-              {leaves.slice(0, 5).map((leave, index) => {
-                const statusInfo = getStatusInfo(leave.status);
-                const teamLeave = isTeamLeave(leave);
+              {myLeaves.slice(0, 5).map((leave, index) => (
+                <LeaveItem key={leave.id || index} leave={leave} isTeamLeave={false} />
+              ))}
 
-                return (
-                  <div
-                    key={leave.id || index}
-                    onClick={() => leave.id && handleViewLeaveDetails(leave.id)}
-                    style={{
-                      ...styles.leaveItem,
-                      ...(leave.id ? styles.leaveItemHover : {}),
-                      backgroundColor: teamLeave ? "#f0f8ff" : "white",
-                      borderLeft: teamLeave ? "4px solid #1976d2" : "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (leave.id)
-                        e.currentTarget.style.backgroundColor = teamLeave ? "#e3f2fd" : "#f8f9fa";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (leave.id)
-                        e.currentTarget.style.backgroundColor = teamLeave ? "#f0f8ff" : "white";
-                    }}
-                  >
-                    <div style={styles.leaveHeader}>
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <h4 style={styles.leaveType}>
-                          {formatLeaveType(leave.leave_type)}
-                          {teamLeave && (
-                            <span style={styles.teamLeaveBadge}>
-                              Team Member Leave
-                            </span>
-                          )}
-                        </h4>
-                      </div>
-                      <span style={statusInfo.style}>{statusInfo.text}</span>
-                    </div>
-
-                    <p style={styles.leaveDetails}>
-                      <strong>Employee:</strong> {leave.employee_name || leave.employee?.name || "Unknown"}
-                    </p>
-
-                    <p style={styles.leaveDetails}>
-                      <strong>Apply Date:</strong>{" "}
-                      {formatDate(leave.date || leave.created_at)}
-                    </p>
-
-                    <p style={styles.leaveDetails}>
-                      <strong>Leave Period:</strong>{" "}
-                      {formatDate(leave.start_date)} to{" "}
-                      {formatDate(leave.end_date)}
-                    </p>
-
-                    <p style={styles.leaveDetails}>
-                      <strong>Duration:</strong> {leave.leave_days || "N/A"}{" "}
-                      day(s)
-                    </p>
-
-                    {leave.reason && (
-                      <p style={styles.leaveReason}>
-                        <strong>Reason:</strong> {leave.reason}
-                      </p>
-                    )}
-
-                    {teamLeave && leave.reporting_leader && (
-                      <p style={styles.leaveDetails}>
-                        <strong>Reporting Leader:</strong> {leave.reporting_leader}
-                      </p>
-                    )}
-
-                    {/* Debug information */}
-                    <p style={styles.debugInfo}>
-                      Leave ID: {leave.id} | Applied:{" "}
-                      {formatDate(leave.created_at || leave.date)} | Type:{" "}
-                      {leave.leave_type} | Team Leave: {teamLeave ? "Yes" : "No"}
-                    </p>
-                  </div>
-                );
-              })}
-
-              {leaves.length > 5 && (
+              {myLeaves.length > 5 && (
                 <div style={styles.viewAllButton}>
                   <button
                     onClick={() => navigate("/leave-history")}
@@ -751,7 +675,7 @@ const Dashboard = () => {
                       fontWeight: "500",
                     }}
                   >
-                    View all {leaves.length} requests
+                    View all {myLeaves.length} requests
                   </button>
                 </div>
               )}

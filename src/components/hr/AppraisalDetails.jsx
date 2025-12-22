@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   getPerformanceAppraisalById,
   approveIncrement,
+  approveDesignation,
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
@@ -63,6 +64,47 @@ const AppraisalDetails = () => {
 
   if (!appraisal) return <p>Loading...</p>;
 
+  const handleApproveDesignation = async (appraisalId) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to approve this designation change? This will update the employee's designation."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log(
+        `🖱️ Approve Designation button clicked in AppraisalDetails for ID: ${appraisalId}`
+      );
+
+      const result = await approveDesignation(appraisalId);
+      console.log("✅ API call successful:", result);
+
+      alert("Designation approved successfully!");
+
+      // Refresh appraisal data
+      const updatedAppraisal = await getPerformanceAppraisalById(appraisalId);
+      console.log("🔄 Updated appraisal data:", updatedAppraisal.data);
+      setAppraisal(updatedAppraisal.data);
+    } catch (err) {
+      console.error("❌ Error approving designation:", err);
+      console.error("Error response:", err.response?.data);
+      alert(
+        `Failed to approve designation. Please try again. Error: ${err.message}`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  const canApproveThisDesignation = () => {
+    return (
+      appraisal.promotion &&
+      !appraisal.designation_approved &&
+      appraisal.proposed_designation
+    );
+  };
   // Check if user can approve increments
   const canApproveIncrement = () => {
     return username === "Tuhin" || username === "admin" || username === "hr";
@@ -761,6 +803,11 @@ const AppraisalDetails = () => {
                   </div>
                 </div>
 
+                <div style={styles.cell}>
+                  <label>Proposed Salary Remarks:</label>
+                  <div style={styles.value}>{appraisal.salary_text}</div>
+                </div>
+
                 {/* Designation Row */}
                 <div style={styles.row}>
                   <div style={styles.cell}>
@@ -807,6 +854,26 @@ const AppraisalDetails = () => {
               </button>
             )}
 
+            {/* Show Approve Designation button only if user has permission AND promotion is recommended but not approved */}
+            {canApproveIncrement() && canApproveThisDesignation() && (
+              <button
+                onClick={() => handleApproveDesignation(appraisal.id)}
+                disabled={loading}
+                style={{
+                  backgroundColor: loading ? "#9ca3af" : "#0078D4",
+                  color: "white",
+                  padding: "10px 15px",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  fontSize: "16px",
+                  marginLeft: "10px",
+                }}
+              >
+                {loading ? "Approving..." : "Approve Designation"}
+              </button>
+            )}
+
             {/* Show message if increment is already approved */}
             {appraisal.increment_approved && (
               <div
@@ -820,6 +887,23 @@ const AppraisalDetails = () => {
                 }}
               >
                 ✅ Increment Approved
+              </div>
+            )}
+
+            {/* Show message if designation is already approved */}
+            {appraisal.designation_approved && (
+              <div
+                style={{
+                  padding: "10px 15px",
+                  backgroundColor: "#dbeafe",
+                  color: "#1e40af",
+                  borderRadius: "5px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  marginLeft: "10px",
+                }}
+              >
+                ✅ Designation Approved
               </div>
             )}
           </div>

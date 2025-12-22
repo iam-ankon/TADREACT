@@ -631,12 +631,12 @@ const EmployeeDetails = () => {
                           >
                             <FaPaperclip />
                           </button>
-                          <button
+                          {/* <button
                             onClick={(e) => handleDelete(employee.id, e)}
                             className="btn-delete"
                           >
                             <FaTrash />
-                          </button>
+                          </button> */}
                         </td>
                       </tr>
                     ))

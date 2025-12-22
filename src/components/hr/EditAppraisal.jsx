@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { 
-  getDepartments, 
-  getPerformanceAppraisalById, 
-  updatePerformanceAppraisal 
+import {
+  getDepartments,
+  getPerformanceAppraisalById,
+  updatePerformanceAppraisal,
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
@@ -51,23 +51,26 @@ const EditAppraisal = () => {
     proposed_salary: "",
     present_designation: "",
     proposed_designation: "",
+    salary_text: "",
   });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch departments list
         const deptResponse = await getDepartments();
         setDepartments(deptResponse.data || []);
-        
+
         // Fetch appraisal data
         const appraisalResponse = await getPerformanceAppraisalById(id);
         const appraisalData = appraisalResponse.data;
-        
+
         const departmentName = appraisalData.department
-          ? (deptResponse.data || []).find((d) => d.id === appraisalData.department)?.department_name
+          ? (deptResponse.data || []).find(
+              (d) => d.id === appraisalData.department
+            )?.department_name
           : "";
 
         setFormData({
@@ -109,7 +112,7 @@ const EditAppraisal = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      
+
       // Create a copy of formData without department_name for submission
       const submissionData = { ...formData };
       delete submissionData.department_name;
@@ -141,7 +144,6 @@ const EditAppraisal = () => {
           <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
             <h2 style={styles.title}>Edit Performance Appraisal</h2>
             <form onSubmit={handleSubmit} style={styles.formGrid}>
-              
               {/* Employee Information Section */}
               <div style={styles.sectionContainer}>
                 <h3 style={styles.sectionTitle}>Employee Information</h3>
@@ -212,7 +214,7 @@ const EditAppraisal = () => {
                 </div>
 
                 <div style={styles.fieldContainer}>
-                  <label style={styles.label}>Last Increment Date</label>
+                  <label style={styles.label}>Increment Date</label>
                   <input
                     type="date"
                     name="last_increment_date"
@@ -223,7 +225,7 @@ const EditAppraisal = () => {
                 </div>
 
                 <div style={styles.fieldContainer}>
-                  <label style={styles.label}>Last Promotion Date</label>
+                  <label style={styles.label}>Promotion Date</label>
                   <input
                     type="date"
                     name="last_promotion_date"
@@ -247,7 +249,9 @@ const EditAppraisal = () => {
 
               {/* Performance and Salary Details Section */}
               <div style={styles.sectionContainer}>
-                <h3 style={styles.sectionTitle}>Performance and Salary Details</h3>
+                <h3 style={styles.sectionTitle}>
+                  Performance and Salary Details
+                </h3>
 
                 <div style={styles.fieldContainer}>
                   <label style={styles.label}>Performance</label>
@@ -294,6 +298,17 @@ const EditAppraisal = () => {
                 </div>
 
                 <div style={styles.fieldContainer}>
+                  <label style={styles.label}>Proposed Salary Remarks</label>
+                  <textarea
+                    type="text"
+                    name="salary_text"
+                    value={formData.salary_text || ""}
+                    onChange={handleChange}
+                    style={styles.input}
+                  />
+                </div>
+
+                <div style={styles.fieldContainer}>
                   <label style={styles.label}>Present Designation</label>
                   <input
                     type="text"
@@ -318,22 +333,28 @@ const EditAppraisal = () => {
                 <div style={{ marginTop: "20px" }}>
                   <h4 style={styles.subSectionTitle}>Recommendations</h4>
                   <div style={styles.checkboxGroup}>
-                    {["promotion", "increment", "performance_reward"].map((field) => (
-                      <div key={field} style={styles.checkboxContainer}>
-                        <input
-                          type="checkbox"
-                          name={field}
-                          checked={formData[field]}
-                          onChange={handleChange}
-                          style={styles.checkbox}
-                        />
-                        <label style={styles.label}>
-                          {field.split("_").map(
-                            (word) => word.charAt(0).toUpperCase() + word.slice(1)
-                          ).join(" ")}
-                        </label>
-                      </div>
-                    ))}
+                    {["promotion", "increment", "performance_reward"].map(
+                      (field) => (
+                        <div key={field} style={styles.checkboxContainer}>
+                          <input
+                            type="checkbox"
+                            name={field}
+                            checked={formData[field]}
+                            onChange={handleChange}
+                            style={styles.checkbox}
+                          />
+                          <label style={styles.label}>
+                            {field
+                              .split("_")
+                              .map(
+                                (word) =>
+                                  word.charAt(0).toUpperCase() + word.slice(1)
+                              )
+                              .join(" ")}
+                          </label>
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
@@ -342,7 +363,6 @@ const EditAppraisal = () => {
               <div style={{ ...styles.sectionContainer, gridColumn: "span 2" }}>
                 <h3 style={styles.sectionTitle}>Appraisal Details</h3>
                 <div style={styles.appraisalGrid}>
-                  
                   {/* Column 1 */}
                   <div>
                     <div style={styles.fieldContainer}>
@@ -369,7 +389,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Performance in Meetings (1-5)</label>
+                      <label style={styles.label}>
+                        Performance in Meetings (1-5)
+                      </label>
                       <input
                         type="number"
                         min="1"
@@ -382,7 +404,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Performance Description</label>
+                      <label style={styles.label}>
+                        Performance Description
+                      </label>
                       <textarea
                         name="performance_description"
                         value={formData.performance_description || ""}
@@ -392,7 +416,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Communication Skills (1-5)</label>
+                      <label style={styles.label}>
+                        Communication Skills (1-5)
+                      </label>
                       <input
                         type="number"
                         min="1"
@@ -405,7 +431,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Communication Description</label>
+                      <label style={styles.label}>
+                        Communication Description
+                      </label>
                       <textarea
                         name="communication_description"
                         value={formData.communication_description || ""}
@@ -431,7 +459,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Reliability Description</label>
+                      <label style={styles.label}>
+                        Reliability Description
+                      </label>
                       <textarea
                         name="reliability_description"
                         value={formData.reliability_description || ""}
@@ -464,7 +494,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Stress Management (1-5)</label>
+                      <label style={styles.label}>
+                        Stress Management (1-5)
+                      </label>
                       <input
                         type="number"
                         min="1"
@@ -477,7 +509,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Stress Management Description</label>
+                      <label style={styles.label}>
+                        Stress Management Description
+                      </label>
                       <textarea
                         name="stress_management_description"
                         value={formData.stress_management_description || ""}
@@ -503,7 +537,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Co-operation Description</label>
+                      <label style={styles.label}>
+                        Co-operation Description
+                      </label>
                       <textarea
                         name="co_operation_description"
                         value={formData.co_operation_description || ""}
@@ -562,7 +598,9 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Ethical Considerations (1-5)</label>
+                      <label style={styles.label}>
+                        Ethical Considerations (1-5)
+                      </label>
                       <input
                         type="number"
                         min="1"
@@ -575,10 +613,14 @@ const EditAppraisal = () => {
                     </div>
 
                     <div style={styles.fieldContainer}>
-                      <label style={styles.label}>Ethical Considerations Description</label>
+                      <label style={styles.label}>
+                        Ethical Considerations Description
+                      </label>
                       <textarea
                         name="ethical_considerations_description"
-                        value={formData.ethical_considerations_description || ""}
+                        value={
+                          formData.ethical_considerations_description || ""
+                        }
                         onChange={handleChange}
                         style={styles.textarea}
                       />
@@ -588,8 +630,8 @@ const EditAppraisal = () => {
               </div>
 
               <div style={styles.buttonContainer}>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   style={{
                     ...styles.button,
                     backgroundColor: loading ? "#9ca3af" : "#3b82f6",

@@ -26,7 +26,6 @@ const AddEmployee = () => {
     mail_address: "",
     office_phone: "",
     reference_phone: "",
-    job_title: "",
     department: "",
     customer: [],
     company: "",
@@ -257,7 +256,6 @@ const AddEmployee = () => {
           required: true,
           type: "date",
         },
-        { name: "job_title", label: "Job Title" },
         {
           name: "department",
           label: "Department",

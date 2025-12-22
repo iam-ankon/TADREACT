@@ -592,14 +592,14 @@ const ApplyLeave = () => {
                   <option value="sick_leave">
                     Sick Leave (Available: {getAvailableBalance("sick_leave")})
                   </option>
-                  <option value="earned_leave">
+                  {/* <option value="earned_leave">
                     Earned Leave (Available:{" "}
                     {getAvailableBalance("earned_leave")})
                   </option>
                   <option value="public_festival_holiday">
                     Public Festival Holiday (Available:{" "}
                     {getAvailableBalance("public_festival_holiday")})
-                  </option>
+                  </option> */}
                 </select>
               </div>
 

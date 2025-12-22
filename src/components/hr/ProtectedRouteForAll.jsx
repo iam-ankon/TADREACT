@@ -1,8 +1,8 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 
-const ProtectedRoute = ({ children }) => {
-  // Check if user is logged in
+const ProtectedRouteForAll = ({ children }) => {
+  // Check if user is logged in (you might have a different auth check)
   const token = localStorage.getItem("token") || 
                 localStorage.getItem("access_token") || 
                 sessionStorage.getItem("token");
@@ -14,9 +14,8 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/" replace />;
   }
 
-  // For regular ProtectedRoute, just check authentication
-  // For full access check, you'll need to handle it in the backend
+  // If authenticated, render the children (any authenticated user can access)
   return children;
 };
 
-export default ProtectedRoute;
+export default ProtectedRouteForAll;

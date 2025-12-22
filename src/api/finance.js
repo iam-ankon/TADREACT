@@ -1,4 +1,4 @@
-// src/services/finance.js - Complete fixed version
+// src/services/finance.js - COMPLETE FIXED VERSION
 import axios from "axios";
 
 const API_BASE = "http://119.148.51.38:8000/api/tax-calculator";
@@ -10,13 +10,159 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // IMPORTANT: For Django CSRF cookies
 });
 
-// Add response interceptor for error handling
-apiClient.interceptors.response.use(
-  (response) => response,
+// Get authentication token from localStorage (same as HRMS API)
+const getAuthToken = () => {
+  // Try multiple storage locations (same as HRMS API)
+  const token = localStorage.getItem("token") || 
+                sessionStorage.getItem("token") || 
+                localStorage.getItem("authToken");
+  
+  console.log("🔑 Finance API - Token found:", !!token);
+  return token;
+};
+
+// Get CSRF token function (for Django REST Framework)
+const getCSRFToken = () => {
+  let csrfToken = null;
+  
+  // Method 1: Check memory cache
+  if (window._csrfToken) {
+    return window._csrfToken;
+  }
+  
+  // Method 2: Try to get from cookie
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'csrftoken') {
+      csrfToken = value;
+      break;
+    }
+  }
+  
+  // Method 3: Try to get from meta tag
+  if (!csrfToken) {
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) {
+      csrfToken = csrfMeta.getAttribute('content');
+    }
+  }
+  
+  // Cache for future use
+  if (csrfToken) {
+    window._csrfToken = csrfToken;
+  }
+  
+  return csrfToken;
+};
+
+// Add request interceptor - UPDATED with proper auth
+apiClient.interceptors.request.use(
+  (config) => {
+    console.log(`🚀 Finance API - ${config.method?.toUpperCase()} to: ${config.url}`);
+    
+    // 1. Add Django Token Authentication (same as HRMS)
+    const authToken = getAuthToken();
+    if (authToken) {
+      config.headers['Authorization'] = `Token ${authToken}`;
+      console.log("🔑 Finance API - Auth token added");
+    } else {
+      console.warn("⚠️ Finance API - No auth token found!");
+    }
+    
+    // 2. Add CSRF token for state-changing requests (POST, PUT, PATCH, DELETE)
+    const method = config.method?.toLowerCase();
+    if (method && ['post', 'patch', 'put', 'delete'].includes(method)) {
+      const csrfToken = getCSRFToken();
+      if (csrfToken) {
+        config.headers['X-CSRFToken'] = csrfToken;
+        console.log("🔒 Finance API - CSRF token added");
+      } else {
+        console.warn("⚠️ Finance API - No CSRF token found for state-changing request");
+      }
+    }
+    
+    return config;
+  },
   (error) => {
-    console.error("API Error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for authentication errors - UPDATED
+apiClient.interceptors.response.use(
+  (response) => {
+    console.log(`✅ Finance API - ${response.config.method?.toUpperCase()} ${response.config.url} success:`, response.status);
+    return response;
+  },
+  (error) => {
+    console.error(`❌ Finance API Error:`, {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.message,
+    });
+
+    // Handle 401 Unauthorized - redirect to login (same as HRMS API)
+    if (error.response && error.response.status === 401) {
+      console.error("Unauthenticated – logging out");
+      
+      // Clear auth data (same as HRMS)
+      const keys = [
+        "token",
+        "username",
+        "user_id",
+        "employee_id",
+        "employee_name",
+        "designation",
+        "permissions",
+        "mode",
+        "token_timestamp",
+        "reporting_leader",
+      ];
+      keys.forEach((k) => localStorage.removeItem(k));
+      
+      // Redirect to login page
+      window.location.href = "/login";
+    }
+    
+    // Handle CSRF errors (403 Forbidden)
+    if (error.response?.status === 403 && error.config) {
+      console.log("🔄 Finance API - Possible CSRF error, refreshing CSRF token...");
+      
+      // Try to fetch fresh CSRF token
+      const refreshCsrfToken = async () => {
+        try {
+          const response = await fetch(`${API_BASE.replace('/api/tax-calculator', '')}/api/csrf/`, {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.csrfToken) {
+              window._csrfToken = data.csrfToken;
+              // Retry the request
+              error.config.headers["X-CSRFToken"] = window._csrfToken;
+              return apiClient.request(error.config);
+            }
+          }
+        } catch (csrfErr) {
+          console.error("Failed to refresh CSRF token:", csrfErr);
+        }
+        return Promise.reject(error);
+      };
+      
+      return refreshCsrfToken();
+    }
+    
     return Promise.reject(error);
   }
 );

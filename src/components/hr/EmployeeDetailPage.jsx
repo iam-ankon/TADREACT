@@ -551,7 +551,7 @@ const EmployeeDetailPage = () => {
                   </div>
                   <div className="detail-row">
                     <span>Job Title:</span>
-                    <span>{employee.job_title}</span>
+                    <span>{employee.designation}</span>
                   </div>
                   <div className="detail-row">
                     <span>Salary:</span>

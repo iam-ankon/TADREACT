@@ -193,7 +193,7 @@ const CVList = () => {
                     <tr style={{ backgroundColor: "#e1e9f3" }}>
                       <th style={cellStyle}>Name</th>
                       <th style={cellStyle}>Position</th>
-                      <th style={cellStyle}>Age</th>
+                      <th style={cellStyle}>Date Of Birth</th>
                       <th style={cellStyle}>Email</th>
                       <th style={cellStyle}>Phone</th>
                       <th style={cellStyle}>Reference</th>

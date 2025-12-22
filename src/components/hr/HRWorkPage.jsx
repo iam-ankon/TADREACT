@@ -21,6 +21,8 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiClock as FiClockIcon,
+  FiGift,
+  FiStar,
 } from "react-icons/fi";
 import {
   getEmployees,
@@ -41,6 +43,7 @@ const HRWorkPage = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [cvCount, setCvCount] = useState(0);
   const [attendanceData, setAttendanceData] = useState([]);
+  const [upcomingHolidays, setUpcomingHolidays] = useState([]);
   const [activeStat, setActiveStat] = useState(null);
 
   useEffect(() => {
@@ -119,11 +122,47 @@ const HRWorkPage = () => {
       }
     };
 
+    const fetchUpcomingHolidays = () => {
+      // This would typically come from an API, but for now we'll use static data
+      // based on the HOLIDAY - LOGISTICS -2026.docx file
+      const holidays = [
+        { date: "2026-02-04", name: "Shab-E-Barat", days: 1, day: "Wednesday" },
+        { date: "2026-02-21", name: "Shahid Day & International Mother Language Day", days: 1, day: "Saturday" },
+        { date: "2026-03-17", name: "Shab-E-Qadir", days: 1, day: "Tuesday" },
+        { date: "2026-03-19", name: "Eid-ul-Fitr", days: 5, day: "Thursday" },
+        { date: "2026-03-26", name: "Independence Day", days: 1, day: "Thursday" },
+        { date: "2026-04-14", name: "Bangla Nababarsha", days: 1, day: "Tuesday" },
+        { date: "2026-05-01", name: "May Day & Buddha Purnima", days: 1, day: "Friday" },
+        { date: "2026-05-29", name: "Eid-Ul-Adha", days: 6, day: "Friday" },
+        { date: "2026-06-26", name: "Ashura", days: 1, day: "Friday" },
+        { date: "2026-09-04", name: "Janmashtami", days: 1, day: "Friday" },
+        { date: "2026-10-21", name: "Durga Puja (Dashami)", days: 1, day: "Wednesday" },
+        { date: "2026-12-16", name: "Victory Day", days: 1, day: "Wednesday" },
+        { date: "2026-12-25", name: "Christmas & Year Ending Holidays", days: 4, day: "Friday" },
+      ];
+
+      // Filter holidays that are today or in the future
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const upcoming = holidays
+        .filter(holiday => {
+          const holidayDate = new Date(holiday.date);
+          holidayDate.setHours(0, 0, 0, 0);
+          return holidayDate >= today;
+        })
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .slice(0, 3); // Show next 3 holidays
+
+      setUpcomingHolidays(upcoming);
+    };
+
     fetchEmployeeCount();
     fetchInterviews();
     fetchLeaveRequests();
     fetchCVCount();
     fetchAttendanceData();
+    fetchUpcomingHolidays();
   }, []);
 
   const today = new Date();
@@ -243,6 +282,16 @@ const HRWorkPage = () => {
       color: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
       bgColor: "rgba(67, 233, 123, 0.1)",
     },
+    {
+      title: "Upcoming Holidays",
+      value: upcomingHolidays.length,
+      icon: <FiGift size={24} />,
+      link: "/holidays", // You can create a holidays page
+      trendDirection: "up",
+      color: "linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)",
+      bgColor: "rgba(255, 154, 158, 0.1)",
+      description: "Next 3 holidays",
+    },
   ];
 
   const quickActions = [
@@ -270,6 +319,12 @@ const HRWorkPage = () => {
       link: "/letter-send",
       color: "#43e97b",
     },
+    {
+      title: "View Holiday Calendar",
+      icon: <FiCalendar size={20} />,
+      link: "/holidays",
+      color: "#ff9a9e",
+    },
   ];
 
   // Get today's attendance data
@@ -291,6 +346,16 @@ const HRWorkPage = () => {
 
   // Get the most recent 3 interviews
   const recentInterviews = upcomingInterviews.slice(0, 3);
+
+  // Format date for display
+  const formatHolidayDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
 
   return (
     <div
@@ -514,7 +579,7 @@ const HRWorkPage = () => {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "1fr 1fr 1fr",
               gap: "1.5rem",
               marginBottom: "1.5rem",
             }}
@@ -774,6 +839,178 @@ const HRWorkPage = () => {
                   }}
                 >
                   View All Interviews
+                  <FiArrowUp
+                    style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }}
+                  />
+                </Link>
+              </div>
+            </div>
+
+            {/* Upcoming Holidays */}
+            <div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "1rem",
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "1.25rem 1.5rem",
+                  borderBottom: "1px solid #f1f5f9",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <h2
+                  style={{
+                    fontSize: "1.125rem",
+                    fontWeight: 600,
+                    color: "#1e293b",
+                    margin: 0,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FiGift style={{ marginRight: "0.5rem" }} />
+                  Upcoming Holidays
+                </h2>
+                <span
+                  style={{
+                    backgroundColor: "#ff9a9e20",
+                    color: "#ff9a9e",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "1rem",
+                  }}
+                >
+                  {upcomingHolidays.length} upcoming
+                </span>
+              </div>
+              <div>
+                {upcomingHolidays.map((holiday, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      padding: "1rem 1.5rem",
+                      borderBottom: "1px solid #f1f5f9",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      transition: "background-color 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <div
+                        style={{
+                          width: "40px",
+                          height: "40px",
+                          borderRadius: "50%",
+                          backgroundColor: "#ff9a9e20",
+                          color: "#ff9a9e",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: "0.75rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        <FiStar size={16} />
+                      </div>
+                      <div>
+                        <h3
+                          style={{
+                            fontWeight: 600,
+                            margin: "0 0 0.25rem 0",
+                            fontSize: "0.875rem",
+                          }}
+                        >
+                          {holiday.name}
+                        </h3>
+                        <p
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            margin: 0,
+                          }}
+                        >
+                          {holiday.day}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p
+                        style={{
+                          fontWeight: 600,
+                          margin: "0 0 0.25rem 0",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        {formatHolidayDate(holiday.date)}
+                      </p>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "0.25rem 0.75rem",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          backgroundColor: "#f0f9ff",
+                          color: "#0369a1",
+                          borderRadius: "1rem",
+                        }}
+                      >
+                        {holiday.days} day{holiday.days > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {upcomingHolidays.length === 0 && (
+                  <div
+                    style={{
+                      padding: "2rem 1rem",
+                      textAlign: "center",
+                      color: "#64748b",
+                    }}
+                  >
+                    <FiGift
+                      size={32}
+                      color="#cbd5e1"
+                      style={{ marginBottom: "0.5rem" }}
+                    />
+                    <p style={{ margin: 0 }}>No upcoming holidays</p>
+                  </div>
+                )}
+              </div>
+              <div
+                style={{
+                  padding: "1rem 1.5rem",
+                  borderTop: "1px solid #f1f5f9",
+                  textAlign: "center",
+                }}
+              >
+                <Link
+                  to="/holidays"
+                  style={{
+                    color: "#667eea",
+                    textDecoration: "none",
+                    fontWeight: 500,
+                    fontSize: "0.875rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  View Holiday Calendar
                   <FiArrowUp
                     style={{ marginLeft: "0.5rem", transform: "rotate(45deg)" }}
                   />

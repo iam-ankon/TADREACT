@@ -155,7 +155,11 @@ const Sidebar = () => {
 
   const isHeadOfFinance = designation
     .toLowerCase()
-    .includes("head of finance & accounts");  
+    .includes("head of finance & accounts");
+
+  const isDirectorOfTadLogistic = designation
+    .toLowerCase()
+    .includes("director - tad logistic");
 
   const isHeadOfDesign = designation.toLowerCase().includes("head of design");
 
@@ -201,6 +205,16 @@ const Sidebar = () => {
   // Regular User Menu Items - Include Performance Appraisal for Team Leaders
   const regularUserMenuItems = [
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply" },
+    
+    ...(!isGroupHeadOfAdmin
+      ? [
+          {
+            to: "/RegularUserStationery",
+            icon: <FiUsers />,
+            label: "RegularUser Stationery",
+          },
+        ]
+      : []),
 
     ...(isTeamLeader ||
     isTeamLeaderQC ||
@@ -212,12 +226,23 @@ const Sidebar = () => {
     isHeadOfDepartment ||
     isGroupHeadOfAdmin ||
     isHeadOfDesign ||
-    isHeadOfFinance
+    isHeadOfFinance ||
+    isDirectorOfTadLogistic
       ? [
           {
             to: "/team-leaves",
             icon: <FiUsers />,
             label: "Team Leaves",
+          },
+        ]
+      : []),
+
+    ...(isGroupHeadOfAdmin
+      ? [
+          {
+            to: "/StationeryDashboard",
+            icon: <FiUsers />,
+            label: "Stationery Dashboard",
           },
         ]
       : []),
@@ -233,7 +258,8 @@ const Sidebar = () => {
     isHeadOfDesign ||
     isTeamLeaderDigital ||
     isTeamLeaderCompliance ||
-    isHeadOfFinance
+    isHeadOfFinance ||
+    isDirectorOfTadLogistic
       ? [
           {
             to: "/performance-appraisal",
@@ -251,7 +277,7 @@ const Sidebar = () => {
             label: "Finance",
           },
         ]
-      : []),    
+      : []),
 
     {
       to: "/chat",
@@ -396,6 +422,8 @@ const Sidebar = () => {
                   ? "Team Leader - CSR"
                   : isHeadOfFinance
                   ? "Team Leader Finance & Accounts"
+                  : isDirectorOfTadLogistic
+                  ? "LOGISTIC DEPARTMENT"
                   : "Regular User"}
               </div>
               {employeeInfo.reporting_leader && (
