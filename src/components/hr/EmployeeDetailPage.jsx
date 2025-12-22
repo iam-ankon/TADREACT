@@ -686,7 +686,7 @@ const EmployeeDetailPage = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style >{`
         .employee-detail-container {
           display: flex;
           min-height: 100vh;

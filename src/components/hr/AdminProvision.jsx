@@ -292,7 +292,7 @@ const AdminProvision = () => {
         )}
 
         {/* CSS Styling */}
-        <style jsx>{`
+        <style>{`
           .main-content {
             flex: 1;
             display: flex;

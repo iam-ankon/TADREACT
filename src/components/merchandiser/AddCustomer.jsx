@@ -216,7 +216,7 @@ export default function AddCustomer() {
         </form>
       </div>
 
-      <style jsx>{`
+      <style>{`
         /* Base Styles */
         .page-container {
           display: flex;

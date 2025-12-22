@@ -205,7 +205,7 @@ const Sidebar = () => {
   // Regular User Menu Items - Include Performance Appraisal for Team Leaders
   const regularUserMenuItems = [
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply" },
-    
+
     ...(!isGroupHeadOfAdmin
       ? [
           {
@@ -495,7 +495,7 @@ const Sidebar = () => {
 
         <div className="blue-bar"></div>
 
-        <style jsx>{`
+        <style>{`
           .main-content {
             flex: 1;
             padding: 30px;

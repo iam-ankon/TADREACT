@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { 
-  getITProvisions, 
-  deleteITProvision, 
-  updateITProvision, 
-  addITProvision 
+import {
+  getITProvisions,
+  deleteITProvision,
+  updateITProvision,
+  addITProvision,
 } from "../../api/employeeApi";
-import Sidebars from './sidebars';
+import Sidebars from "./sidebars";
 
 const ITProvision = () => {
   const [provisions, setProvisions] = useState([]);
@@ -122,9 +122,9 @@ const ITProvision = () => {
 
   return (
     <div style={containerStyle}>
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: "flex" }}>
         <Sidebars />
-        <div style={{ flex: 1, overflow: 'auto' }}></div>
+        <div style={{ flex: 1, overflow: "auto" }}></div>
       </div>
       <div className="it-provision-container">
         <h2 className="heading">IT Provision</h2>
@@ -138,45 +138,40 @@ const ITProvision = () => {
           className="search-bar"
         />
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="add-button"
-        >
+        <button onClick={() => setIsAddModalOpen(true)} className="add-button">
           Add New Provision
         </button>
 
-        {loading && (
-          <div className="loading">Loading provisions...</div>
-        )}
+        {loading && <div className="loading">Loading provisions...</div>}
 
         <div className="card-container">
-          {filteredProvisions.length > 0 ? (
-            filteredProvisions.map((provision) => (
-              <div key={provision.id} className="card">
-                <h3 className="employee-name">{provision.employee || "Unknown Employee"}</h3>
-                <p className="provision-details">
-                  ID Card: {provision.it_equipment ? "Yes" : "No"}
-                </p>
-                <p className="provision-details">
-                  Laptop Provided: {provision.laptop ? "Yes" : "No"}
-                </p>
-                <button
-                  onClick={() => handleEdit(provision)}
-                  className="edit-button"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(provision.id)}
-                  className="delete-button"
-                >
-                  Delete
-                </button>
-              </div>
-            ))
-          ) : (
-            !loading && <div className="no-data">No IT provisions found</div>
-          )}
+          {filteredProvisions.length > 0
+            ? filteredProvisions.map((provision) => (
+                <div key={provision.id} className="card">
+                  <h3 className="employee-name">
+                    {provision.employee || "Unknown Employee"}
+                  </h3>
+                  <p className="provision-details">
+                    ID Card: {provision.it_equipment ? "Yes" : "No"}
+                  </p>
+                  <p className="provision-details">
+                    Laptop Provided: {provision.laptop ? "Yes" : "No"}
+                  </p>
+                  <button
+                    onClick={() => handleEdit(provision)}
+                    className="edit-button"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(provision.id)}
+                    className="delete-button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))
+            : !loading && <div className="no-data">No IT provisions found</div>}
         </div>
 
         {/* Edit Modal */}
@@ -269,7 +264,7 @@ const ITProvision = () => {
         )}
 
         {/* CSS Styling */}
-        <style jsx>{`
+        <style>{`
           .it-provision-container {
             display: flex;
             flex-direction: column;

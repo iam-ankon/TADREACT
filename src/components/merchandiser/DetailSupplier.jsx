@@ -180,7 +180,7 @@ const DetailSupplier = () => {
       </div>
 
       {/* CSS Styles */}
-      <style jsx>{`
+      <style>{`
         .supplier-detail-container {
           display: flex;
           min-height: 100vh;
@@ -578,7 +578,7 @@ const OverviewTab = ({ supplier }) => (
       )}
     </SectionCard>
 
-    <style jsx>{`
+    <style>{`
       .tab-content {
         display: flex;
         flex-direction: column;
@@ -711,7 +711,7 @@ const FinancialTab = ({ supplier }) => (
         <InfoField label="Cash Discount" value={supplier.cash_discount} />
       </div>
     </SectionCard>
-    <style jsx>{`
+    <style>{`
       .tab-content {
         display: flex;
         flex-direction: column;
@@ -846,7 +846,7 @@ const ContactsTab = ({ supplier }) => (
       </div>
     </SectionCard>
 
-    <style jsx>{`
+    <style>{`
       .info-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -1001,7 +1001,7 @@ const DocumentsTab = ({ supplier }) => (
       )}
     </SectionCard>
 
-    <style jsx>{`
+    <style>{`
       .info-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -1186,7 +1186,7 @@ const PerformanceTab = ({ supplier }) => (
       </div>
     </SectionCard>
 
-    <style jsx>{`
+    <style>{`
       .info-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -1270,7 +1270,7 @@ const StatCard = ({ title, value, icon, color = "#3b82f6" }) => (
       <p className="stat-value">{value}</p>
     </div>
 
-    <style jsx>{`
+    <style>{`
       .stat-card {
         background-color: #ffffff;
         padding: 16px;
@@ -1326,7 +1326,7 @@ const SectionCard = ({ title, children, icon }) => (
     </div>
     <div className="section-content">{children}</div>
 
-    <style jsx>{`
+    <style>{`
       .section-card {
         background-color: #ffffff;
         border-radius: 12px;
@@ -1379,7 +1379,7 @@ const InfoField = ({ label, value, fullWidth = false, link = false }) => (
       <p className="info-value">{value || "—"}</p>
     )}
 
-    <style jsx>{`
+    <style>{`
       .info-field {
         margin-bottom: 4px;
       }
@@ -1449,7 +1449,7 @@ const AuditItem = ({ title, completed, date, result }) => (
       )}
     </div>
 
-    <style jsx>{`
+    <style>{`
       .audit-item {
         display: flex;
         align-items: flex-start;

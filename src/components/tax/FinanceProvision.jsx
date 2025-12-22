@@ -350,9 +350,7 @@ const FinanceProvision = () => {
         // Trigger calculation which will update cache
         await calculateAllTaxes([employeeId]);
 
-        console.log(
-          "Successfully saved bonus to backend and localStorage"
-        );
+        console.log("Successfully saved bonus to backend and localStorage");
       }
     } catch (err) {
       console.error("Save bonus failed:", err);
@@ -475,7 +473,9 @@ const FinanceProvision = () => {
                             <input
                               type="number"
                               value={editSourceValue}
-                              onChange={(e) => setEditSourceValue(e.target.value)}
+                              onChange={(e) =>
+                                setEditSourceValue(e.target.value)
+                              }
                               onClick={(e) => e.stopPropagation()}
                             />
                             <FaSave
@@ -506,7 +506,9 @@ const FinanceProvision = () => {
                             <input
                               type="number"
                               value={editBonusValue}
-                              onChange={(e) => setEditBonusValue(e.target.value)}
+                              onChange={(e) =>
+                                setEditBonusValue(e.target.value)
+                              }
                               onClick={(e) => e.stopPropagation()}
                             />
                             <FaSave
@@ -578,7 +580,7 @@ const FinanceProvision = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .center-screen {
           display: flex;
           min-height: 100vh;

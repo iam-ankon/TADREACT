@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmployees, deleteEmployee } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
@@ -13,40 +19,39 @@ import {
   FaTimes,
 } from "react-icons/fa";
 
+// Move expensive calculations outside component
+const formatDateForDisplay = (dateString) => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB");
+  } catch {
+    return "";
+  }
+};
+
+const checkBirthdateMatch = (employeeDate, filterDate) => {
+  if (!employeeDate || !filterDate) return false;
+
+  try {
+    const empDate = new Date(employeeDate);
+    const filterDateObj = new Date(filterDate);
+
+    return (
+      empDate.getMonth() === filterDateObj.getMonth() &&
+      empDate.getDate() === filterDateObj.getDate()
+    );
+  } catch {
+    return false;
+  }
+};
+
 const EmployeeDetails = () => {
   const [employees, setEmployees] = useState([]);
-  const [searchQuery, setSearchQuery] = useState(() => {
-    try {
-      return localStorage.getItem("employeeSearchQuery") || "";
-    } catch (err) {
-      console.error("Error reading searchQuery from localStorage:", err);
-      return "";
-    }
-  });
-  const [designationFilter, setDesignationFilter] = useState(() => {
-    try {
-      return localStorage.getItem("employeeDesignationFilter") || "";
-    } catch (err) {
-      console.error("Error reading designationFilter from localStorage:", err);
-      return "";
-    }
-  });
-  const [departmentFilter, setDepartmentFilter] = useState(() => {
-    try {
-      return localStorage.getItem("employeeDepartmentFilter") || "";
-    } catch (err) {
-      console.error("Error reading departmentFilter from localStorage:", err);
-      return "";
-    }
-  });
-  const [birthdateFilter, setBirthdateFilter] = useState(() => {
-    try {
-      return localStorage.getItem("employeeBirthdateFilter") || "";
-    } catch (err) {
-      console.error("Error reading birthdateFilter from localStorage:", err);
-      return "";
-    }
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [designationFilter, setDesignationFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [birthdateFilter, setBirthdateFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDesignationDropdown, setShowDesignationDropdown] = useState(false);
@@ -54,19 +59,42 @@ const EmployeeDetails = () => {
   const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
   const [designationSearch, setDesignationSearch] = useState("");
   const [departmentSearch, setDepartmentSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
   const navigate = useNavigate();
-  const [currentPage, setCurrentPage] = useState(() => {
-    try {
-      const savedPage = localStorage.getItem("employeeListPage");
-      return savedPage ? parseInt(savedPage, 10) : 1;
-    } catch (err) {
-      console.error("Error reading from localStorage:", err);
-      return 1;
-    }
-  });
   const employeesPerPage = 10;
   const isInitialMount = useRef(true);
+  const filterTimeoutRef = useRef(null);
 
+  // Load from localStorage only once on mount
+  useEffect(() => {
+    try {
+      const savedSearchQuery = localStorage.getItem("employeeSearchQuery");
+      const savedDesignationFilter = localStorage.getItem(
+        "employeeDesignationFilter"
+      );
+      const savedDepartmentFilter = localStorage.getItem(
+        "employeeDepartmentFilter"
+      );
+      const savedBirthdateFilter = localStorage.getItem(
+        "employeeBirthdateFilter"
+      );
+      const savedPage = localStorage.getItem("employeeListPage");
+
+      if (savedSearchQuery !== null) setSearchQuery(savedSearchQuery);
+      if (savedDesignationFilter !== null)
+        setDesignationFilter(savedDesignationFilter);
+      if (savedDepartmentFilter !== null)
+        setDepartmentFilter(savedDepartmentFilter);
+      if (savedBirthdateFilter !== null)
+        setBirthdateFilter(savedBirthdateFilter);
+      if (savedPage) setCurrentPage(parseInt(savedPage, 10) || 1);
+    } catch (err) {
+      console.error("Error reading from localStorage:", err);
+    }
+  }, []);
+
+  // Fetch employees only once
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -87,145 +115,182 @@ const EmployeeDetails = () => {
     fetchEmployees();
   }, []);
 
-  // Save search and filter states to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem("employeeSearchQuery", searchQuery);
-      localStorage.setItem("employeeDesignationFilter", designationFilter);
-      localStorage.setItem("employeeDepartmentFilter", departmentFilter);
-      localStorage.setItem("employeeBirthdateFilter", birthdateFilter);
-    } catch (err) {
-      console.error("Error saving to localStorage:", err);
-    }
-  }, [searchQuery, designationFilter, departmentFilter, birthdateFilter]);
-
-  // Skip reset on initial mount to preserve saved page
+  // Debounced save to localStorage
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-    setCurrentPage(1);
-    localStorage.setItem("employeeListPage", "1");
+
+    if (filterTimeoutRef.current) {
+      clearTimeout(filterTimeoutRef.current);
+    }
+
+    filterTimeoutRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem("employeeSearchQuery", searchQuery);
+        localStorage.setItem("employeeDesignationFilter", designationFilter);
+        localStorage.setItem("employeeDepartmentFilter", departmentFilter);
+        localStorage.setItem("employeeBirthdateFilter", birthdateFilter);
+      } catch (err) {
+        console.error("Error saving to localStorage:", err);
+      }
+    }, 300);
+
+    return () => {
+      if (filterTimeoutRef.current) {
+        clearTimeout(filterTimeoutRef.current);
+      }
+    };
   }, [searchQuery, designationFilter, departmentFilter, birthdateFilter]);
 
-  // Validate and adjust currentPage
-  useEffect(() => {
-    if (!employees.length) return;
-    const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-      localStorage.setItem("employeeListPage", totalPages.toString());
-    } else if (filteredEmployees.length === 0) {
-      setCurrentPage(1);
-      localStorage.setItem("employeeListPage", "1");
-    }
+  // Memoize unique designations and departments
+  const uniqueDesignations = useMemo(() => {
+    return [
+      ...new Set(employees.map((emp) => emp.designation).filter(Boolean)),
+    ].sort();
+  }, [employees]);
+
+  const uniqueDepartments = useMemo(() => {
+    return [
+      ...new Set(employees.map((emp) => emp.department_name).filter(Boolean)),
+    ].sort();
+  }, [employees]);
+
+  // Memoize filtered designations and departments
+  const filteredDesignations = useMemo(() => {
+    return uniqueDesignations.filter((designation) =>
+      designation.toLowerCase().includes(designationSearch.toLowerCase())
+    );
+  }, [uniqueDesignations, designationSearch]);
+
+  const filteredDepartments = useMemo(() => {
+    return uniqueDepartments.filter((department) =>
+      department.toLowerCase().includes(departmentSearch.toLowerCase())
+    );
+  }, [uniqueDepartments, departmentSearch]);
+
+  // Memoize filtered employees with efficient filtering
+  const filteredEmployees = useMemo(() => {
+    if (!employees.length) return [];
+
+    const lowerSearchQuery = searchQuery.toLowerCase();
+    const hasSearchQuery = searchQuery.trim() !== "";
+
+    return employees.filter((employee) => {
+      if (!employee) return false;
+
+      // Search filter
+      if (hasSearchQuery) {
+        const matchesSearch =
+          employee.name?.toLowerCase().includes(lowerSearchQuery) ||
+          employee.employee_id?.toString().includes(searchQuery) ||
+          employee.designation?.toLowerCase().includes(lowerSearchQuery) ||
+          employee.department_name?.toLowerCase().includes(lowerSearchQuery) ||
+          employee.company_name?.toLowerCase().includes(lowerSearchQuery) ||
+          employee.blood_group?.toLowerCase().includes(lowerSearchQuery) ||
+          employee.date_of_birth?.toLowerCase().includes(lowerSearchQuery);
+
+        if (!matchesSearch) return false;
+      }
+
+      // Designation filter
+      if (designationFilter && employee.designation !== designationFilter) {
+        return false;
+      }
+
+      // Department filter
+      if (departmentFilter && employee.department_name !== departmentFilter) {
+        return false;
+      }
+
+      // Birthdate filter
+      if (
+        birthdateFilter &&
+        !checkBirthdateMatch(employee.date_of_birth, birthdateFilter)
+      ) {
+        return false;
+      }
+
+      return true;
+    });
   }, [
     employees,
     searchQuery,
     designationFilter,
     departmentFilter,
     birthdateFilter,
-    currentPage,
   ]);
 
-  // Save currentPage to localStorage
+  // Calculate pagination data
+  const { currentEmployees, totalPages } = useMemo(() => {
+    const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
+
+    // Validate current page
+    let validatedPage = currentPage;
+    if (validatedPage > totalPages && totalPages > 0) {
+      validatedPage = totalPages;
+    } else if (filteredEmployees.length === 0) {
+      validatedPage = 1;
+    }
+
+    // Only update if changed
+    if (validatedPage !== currentPage) {
+      setCurrentPage(validatedPage);
+    }
+
+    const indexOfLastEmployee = validatedPage * employeesPerPage;
+    const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
+    const currentEmployees = filteredEmployees.slice(
+      indexOfFirstEmployee,
+      indexOfLastEmployee
+    );
+
+    return { currentEmployees, totalPages };
+  }, [filteredEmployees, currentPage, employeesPerPage]);
+
+  // Save current page with debounce
   useEffect(() => {
-    localStorage.setItem("employeeListPage", currentPage.toString());
+    const savePage = () => {
+      try {
+        localStorage.setItem("employeeListPage", currentPage.toString());
+      } catch (err) {
+        console.error("Error saving page to localStorage:", err);
+      }
+    };
+
+    const timeoutId = setTimeout(savePage, 300);
+    return () => clearTimeout(timeoutId);
   }, [currentPage]);
 
-  const uniqueDesignations = [
-    ...new Set(employees.map((emp) => emp.designation).filter(Boolean)),
-  ].sort();
-  const uniqueDepartments = [
-    ...new Set(employees.map((emp) => emp.department_name).filter(Boolean)),
-  ].sort();
+  // Event handlers
+  const handlePageChange = useCallback((pageNumber) => {
+    setCurrentPage(pageNumber);
+  }, []);
 
-  const filteredDesignations = uniqueDesignations.filter((designation) =>
-    designation.toLowerCase().includes(designationSearch.toLowerCase())
-  );
-  const filteredDepartments = uniqueDepartments.filter((department) =>
-    department.toLowerCase().includes(departmentSearch.toLowerCase())
+  const handleRowClick = useCallback(
+    (id) => {
+      navigate(`/employee/${id}`);
+    },
+    [navigate]
   );
 
-  // Function to format date for display
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB"); // DD/MM/YYYY format
-  };
-
-  // Function to check if two dates match (ignoring year)
-  const checkBirthdateMatch = (employeeDate, filterDate) => {
-    if (!employeeDate || !filterDate) return false;
-    
-    const empDate = new Date(employeeDate);
-    const filterDateObj = new Date(filterDate);
-    
-    // Check if month and day match (ignoring year)
-    return (
-      empDate.getMonth() === filterDateObj.getMonth() &&
-      empDate.getDate() === filterDateObj.getDate()
-    );
-  };
-
-  const filteredEmployees = employees.filter(
-    (employee) =>
-      employee &&
-      (employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.employee_id?.toString().includes(searchQuery) ||
-        employee.designation
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        (employee.department_name &&
-          employee.department_name
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())) ||
-        employee.company_name
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        (employee.blood_group &&
-          employee.blood_group
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())) ||
-        (employee.date_of_birth &&
-          employee.date_of_birth.toLowerCase().includes(searchQuery.toLowerCase()))) &&
-      (designationFilter === "" ||
-        employee.designation === designationFilter) &&
-      (departmentFilter === "" || employee.department_name === departmentFilter) &&
-      (birthdateFilter === "" || checkBirthdateMatch(employee.date_of_birth, birthdateFilter))
-  );
-
-  const indexOfLastEmployee = currentPage * employeesPerPage;
-  const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
-  const currentEmployees = filteredEmployees.slice(
-    indexOfFirstEmployee,
-    indexOfLastEmployee
-  );
-  const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
-
-  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
-
-  const handleRowClick = (id) => {
-    navigate(`/employee/${id}`);
-  };
-
-  const handleDelete = async (id, e) => {
+  const handleDelete = useCallback(async (id, e) => {
     e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this employee?")) {
       try {
         await deleteEmployee(id);
-        setEmployees(employees.filter((employee) => employee.id !== id));
+        setEmployees((prev) => prev.filter((employee) => employee.id !== id));
       } catch (error) {
         console.error("Error deleting employee:", error);
         setError("Failed to delete employee. Please try again.");
       }
     }
-  };
+  }, []);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     const printWindow = window.open("", "", "width=800,height=600");
-    printWindow.document.write(`
+    const printContent = `
       <html>
         <head>
           <title>Employee List</title>
@@ -264,8 +329,8 @@ const EmployeeDetails = () => {
                   <td>${employee.designation || ""}</td>
                   <td>${employee.department_name || ""}</td>
                   <td>${employee.company_name || ""}</td>
-                  <td>${employee.blood_group ? employee.blood_group : ""}</td>
-                  <td>${formatDateForDisplay(employee.date_of_birth) || ""}</td>
+                  <td>${employee.blood_group || ""}</td>
+                  <td>${formatDateForDisplay(employee.date_of_birth)}</td>
                   <td>${employee.joining_date || ""}</td>
                 </tr>
               `
@@ -278,32 +343,34 @@ const EmployeeDetails = () => {
           </div>
         </body>
       </html>
-    `);
+    `;
+
+    printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
     }, 500);
-  };
+  }, [filteredEmployees]);
 
-  const handleBirthdateChange = (e) => {
+  const handleBirthdateChange = useCallback((e) => {
     setBirthdateFilter(e.target.value);
     setShowBirthdatePicker(false);
-  };
+  }, []);
 
-  const clearBirthdateFilter = () => {
+  const clearBirthdateFilter = useCallback(() => {
     setBirthdateFilter("");
     setShowBirthdatePicker(false);
-  };
+  }, []);
 
-  const closeDropdowns = () => {
+  const closeDropdowns = useCallback(() => {
     setShowDesignationDropdown(false);
     setShowDepartmentDropdown(false);
     setShowBirthdatePicker(false);
     setDesignationSearch("");
     setDepartmentSearch("");
-  };
+  }, []);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -316,7 +383,7 @@ const EmployeeDetails = () => {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [closeDropdowns]);
 
   if (error) {
     return (
@@ -327,7 +394,7 @@ const EmployeeDetails = () => {
             <div className="error-message">{error}</div>
           </div>
         </div>
-        <style jsx>{`
+        <style>{`
           .error-message {
             text-align: center;
             color: #e53935;
@@ -346,6 +413,16 @@ const EmployeeDetails = () => {
         <div className="content-wrapper">
           <div className="loading-spinner">Loading...</div>
         </div>
+        <style>{`
+          .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+            font-size: 1.2rem;
+            color: #0078d4;
+          }
+        `}</style>
       </div>
     );
   }
@@ -532,7 +609,9 @@ const EmployeeDetails = () => {
                     }}
                   >
                     <span className="custom-select-value">
-                      {birthdateFilter ? formatDateForDisplay(birthdateFilter) : "All Birth Dates"}
+                      {birthdateFilter
+                        ? formatDateForDisplay(birthdateFilter)
+                        : "All Birth Dates"}
                     </span>
                     <div className="custom-select-icons">
                       {birthdateFilter && (
@@ -565,19 +644,30 @@ const EmployeeDetails = () => {
                         value={birthdateFilter}
                         onChange={handleBirthdateChange}
                         className="date-input"
-                        max={new Date().toISOString().split('T')[0]}
+                        max={new Date().toISOString().split("T")[0]}
                       />
                       <div className="date-picker-hint">
-                        <small>Select a date to filter employees with matching birth day/month</small>
+                        <small>
+                          Select a date to filter employees with matching birth
+                          day/month
+                        </small>
                       </div>
                       {birthdateFilter && (
                         <div className="selected-date-info">
                           <p>Showing employees born on:</p>
-                          <p className="selected-date">{formatDateForDisplay(birthdateFilter)}</p>
+                          <p className="selected-date">
+                            {formatDateForDisplay(birthdateFilter)}
+                          </p>
                           <p className="matching-count">
-                            {filteredEmployees.filter(emp => 
-                              checkBirthdateMatch(emp.date_of_birth, birthdateFilter)
-                            ).length} employees found
+                            {
+                              filteredEmployees.filter((emp) =>
+                                checkBirthdateMatch(
+                                  emp.date_of_birth,
+                                  birthdateFilter
+                                )
+                              ).length
+                            }{" "}
+                            employees found
                           </p>
                         </div>
                       )}
@@ -616,10 +706,13 @@ const EmployeeDetails = () => {
                         <td>{employee.company_name}</td>
                         <td>{employee.blood_group || "N/A"}</td>
                         <td>
-                          {formatDateForDisplay(employee.date_of_birth) || "N/A"}
-                          {birthdateFilter && checkBirthdateMatch(employee.date_of_birth, birthdateFilter) && (
-                            <span className="birthday-badge">🎂</span>
-                          )}
+                          {formatDateForDisplay(employee.date_of_birth) ||
+                            "N/A"}
+                          {birthdateFilter &&
+                            checkBirthdateMatch(
+                              employee.date_of_birth,
+                              birthdateFilter
+                            ) && <span className="birthday-badge">🎂</span>}
                         </td>
                         <td className="action-buttons-cell">
                           <button
@@ -631,12 +724,6 @@ const EmployeeDetails = () => {
                           >
                             <FaPaperclip />
                           </button>
-                          {/* <button
-                            onClick={(e) => handleDelete(employee.id, e)}
-                            className="btn-delete"
-                          >
-                            <FaTrash />
-                          </button> */}
                         </td>
                       </tr>
                     ))
@@ -653,7 +740,6 @@ const EmployeeDetails = () => {
 
             {totalPages > 1 && (
               <div className="pagination">
-                {/* Previous Button */}
                 <button
                   onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
@@ -662,7 +748,6 @@ const EmployeeDetails = () => {
                   Previous
                 </button>
 
-                {/* First Page */}
                 <button
                   onClick={() => handlePageChange(1)}
                   className={`page-btn ${currentPage === 1 ? "active" : ""}`}
@@ -670,22 +755,19 @@ const EmployeeDetails = () => {
                   1
                 </button>
 
-                {/* Left Ellipsis */}
                 {currentPage > 5 && <span className="ellipsis">...</span>}
 
-                {/* Dynamic Middle Pages */}
                 {Array.from({ length: 5 }, (_, i) => {
                   let page;
 
                   if (currentPage <= 4) {
-                    page = i + 2; // Show 2,3,4,5,6
+                    page = i + 2;
                   } else if (currentPage >= totalPages - 3) {
-                    page = totalPages - 5 + i; // Show last 5 pages
+                    page = totalPages - 5 + i;
                   } else {
-                    page = currentPage - 2 + i; // Show current ±2
+                    page = currentPage - 2 + i;
                   }
 
-                  // Only render if page is valid and not 1 or last page
                   if (page > 1 && page < totalPages) {
                     return (
                       <button
@@ -702,12 +784,10 @@ const EmployeeDetails = () => {
                   return null;
                 }).filter(Boolean)}
 
-                {/* Right Ellipsis */}
                 {currentPage < totalPages - 4 && (
                   <span className="ellipsis">...</span>
                 )}
 
-                {/* Last Page */}
                 {totalPages > 1 && (
                   <button
                     onClick={() => handlePageChange(totalPages)}
@@ -719,7 +799,6 @@ const EmployeeDetails = () => {
                   </button>
                 )}
 
-                {/* Next Button */}
                 <button
                   onClick={() =>
                     handlePageChange(Math.min(totalPages, currentPage + 1))
@@ -737,7 +816,7 @@ const EmployeeDetails = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .employee-list-container {
           display: flex;
           min-height: 100vh;
@@ -884,7 +963,11 @@ const EmployeeDetails = () => {
 
         .custom-select-value {
           flex: 1;
-          color: ${designationFilter || departmentFilter || birthdateFilter ? "#333" : "#777"};
+          color: ${
+            designationFilter || departmentFilter || birthdateFilter
+              ? "#333"
+              : "#777"
+          };
         }
 
         .custom-select-icons {
@@ -1180,7 +1263,7 @@ const EmployeeDetails = () => {
           display: flex;
           justify-content: center;
           align-items: center;
-          height: 100vh;
+          height: 200px;
           font-size: 1.2rem;
           color: #0078d4;
         }

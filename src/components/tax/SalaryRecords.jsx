@@ -699,7 +699,6 @@ const SalaryRecords = () => {
                         {openCompanies[comp] ? "▲" : "▼"}
                       </span>
                     </button>
-
                   </div>
                 ))}
               </div>
@@ -1323,7 +1322,7 @@ const SalaryRecords = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .salary-records-container {
           min-height: 100vh;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
