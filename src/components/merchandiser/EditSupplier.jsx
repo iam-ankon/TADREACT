@@ -332,64 +332,47 @@ const EditSupplier = () => {
 
     // Append all non-file fields
     Object.keys(data).forEach((key) => {
+      // Skip file fields and undefined/null values
       if (
-        key !== "agreement_contract_file" &&
-        key !== "agreement_vendor_signing_copy" &&
-        key !== "attachment" &&
-        key !== "image_file" &&
-        key !== "attachment_file" &&
-        key !== "shared_file"
+        data[key] !== undefined &&
+        data[key] !== null &&
+        ![
+          "agreement_contract_file",
+          "agreement_vendor_signing_copy",
+          "attachment",
+          "image_file",
+          "attachment_file",
+          "shared_file",
+        ].includes(key)
       ) {
-        formData.append(key, data[key] || "");
+        formData.append(key, data[key]);
       }
     });
 
-    // Only append files if they were actually selected
-    if (data.agreement_contract_file instanceof File) {
-      formData.append("agreement_contract_file", data.agreement_contract_file);
-    }
-
-    if (data.agreement_vendor_signing_copy instanceof File) {
-      formData.append(
-        "agreement_vendor_signing_copy",
-        data.agreement_vendor_signing_copy
-      );
-    }
-
-    if (data.attachment instanceof File) {
-      formData.append("attachment", data.attachment);
-    }
-
-    if (data.image_file instanceof File) {
-      formData.append("image_file", data.image_file);
-    }
-    if (data.attachment_file instanceof File) {
-      formData.append("attachment_file", data.attachment_file);
-    }
-
-    if (data.shared_file instanceof File) {
-      formData.append("shared_file", data.shared_file);
-    }
-
-    // Handle file uploads
-    const appendFileIfExists = (fieldName, fileData) => {
-      if (fileData && fileData[0] instanceof File) {
-        formData.append(fieldName, fileData[0]);
+    // Handle file uploads - only append if it's a new File object
+    const appendFileIfChanged = (fieldName, fileData) => {
+      if (fileData && fileData instanceof File) {
+        formData.append(fieldName, fileData);
       }
+      // If fileData is null/undefined, don't append anything (keeps existing file)
     };
 
-    appendFileIfExists("agreement_contract_file", data.agreement_contract_file);
-    appendFileIfExists(
+    // Use the actual file objects from react-hook-form
+    appendFileIfChanged(
+      "agreement_contract_file",
+      data.agreement_contract_file
+    );
+    appendFileIfChanged(
       "agreement_vendor_signing_copy",
       data.agreement_vendor_signing_copy
     );
-    appendFileIfExists("attachment", data.attachment);
-    appendFileIfExists("image_file", data.image_file);
-    appendFileIfExists("attachment_file", data.attachment_file);
-    appendFileIfExists("shared_file", data.shared_file);
+    appendFileIfChanged("attachment", data.attachment);
+    appendFileIfChanged("image_file", data.image_file);
+    appendFileIfChanged("attachment_file", data.attachment_file);
+    appendFileIfChanged("shared_file", data.shared_file);
 
     try {
-      await axios.put(
+      const response = await axios.put(
         `http://119.148.51.38:8000/api/merchandiser/api/supplier/${id}/`,
         formData,
         {
@@ -404,8 +387,25 @@ const EditSupplier = () => {
         navigate("/suppliers");
       }, 1500);
     } catch (error) {
-      console.error("Update error:", error.response?.data || error.message);
-      toast.error("Failed to update supplier. Check input data and try again.");
+      console.error("Update error:", error);
+      console.error("Error response:", error.response?.data);
+
+      let errorMessage =
+        "Failed to update supplier. Check input data and try again.";
+
+      if (error.response?.data) {
+        // Display specific validation errors from backend
+        const backendErrors = error.response.data;
+        if (typeof backendErrors === "object") {
+          errorMessage =
+            "Validation errors: " +
+            Object.values(backendErrors).flat().join(", ");
+        } else if (typeof backendErrors === "string") {
+          errorMessage = backendErrors;
+        }
+      }
+
+      toast.error(errorMessage);
     }
   };
 

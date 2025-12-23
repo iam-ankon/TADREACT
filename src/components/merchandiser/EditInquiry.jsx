@@ -8,7 +8,7 @@ const EditInquiry = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
-  // Initial form state
+  // Initial form state - EXACTLY matching AddInquiry.jsx structure
   const [formData, setFormData] = useState({
     inquiry_no: "",
     season: "",
@@ -40,6 +40,7 @@ const EditInquiry = () => {
     wash_description: "",
     techrefdate: "",
     target_price: "",
+    offer_price: "",
     confirmed_price: "",
     confirmed_price_date: "",
     attachment: null,
@@ -47,6 +48,7 @@ const EditInquiry = () => {
     order_remarks: "",
     color_size_groups: [],
     grand_total: 0,
+    suppliers: [],
   });
 
   const [originalData, setOriginalData] = useState(null);
@@ -57,10 +59,14 @@ const EditInquiry = () => {
   const [items, setItems] = useState([]);
   const [fabrications, setFabrications] = useState([]);
   const [sizeRange, setSizeRange] = useState("");
+  const [sizeType, setSizeType] = useState("numeric");
   const [availableSizes, setAvailableSizes] = useState([]);
   const [colorSizeGroups, setColorSizeGroups] = useState([]);
   const [deletedGroupIds, setDeletedGroupIds] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierPrices, setSupplierPrices] = useState({});
 
   const [showDropdown, setShowDropdown] = useState({
     repeat_of: false,
@@ -76,6 +82,9 @@ const EditInquiry = () => {
     fabrication: "",
   });
 
+  // Alpha sizes configuration
+  const alphaSizes = ["XS", "S", "M", "L", "XL", "XXL"];
+
   // Fetch inquiry data and dropdown options
   useEffect(() => {
     const fetchData = async () => {
@@ -88,6 +97,7 @@ const EditInquiry = () => {
           repeatOfsRes,
           stylesRes,
           itemsRes,
+          suppliersRes,
           fabricationsRes,
         ] = await Promise.all([
           axios.get(
@@ -100,6 +110,7 @@ const EditInquiry = () => {
           ),
           axios.get("http://119.148.51.38:8000/api/merchandiser/api/style/"),
           axios.get("http://119.148.51.38:8000/api/merchandiser/api/item/"),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/supplier/"),
           axios.get(
             "http://119.148.51.38:8000/api/merchandiser/api/fabrication/"
           ),
@@ -111,13 +122,23 @@ const EditInquiry = () => {
         setRepeatOfs(repeatOfsRes.data);
         setStyles(stylesRes.data);
         setItems(itemsRes.data);
+        setSuppliers(suppliersRes.data);
         setFabrications(fabricationsRes.data);
 
         // Set inquiry data
         const inquiryData = inquiryRes.data;
         setOriginalData(inquiryData);
 
-        // Parse and set form data
+        // Initialize supplier prices from the API response
+        const initialSupplierPrices = {};
+        if (inquiryData.supplier_prices) {
+          inquiryData.supplier_prices.forEach((price) => {
+            initialSupplierPrices[price.supplier] = price.price || "";
+          });
+        }
+        setSupplierPrices(initialSupplierPrices);
+
+        // Parse and set form data - EXACTLY matching AddInquiry structure
         const parsedData = {
           ...inquiryData,
           received_date: inquiryData.received_date
@@ -137,6 +158,7 @@ const EditInquiry = () => {
             : "",
           buyer: inquiryData.buyer?.id || "",
           customer: inquiryData.customer?.id || "",
+          suppliers: inquiryData.suppliers?.map((s) => s.id) || [],
           repeat_of: inquiryData.repeat_of?.id || "",
           same_style: inquiryData.same_style?.id || "",
           item: inquiryData.item?.id || "",
@@ -144,10 +166,20 @@ const EditInquiry = () => {
           image: inquiryData.image,
           image1: inquiryData.image1,
           attachment: inquiryData.attachment,
+          // Add fields that might be missing in API response but exist in form
+          fabric1: inquiryData.fabric1 || "",
+          fabric2: inquiryData.fabric2 || "",
+          fabric3: inquiryData.fabric3 || "",
+          fabric4: inquiryData.fabric4 || "",
+          local_remarks: inquiryData.local_remarks || "",
+          buyer_remarks: inquiryData.buyer_remarks || "",
+          wash_description: inquiryData.wash_description || "",
+          order_remarks: inquiryData.order_remarks || "",
         };
 
         setFormData(parsedData);
 
+        // Set input values with proper fallbacks - EXACTLY like AddInquiry
         setInputValues({
           repeat_of: inquiryData.repeat_of?.repeat_of || "",
           same_style: inquiryData.same_style?.styles || "",
@@ -155,7 +187,7 @@ const EditInquiry = () => {
           fabrication: inquiryData.fabrication?.fabrication || "",
         });
 
-        // Handle color size groups
+        // Handle color size groups - EXACTLY like AddInquiry
         if (
           inquiryData.color_size_groups &&
           inquiryData.color_size_groups.length > 0
@@ -175,19 +207,41 @@ const EditInquiry = () => {
 
           setColorSizeGroups(processedGroups);
 
+          // Determine size type and range from existing data
           if (processedGroups[0]?.sizes?.length > 0) {
-            const sizes = processedGroups[0].sizes.map((s) => parseInt(s.size));
-            const minSize = Math.min(...sizes);
-            const maxSize = Math.max(...sizes);
-            setSizeRange(`${minSize}-${maxSize}`);
-            setAvailableSizes(
-              processedGroups[0].sizes.map((s) => ({
-                size: s.size.toString(),
-                quantity: 0,
-              }))
-            );
+            const firstGroup = processedGroups[0];
+            const firstSize = firstGroup.sizes[0]?.size;
+
+            // Check if it's alpha sizing
+            if (alphaSizes.includes(firstSize)) {
+              setSizeType("alpha");
+              setSizeRange("all");
+              setAvailableSizes(
+                alphaSizes.map((size) => ({
+                  size: size.toString(),
+                  quantity: 0,
+                }))
+              );
+            } else {
+              // It's numeric sizing - find even sizes like AddInquiry
+              setSizeType("numeric");
+              const sizes = firstGroup.sizes.map((s) => parseInt(s.size));
+              const minSize = Math.min(...sizes);
+              const maxSize = Math.max(...sizes);
+              setSizeRange(`${minSize}-${maxSize}`);
+
+              // Generate even sizes like AddInquiry does
+              const evenSizes = [];
+              for (let i = minSize; i <= maxSize; i++) {
+                if (i % 2 === 0) {
+                  evenSizes.push({ size: i.toString(), quantity: 0 });
+                }
+              }
+              setAvailableSizes(evenSizes);
+            }
           }
         } else {
+          // Initialize like AddInquiry
           setColorSizeGroups([
             {
               id: Date.now(),
@@ -209,6 +263,8 @@ const EditInquiry = () => {
     fetchData();
   }, [id]);
 
+  // ALL HANDLERS - EXACTLY matching AddInquiry.jsx
+
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
 
@@ -216,7 +272,12 @@ const EditInquiry = () => {
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else if (type === "file") {
       setFormData((prev) => ({ ...prev, [name]: files[0] }));
-    } else if (name === "wgr" || name === "order_no" || name === "inquiry_no") {
+    } else if (name === "buyer" || name === "customer") {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    } else if (name === "wgr" || name === "inquiry_no") {
       const numValue = value === "" ? null : parseInt(value);
       setFormData((prev) => ({
         ...prev,
@@ -227,47 +288,111 @@ const EditInquiry = () => {
     }
   };
 
+  const handleSupplierChange = (supplierId) => {
+    const id = parseInt(supplierId);
+    setFormData((prev) => {
+      const currentSuppliers = prev.suppliers || [];
+      let newSuppliers;
+
+      if (currentSuppliers.includes(id)) {
+        newSuppliers = currentSuppliers.filter((s) => s !== id);
+        setSupplierPrices((prevPrices) => {
+          const newPrices = { ...prevPrices };
+          delete newPrices[id];
+          return newPrices;
+        });
+      } else {
+        newSuppliers = [...currentSuppliers, id];
+        setSupplierPrices((prevPrices) => ({
+          ...prevPrices,
+          [id]: "",
+        }));
+      }
+
+      return {
+        ...prev,
+        suppliers: newSuppliers,
+      };
+    });
+  };
+
+  const handleSupplierPriceChange = (supplierId, price) => {
+    setSupplierPrices((prev) => ({
+      ...prev,
+      [supplierId]: price,
+    }));
+  };
+
+  const handleSizeTypeChange = (e) => {
+    const newSizeType = e.target.value;
+    setSizeType(newSizeType);
+    setSizeRange("");
+    setAvailableSizes([]);
+
+    setColorSizeGroups((prev) =>
+      prev.map((group) => ({
+        ...group,
+        sizes: [],
+        total: 0,
+      }))
+    );
+  };
+
   const handleSizeRangeChange = (e) => {
     const value = e.target.value;
     setSizeRange(value);
 
-    if (value.includes("-")) {
-      const [start, end] = value.split("-").map(Number);
-      if (!isNaN(start) && !isNaN(end) && start <= end) {
-        const sizes = [];
-        for (let i = start; i <= end; i++) {
-          if (i % 2 === 0) {
-            sizes.push({ size: i.toString(), quantity: 0 });
+    if (sizeType === "numeric") {
+      if (value.includes("-")) {
+        const [start, end] = value.split("-").map(Number);
+        if (!isNaN(start) && !isNaN(end) && start <= end) {
+          const sizes = [];
+          for (let i = start; i <= end; i++) {
+            if (i % 2 === 0) {
+              sizes.push({ size: i.toString(), quantity: 0 });
+            }
           }
-        }
 
+          setAvailableSizes(sizes);
+
+          setColorSizeGroups((prev) =>
+            prev.map((group) => ({
+              ...group,
+              sizes: sizes.map((size) => ({
+                size: size.size,
+                quantity: 0,
+              })),
+              total: 0,
+            }))
+          );
+        }
+      } else {
+        setAvailableSizes([]);
+        setColorSizeGroups((prev) =>
+          prev.map((group) => ({ ...group, sizes: [], total: 0 }))
+        );
+      }
+    } else if (sizeType === "alpha") {
+      if (value === "all") {
+        const sizes = alphaSizes.map((size) => ({ size, quantity: 0 }));
         setAvailableSizes(sizes);
 
         setColorSizeGroups((prev) =>
-          prev.map((group) => {
-            const newSizes = sizes.map((size) => {
-              const existingSize = group.sizes.find(
-                (s) => s.size === size.size
-              );
-              return {
-                size: size.size,
-                quantity: existingSize ? existingSize.quantity : 0,
-              };
-            });
-
-            return {
-              ...group,
-              sizes: newSizes,
-              total: newSizes.reduce((sum, size) => sum + size.quantity, 0),
-            };
-          })
+          prev.map((group) => ({
+            ...group,
+            sizes: sizes.map((size) => ({
+              size: size.size,
+              quantity: 0,
+            })),
+            total: 0,
+          }))
+        );
+      } else {
+        setAvailableSizes([]);
+        setColorSizeGroups((prev) =>
+          prev.map((group) => ({ ...group, sizes: [], total: 0 }))
         );
       }
-    } else {
-      setAvailableSizes([]);
-      setColorSizeGroups((prev) =>
-        prev.map((group) => ({ ...group, sizes: [], total: 0 }))
-      );
     }
   };
 
@@ -286,7 +411,11 @@ const EditInquiry = () => {
   const removeColorGroup = (groupId) => {
     const groupToDelete = colorSizeGroups.find((group) => group.id === groupId);
     if (groupToDelete?.id && typeof groupToDelete.id === "number") {
-      setDeletedGroupIds((prev) => [...prev, groupToDelete.id]);
+      setDeletedGroupIds((prev) => {
+        if (!prev.includes(groupToDelete.id))
+          return [...prev, groupToDelete.id];
+        return prev;
+      });
     }
     setColorSizeGroups((prev) => prev.filter((group) => group.id !== groupId));
   };
@@ -329,81 +458,65 @@ const EditInquiry = () => {
     setIsSubmitting(true);
 
     try {
-      const formDataToSend = new FormData();
+      // EXACTLY matching AddInquiry structure
+      const {
+        buyer,
+        customer,
+        repeat_of,
+        same_style,
+        item,
+        fabrication,
+        image,
+        image1,
+        attachment,
+        suppliers,
+        ...restFormData
+      } = formData;
 
-      // ✅ Safely get .id from foreign key fields
-      const safeGetId = (value) => {
-        if (typeof value === "object" && value !== null && "id" in value) {
-          return value.id;
-        }
-        if (typeof value === "number" || typeof value === "string") {
-          return value;
-        }
-        return "";
-      };
+      // Clean empty strings and convert to null - EXACTLY like AddInquiry
+      const cleanedData = Object.fromEntries(
+        Object.entries(restFormData).map(([key, value]) => [
+          key,
+          value === "" ? null : value,
+        ])
+      );
 
-      // ✅ Append foreign key fields with _id using only numbers
-      formDataToSend.append("repeat_of_id", safeGetId(formData.repeat_of));
-      formDataToSend.append("same_style_id", safeGetId(formData.same_style));
-      formDataToSend.append("item_id", safeGetId(formData.item));
-      formDataToSend.append("fabrication_id", safeGetId(formData.fabrication));
-      formDataToSend.append("buyer_id", formData.buyer || "");
-      formDataToSend.append("customer_id", formData.customer || "");
+      // Prepare supplier prices data - EXACTLY like AddInquiry
+      const supplierPricesData = suppliers.map((supplierId) => ({
+        supplier: supplierId,
+        price: supplierPrices[supplierId] || null,
+      }));
 
-      // ✅ Append the rest of the fields (excluding files & color_size_groups)
-      const fileFields = ["image", "image1", "attachment"];
-      const fkFields = [
-        "repeat_of",
-        "same_style",
-        "item",
-        "fabrication",
-        "buyer",
-        "customer",
-      ];
-
-      Object.entries(formData).forEach(([key, value]) => {
-        if (fileFields.includes(key) || fkFields.includes(key)) return;
-
-        if (value !== undefined && value !== null) {
-          formDataToSend.append(key, value);
-        }
-      });
-
-      // ✅ Append files
-      if (formData.image instanceof File)
-        formDataToSend.append("image", formData.image);
-      if (formData.image1 instanceof File)
-        formDataToSend.append("image1", formData.image1);
-      if (formData.attachment instanceof File)
-        formDataToSend.append("attachment", formData.attachment);
-
-      // ✅ Append color_size_groups
-      formDataToSend.append(
-        "color_size_groups",
-        JSON.stringify(
-          colorSizeGroups.map((group) => ({
-            id: group.id,
+      const payload = {
+        ...cleanedData,
+        repeat_of_id: repeat_of || null,
+        same_style_id: same_style || null,
+        item_id: item || null,
+        fabrication_id: fabrication || null,
+        buyer_id: buyer ? parseInt(buyer) : null,
+        customer_id: customer ? parseInt(customer) : null,
+        supplier_prices: supplierPricesData,
+        supplier_ids: suppliers || [],
+        color_size_groups: colorSizeGroups
+          .filter((group) => group.color && group.sizes.length > 0)
+          .map((group) => ({
             color: group.color,
             total: group.total,
-            size_quantities: group.sizes.map((s) => ({
-              size: parseInt(s.size),
-              quantity: parseInt(s.quantity),
+            size_quantities: group.sizes.map((size) => ({
+              size: size.size,
+              quantity: parseInt(size.quantity) || 0,
             })),
-          }))
-        )
-      );
+          })),
+        grand_total: calculateGrandTotal(),
+        deleted_color_size_group_ids: deletedGroupIds || [],
+      };
 
-      // ✅ Append deleted groups and grand total
-      formDataToSend.append(
-        "deleted_color_size_group_ids",
-        JSON.stringify(deletedGroupIds)
-      );
-      formDataToSend.append("grand_total", calculateGrandTotal());
-
-      // ✅ Log before sending
-      for (let [key, value] of formDataToSend.entries()) {
-        console.log(`${key}:`, value);
-      }
+      // Create FormData - EXACTLY like AddInquiry
+      const formDataToSend = new FormData();
+      if (image) formDataToSend.append("image", image);
+      if (image1) formDataToSend.append("image1", image1);
+      if (attachment) formDataToSend.append("attachment", attachment);
+      formDataToSend.append("data", JSON.stringify(payload));
 
       const response = await axios.put(
         `http://119.148.51.38:8000/api/merchandiser/api/inquiry/${id}/`,
@@ -420,17 +533,29 @@ const EditInquiry = () => {
         navigate("/inquiries");
       }
     } catch (error) {
-      console.error("Error submitting form:", error);
-      alert(
-        `Failed to update: ${
-          error.response?.data?.error || error.message || "Unknown error"
-        }`
-      );
+      console.error("Error updating inquiry:", error);
+      console.error("Error details:", error.response?.data);
+
+      let errorMessage = "Failed to update inquiry. ";
+      if (error.response?.data) {
+        if (typeof error.response.data === "string") {
+          errorMessage += error.response.data;
+        } else if (error.response.data.detail) {
+          errorMessage += error.response.data.detail;
+        } else {
+          errorMessage += JSON.stringify(error.response.data);
+        }
+      } else {
+        errorMessage += "Please check your network connection and try again.";
+      }
+
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // COMBOBOX HANDLERS - EXACTLY matching AddInquiry.jsx
   const toggleDropdown = (field) => {
     setShowDropdown((prev) => ({
       ...prev,
@@ -443,6 +568,15 @@ const EditInquiry = () => {
       ...prev,
       [field]: value,
     }));
+
+    // Clear the form data when user starts typing to allow new creation
+    if (value === "") {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    }
+
     setShowDropdown((prev) => ({
       ...prev,
       [field]: true,
@@ -532,7 +666,15 @@ const EditInquiry = () => {
     }
   };
 
-  // Styles
+  // Get selected supplier names for display
+  const getSelectedSupplierNames = () => {
+    return suppliers
+      .filter((supplier) => formData.suppliers?.includes(supplier.id))
+      .map((supplier) => supplier.name)
+      .join(", ");
+  };
+
+  // ALL STYLES AND RENDER FUNCTIONS - EXACTLY matching AddInquiry.jsx
   const containerStyle = {
     display: "flex",
     minHeight: "100vh",
@@ -725,6 +867,26 @@ const EditInquiry = () => {
     textAlign: "center",
   };
 
+  const checkboxGroupStyle = {
+    border: "1px solid #cbd5e1",
+    borderRadius: "0.375rem",
+    padding: "0.75rem",
+    maxHeight: "12rem",
+    overflowY: "auto",
+    backgroundColor: "#fff",
+  };
+
+  const checkboxItemStyle = {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: "0.5rem",
+    padding: "0.25rem",
+  };
+
+  const checkboxStyle = {
+    marginRight: "0.5rem",
+  };
+
   const renderField = (label, name, type = "text", disabled = false) => (
     <div style={inputGroupStyle}>
       <label style={labelStyle}>{label}</label>
@@ -775,77 +937,6 @@ const EditInquiry = () => {
     </div>
   );
 
-  const renderCombobox = (label, field, options, displayField) => {
-    const currentOption = options.find(
-      (opt) => opt.id.toString() === formData[field]?.toString()
-    );
-    const inputValue =
-      inputValues[field] || (currentOption ? currentOption[displayField] : "");
-
-    return (
-      <div style={inputGroupStyle}>
-        <label style={labelStyle}>{label}</label>
-        <div style={{ position: "relative" }}>
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => handleComboboxChange(field, e.target.value)}
-            onFocus={() =>
-              setShowDropdown((prev) => ({ ...prev, [field]: true }))
-            }
-            onBlur={() =>
-              setTimeout(
-                () => setShowDropdown((prev) => ({ ...prev, [field]: false })),
-                200
-              )
-            }
-            style={inputStyle}
-            placeholder={`Select or type to create ${label}`}
-          />
-
-          {showDropdown[field] && (
-            <div style={comboboxDropdownStyle}>
-              {options
-                .filter((opt) =>
-                  opt[displayField]
-                    .toLowerCase()
-                    .includes((inputValues[field] || "").toLowerCase())
-                )
-                .map((option) => (
-                  <div
-                    key={option.id}
-                    style={comboboxItemStyle}
-                    onMouseDown={() =>
-                      handleSelect(field, option.id, option[displayField])
-                    }
-                  >
-                    {option[displayField]}
-                  </div>
-                ))}
-
-              {inputValues[field] &&
-                !options.some(
-                  (opt) =>
-                    opt[displayField].toLowerCase() ===
-                    inputValues[field].toLowerCase()
-                ) && (
-                  <div
-                    style={comboboxCreateStyle}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleCreateNew(field, inputValues[field]);
-                    }}
-                  >
-                    Create new: "{inputValues[field]}"
-                  </div>
-                )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const renderColorSizeSection = () => (
     <div style={sectionContainerStyle}>
       <div
@@ -864,15 +955,42 @@ const EditInquiry = () => {
         </button>
       </div>
 
-      <div style={inputGroupStyle}>
-        <label style={labelStyle}>Size Range</label>
-        <input
-          type="text"
-          value={sizeRange}
-          onChange={handleSizeRangeChange}
-          placeholder="e.g. 2-10"
-          style={inputStyle}
-        />
+      <div style={gridStyle}>
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>Size Type</label>
+          <select
+            value={sizeType}
+            onChange={handleSizeTypeChange}
+            style={selectStyle}
+          >
+            <option value="numeric">Numeric Sizes</option>
+            <option value="alpha">Alpha Sizes (XS,S,M,L,XL,XXL)</option>
+          </select>
+        </div>
+
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>
+            {sizeType === "numeric" ? "Size Range" : "Size Selection"}
+          </label>
+          {sizeType === "numeric" ? (
+            <input
+              type="text"
+              value={sizeRange}
+              onChange={handleSizeRangeChange}
+              placeholder="e.g. 2-10"
+              style={inputStyle}
+            />
+          ) : (
+            <select
+              value={sizeRange}
+              onChange={handleSizeRangeChange}
+              style={selectStyle}
+            >
+              <option value="">Select Size Range</option>
+              <option value="all">All Alpha Sizes (XS-XXL)</option>
+            </select>
+          )}
+        </div>
       </div>
 
       {availableSizes.length > 0 && (
@@ -974,7 +1092,92 @@ const EditInquiry = () => {
     </div>
   );
 
-  // Option lists for dropdowns
+  // Also update the renderCombobox function to handle backspace properly:
+  const renderCombobox = (label, field, options, displayField) => {
+    const currentOption = options.find(
+      (opt) => opt.id.toString() === formData[field]?.toString()
+    );
+    const inputValue = inputValues[field] || "";
+
+    return (
+      <div style={inputGroupStyle}>
+        <label style={labelStyle}>{label}</label>
+        <div style={{ position: "relative" }}>
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => handleComboboxChange(field, e.target.value)}
+            onFocus={() =>
+              setShowDropdown((prev) => ({ ...prev, [field]: true }))
+            }
+            onBlur={() =>
+              setTimeout(
+                () => setShowDropdown((prev) => ({ ...prev, [field]: false })),
+                200
+              )
+            }
+            onKeyDown={(e) => {
+              // Handle backspace and delete keys properly
+              if (e.key === "Backspace" || e.key === "Delete") {
+                // Clear both input value and form data immediately
+                setInputValues((prev) => ({
+                  ...prev,
+                  [field]: "",
+                }));
+                setFormData((prev) => ({
+                  ...prev,
+                  [field]: "",
+                }));
+              }
+            }}
+            style={inputStyle}
+            placeholder={`Select or type to create ${label}`}
+          />
+
+          {showDropdown[field] && (
+            <div style={comboboxDropdownStyle}>
+              {options
+                .filter((opt) =>
+                  opt[displayField]
+                    .toLowerCase()
+                    .includes((inputValues[field] || "").toLowerCase())
+                )
+                .map((option) => (
+                  <div
+                    key={option.id}
+                    style={comboboxItemStyle}
+                    onClick={() =>
+                      handleSelect(field, option.id, option[displayField])
+                    }
+                  >
+                    {option[displayField]}
+                  </div>
+                ))}
+
+              {inputValues[field] &&
+                !options.some(
+                  (opt) =>
+                    opt[displayField].toLowerCase() ===
+                    inputValues[field].toLowerCase()
+                ) && (
+                  <div
+                    style={comboboxCreateStyle}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleCreateNew(field, inputValues[field]);
+                    }}
+                  >
+                    Create new: "{inputValues[field]}"
+                  </div>
+                )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Option lists for dropdowns - EXACTLY matching AddInquiry.jsx
   const orderTypeOptions = [
     { value: "advertisement", label: "Advertisement" },
     { value: "programmer", label: "Programmer" },
@@ -984,7 +1187,7 @@ const EditInquiry = () => {
     { value: "all", label: "All" },
     { value: "blanks", label: "Blanks" },
     { value: "ladies", label: "Ladies" },
-    { value: "bag", label: "Bag" },
+    { value: "mans", label: "Mans" },
     { value: "boy", label: "Boy" },
     { value: "girls", label: "Girls" },
     { value: "mama", label: "Mama" },
@@ -993,9 +1196,7 @@ const EditInquiry = () => {
   const statusOptions = [
     { value: "pending", label: "Pending" },
     { value: "quoted", label: "Quoted" },
-    { value: "running", label: "Running" },
-    { value: "Suppliersinformed", label: "Suppliers Informed" },
-    { value: "all", label: "All" },
+    { value: "confirm", label: "Confirm" },
   ];
 
   const garmentOptions = [
@@ -1037,147 +1238,206 @@ const EditInquiry = () => {
       <div style={formWrapperStyle}>
         <h2 style={formHeaderStyle}>Edit Inquiry</h2>
 
-        <form onSubmit={handleSubmit}>
-          {/* Basic Information Section */}
-          <div style={sectionRowStyle}>
-            <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
-              <h3 style={sectionTitleStyle}>
-                <span style={sectionIconStyle}>📋</span>
-                Basic Information
-              </h3>
+        {/* Basic Information Section */}
+        <div style={sectionRowStyle}>
+          <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
+            <h3 style={sectionTitleStyle}>
+              <span style={sectionIconStyle}>📋</span>
+              Basic Information
+            </h3>
+            <div style={gridStyle}>
+              {renderField("Inquiry Number", "inquiry_no")}
+              {renderSelect("Order Type", "order_type", orderTypeOptions)}
+              {renderSelect("Garment Type", "garment", garmentOptions)}
+              {renderSelect("Gender", "gender", genderOptions)}
+              {renderSelect("Season", "season", seasonOptions)}
+              {renderField("Program", "program")}
+              {renderField("WGR", "wgr", "number")}
+              {renderField("Year", "year")}
+              {renderCombobox("Repeat Of", "repeat_of", repeatOfs, "repeat_of")}
+              {renderCombobox("Style Name", "same_style", styles, "styles")}
+              {renderCombobox("Item", "item", items, "item")}
+              {renderCombobox(
+                "Fabrication",
+                "fabrication",
+                fabrications,
+                "fabrication"
+              )}
+
               <div style={gridStyle}>
-                {renderField("Inquiry Number", "inquiry_no", "number")}
-                {renderSelect("Order Type", "order_type", orderTypeOptions)}
-                {renderSelect("Garment Type", "garment", garmentOptions)}
-                {renderSelect("Gender", "gender", genderOptions)}
-                {renderSelect("Season", "season", seasonOptions)}
-                {renderField("Program", "program")}
-                {renderField("WGR", "wgr", "number")}
-                {renderSelect("With Hanger", "with_hanger", withHangerOptions)}
-                {renderField("Year", "year")}
-                {renderCombobox(
-                  "Repeat Of",
-                  "repeat_of",
-                  repeatOfs,
-                  "repeat_of"
-                )}
-                {renderCombobox("Same Style", "same_style", styles, "styles")}
-                {renderCombobox("Item", "item", items, "item")}
-                {renderCombobox(
-                  "Fabrication",
-                  "fabrication",
-                  fabrications,
-                  "fabrication"
-                )}
+                {renderField("Order Quantity", "order_quantity", "number")}
               </div>
             </div>
+          </div>
 
-            <div style={sectionContainerStyle}>
-              <h3 style={sectionTitleStyle}>
-                <span style={sectionIconStyle}>📅</span>
-                Dates
-              </h3>
-              <div style={gridStyle}>
-                {renderField("Received Date", "received_date", "date")}
-                {renderField("Shipment Date", "shipment_date", "date")}
-                {renderField(
-                  "Proposed Shipment Date",
-                  "proposed_shipment_date",
-                  "date"
-                )}
-                {renderField("Tech Ref Date", "techrefdate", "date")}
-                {renderField(
-                  "Confirmed Price Date",
-                  "confirmed_price_date",
-                  "date"
-                )}
-              </div>
+          <div style={sectionContainerStyle}>
+            <h3 style={sectionTitleStyle}>
+              <span style={sectionIconStyle}>📅</span>
+              Dates
+            </h3>
+            <div style={gridStyle}>
+              {renderField("Received Date", "received_date", "date")}
+              {renderField("Shipment Date", "shipment_date", "date")}
+              {renderField("Tech Ref Date", "techrefdate", "date")}
+              {renderField(
+                "Confirmed Price Date",
+                "confirmed_price_date",
+                "date"
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Color & Sizing Section */}
+        <div style={sectionColumnStyle}>{renderColorSizeSection()}</div>
+
+        <div style={sectionRowStyle}>
+          {/* Files Section */}
+          <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
+            <h3 style={sectionTitleStyle}>
+              <span style={sectionIconStyle}>📎</span>
+              Files
+            </h3>
+            <div style={gridStyle}>
+              {renderFileInput("Image", "image")}
+              {renderFileInput("Image 1", "image1")}
+              {renderFileInput("Attachment", "attachment")}
             </div>
           </div>
 
           <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
             <h3 style={sectionTitleStyle}>
-              <span style={sectionIconStyle}>📋</span>
-              Order Information
+              <span style={sectionIconStyle}>👥</span>
+              Buyer, Customer & Suppliers
             </h3>
             <div style={gridStyle}>
-              {renderField("Order Request", "order_no", "number")}
-              {renderField("Order Quantity", "order_quantity", "number")}
+              {/* Buyer Dropdown */}
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Buyer</label>
+                <select
+                  name="buyer"
+                  value={formData.buyer?.toString() || ""}
+                  onChange={handleChange}
+                  style={selectStyle}
+                >
+                  <option value="">Select Buyer</option>
+                  {buyers.map((buyer) => (
+                    <option key={buyer.id} value={buyer.id.toString()}>
+                      {buyer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Customer Dropdown */}
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Customer</label>
+                <select
+                  name="customer"
+                  value={formData.customer?.toString() || ""}
+                  onChange={handleChange}
+                  style={selectStyle}
+                >
+                  <option value="">Select Customer</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id.toString()}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Multiple Supplier Selection */}
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Suppliers</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    value={getSelectedSupplierNames()}
+                    onFocus={() => setShowSupplierDropdown(true)}
+                    onBlur={() =>
+                      setTimeout(() => setShowSupplierDropdown(false), 200)
+                    }
+                    style={inputStyle}
+                    placeholder="Select suppliers..."
+                    readOnly
+                  />
+
+                  {showSupplierDropdown && (
+                    <div style={comboboxDropdownStyle}>
+                      <div style={checkboxGroupStyle}>
+                        {suppliers.map((supplier) => (
+                          <div key={supplier.id} style={checkboxItemStyle}>
+                            <input
+                              type="checkbox"
+                              id={`supplier-${supplier.id}`}
+                              checked={
+                                formData.suppliers?.includes(supplier.id) ||
+                                false
+                              }
+                              onChange={() => handleSupplierChange(supplier.id)}
+                              style={checkboxStyle}
+                            />
+                            <label htmlFor={`supplier-${supplier.id}`}>
+                              {supplier.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <small style={{ color: "#6b7280", fontSize: "0.75rem" }}>
+                  Selected: {formData.suppliers?.length || 0} supplier(s)
+                </small>
+              </div>
+
+              {/* Supplier Price Inputs */}
+              {formData.suppliers?.map((supplierId) => {
+                const supplier = suppliers.find((s) => s.id === supplierId);
+                if (!supplier) return null;
+
+                return (
+                  <div key={`price-${supplierId}`} style={inputGroupStyle}>
+                    <label style={labelStyle}>Price for {supplier.name}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={supplierPrices[supplierId] || ""}
+                      onChange={(e) =>
+                        handleSupplierPriceChange(supplierId, e.target.value)
+                      }
+                      style={inputStyle}
+                      placeholder="Enter price for this supplier"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing Section */}
+        <div style={sectionRowStyle}>
+          <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
+            <h3 style={sectionTitleStyle}>
+              <span style={sectionIconStyle}>💰</span>
+              Pricing
+            </h3>
+            <div style={gridStyle}>
+              {renderField("Target Price", "target_price", "number")}
+              {renderField("Offer Price", "offer_price", "number")}
+              {renderField("Confirmed Price", "confirmed_price", "number")}
             </div>
           </div>
 
-          {/* Color & Sizing Section */}
-          <div style={sectionColumnStyle}>{renderColorSizeSection()}</div>
-
-          <div style={sectionRowStyle}>
-            {/* Files Section */}
-            <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
-              <h3 style={sectionTitleStyle}>
-                <span style={sectionIconStyle}>📎</span>
-                Files
-              </h3>
-              <div style={gridStyle}>
-                {renderFileInput("Image", "image")}
-                {renderFileInput("Image 1", "image1")}
-                {renderFileInput("Attachment", "attachment")}
-              </div>
-            </div>
-
-            <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
-              <h3 style={sectionTitleStyle}>
-                <span style={sectionIconStyle}>👥</span>
-                Buyer & Customer
-              </h3>
-              <div style={gridStyle}>
-                <div style={inputGroupStyle}>
-                  <label style={labelStyle}>Buyer</label>
-                  <select
-                    name="buyer"
-                    value={formData.buyer || ""}
-                    onChange={handleChange}
-                    style={selectStyle}
-                  >
-                    <option value="">Select Buyer</option>
-                    {buyers.map((buyer) => (
-                      <option key={buyer.id} value={buyer.id}>
-                        {buyer.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={inputGroupStyle}>
-                  <label style={labelStyle}>Customer</label>
-                  <select
-                    name="customer"
-                    value={formData.customer || ""}
-                    onChange={handleChange}
-                    style={selectStyle}
-                  >
-                    <option value="">Select Customer</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={sectionRowStyle}>
-            {/* Status & Remarks Section */}
-            <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
-              <h3 style={sectionTitleStyle}>
-                <span style={sectionIconStyle}>📝</span>
-                Status & Remarks
-              </h3>
-              <div style={gridStyle}>
-                {renderSelect("Status", "current_status", statusOptions)}
-                {renderField("Order Remarks", "order_remarks")}
-              </div>
-
+          <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
+            <h3 style={sectionTitleStyle}>
+              <span style={sectionIconStyle}>📝</span>
+              Remarks & Status
+            </h3>
+            <div style={gridStyle}>
+              {renderSelect("Current Status", "current_status", statusOptions)}
               <div style={inputGroupStyle}>
                 <label style={labelStyle}>Remarks</label>
                 <textarea
@@ -1187,72 +1447,17 @@ const EditInquiry = () => {
                   style={textareaStyle}
                 />
               </div>
-
-              <div style={inputGroupStyle}>
-                <label style={labelStyle}>Local Remarks</label>
-                <textarea
-                  name="local_remarks"
-                  value={formData.local_remarks || ""}
-                  onChange={handleChange}
-                  style={textareaStyle}
-                />
-              </div>
-
-              <div style={inputGroupStyle}>
-                <label style={labelStyle}>Buyer Remarks</label>
-                <textarea
-                  name="buyer_remarks"
-                  value={formData.buyer_remarks || ""}
-                  onChange={handleChange}
-                  style={textareaStyle}
-                />
-              </div>
-
-              <div style={inputGroupStyle}>
-                <label style={labelStyle}>Wash Description</label>
-                <textarea
-                  name="wash_description"
-                  value={formData.wash_description || ""}
-                  onChange={handleChange}
-                  style={textareaStyle}
-                />
-              </div>
-
-              <div style={inputGroupStyle}>
-                <label style={labelStyle}>Wash Description</label>
-                <textarea
-                  name="wash_description"
-                  value={formData.wash_description || ""}
-                  onChange={handleChange}
-                  style={textareaStyle}
-                />
-              </div>
-            </div>
-
-            {/* Pricing & Fabric Section */}
-            <div style={sectionContainerStyle}>
-              <h3 style={sectionTitleStyle}>
-                <span style={sectionIconStyle}>💰</span>
-                Pricing & Fabric
-              </h3>
-              <div style={gridStyle}>
-                {renderField("Fabric 1", "fabric1")}
-                {renderField("Fabric 2", "fabric2")}
-                {renderField("Fabric 3", "fabric3")}
-                {renderField("Fabric 4", "fabric4")}
-                {renderField("Target Price", "target_price")}
-                {renderField("Confirmed Price", "confirmed_price")}
-              </div>
             </div>
           </div>
+        </div>
 
-          {/* Form Actions */}
-        </form>
+        {/* Submit Buttons */}
         <div style={buttonGroupStyle}>
           <button
             type="button"
             onClick={() => navigate("/inquiries")}
             style={cancelButtonStyle}
+            disabled={isSubmitting}
           >
             Cancel
           </button>
@@ -1260,8 +1465,9 @@ const EditInquiry = () => {
             type="submit"
             onClick={handleSubmit}
             style={submitButtonStyle}
+            disabled={isSubmitting}
           >
-            Update Inquiry
+            {isSubmitting ? "Updating..." : "Update Inquiry"}
           </button>
         </div>
       </div>

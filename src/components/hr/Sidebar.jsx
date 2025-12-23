@@ -14,6 +14,7 @@ import {
   FiUser,
   FiBriefcase,
   FiAward,
+  FiGrid, // Added for department-based pages
 } from "react-icons/fi";
 import logo from "../../assets/texweave_Logo_1.png";
 
@@ -114,7 +115,31 @@ const Sidebar = () => {
   const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
   const hasFullAccess = permissions.full_access === true;
   const designation = localStorage.getItem("designation") || "";
+  const department = (localStorage.getItem("department") || "").toLowerCase();
 
+  // === DEPARTMENT-BASED PERMISSIONS ===
+  const departmentPermissions = {
+    isAdmin: department.includes("admin") || department.includes("management"),
+    isQA: department.includes("qa") || department.includes("quality"),
+    isRnD: department.includes("r&d") || department.includes("research"),
+    isProduction: department.includes("production"),
+    isSampleSection: department.includes("sample"),
+    isHR: department.includes("human resource") || department.includes("hr"),
+    isCorporateHealth: department.includes("corporate health"),
+    isArchitecture: department.includes("architecture"),
+    isBusinessDev: department.includes("business development"),
+    isCSR: department.includes("csr"),
+    isMerchandising: department.includes("merchandising"),
+    isDigitalMarketing: department.includes("digital marketing") || department.includes("e-commerce"),
+    isFinance: department.includes("finance") || department.includes("accounts"),
+    isKlotheBangladesh: department.includes("klothe") && department.includes("bangladesh"),
+    isIT: department.includes("it department"),
+    isLogistics: department.includes("logistics"),
+    isKoitheBangladesh: department.includes("koithe") && department.includes("bangladesh"),
+    isSoftwareDev: department.includes("software development"),
+  };
+
+  // === DESIGNATION-BASED PERMISSIONS (Existing) ===
   const isTeamLeaderDigital =
     designation.toLowerCase().includes("digital-team leader") ||
     designation.toLowerCase().includes("digital team leader");
@@ -136,10 +161,6 @@ const Sidebar = () => {
   const isBusinessOperationManager = designation
     .toLowerCase()
     .includes("business operation manager");
-
-  const isSrMerchandiser = designation
-    .toLowerCase()
-    .includes("sr. merchandiser-t");
 
   const isHeadOfDepartment = designation
     .toLowerCase()
@@ -169,6 +190,13 @@ const Sidebar = () => {
     navigate(dashboardPath);
   };
 
+  // Function to handle department page navigation
+  const handleDepartmentPageClick = (pageName) => {
+    console.log(`Navigating to ${pageName} department page`);
+    // You can customize the route based on your routing structure
+    navigate(`/department/${pageName.toLowerCase().replace(/ /g, '-')}`);
+  };
+
   useEffect(() => {
     const closeSidebarOnClickOutside = (event) => {
       if (
@@ -188,6 +216,18 @@ const Sidebar = () => {
     };
   }, []);
 
+  // === DEPARTMENT PAGE ITEMS ===
+  // This can be a separate page or section that only specific departments can access
+  const departmentPageItem = {
+    to: "/department-dashboard",
+    icon: <FiGrid />,
+    label: "Department Portal",
+    onClick: (e) => {
+      e.preventDefault();
+      handleDepartmentPageClick(employeeInfo.department || "General");
+    },
+  };
+
   // === MENU ITEMS BASED ON USER PERMISSIONS ===
 
   // Full Access User Menu Items
@@ -202,9 +242,17 @@ const Sidebar = () => {
     },
   ];
 
-  // Regular User Menu Items - Include Performance Appraisal for Team Leaders
+  // Regular User Menu Items
   const regularUserMenuItems = [
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply" },
+
+    // Add Department Portal for specific departments
+    ...(departmentPermissions.isAdmin || 
+        departmentPermissions.isHR || 
+        departmentPermissions.isFinance || 
+        departmentPermissions.isIT || 
+        departmentPermissions.isLogistics ? 
+        [departmentPageItem] : []),
 
     ...(!isGroupHeadOfAdmin
       ? [
@@ -222,7 +270,6 @@ const Sidebar = () => {
     isTeamLeaderCompliance ||
     isProjectArchitect ||
     isBusinessOperationManager ||
-    isSrMerchandiser ||
     isHeadOfDepartment ||
     isGroupHeadOfAdmin ||
     isHeadOfDesign ||
@@ -252,7 +299,6 @@ const Sidebar = () => {
     isTeamLeaderQC ||
     isProjectArchitect ||
     isBusinessOperationManager ||
-    isSrMerchandiser ||
     isHeadOfDepartment ||
     isGroupHeadOfAdmin ||
     isHeadOfDesign ||
@@ -269,7 +315,7 @@ const Sidebar = () => {
         ]
       : []),
 
-    ...(isHeadOfFinance
+    ...(isHeadOfFinance || departmentPermissions.isFinance
       ? [
           {
             to: "/finance-provision",
@@ -278,6 +324,47 @@ const Sidebar = () => {
           },
         ]
       : []),
+
+    // Add specific department pages based on department
+    // ...(departmentPermissions.isQA
+    //   ? [
+    //       {
+    //         to: "/qa-dashboard",
+    //         icon: <FiUsers />,
+    //         label: "Quality Assurance",
+    //       },
+    //     ]
+    //   : []),
+
+    // ...(departmentPermissions.isProduction
+    //   ? [
+    //       {
+    //         to: "/production-dashboard",
+    //         icon: <FiBriefcase />,
+    //         label: "Production",
+    //       },
+    //     ]
+    //   : []),
+
+    ...(departmentPermissions.isMerchandising
+      ? [
+          {
+            to: "/merchandiser-dashboard",
+            icon: <FiUsers />,
+            label: "Merchandising",
+          },
+        ]
+      : []),
+
+    // ...(departmentPermissions.isLogistics
+    //   ? [
+    //       {
+    //         to: "/logistics-dashboard",
+    //         icon: <FiTruck />, // You might need to import FiTruck
+    //         label: "Logistics",
+    //       },
+    //     ]
+    //   : []),
 
     {
       to: "/chat",
@@ -289,6 +376,30 @@ const Sidebar = () => {
 
   // Select menu items based on user permissions
   const menuItems = hasFullAccess ? fullAccessMenuItems : regularUserMenuItems;
+
+  // Get department display name for user info
+  const getDepartmentDisplayName = () => {
+    if (departmentPermissions.isAdmin) return "Admin Department";
+    if (departmentPermissions.isHR) return "Human Resources";
+    if (departmentPermissions.isQA) return "Quality Assurance";
+    if (departmentPermissions.isRnD) return "Research & Development";
+    if (departmentPermissions.isProduction) return "Production";
+    if (departmentPermissions.isSampleSection) return "Sample Section";
+    if (departmentPermissions.isCorporateHealth) return "Corporate Health";
+    if (departmentPermissions.isArchitecture) return "Architecture";
+    if (departmentPermissions.isBusinessDev) return "Business Development";
+    if (departmentPermissions.isCSR) return "Corporate Social Responsibility";
+    if (departmentPermissions.isMerchandising) return "Merchandising";
+    if (departmentPermissions.isDigitalMarketing) return "Digital Marketing";
+    if (departmentPermissions.isFinance) return "Finance & Accounts";
+    if (departmentPermissions.isKlotheBangladesh) return "KLOTHEN Bangladesh";
+    if (departmentPermissions.isIT) return "IT Department";
+    if (departmentPermissions.isLogistics) return "Logistics Department";
+    if (departmentPermissions.isKoitheBangladesh) return "KOITHE Bangladesh";
+    if (departmentPermissions.isSoftwareDev) return "Software Development";
+    
+    return employeeInfo.department || "General Department";
+  };
 
   const sidebarStyle = {
     position: "fixed",
@@ -405,13 +516,11 @@ const Sidebar = () => {
                   : isTeamLeaderQC
                   ? "Team Leader - QA"
                   : isTeamLeaderDigital
-                  ? "Digital Markeing Team Leader"
+                  ? "Digital Marketing Team Leader"
                   : isProjectArchitect
                   ? "Project Architect"
                   : isBusinessOperationManager
                   ? "KLOTHEN Bangladesh"
-                  : isSrMerchandiser
-                  ? "Sr. Merchandiser-T"
                   : isHeadOfDepartment
                   ? "Head of Department"
                   : isGroupHeadOfAdmin
@@ -424,7 +533,7 @@ const Sidebar = () => {
                   ? "Team Leader Finance & Accounts"
                   : isDirectorOfTadLogistic
                   ? "LOGISTIC DEPARTMENT"
-                  : "Regular User"}
+                  : getDepartmentDisplayName()}
               </div>
               {employeeInfo.reporting_leader && (
                 <div
@@ -510,7 +619,7 @@ const Sidebar = () => {
             color: white;
             border: none;
             padding: 10px 12px;
-            border-radius: "50%";
+            border-radius: 50%;
             cursor: pointer;
             z-index: 1500;
             display: flex;

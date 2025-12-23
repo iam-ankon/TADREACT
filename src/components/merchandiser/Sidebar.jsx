@@ -1,38 +1,40 @@
-
-
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   FiUsers,
   FiCalendar,
   FiFileText,
-  FiDollarSign,
   FiSend,
   FiLogOut,
   FiBriefcase,
   FiClock,
   FiHome,
   FiChevronLeft,
-  FiMenu,
 } from "react-icons/fi";
 import { TfiEmail, TfiWorld } from "react-icons/tfi";
 
 const Sidebar = () => {
   const location = useLocation();
-  // ✅ Load from localStorage or default to true
+  
+  // ✅ Use a UNIQUE key for Sidebars component
   const [isOpen, setIsOpen] = useState(() => {
-    const stored = localStorage.getItem("sidebarOpen");
-    return stored ? JSON.parse(stored) : true;
+    const stored = localStorage.getItem("sidebarsOpenState");
+    console.log("🔄 Loading Sidebars state:", stored);
+    // Default to TRUE (open) if no stored value
+    return stored !== null ? JSON.parse(stored) : true;
   });
 
-  // ✅ Toggle and persist
+  // ✅ Toggle with the unique key
   const toggleSidebar = () => {
     setIsOpen((prev) => {
-      localStorage.setItem("sidebarOpen", JSON.stringify(!prev));
-      return !prev;
+      const newState = !prev;
+      console.log("💾 Saving Sidebars state:", newState);
+      localStorage.setItem("sidebarsOpenState", JSON.stringify(newState));
+      return newState;
     });
   };
 
+  // Your existing styles and JSX remain the same...
   const sidebarStyle = {
     width: isOpen ? "250px" : "75px",
     backgroundColor: "#DCEEF3",
@@ -43,10 +45,24 @@ const Sidebar = () => {
     transition: "width 0.3s ease",
     position: "relative",
     overflow: "hidden",
+    flexShrink: 0,
+    minWidth: "75px",
+  };
+
+  const headerStyle = {
+    height: "58px",
+    padding: "1rem",
+    borderBottom: "1px solid #e5e7eb",
+    fontSize: "1.25rem",
+    fontWeight: 600,
+    color: "#374151",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    display: "flex",
+    justifyContent: "space-between",
   };
 
   const toggleButtonStyle = {
-    // backgroundColor: "#2563eb",
     color: "#fff",
     border: "none",
     top: "18px",
@@ -61,20 +77,6 @@ const Sidebar = () => {
     alignItems: "center",
     justifyContent: "center",
     transition: "transform 0.3s ease, right 0.3s ease",
-  };
-
-  const headerStyle = {
-    paddingLeft: isOpen ? "1rem" : "0.5rem",
-    height: "58px", // consistent fixed height
-    padding: "1rem",
-    borderBottom: "1px solid #e5e7eb",
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    color: "#374151",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    display: "flex",
-    justifyContent: "space-between",
   };
 
   const navStyle = {
@@ -114,32 +116,29 @@ const Sidebar = () => {
   };
 
   const menuItems = [
-    { to: "/dashboard", icon: <FiHome />, label: "Dashboard" },
+    { to: "/merchandiser-dashboard", icon: <FiHome />, label: "Dashboard" },
     { to: "/agents", icon: <FiFileText />, label: "Agents" },
     { to: "/buyers", icon: <FiBriefcase />, label: "Buyers" },
     { to: "/customers", icon: <FiUsers />, label: "Customers" },
     { to: "/suppliers", icon: <FiClock />, label: "Suppliers" },
     { to: "/inquiries", icon: <FiCalendar />, label: "Inquiries" },
-    // {
-    //   to: "/performanse_appraisal",
-    //   icon: <FiCalendar />,
-    //   label: "Performance Appraisal",
-    // },
-    // { to: "/finance-provision", icon: <FiDollarSign />, label: "Finance" },
-    // { to: "/employee-termination", icon: <FiLogOut />, label: "Termination" },
-    // { to: "/letter-send", icon: <FiSend />, label: "Send Letters" },
-    // { to: "/email-logs", icon: <TfiEmail />, label: "Email log" },
-    // { to: "/tad-groups", icon: <TfiWorld />, label: "Tad Group" },
+    { to: "/orders", icon: <FiClock/>, label: "Orders"},
+
   ];
 
   return (
     <div style={sidebarStyle}>
       <div style={headerStyle}>
-        <span>{isOpen ? "Merchandiser" : "M"}</span>
-        <button onClick={toggleSidebar} style={toggleButtonStyle}>
+        <span>{isOpen ? "Merchandise" : "M"}</span>
+        <button
+          onClick={toggleSidebar}
+          style={toggleButtonStyle}
+          title="Toggle Sidebar"
+        >
           {isOpen ? <FiChevronLeft /> : <FiChevronLeft />}
         </button>
       </div>
+
       <nav style={navStyle}>
         <ul style={ulStyle}>
           {menuItems.map(({ to, icon, label }) => (

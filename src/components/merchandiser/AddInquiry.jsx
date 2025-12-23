@@ -39,6 +39,7 @@ const AddInquiry = () => {
     wash_description: "",
     techrefdate: "",
     target_price: "",
+    offer_price: "",
     confirmed_price: "",
     confirmed_price_date: "",
     attachment: null,
@@ -46,6 +47,7 @@ const AddInquiry = () => {
     order_remarks: "",
     color_size_groups: [],
     grand_total: 0,
+    suppliers: [], // Changed from supplier to suppliers (array)
   });
 
   const [buyers, setBuyers] = useState([]);
@@ -55,8 +57,13 @@ const AddInquiry = () => {
   const [items, setItems] = useState([]);
   const [fabrications, setFabrications] = useState([]);
   const [sizeRange, setSizeRange] = useState("");
+  const [sizeType, setSizeType] = useState("numeric");
   const [availableSizes, setAvailableSizes] = useState([]);
   const [colorSizeGroups, setColorSizeGroups] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+
+  const [supplierPrices, setSupplierPrices] = useState({});
 
   const [showDropdown, setShowDropdown] = useState({
     repeat_of: false,
@@ -72,6 +79,9 @@ const AddInquiry = () => {
     fabrication: "",
   });
 
+  // Alpha sizes configuration
+  const alphaSizes = ["XS", "S", "M", "L", "XL", "XXL"];
+
   // Fetch dropdown options
   useEffect(() => {
     const fetchData = async () => {
@@ -83,6 +93,7 @@ const AddInquiry = () => {
           stylesRes,
           itemsRes,
           fabricationsRes,
+          suppliersRes,
         ] = await Promise.all([
           axios.get("http://119.148.51.38:8000/api/merchandiser/api/buyer/"),
           axios.get("http://119.148.51.38:8000/api/merchandiser/api/customer/"),
@@ -94,6 +105,7 @@ const AddInquiry = () => {
           axios.get(
             "http://119.148.51.38:8000/api/merchandiser/api/fabrication/"
           ),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/supplier/"),
         ]);
 
         setBuyers(buyersRes.data);
@@ -102,6 +114,7 @@ const AddInquiry = () => {
         setStyles(stylesRes.data);
         setItems(itemsRes.data);
         setFabrications(fabricationsRes.data);
+        setSuppliers(suppliersRes.data);
 
         // Initialize with one empty color group
         setColorSizeGroups([
@@ -145,7 +158,7 @@ const AddInquiry = () => {
     } else if (name === "buyer" || name === "customer") {
       setFormData((prev) => ({
         ...prev,
-        [name]: value, // Keep as string
+        [name]: value,
       }));
     } else if (name === "wgr" || name === "inquiry_no") {
       const numValue = value === "" ? null : parseInt(value);
@@ -158,23 +171,104 @@ const AddInquiry = () => {
     }
   };
 
+  // Update the handleSupplierChange function
+  const handleSupplierChange = (supplierId) => {
+    const id = parseInt(supplierId);
+    setFormData((prev) => {
+      const currentSuppliers = prev.suppliers || [];
+      let newSuppliers;
+
+      if (currentSuppliers.includes(id)) {
+        // Remove supplier if already selected
+        newSuppliers = currentSuppliers.filter((s) => s !== id);
+        // Remove price when supplier is deselected
+        setSupplierPrices((prevPrices) => {
+          const newPrices = { ...prevPrices };
+          delete newPrices[id];
+          return newPrices;
+        });
+      } else {
+        // Add supplier
+        newSuppliers = [...currentSuppliers, id];
+        // Initialize price as empty when supplier is selected
+        setSupplierPrices((prevPrices) => ({
+          ...prevPrices,
+          [id]: "",
+        }));
+      }
+
+      return {
+        ...prev,
+        suppliers: newSuppliers,
+      };
+    });
+  };
+
+  // Add price change handler
+  const handleSupplierPriceChange = (supplierId, price) => {
+    setSupplierPrices((prev) => ({
+      ...prev,
+      [supplierId]: price,
+    }));
+  };
+
+  const handleSizeTypeChange = (e) => {
+    const newSizeType = e.target.value;
+    setSizeType(newSizeType);
+    setSizeRange("");
+    setAvailableSizes([]);
+
+    // Reset all color groups
+    setColorSizeGroups((prev) =>
+      prev.map((group) => ({
+        ...group,
+        sizes: [],
+        total: 0,
+      }))
+    );
+  };
+
   const handleSizeRangeChange = (e) => {
     const value = e.target.value;
     setSizeRange(value);
 
-    if (value.includes("-")) {
-      const [start, end] = value.split("-").map(Number);
-      if (!isNaN(start) && !isNaN(end) && start <= end) {
-        const sizes = [];
-        for (let i = start; i <= end; i++) {
-          if (i % 2 === 0) {
-            sizes.push({ size: i.toString(), quantity: 0 });
+    if (sizeType === "numeric") {
+      if (value.includes("-")) {
+        const [start, end] = value.split("-").map(Number);
+        if (!isNaN(start) && !isNaN(end) && start <= end) {
+          const sizes = [];
+          for (let i = start; i <= end; i++) {
+            if (i % 2 === 0) {
+              sizes.push({ size: i.toString(), quantity: 0 });
+            }
           }
-        }
 
+          setAvailableSizes(sizes);
+
+          // Update all existing color groups to match new even sizes
+          setColorSizeGroups((prev) =>
+            prev.map((group) => ({
+              ...group,
+              sizes: sizes.map((size) => ({
+                size: size.size,
+                quantity: 0,
+              })),
+              total: 0,
+            }))
+          );
+        }
+      } else {
+        setAvailableSizes([]);
+        setColorSizeGroups((prev) =>
+          prev.map((group) => ({ ...group, sizes: [], total: 0 }))
+        );
+      }
+    } else if (sizeType === "alpha") {
+      if (value === "all") {
+        const sizes = alphaSizes.map((size) => ({ size, quantity: 0 }));
         setAvailableSizes(sizes);
 
-        // Update all existing color groups to match new even sizes
+        // Update all existing color groups to match alpha sizes
         setColorSizeGroups((prev) =>
           prev.map((group) => ({
             ...group,
@@ -185,12 +279,12 @@ const AddInquiry = () => {
             total: 0,
           }))
         );
+      } else {
+        setAvailableSizes([]);
+        setColorSizeGroups((prev) =>
+          prev.map((group) => ({ ...group, sizes: [], total: 0 }))
+        );
       }
-    } else {
-      setAvailableSizes([]);
-      setColorSizeGroups((prev) =>
-        prev.map((group) => ({ ...group, sizes: [], total: 0 }))
-      );
     }
   };
 
@@ -243,83 +337,6 @@ const AddInquiry = () => {
     return colorSizeGroups.reduce((sum, group) => sum + group.total, 0);
   };
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   setLoading(true);
-
-  //   try {
-  //     const cleanedData = {
-  //       ...formData,
-  //       repeat_of_id: formData.repeat_of || null,
-  //       same_style_id: formData.same_style || null,
-  //       item_id: formData.item || null,
-  //       fabrication_id: formData.fabrication || null,
-  //       buyer_id: formData.buyer || null,
-  //       customer_id: formData.customer || null,
-  //     };
-
-  //     const payload = {
-  //       ...cleanedData,
-  //       color_size_groups: colorSizeGroups
-  //         .filter(group => group.color && group.sizes.length > 0)
-  //         .map(group => ({
-  //           color: group.color,
-  //           total: group.total,
-  //           size_quantities: group.sizes.map(size => ({
-  //             size: parseInt(size.size),
-  //             quantity: parseInt(size.quantity) || 0
-  //           }))
-  //         })),
-  //       grand_total: calculateGrandTotal()
-  //     };
-
-  //     // Create FormData
-  //     const formDataToSend = new FormData();
-  //     const { image, image1, attachment, ...jsonPayload } = payload;
-
-  //     // Append files if they exist
-  //     if (image) formDataToSend.append('image', image);
-  //     if (image1) formDataToSend.append('image1', image1);
-  //     if (attachment) formDataToSend.append('attachment', attachment);
-  //     formDataToSend.append('data', JSON.stringify(jsonPayload));
-
-  //     const response = await axios.post(
-  //       'http://119.148.51.38:8000/api/merchandiser/api/inquiry/',
-  //       formDataToSend,
-  //       {
-  //         headers: {
-  //           'Content-Type': 'multipart/form-data'
-  //         }
-  //       }
-  //     );
-
-  //     if (response.status === 201) {
-  //       alert('Inquiry created successfully!');
-  //       navigate('/inquiries');
-  //     }
-  //   } catch (error) {
-  //     console.error('Error creating inquiry:', error);
-  //     console.error('Error details:', error.response?.data);
-
-  //     let errorMessage = 'Failed to create inquiry. ';
-  //     if (error.response?.data) {
-  //       if (typeof error.response.data === 'string') {
-  //         errorMessage += error.response.data;
-  //       } else if (error.response.data.detail) {
-  //         errorMessage += error.response.data.detail;
-  //       } else {
-  //         errorMessage += JSON.stringify(error.response.data);
-  //       }
-  //     } else {
-  //       errorMessage += 'Please check your network connection and try again.';
-  //     }
-
-  //     alert(errorMessage);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -335,28 +352,41 @@ const AddInquiry = () => {
         image,
         image1,
         attachment,
+        suppliers, // This is now an array
         ...restFormData
       } = formData;
 
-      const cleanedData = {
-        ...restFormData,
+      // Clean empty strings and convert to null
+      const cleanedData = Object.fromEntries(
+        Object.entries(restFormData).map(([key, value]) => [
+          key,
+          value === "" ? null : value,
+        ])
+      );
+
+      // Prepare supplier prices data
+      const supplierPricesData = suppliers.map((supplierId) => ({
+        supplier: supplierId,
+        price: supplierPrices[supplierId] || null,
+      }));
+
+      const payload = {
+        ...cleanedData,
         repeat_of_id: repeat_of || null,
         same_style_id: same_style || null,
         item_id: item || null,
         fabrication_id: fabrication || null,
-        buyer_id: parseInt(buyer) || null,
-        customer_id: parseInt(customer) || null,
-      };
-
-      const payload = {
-        ...cleanedData,
+        buyer_id: buyer ? parseInt(buyer) : null,
+        customer_id: customer ? parseInt(customer) : null,
+        supplier_prices: supplierPricesData,
+        supplier_ids: suppliers || [], // Send array of supplier IDs
         color_size_groups: colorSizeGroups
           .filter((group) => group.color && group.sizes.length > 0)
           .map((group) => ({
             color: group.color,
             total: group.total,
             size_quantities: group.sizes.map((size) => ({
-              size: parseInt(size.size),
+              size: size.size,
               quantity: parseInt(size.quantity) || 0,
             })),
           })),
@@ -508,7 +538,15 @@ const AddInquiry = () => {
     }
   };
 
-  // Styles (same as in EditInquiry)
+  // Get selected supplier names for display
+  const getSelectedSupplierNames = () => {
+    return suppliers
+      .filter((supplier) => formData.suppliers?.includes(supplier.id))
+      .map((supplier) => supplier.name)
+      .join(", ");
+  };
+
+  // Styles
   const containerStyle = {
     display: "flex",
     minHeight: "100vh",
@@ -701,6 +739,26 @@ const AddInquiry = () => {
     textAlign: "center",
   };
 
+  const checkboxGroupStyle = {
+    border: "1px solid #cbd5e1",
+    borderRadius: "0.375rem",
+    padding: "0.75rem",
+    maxHeight: "12rem",
+    overflowY: "auto",
+    backgroundColor: "#fff",
+  };
+
+  const checkboxItemStyle = {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: "0.5rem",
+    padding: "0.25rem",
+  };
+
+  const checkboxStyle = {
+    marginRight: "0.5rem",
+  };
+
   const renderSelect = (label, name, options) => (
     <div style={inputGroupStyle}>
       <label style={labelStyle}>{label}</label>
@@ -750,15 +808,42 @@ const AddInquiry = () => {
         </button>
       </div>
 
-      <div style={inputGroupStyle}>
-        <label style={labelStyle}>Size Range</label>
-        <input
-          type="text"
-          value={sizeRange}
-          onChange={handleSizeRangeChange}
-          placeholder="e.g. 2-10"
-          style={inputStyle}
-        />
+      <div style={gridStyle}>
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>Size Type</label>
+          <select
+            value={sizeType}
+            onChange={handleSizeTypeChange}
+            style={selectStyle}
+          >
+            <option value="numeric">Numeric Sizes</option>
+            <option value="alpha">Alpha Sizes (XS,S,M,L,XL,XXL)</option>
+          </select>
+        </div>
+
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>
+            {sizeType === "numeric" ? "Size Range" : "Size Selection"}
+          </label>
+          {sizeType === "numeric" ? (
+            <input
+              type="text"
+              value={sizeRange}
+              onChange={handleSizeRangeChange}
+              placeholder="e.g. 2-10"
+              style={inputStyle}
+            />
+          ) : (
+            <select
+              value={sizeRange}
+              onChange={handleSizeRangeChange}
+              style={selectStyle}
+            >
+              <option value="">Select Size Range</option>
+              <option value="all">All Alpha Sizes (XS-XXL)</option>
+            </select>
+          )}
+        </div>
       </div>
 
       {availableSizes.length > 0 && (
@@ -941,7 +1026,7 @@ const AddInquiry = () => {
     { value: "all", label: "All" },
     { value: "blanks", label: "Blanks" },
     { value: "ladies", label: "Ladies" },
-    { value: "bag", label: "Bag" },
+    { value: "mans", label: "Mans" },
     { value: "boy", label: "Boy" },
     { value: "girls", label: "Girls" },
     { value: "mama", label: "Mama" },
@@ -950,9 +1035,7 @@ const AddInquiry = () => {
   const statusOptions = [
     { value: "pending", label: "Pending" },
     { value: "quoted", label: "Quoted" },
-    { value: "running", label: "Running" },
-    { value: "Suppliersinformed", label: "Suppliers Informed" },
-    { value: "all", label: "All" },
+    { value: "confirm", label: "Confirm" },
   ];
 
   const garmentOptions = [
@@ -988,17 +1071,16 @@ const AddInquiry = () => {
               Basic Information
             </h3>
             <div style={gridStyle}>
-              {renderField("Inquiry Number", "inquiry_no", "number")}
+              {renderField("Inquiry Number", "inquiry_no")}
               {renderSelect("Order Type", "order_type", orderTypeOptions)}
               {renderSelect("Garment Type", "garment", garmentOptions)}
               {renderSelect("Gender", "gender", genderOptions)}
               {renderSelect("Season", "season", seasonOptions)}
               {renderField("Program", "program")}
               {renderField("WGR", "wgr", "number")}
-              {renderSelect("With Hanger", "with_hanger", withHangerOptions)}
-              {renderField("Year", "year", "date")}
+              {renderField("Year", "year")}
               {renderCombobox("Repeat Of", "repeat_of", repeatOfs, "repeat_of")}
-              {renderCombobox("Same Style", "same_style", styles, "styles")}
+              {renderCombobox("Style Name", "same_style", styles, "styles")}
               {renderCombobox("Item", "item", items, "item")}
               {renderCombobox(
                 "Fabrication",
@@ -1006,6 +1088,10 @@ const AddInquiry = () => {
                 fabrications,
                 "fabrication"
               )}
+
+              <div style={gridStyle}>
+                {renderField("Order Quantity", "order_quantity", "number")}
+              </div>
             </div>
           </div>
 
@@ -1017,11 +1103,6 @@ const AddInquiry = () => {
             <div style={gridStyle}>
               {renderField("Received Date", "received_date", "date")}
               {renderField("Shipment Date", "shipment_date", "date")}
-              {renderField(
-                "Proposed Shipment Date",
-                "proposed_shipment_date",
-                "date"
-              )}
               {renderField("Tech Ref Date", "techrefdate", "date")}
               {renderField(
                 "Confirmed Price Date",
@@ -1032,16 +1113,6 @@ const AddInquiry = () => {
           </div>
         </div>
 
-        <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
-          <h3 style={sectionTitleStyle}>
-            <span style={sectionIconStyle}>📋</span>
-            Order Information
-          </h3>
-          <div style={gridStyle}>
-            {renderField("Order Request", "order_no", "number")}
-            {renderField("Order Quantity", "order_quantity", "number")}
-          </div>
-        </div>
         {/* Color & Sizing Section */}
         <div style={sectionColumnStyle}>{renderColorSizeSection()}</div>
 
@@ -1062,7 +1133,7 @@ const AddInquiry = () => {
           <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
             <h3 style={sectionTitleStyle}>
               <span style={sectionIconStyle}>👥</span>
-              Buyer & Customer
+              Buyer, Customer & Suppliers
             </h3>
             <div style={gridStyle}>
               {/* Buyer Dropdown */}
@@ -1100,86 +1171,120 @@ const AddInquiry = () => {
                   ))}
                 </select>
               </div>
+
+              {/* Multiple Supplier Selection */}
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Suppliers</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    value={getSelectedSupplierNames()}
+                    onFocus={() => setShowSupplierDropdown(true)}
+                    onBlur={() =>
+                      setTimeout(() => setShowSupplierDropdown(false), 200)
+                    }
+                    style={inputStyle}
+                    placeholder="Select suppliers..."
+                    readOnly
+                  />
+
+                  {showSupplierDropdown && (
+                    <div style={comboboxDropdownStyle}>
+                      <div style={checkboxGroupStyle}>
+                        {suppliers.map((supplier) => (
+                          <div key={supplier.id} style={checkboxItemStyle}>
+                            <input
+                              type="checkbox"
+                              id={`supplier-${supplier.id}`}
+                              checked={
+                                formData.suppliers?.includes(supplier.id) ||
+                                false
+                              }
+                              onChange={() => handleSupplierChange(supplier.id)}
+                              style={checkboxStyle}
+                            />
+                            <label htmlFor={`supplier-${supplier.id}`}>
+                              {supplier.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <small style={{ color: "#6b7280", fontSize: "0.75rem" }}>
+                  Selected: {formData.suppliers?.length || 0} supplier(s)
+                </small>
+              </div>
+
+              {/* Supplier Price Inputs */}
+              {formData.suppliers?.map((supplierId) => {
+                const supplier = suppliers.find((s) => s.id === supplierId);
+                if (!supplier) return null;
+
+                return (
+                  <div key={`price-${supplierId}`} style={inputGroupStyle}>
+                    <label style={labelStyle}>Price for {supplier.name}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={supplierPrices[supplierId] || ""}
+                      onChange={(e) =>
+                        handleSupplierPriceChange(supplierId, e.target.value)
+                      }
+                      style={inputStyle}
+                      placeholder="Enter price for this supplier"
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
+        {/* Pricing Section */}
         <div style={sectionRowStyle}>
-          {/* Status & Remarks Section */}
+          <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
+            <h3 style={sectionTitleStyle}>
+              <span style={sectionIconStyle}>💰</span>
+              Pricing
+            </h3>
+            <div style={gridStyle}>
+              {renderField("Target Price", "target_price", "number")}
+              {renderField("Offer Price", "offer_price", "number")}{" "}
+              {/* Add this line */}
+              {renderField("Confirmed Price", "confirmed_price", "number")}
+            </div>
+          </div>
+
           <div style={{ ...sectionContainerStyle, ...sectionColumnStyle }}>
             <h3 style={sectionTitleStyle}>
               <span style={sectionIconStyle}>📝</span>
-              Status & Remarks
+              Remarks & Status
             </h3>
             <div style={gridStyle}>
-              {renderSelect("Status", "current_status", statusOptions)}
-              {renderField("Order Remarks", "order_remarks")}
-            </div>
-
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Remarks</label>
-              <textarea
-                name="remarks"
-                value={formData.remarks || ""}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Local Remarks</label>
-              <textarea
-                name="local_remarks"
-                value={formData.local_remarks || ""}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Buyer Remarks</label>
-              <textarea
-                name="buyer_remarks"
-                value={formData.buyer_remarks || ""}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
-
-            <div style={inputGroupStyle}>
-              <label style={labelStyle}>Wash Description</label>
-              <textarea
-                name="wash_description"
-                value={formData.wash_description || ""}
-                onChange={handleChange}
-                style={textareaStyle}
-              />
-            </div>
-          </div>
-
-          {/* Pricing & Fabric Section */}
-          <div style={sectionContainerStyle}>
-            <h3 style={sectionTitleStyle}>
-              <span style={sectionIconStyle}>💰</span>
-              Pricing & Fabric
-            </h3>
-            <div style={gridStyle}>
-              {renderField("Fabric 1", "fabric1")}
-              {renderField("Fabric 2", "fabric2")}
-              {renderField("Fabric 3", "fabric3")}
-              {renderField("Fabric 4", "fabric4")}
-              {renderField("Target Price", "target_price")}
-              {renderField("Confirmed Price", "confirmed_price")}
+              {renderSelect("With Hanger", "with_hanger", withHangerOptions)}
+              {renderSelect("Current Status", "current_status", statusOptions)}
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Remarks</label>
+                <textarea
+                  name="remarks"
+                  value={formData.remarks || ""}
+                  onChange={handleChange}
+                  style={textareaStyle}
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Form Actions */}
+        {/* Submit Buttons */}
         <div style={buttonGroupStyle}>
           <button
             type="button"
             onClick={() => navigate("/inquiries")}
             style={cancelButtonStyle}
+            disabled={loading}
           >
             Cancel
           </button>

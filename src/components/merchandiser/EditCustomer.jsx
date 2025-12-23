@@ -241,7 +241,7 @@ export default function EditCustomer() {
         )}
       </div>
 
-      <style>{`
+      <style jsx>{`
         /* Base Styles */
         .page-container {
           display: flex;
