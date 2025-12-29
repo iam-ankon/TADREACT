@@ -95,6 +95,7 @@ const AddAttachmentInquiry = () => {
         display: "flex",
         backgroundColor: "#f7f9fb",
         minHeight: "100vh",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       <Sidebar />

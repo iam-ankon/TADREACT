@@ -329,6 +329,8 @@ const AddEmployee = () => {
       minHeight: "100vh",
       width: "100%",
       position: "relative",
+
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     sidebarWrapper: {
       flexShrink: 0,

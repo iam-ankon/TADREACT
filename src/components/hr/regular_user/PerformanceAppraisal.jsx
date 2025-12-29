@@ -179,7 +179,12 @@ const PerformanceAppraisal = () => {
             const reportingLeader = (employee.reporting_leader || "")
               .toLowerCase()
               .trim();
-            const shafiqVariations = ["md. shafiql islam"];
+            const shafiqVariations = [
+              "md. shafiqul islam",
+              "shafiqul islam",
+              "shafiq",
+              "md shafiqul islam",
+            ];
             return shafiqVariations.some((variation) =>
               reportingLeader.includes(variation.toLowerCase())
             );
@@ -1089,6 +1094,7 @@ const PerformanceAppraisal = () => {
     margin: "0 auto",
     backgroundColor: "#f5f7fa",
     minHeight: "100vh",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
   const headerStyle = {

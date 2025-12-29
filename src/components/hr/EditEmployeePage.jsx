@@ -249,6 +249,7 @@ const EditEmployeePage = () => {
     fontSize: "14px",
     marginBottom: "6px",
     display: "block",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
   
   const inputStyle = {

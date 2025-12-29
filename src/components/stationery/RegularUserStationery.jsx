@@ -43,7 +43,6 @@ const RegularUserStationery = () => {
   // Enhanced fetch current employee
   const fetchCurrentEmployee = async () => {
     try {
-     
       const response = await axios.get(`${API_BASE}current_employee/`, {
         headers: getAuthHeaders(),
         params: {
@@ -51,11 +50,10 @@ const RegularUserStationery = () => {
           _t: Date.now(),
         },
       });
-      
+
       setCurrentEmployee(response.data);
       return response.data;
     } catch (err) {
-      
       return null;
     }
   };
@@ -63,30 +61,23 @@ const RegularUserStationery = () => {
   // Enhanced fetch stationery items
   const fetchStationeryItems = async () => {
     try {
-     
       const response = await axios.get(`${API_BASE}stationery_items/`, {
         headers: getAuthHeaders(),
         params: { _t: Date.now() },
       });
 
       const data = response.data;
-     
 
       if (Array.isArray(data)) {
         setItems(data);
-       
       } else if (data && Array.isArray(data.results)) {
         setItems(data.results);
-       
       } else if (data && Array.isArray(data.data)) {
         setItems(data.data);
-        
       } else {
-        
         setItems([]);
       }
     } catch (err) {
-      
       setError("Failed to load stationery items");
       setItems([]);
     }
@@ -95,15 +86,10 @@ const RegularUserStationery = () => {
   // CRITICAL FIX: Enhanced fetch my requests with multiple fallbacks
   const fetchMyRequests = async () => {
     try {
-      
-
       if (!currentEmployee?.id) {
-       
         setMyRequests([]);
         return;
       }
-
-
 
       const response = await axios.get(`${API_BASE}stationery_usage/`, {
         headers: getAuthHeaders(),
@@ -113,45 +99,36 @@ const RegularUserStationery = () => {
         },
       });
 
-
       let requestsData = [];
 
       // Try multiple response format patterns
       if (Array.isArray(response.data)) {
         requestsData = response.data;
-       
       } else if (response.data && typeof response.data === "object") {
         // Handle object with nested array
 
-
         if (Array.isArray(response.data.results)) {
           requestsData = response.data.results;
-         
         } else if (Array.isArray(response.data.data)) {
           requestsData = response.data.data;
-          
         } else if (Array.isArray(response.data.stationery_usage)) {
           requestsData = response.data.stationery_usage;
-         
         } else {
           // Maybe it's a single object? Check if it looks like a stationery usage record
           if (response.data.id && response.data.stationery_item) {
             requestsData = [response.data]; // Wrap single object in array
-          
           } else {
             // Try to extract any array from the object
             for (const key in response.data) {
               if (Array.isArray(response.data[key])) {
                 requestsData = response.data[key];
-               
+
                 break;
               }
             }
           }
         }
       }
-
-
 
       // Process and enhance each request
       const enhancedRequests = requestsData.map((req, index) => {
@@ -185,8 +162,6 @@ const RegularUserStationery = () => {
           employee_name: req.employee_name || currentEmployee?.name || "You",
         };
 
-
-
         return enhancedReq;
       });
 
@@ -194,7 +169,6 @@ const RegularUserStationery = () => {
       const sortedRequests = enhancedRequests.sort((a, b) => {
         return new Date(b.date_requested) - new Date(a.date_requested);
       });
-
 
       // CRITICAL: Force state update
       setMyRequests(sortedRequests);
@@ -204,8 +178,6 @@ const RegularUserStationery = () => {
 
       return sortedRequests;
     } catch (err) {
-
-
       setError(`Failed to load requests: ${err.message}`);
       setMyRequests([]);
       return [];
@@ -214,7 +186,6 @@ const RegularUserStationery = () => {
 
   // Initial data load
   useEffect(() => {
-
     const init = async () => {
       await fetchCurrentEmployee();
       await fetchStationeryItems();
@@ -369,7 +340,6 @@ const RegularUserStationery = () => {
   };
 
   // Direct database query test
-
 
   // Get stock status
   const getStockStatus = (item) => {
@@ -609,7 +579,13 @@ const RegularUserStationery = () => {
 
       {/* Main Content */}
       <main
-        style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 20px 40px" }}
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          padding: "0 20px 40px",
+          fontFamily:
+            "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        }}
       >
         <div
           style={{
@@ -706,8 +682,7 @@ const RegularUserStationery = () => {
                           value={item.id}
                           disabled={item.current_stock <= 0}
                         >
-                          {item.name} ({item.current_stock} {item.unit}) -{" "}
-                          {status.label}
+                          {item.name} - {status.label}
                         </option>
                       );
                     })}
@@ -933,7 +908,6 @@ const RegularUserStationery = () => {
                     {myRequests.length}
                   </span>
                 </h2>
-
               </div>
 
               {myRequests.length === 0 ? (

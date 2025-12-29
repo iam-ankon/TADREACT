@@ -115,13 +115,30 @@ const Inquiry = () => {
   const [showSeasonDropdown, setShowSeasonDropdown] = useState(false);
   const [showGarmentDropdown, setShowGarmentDropdown] = useState(false);
 
+  // New filter states from screenshot
+  const [selectedYear, setSelectedYear] = useState("2024");
+  const [selectedSeason, setSelectedSeason] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState("");
+  const [withImage, setWithImage] = useState(false);
+  const [dateWiseShipment, setDateWiseShipment] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
+  const [showSampleStatus, setShowSampleStatus] = useState(false);
+  const [showAttachments, setShowAttachments] = useState(false);
+  const [showEmailCommunications, setShowEmailCommunications] = useState(false);
+
   // Store initial filter values to detect actual changes
   const initialSearchTerm = React.useRef(searchTerm);
   const initialSearchYears = React.useRef(searchYears);
   const initialSelectedSeasons = React.useRef(selectedSeasons);
   const initialSelectedGarments = React.useRef(selectedGarments);
 
-  // 2. Then, save search filters to localStorage
+  // Save search filters to localStorage
   useEffect(() => {
     localStorage.setItem("inquirySearchTerm", searchTerm);
   }, [searchTerm]);
@@ -147,7 +164,6 @@ const Inquiry = () => {
   // Save current page to localStorage
   useEffect(() => {
     localStorage.setItem("inquiryCurrentPage", currentPage.toString());
-    console.log("Saved currentPage to localStorage:", currentPage);
   }, [currentPage]);
 
   // Fetch inquiries and suppliers on mount
@@ -156,7 +172,7 @@ const Inquiry = () => {
     fetchSuppliers();
   }, []);
 
-  // 5. Reset currentPage to 1 only when search filters actually change
+  // Reset currentPage to 1 when search filters change
   useEffect(() => {
     const searchTermChanged = searchTerm !== initialSearchTerm.current;
     const searchYearsChanged = searchYears !== initialSearchYears.current;
@@ -175,18 +191,8 @@ const Inquiry = () => {
     ) {
       setCurrentPage(1);
       localStorage.setItem("inquiryCurrentPage", "1");
-      console.log("Search filters changed, resetting currentPage to 1", {
-        searchTerm,
-        searchYears,
-        selectedSeasons,
-        selectedGarments,
-        searchTermChanged,
-        searchYearsChanged,
-        seasonsChanged,
-        garmentsChanged,
-      });
 
-      // Update initial values after detecting a change
+      // Update initial values
       initialSearchTerm.current = searchTerm;
       initialSearchYears.current = searchYears;
       initialSelectedSeasons.current = selectedSeasons;
@@ -194,7 +200,7 @@ const Inquiry = () => {
     }
   }, [searchTerm, searchYears, selectedSeasons, selectedGarments]);
 
-  // 6. Now define filtered after all states are initialized
+  // Define filtered inquiries
   const filtered = inquiries.filter((i) => {
     const textSearchPassed = !searchTerm.trim()
       ? true
@@ -220,15 +226,6 @@ const Inquiry = () => {
             const styleMatch = (i.same_style?.styles || "")
               .toLowerCase()
               .includes(term);
-            console.log("Search term match for inquiry", i.inquiry_no, ":", {
-              term,
-              inquiryNoMatch,
-              orderTypeMatch,
-              garmentMatch,
-              fabricationMatch,
-              styleMatch,
-              sameStyle: i.same_style,
-            });
             return (
               inquiryNoMatch ||
               orderTypeMatch ||
@@ -266,87 +263,47 @@ const Inquiry = () => {
         ? true
         : selectedGarments.includes(i.garment?.toLowerCase() || "");
 
-    const filterResult =
-      textSearchPassed && yearPassed && seasonPassed && garmentPassed;
-    console.log("Filter result for inquiry", i.inquiry_no, ":", {
-      textSearchPassed,
-      yearPassed,
-      seasonPassed,
-      garmentPassed,
-      filterResult,
-    });
-    return filterResult;
+    return textSearchPassed && yearPassed && seasonPassed && garmentPassed;
   });
 
-  // Adjust currentPage if it exceeds totalPages after inquiries are loaded
-  // 7. Adjust currentPage if it exceeds totalPages after inquiries are loaded
+  // Adjust currentPage if it exceeds totalPages
   useEffect(() => {
     if (inquiries.length > 0) {
       const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
       if (currentPage > totalPages) {
         setCurrentPage(totalPages);
         localStorage.setItem("inquiryCurrentPage", totalPages.toString());
-        console.log(
-          `Adjusted currentPage to ${totalPages} because it exceeded totalPages`
-        );
       }
     }
   }, [filtered.length, itemsPerPage, currentPage, inquiries.length]);
 
-  useEffect(() => {
-    fetchInquiries();
-    fetchSuppliers();
-  }, []);
-
-  // 8. Clear filters function
   const clearAllFilters = () => {
     setSearchTerm("");
     setSearchYears("");
     setSelectedSeasons([]);
     setSelectedGarments([]);
-    // Also clear from localStorage
+    setSelectedYear("2024");
+    setSelectedSeason("");
+    setSelectedGroup("");
+    setSelectedSupplier("");
+    setSelectedStatus("");
+    setSelectedMonth("");
+    setSelectedStyle("");
+    setWithImage(false);
+    setDateWiseShipment(false);
+    setDateFrom("");
+    setDateTo("");
     localStorage.removeItem("inquirySearchTerm");
     localStorage.removeItem("inquirySearchYears");
     localStorage.removeItem("inquirySelectedSeasons");
     localStorage.removeItem("inquirySelectedGarments");
     setCurrentPage(1);
-
-    console.log("All filters cleared");
   };
-
-  useEffect(() => {
-    const searchTermChanged = searchTerm !== initialSearchTerm.current;
-    const searchYearsChanged = searchYears !== initialSearchYears.current;
-    const seasonsChanged =
-      JSON.stringify(selectedSeasons) !==
-      JSON.stringify(initialSelectedSeasons.current);
-    const garmentsChanged =
-      JSON.stringify(selectedGarments) !==
-      JSON.stringify(initialSelectedGarments.current);
-
-    if (
-      searchTermChanged ||
-      searchYearsChanged ||
-      seasonsChanged ||
-      garmentsChanged
-    ) {
-      setCurrentPage(1);
-      localStorage.setItem("inquiryCurrentPage", "1");
-      console.log("Search filters changed, resetting currentPage to 1");
-
-      // Update initial values after detecting a change
-      initialSearchTerm.current = searchTerm;
-      initialSearchYears.current = searchYears;
-      initialSelectedSeasons.current = selectedSeasons;
-      initialSelectedGarments.current = selectedGarments;
-    }
-  }, [searchTerm, searchYears, selectedSeasons, selectedGarments]);
 
   const fetchSuppliers = async () => {
     try {
       const response = await api.get("/supplier/");
       setAvailableSuppliers(response.data);
-      console.log("Fetched suppliers:", response.data);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       alert("Failed to load suppliers list.");
@@ -364,7 +321,6 @@ const Inquiry = () => {
         )
       );
       setEditingRemarks((prev) => ({ ...prev, [inquiryId]: false }));
-      console.log(`Updated remarks1 for inquiry ${inquiryId}: ${remarks1}`);
     } catch (error) {
       console.error("Error updating remarks1:", error);
       alert("Failed to save remarks. Please try again.");
@@ -514,7 +470,7 @@ const Inquiry = () => {
           results.errors.push({
             inquiry: `ID: ${inquiryId}`,
             supplier: "N/A",
-            error: "Inquiry not found in local state",
+            error: "Inquiry not found",
           });
           emailCount += selectedSupplierIds.length;
           continue;
@@ -547,7 +503,7 @@ const Inquiry = () => {
               results.errors.push({
                 inquiry: inquiry.inquiry_no || `ID: ${inquiryId}`,
                 supplier: supplier.name || `Supplier ID: ${supplierId}`,
-                error: "No valid supplier email found",
+                error: "No valid email",
               });
               emailCount++;
               continue;
@@ -559,15 +515,6 @@ const Inquiry = () => {
               supplier_email: supplier.email,
             };
 
-            console.log(
-              "Sending email for inquiry:",
-              inquiryId,
-              "to supplier:",
-              supplier.name,
-              "email:",
-              supplier.email
-            );
-
             const response = await api.post(
               `/inquiries/${inquiryId}/send-email/`,
               payload
@@ -575,7 +522,6 @@ const Inquiry = () => {
 
             if (response.data.success) {
               results.success++;
-              console.log("Email sent successfully:", response.data);
             } else {
               results.failed++;
               results.errors.push({
@@ -585,14 +531,6 @@ const Inquiry = () => {
               });
             }
           } catch (error) {
-            console.error(
-              "Email sending error for inquiry",
-              inquiryId,
-              "supplier",
-              supplier?.name || supplierId,
-              ":",
-              error
-            );
             results.failed++;
             results.errors.push({
               inquiry: inquiry.inquiry_no || `ID: ${inquiryId}`,
@@ -606,6 +544,7 @@ const Inquiry = () => {
           }
 
           emailCount++;
+          setEmailProgress((prev) => ({ ...prev, sent: emailCount }));
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
@@ -637,11 +576,7 @@ const Inquiry = () => {
       }
     } catch (error) {
       console.error("Bulk email error:", error);
-      alert(
-        `Failed to send bulk emails: ${
-          error.message || "Unknown error"
-        }. Please check the console for details.`
-      );
+      alert(`Failed to send bulk emails: ${error.message}`);
     } finally {
       setSendingEmail(false);
     }
@@ -656,13 +591,8 @@ const Inquiry = () => {
   };
 
   const openModal = async (inquiry) => {
-    console.log("Opening modal for inquiry:", inquiry);
     try {
       const response = await api.get(`/inquiry/${inquiry.id}/`);
-      console.log("Fetched inquiry data:", response.data);
-      if (!response.data.email_logs) {
-        console.warn("No email_logs field in API response");
-      }
       setSelectedInquiry(response.data);
       setBuyerPrice("");
       setSupplierPrice("");
@@ -674,9 +604,7 @@ const Inquiry = () => {
       setShowSavedNegotiations(true);
     } catch (error) {
       console.error("Error fetching inquiry:", error);
-      alert(
-        "Failed to load inquiry details. Please check the console for details."
-      );
+      alert("Failed to load inquiry details.");
     }
   };
 
@@ -734,23 +662,7 @@ const Inquiry = () => {
           comment: negotiation.comment,
         };
 
-        try {
-          await api.post(`/negotiation/`, payload);
-        } catch (negotiationError) {
-          let errorMessage = "Failed to save negotiation";
-          if (negotiationError.response && negotiationError.response.data) {
-            if (negotiationError.response.data.error) {
-              errorMessage = negotiationError.response.data.error;
-            } else if (negotiationError.response.data.detail) {
-              errorMessage = negotiationError.response.data.detail;
-            } else if (negotiationError.response.status === 403) {
-              errorMessage =
-                "Authentication failed. Please ensure you are logged in and have proper permissions.";
-            }
-          }
-          throw new Error(errorMessage);
-        }
-
+        await api.post(`/negotiation/`, payload);
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -761,14 +673,7 @@ const Inquiry = () => {
           };
           await api.patch(`/inquiry/${selectedInquiry.id}/`, updatePayload);
         } catch (statusError) {
-          let statusErrorMessage =
-            "Negotiations saved but status update failed: ";
-          if (statusError.response?.data?.detail) {
-            statusErrorMessage += statusError.response.data.detail;
-          } else {
-            statusErrorMessage += statusError.message;
-          }
-          alert(statusErrorMessage);
+          console.warn("Status update failed:", statusError);
         }
       }
 
@@ -787,10 +692,10 @@ const Inquiry = () => {
       }
 
       closeModal();
-      const successMessage =
+      alert(
         `${pendingNegotiations.length} negotiation round(s) saved successfully!` +
-        (updateStatusToConfirmed ? " Status updated to confirmed." : "");
-      alert(successMessage);
+          (updateStatusToConfirmed ? " Status updated to confirmed." : "")
+      );
     } catch (err) {
       console.error("Error saving negotiations:", err);
       alert(`Error: ${err.message}`);
@@ -803,73 +708,56 @@ const Inquiry = () => {
     setLoading(true);
     try {
       const res = await api.get(`/inquiry/`);
-      console.log("Fetched inquiries:", res.data);
-
       const inquiriesWithProcessedPrices = res.data.map((inquiry) => ({
         ...inquiry,
         supplier_prices: (inquiry.supplier_prices || []).filter(
           (item) => item.price !== null && item.price !== undefined
         ),
       }));
-
-      console.log("Processed inquiries:", inquiriesWithProcessedPrices);
       setInquiries(inquiriesWithProcessedPrices);
     } catch (err) {
       console.error("fetchInquiries error:", err);
-      alert("Failed to fetch inquiries. Please check the console for details.");
+      alert("Failed to fetch inquiries.");
     } finally {
       setLoading(false);
     }
   };
 
   const renderSupplierPrices = (inquiry) => {
-    console.log(
-      `Rendering supplier prices for inquiry ${inquiry.id}:`,
-      inquiry.supplier_prices
-    );
-
     const prices = (inquiry.supplier_prices || [])
-      .filter((item) => item.price !== null && item.price !== undefined)
-      .sort((a, b) => a.price - b.price); // Sort prices in ascending order
-
-    console.log(`Sorted supplier prices for inquiry ${inquiry.id}:`, prices);
+      .filter((item) => {
+        const price = item.price;
+        return (
+          price !== null && price !== undefined && !isNaN(parseFloat(price))
+        );
+      })
+      .map((item) => ({
+        ...item,
+        price: parseFloat(item.price),
+      }))
+      .sort((a, b) => a.price - b.price);
 
     if (prices.length === 0) {
-      return (
-        <div
-          style={{ color: "#999", fontStyle: "italic", fontSize: "0.75rem" }}
-        >
-          No prices
-        </div>
-      );
+      return <div style={styles.noPrices}>No prices</div>;
     }
 
     return (
-      <div style={{ maxWidth: "200px" }}>
-        {prices.slice(0, 3).map((priceItem, index) => (
-          <div
-            key={priceItem.id || index}
-            style={{
-              marginBottom: "2px",
-              padding: "2px 4px",
-              backgroundColor: index % 2 === 0 ? "#f5f5f5" : "transparent",
-              borderRadius: "2px",
-              fontSize: "0.75rem",
-            }}
-          >
-            <span style={{ fontWeight: "bold" }}>
-              {priceItem.supplier_name || "Unknown Supplier"}:
+      <div style={styles.supplierPrices}>
+        {prices.slice(0, 2).map((priceItem, index) => (
+          <div key={priceItem.id || index} style={styles.supplierPriceItem}>
+            <span style={styles.supplierName}>
+              {priceItem.supplier_name?.substring(0, 10) || "Supplier"}:
             </span>{" "}
-            $
-            {priceItem.price !== null && priceItem.price !== undefined
-              ? priceItem.price
-              : "N/A"}
+            <span style={styles.priceValue}>
+              $
+              {typeof priceItem.price === "number"
+                ? priceItem.price.toFixed(2)
+                : "N/A"}
+            </span>
           </div>
         ))}
-        {prices.length > 3 && (
-          <div style={{ fontSize: "0.7rem", color: "#666", marginTop: "2px" }}>
-            +{prices.length - 3} more...
-          </div>
+        {prices.length > 2 && (
+          <div style={styles.morePrices}>+{prices.length - 2} more...</div>
         )}
       </div>
     );
@@ -941,8 +829,7 @@ const Inquiry = () => {
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString();
+      return new Date(dateString).toLocaleDateString();
     } catch {
       return dateString;
     }
@@ -951,8 +838,7 @@ const Inquiry = () => {
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return "Recent";
     try {
-      const date = new Date(dateTimeString);
-      return date.toLocaleString();
+      return new Date(dateTimeString).toLocaleString();
     } catch {
       return dateTimeString;
     }
@@ -977,350 +863,310 @@ const Inquiry = () => {
     return customer.toString() || "-";
   };
 
-  const responsiveStyles = {
-    container: {
-      display: "flex",
-      minHeight: "100vh",
-      backgroundColor: "#A7D5E1",
+  // Calculate selection totals
+  const selectionTotals = selectedInquiries.reduce(
+    (acc, inquiryId) => {
+      const inquiry = inquiries.find((inq) => inq.id === inquiryId);
+      if (inquiry) {
+        const quantity = parseFloat(inquiry.order_quantity) || 0;
+        const targetPrice = parseFloat(inquiry.target_price) || 0;
+        const confirmedPrice = parseFloat(inquiry.confirmed_price) || 0;
+        const price = confirmedPrice || targetPrice;
+        acc.totalQuantity += quantity;
+        acc.totalValue += quantity * price;
+        acc.count++;
+      }
+      return acc;
     },
-    mainContent: {
-      padding: "1.5rem",
-      flex: 1,
-      boxSizing: "border-box",
-      overflowY: "auto",
-      width: "100%",
-    },
-    responsiveFlex: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "15px",
-      alignItems: "flex-end",
-      marginBottom: "20px",
-    },
-    responsiveColumn: {
-      flex: "1 1 300px",
-      minWidth: "250px",
-    },
-  };
+    { count: 0, totalQuantity: 0, totalValue: 0 }
+  );
 
-  console.log("Render state:", {
-    filteredLength: filtered.length,
-    currentPage,
-    currentItemsLength: currentItems.length,
-    totalPages,
-  });
+  // Calculate total value for display
+  const totalValue = filtered.reduce((sum, inquiry) => {
+    const quantity = parseFloat(inquiry.order_quantity) || 0;
+    const targetPrice = parseFloat(inquiry.target_price) || 0;
+    const confirmedPrice = parseFloat(inquiry.confirmed_price) || 0;
+    const price = confirmedPrice || targetPrice;
+    return sum + quantity * price;
+  }, 0);
 
   return (
-    <div style={responsiveStyles.container}>
+    <div style={styles.container}>
       <Sidebar />
-      <div style={responsiveStyles.mainContent}>
-        <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-          <div style={responsiveStyles.responsiveFlex}>
-            <div style={responsiveStyles.responsiveColumn}>
-              <h1 style={{ fontSize: "1.625rem", margin: 0 }}>
-                📝 Inquiry List
-              </h1>
+      <div style={styles.mainContent}>
+        {/* Header similar to screenshot */}
+        <div style={styles.header}>
+          <h2 style={styles.headerTitle}>📝 Inquiry Management System</h2>
+          <div style={styles.headerActions}>
+            <Link to="/inquiries/attachments" style={styles.headerButton}>
+              📎 Attachments
+            </Link>
+            <Link to="/inquiries/add" style={styles.headerButtonPrimary}>
+              ➕ Add New Inquiry
+            </Link>
+          </div>
+        </div>
+
+        {/* Filter Section similar to screenshot */}
+        <div style={styles.filterSection}>
+          <div style={styles.filterRow}>
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Year</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="">All Years</option>
+                {Array.from({ length: 10 }, (_, i) => {
+                  const year = new Date().getFullYear() - 2 + i; // Start from 2 years ago
+                  return (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
-            <div
-              style={{
-                ...responsiveStyles.responsiveColumn,
-                display: "flex",
-                gap: "0.625rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <Link to="/inquiries/attachments" style={buttonStyleBlue}>
-                📎 All Attachments
-              </Link>
-              <Link to="/inquiries/add" style={buttonStyleGreen}>
-                ➕ Add New Inquiry
-              </Link>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Season</label>
+              <select
+                value={selectedSeason}
+                onChange={(e) => setSelectedSeason(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="">All Seasons</option>
+                <option value="spring">Spring</option>
+                <option value="summer">Summer</option>
+                <option value="autumn">Autumn</option>
+                <option value="winter">Winter</option>
+              </select>
+            </div>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Group</label>
+              <select
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="">Select Group</option>
+                <option value="group1">Group 1</option>
+                <option value="group2">Group 2</option>
+              </select>
+            </div>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Supplier</label>
+              <select
+                value={selectedSupplier}
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="">Select Supplier</option>
+                {availableSuppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Status</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="quoted">Quoted</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="running">Running</option>
+              </select>
+            </div>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Month</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="">All Months</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Style</label>
+              <input
+                type="text"
+                value={selectedStyle}
+                onChange={(e) => setSelectedStyle(e.target.value)}
+                style={styles.filterInput}
+                placeholder="Style..."
+              />
             </div>
           </div>
 
-          {selectedInquiries.length > 0 && (
-            <div
-              style={{
-                background: "linear-gradient(90deg, #1976D2, #1565C0)",
-                color: "white",
-                padding: "0.75rem 1rem",
-                borderRadius: "0.5rem",
-                marginBottom: "1.125rem",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "0.625rem",
-              }}
+          {/* Checkbox filters */}
+          <div style={styles.checkboxFilterRow}>
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={withImage}
+                onChange={(e) => setWithImage(e.target.checked)}
+                style={styles.checkbox}
+              />
+              With Image
+            </label>
+
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={dateWiseShipment}
+                onChange={(e) => setDateWiseShipment(e.target.checked)}
+                style={styles.checkbox}
+              />
+              Date Wise Shipment
+            </label>
+
+            <div style={styles.dateRangeGroup}>
+              <label style={styles.dateLabel}>From (mm/dd/yyyy)</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                style={styles.dateInput}
+              />
+            </div>
+
+            <div style={styles.dateRangeGroup}>
+              <label style={styles.dateLabel}>To (mm/dd/yyyy)</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                style={styles.dateInput}
+              />
+            </div>
+          </div>
+
+          {/* Summary options */}
+          <div style={styles.summaryOptions}>
+            <div style={styles.summaryTitle}>Summary</div>
+            <div style={styles.summaryCheckboxes}>
+              <label style={styles.summaryCheckboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={showDetails}
+                  onChange={(e) => setShowDetails(e.target.checked)}
+                  style={styles.smallCheckbox}
+                />
+                Details
+              </label>
+              <label style={styles.summaryCheckboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={showSampleStatus}
+                  onChange={(e) => setShowSampleStatus(e.target.checked)}
+                  style={styles.smallCheckbox}
+                />
+                Sample Status
+              </label>
+              <label style={styles.summaryCheckboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={showAttachments}
+                  onChange={(e) => setShowAttachments(e.target.checked)}
+                  style={styles.smallCheckbox}
+                />
+                Attachments
+              </label>
+              <label style={styles.summaryCheckboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={showEmailCommunications}
+                  onChange={(e) => setShowEmailCommunications(e.target.checked)}
+                  style={styles.smallCheckbox}
+                />
+                Email Communications
+              </label>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div style={styles.searchBar}>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+              placeholder="Enter text to search..."
+            />
+            <button
+              onClick={() => fetchInquiries()}
+              style={styles.searchButton}
             >
-              <div style={{ fontWeight: 600 }}>
-                📧 {selectedInquiries.length} inquiry(s) selected
-              </div>
-              <div
-                style={{ display: "flex", gap: "0.625rem", flexWrap: "wrap" }}
+              Find
+            </button>
+            <button onClick={clearAllFilters} style={styles.clearButton}>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {/* Selection banner */}
+        {selectedInquiries.length > 0 && (
+          <div style={styles.selectionBanner}>
+            <span style={styles.selectionText}>
+              {selectedInquiries.length} inquiry(s) selected
+            </span>
+            <div style={styles.selectionActions}>
+              <button onClick={openEmailModal} style={styles.emailButton}>
+                📧 Send Email
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedInquiries([]);
+                  setSelectedSuppliers({});
+                }}
+                style={styles.clearSelectionButton}
               >
-                <button
-                  onClick={openEmailModal}
-                  style={{
-                    background: "#4CAF50",
-                    color: "white",
-                    border: "none",
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.375rem",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  📤 Send Email to Suppliers
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedInquiries([]);
-                    setSelectedSuppliers({});
-                  }}
-                  style={{
-                    background: "transparent",
-                    color: "white",
-                    border: "1px solid white",
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.375rem",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  ✕ Clear Selection
-                </button>
-              </div>
+                ✕ Clear Selection
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          <div style={{ marginBottom: "1.125rem" }}>
-            <div style={responsiveStyles.responsiveFlex}>
-              <div style={responsiveStyles.responsiveColumn}>
-                <input
-                  placeholder="🔍 Search by Inquiry No or Style ..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    ...searchInputStyle,
-                    width: "100%",
-                    maxWidth: "300px",
-                  }}
-                />
-              </div>
-
-              <div style={responsiveStyles.responsiveColumn}>
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#666",
-                    marginTop: "0.25rem",
-                  }}
-                >
-                  Separate years with spaces
-                </div>
-                <input
-                  placeholder="📅 Years (space separated: 2024 2025) ..."
-                  value={searchYears}
-                  onChange={(e) => setSearchYears(e.target.value)}
-                  style={{
-                    ...searchInputStyle,
-                    width: "100%",
-                    maxWidth: "250px",
-                  }}
-                />
-              </div>
-
-              <div style={responsiveStyles.responsiveColumn}>
-                <div style={{ position: "relative" }}>
-                  <div
-                    style={{
-                      ...searchInputStyle,
-                      width: "100%",
-                      maxWidth: "200px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                    onClick={() => setShowSeasonDropdown(!showSeasonDropdown)}
-                  >
-                    <span>
-                      {selectedSeasons.length === 0
-                        ? "All Seasons"
-                        : `${selectedSeasons.length} selected`}
-                    </span>
-                    <span>▼</span>
-                  </div>
-
-                  {showSeasonDropdown && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        background: "white",
-                        border: "1px solid #ddd",
-                        borderRadius: "0.375rem",
-                        zIndex: 1000,
-                        maxHeight: "200px",
-                        overflowY: "auto",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                      }}
-                    >
-                      {["spring", "summer", "autumn", "winter"].map(
-                        (season) => (
-                          <div
-                            key={season}
-                            style={{
-                              padding: "0.5rem",
-                              cursor: "pointer",
-                              backgroundColor: selectedSeasons.includes(season)
-                                ? "#e3f2fd"
-                                : "white",
-                              borderBottom: "1px solid #f0f0f0",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.5rem",
-                            }}
-                            onClick={() => {
-                              if (selectedSeasons.includes(season)) {
-                                setSelectedSeasons((prev) =>
-                                  prev.filter((s) => s !== season)
-                                );
-                              } else {
-                                setSelectedSeasons((prev) => [...prev, season]);
-                              }
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedSeasons.includes(season)}
-                              onChange={() => {}}
-                              style={{ margin: 0 }}
-                            />
-                            <span style={{ textTransform: "capitalize" }}>
-                              {season}
-                            </span>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div style={responsiveStyles.responsiveColumn}>
-                <div style={{ position: "relative" }}>
-                  <div
-                    style={{
-                      ...searchInputStyle,
-                      width: "100%",
-                      maxWidth: "200px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                    onClick={() => setShowGarmentDropdown(!showGarmentDropdown)}
-                  >
-                    <span>
-                      {selectedGarments.length === 0
-                        ? "All Garments"
-                        : `${selectedGarments.length} selected`}
-                    </span>
-                    <span>▼</span>
-                  </div>
-
-                  {showGarmentDropdown && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        background: "white",
-                        border: "1px solid #ddd",
-                        borderRadius: "0.375rem",
-                        zIndex: 1000,
-                        maxHeight: "200px",
-                        overflowY: "auto",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                      }}
-                    >
-                      {["all", "knit", "woven", "sweater", "underwear"].map(
-                        (garment) => (
-                          <div
-                            key={garment}
-                            style={{
-                              padding: "0.5rem",
-                              cursor: "pointer",
-                              backgroundColor: selectedGarments.includes(
-                                garment
-                              )
-                                ? "#e3f2fd"
-                                : "white",
-                              borderBottom: "1px solid #f0f0f0",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.5rem",
-                            }}
-                            onClick={() => {
-                              if (selectedGarments.includes(garment)) {
-                                setSelectedGarments((prev) =>
-                                  prev.filter((g) => g !== garment)
-                                );
-                              } else {
-                                setSelectedGarments((prev) => [
-                                  ...prev,
-                                  garment,
-                                ]);
-                              }
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedGarments.includes(garment)}
-                              onChange={() => {}}
-                              style={{ margin: 0 }}
-                            />
-                            <span style={{ textTransform: "capitalize" }}>
-                              {garment}
-                            </span>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+        {/* Main table */}
+        <div style={styles.tableContainer}>
+          <div style={styles.tableHeader}>
+            <span>Shipment Date -</span>
+            <span style={styles.resultCount}>
+              {filtered.length} items found
+            </span>
           </div>
 
           <div style={styles.tableWrapper}>
             <table style={styles.table}>
               <thead>
-                <tr
-                  style={{
-                    background: "#f3f6f9",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 100,
-                  }}
-                >
-                  <th
-                    style={{
-                      ...cellStyle,
-                      width: "2.5rem",
-                      textAlign: "center",
-                      position: "sticky",
-                      top: 0,
-                      background: "#f3f6f9",
-                      zIndex: 101,
-                    }}
-                  >
+                <tr>
+                  <th style={styles.th}>
                     <input
                       type="checkbox"
                       checked={
@@ -1328,210 +1174,130 @@ const Inquiry = () => {
                         selectedInquiries.length === currentItems.length
                       }
                       onChange={toggleSelectAll}
-                      style={{
-                        width: "1rem",
-                        height: "1rem",
-                        cursor: "pointer",
-                      }}
+                      style={styles.checkbox}
                     />
                   </th>
-                  <th
-                    style={{
-                      ...cellStyle,
-                      textAlign: "center",
-                      fontWeight: 600,
-                      width: "5rem",
-                      position: "sticky",
-                      top: 0,
-                      background: "#f3f6f9",
-                      zIndex: 101,
-                    }}
-                  >
-                    Image
-                  </th>
-                  {[
-                    "Inquiry No",
-                    "Style Name",
-                    "Fabrication",
-                    "Order Qty",
-                    "Shipment Date",
-                    "Target Price",
-                    "Offer Price",
-                    "Confirmed Price",
-                    "Value",
-                    "Supplier Prices",
-                    "Status",
-                    "Remarks",
-                    "Actions",
-                  ].map((t, idx) => (
-                    <th
-                      key={idx}
-                      style={{
-                        ...cellStyle,
-                        textAlign: "center",
-                        fontWeight: 600,
-                        minWidth:
-                          idx === 11 ? "15rem" : idx === 10 ? "1rem" : "auto",
-                        position: "sticky",
-                        top: 0,
-                        background: "#f3f6f9",
-                        zIndex: 101,
-                      }}
-                    >
-                      {t}
-                    </th>
-                  ))}
+                  <th style={styles.th}>Image</th>
+                  <th style={styles.th}>Inquiry No</th>
+                  <th style={styles.th}>Style</th>
+                  <th style={styles.th}>Fabrication</th>
+                  <th style={styles.th}>Order Qty</th>
+                  <th style={styles.th}>Shipment Date</th>
+                  <th style={styles.th}>Target Price</th>
+                  <th style={styles.th}>Offer Price</th>
+                  <th style={styles.th}>Confirmed Price</th>
+                  <th style={styles.th}>Value</th>
+                  <th style={styles.th}>Supplier Prices</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Remarks</th>
+                  <th style={styles.th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td
-                      colSpan="13"
-                      style={{ ...cellStyle, textAlign: "center" }}
-                    >
+                    <td colSpan="15" style={styles.loadingCell}>
                       Loading inquiries...
                     </td>
                   </tr>
                 ) : currentItems.length > 0 ? (
-                  currentItems.map((inquiry) => (
+                  currentItems.map((inquiry, index) => (
                     <tr
                       key={inquiry.id}
                       style={{
-                        borderBottom: "1px solid #eee",
-                        background: isInquirySelected(inquiry.id)
-                          ? "#e3f2fd"
-                          : "transparent",
+                        ...styles.tr,
+                        backgroundColor: index % 2 === 0 ? "#f9f9f9" : "white",
                       }}
                     >
-                      <td style={{ ...cellStyle, textAlign: "center" }}>
+                      <td style={styles.td}>
                         <input
                           type="checkbox"
                           checked={isInquirySelected(inquiry.id)}
                           onChange={() => toggleSelectInquiry(inquiry.id)}
-                          style={{
-                            width: "1rem",
-                            height: "1rem",
-                            cursor: "pointer",
-                          }}
+                          style={styles.checkbox}
                         />
                       </td>
-                      <td
-                        style={{
-                          ...cellStyle,
-                          textAlign: "center",
-                          padding: "0.25rem",
-                        }}
-                      >
+                      <td style={styles.td}>
                         {getImageUrl(inquiry.image) ? (
                           <img
                             src={getImageUrl(inquiry.image)}
                             alt="Inquiry"
-                            style={{
-                              width: "3rem",
-                              height: "3rem",
-                              objectFit: "cover",
-                              borderRadius: "0.25rem",
-                              border: "1px solid #ddd",
-                              cursor: "pointer",
-                            }}
+                            style={styles.productImage}
                             onError={(e) => {
                               e.target.style.display = "none";
                             }}
                           />
                         ) : (
-                          <div
-                            style={{
-                              width: "3rem",
-                              height: "3rem",
-                              background: "#f5f5f5",
-                              borderRadius: "0.25rem",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#999",
-                              fontSize: "0.625rem",
-                              border: "1px dashed #ddd",
-                            }}
-                          >
-                            No Image
-                          </div>
+                          <div style={styles.imagePlaceholder}>No Image</div>
                         )}
                       </td>
-                      <td style={cellStyle}>{inquiry.inquiry_no || "-"}</td>
-                      <td style={cellStyle}>
-                        <div
-                          title={
-                            inquiry.same_style
-                              ? JSON.stringify(inquiry.same_style)
-                              : "No style data"
-                          }
-                          style={{
-                            cursor: inquiry.same_style ? "help" : "default",
-                          }}
-                        >
-                          {inquiry.same_style && inquiry.same_style.styles ? (
-                            inquiry.same_style.styles
-                          ) : (
-                            <span
-                              style={{ color: "#d32f2f", fontStyle: "italic" }}
-                            >
-                              No Style
-                            </span>
-                          )}
+                      <td style={styles.td}>
+                        <div style={styles.inquiryNo}>
+                          {inquiry.inquiry_no || "-"}
                         </div>
                       </td>
-                      <td style={cellStyle}>
+                      <td style={styles.td}>
+                        <div style={styles.styleCell}>
+                          {inquiry.same_style?.styles || "No Style"}
+                        </div>
+                      </td>
+                      <td style={styles.td}>
                         {inquiry.fabrication?.fabrication || "-"}
                       </td>
-                      <td style={cellStyle}>{inquiry.order_quantity || "-"}</td>
-                      <td style={cellStyle}>
+                      <td style={styles.td}>
+                        {inquiry.order_quantity?.toLocaleString() || "-"}
+                      </td>
+                      <td style={styles.td}>
                         {formatDate(inquiry.shipment_date)}
                       </td>
-                      <td style={cellStyle}>
-                        <div style={{ fontWeight: 600, color: "#1976D2" }}>
-                          ${inquiry.target_price || "-"}
+                      <td style={styles.td}>
+                        <div style={styles.priceCell}>
+                          $
+                          {typeof inquiry.target_price === "number"
+                            ? inquiry.target_price.toFixed(2)
+                            : "-"}
                         </div>
                       </td>
-                      <td style={cellStyle}>
-                        <div style={{ fontWeight: 600, color: "#FF9800" }}>
-                          ${inquiry.offer_price || "-"}
+                      <td style={styles.td}>
+                        <div style={styles.priceCell}>
+                          $
+                          {typeof inquiry.offer_price === "number"
+                            ? inquiry.offer_price.toFixed(2)
+                            : "-"}
                         </div>
                       </td>
-                      <td style={cellStyle}>
-                        <div style={{ fontWeight: 600, color: "#4CAF50" }}>
-                          ${inquiry.confirmed_price || "-"}
+                      <td style={styles.td}>
+                        <div style={styles.priceCell}>
+                          $
+                          {typeof inquiry.confirmed_price === "number"
+                            ? inquiry.confirmed_price.toFixed(2)
+                            : "-"}
                         </div>
                       </td>
-                      {/* Add this new Value cell */}
-                      <td style={cellStyle}>
-                        <div style={{ fontWeight: 600, color: "#9C27B0" }}>
-                          ${inquiry.value || "-"}
+                      <td style={styles.td}>
+                        <div style={styles.valueCell}>
+                          $
+                          {typeof inquiry.value === "number"
+                            ? inquiry.value.toFixed(2)
+                            : "0.00"}
                         </div>
                       </td>
-                      <td style={cellStyle}>{renderSupplierPrices(inquiry)}</td>
-                      <td style={{ ...cellStyle, textAlign: "center" }}>
-                        <span
+                      <td style={styles.td}>{renderSupplierPrices(inquiry)}</td>
+                      <td style={styles.td}>
+                        <div
                           style={{
-                            padding: "0.375rem 0.75rem",
-                            borderRadius: "1.125rem",
-                            color: "#fff",
+                            ...styles.statusBadge,
                             backgroundColor:
                               statusColors[inquiry.current_status] ||
                               statusColors.default,
-                            textTransform: "capitalize",
-                            fontWeight: 600,
-                            fontSize: "0.75rem",
-                            display: "inline-block",
-                            minWidth: "80px",
                           }}
                         >
                           {inquiry.current_status || "pending"}
-                        </span>
+                        </div>
                       </td>
-                      <td style={cellStyle}>
+                      <td style={styles.td}>
                         <textarea
-                          rows={3}
+                          rows={2}
                           value={inquiry.remarks1 || ""}
                           onChange={(e) =>
                             handleRemarks1Change(inquiry.id, e.target.value)
@@ -1552,44 +1318,34 @@ const Inquiry = () => {
                             }
                           }}
                           style={{
-                            ...inputStyle,
-                            width: "100%",
-                            minHeight: "3.75rem",
-                            padding: "0.375rem 0.5rem",
-                            fontSize: "0.8125rem",
-                            border: editingRemarks[inquiry.id]
-                              ? "1px solid #1976D2"
-                              : "1px solid #ddd",
-                            resize: "vertical",
-                            boxSizing: "border-box",
+                            ...styles.remarksInput,
+                            borderColor: editingRemarks[inquiry.id]
+                              ? "#007bff"
+                              : "#ccc",
                           }}
-                          placeholder="Enter remarks..."
+                          placeholder="Add remarks..."
                         />
                       </td>
-                      <td style={{ ...cellStyle, textAlign: "center" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "0.25rem",
-                            alignItems: "center",
-                          }}
-                        >
+                      <td style={styles.td}>
+                        <div style={styles.actionButtons}>
                           <button
                             onClick={() => openModal(inquiry)}
-                            style={linkButtonStyle}
+                            style={styles.actionButton}
+                            title="Negotiate"
                           >
-                            💬 Negotiate
+                            💬
                           </button>
                           <Link
                             to={`/inquiries/${inquiry.id}`}
-                            style={linkStyle}
+                            style={styles.actionButton}
+                            title="View"
                           >
-                            🔍 View
+                            👁️
                           </Link>
                           <button
                             onClick={() => handleDelete(inquiry.id)}
-                            style={deleteButtonStyle}
+                            style={styles.deleteButton}
+                            title="Delete"
                           >
                             🗑️
                           </button>
@@ -1599,1432 +1355,1185 @@ const Inquiry = () => {
                   ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan="13"
-                      style={{
-                        ...cellStyle,
-                        textAlign: "center",
-                        color: "#777",
-                      }}
-                    >
-                      No inquiries found.
+                    <td colSpan="15" style={styles.emptyCell}>
+                      No inquiries found. Try adjusting your search filters.
                     </td>
                   </tr>
                 )}
               </tbody>
+              {/* Summary row */}
+              {filtered.length > 0 && (
+                <tfoot>
+                  <tr style={styles.summaryRow}>
+                    <td colSpan="10" style={styles.summaryLabel}>
+                      Total:
+                    </td>
+                    <td style={styles.summaryValue}>
+                      ${totalValue.toFixed(2)}
+                    </td>
+                    <td colSpan="4" style={styles.summaryNote}>
+                      {filtered.length} items
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 
-          {/* Pagination and Summary Section */}
+          {/* Pagination */}
           {filtered.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: "15px",
-                flexWrap: "wrap",
-                gap: "1rem",
-                padding: "0.5rem 0",
-              }}
-            >
-              {/* Pagination Section */}
-              <div style={styles.pagination}>
-                <button
-                  onClick={() => {
-                    const newPage = Math.max(currentPage - 1, 1);
-                    setCurrentPage(newPage);
-                    console.log("Navigated to Previous page:", newPage);
-                  }}
-                  disabled={currentPage === 1}
-                  style={pagerBtn}
-                >
-                  Previous
-                </button>
+            <div style={styles.pagination}>
+              <button
+                onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+                disabled={currentPage === 1}
+                style={styles.paginationButton}
+              >
+                ← Previous
+              </button>
+              <div style={styles.pageNumbers}>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                   (n) => (
                     <button
                       key={n}
-                      onClick={() => {
-                        setCurrentPage(n);
-                        console.log(
-                          "Navigated to page:",
-                          n,
-                          "Filtered inquiries:",
-                          filtered.length
-                        );
-                      }}
-                      style={n === currentPage ? activePagerBtn : pagerBtn}
+                      onClick={() => setCurrentPage(n)}
+                      style={
+                        n === currentPage
+                          ? styles.paginationButtonActive
+                          : styles.paginationButton
+                      }
                     >
                       {n}
                     </button>
                   )
                 )}
-                <button
-                  onClick={() => {
-                    const newPage = Math.min(currentPage + 1, totalPages);
-                    setCurrentPage(newPage);
-                    console.log("Navigated to Next page:", newPage);
-                  }}
-                  disabled={currentPage === totalPages}
-                  style={pagerBtn}
-                >
-                  Next
-                </button>
-                <div
-                  style={{
-                    marginLeft: "1rem",
-                    fontSize: "0.875rem",
-                    color: "#666",
-                  }}
-                >
-                  Page {currentPage} of {totalPages} | Total Inquiries:{" "}
-                  {filtered.length}
-                </div>
               </div>
-
-              {/* Selection Summary - Right Side */}
-              {selectedInquiries.length > 0 && (
-                <div
-                  style={{
-                    background: "linear-gradient(90deg, #4CAF50, #45a049)",
-                    color: "white",
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.375rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    fontSize: "0.875rem",
-                    fontWeight: "600",
-                    minWidth: "280px",
-                  }}
-                >
-                  <span>📊 Selection:</span>
-                  <span>{selectedInquiries.length} items</span>
-                  <span>|</span>
-                  <span>
-                    📦{" "}
-                    {selectedInquiries
-                      .reduce((total, inquiryId) => {
-                        const inquiry = inquiries.find(
-                          (inq) => inq.id === inquiryId
-                        );
-                        return total + (inquiry?.order_quantity || 0);
-                      }, 0)
-                      .toLocaleString()}{" "}
-                    pcs
-                  </span>
-                  <span>|</span>
-                  <span>
-                    💰 $
-                    {selectedInquiries
-                      .reduce((total, inquiryId) => {
-                        const inquiry = inquiries.find(
-                          (inq) => inq.id === inquiryId
-                        );
-                        // Calculate value: order_quantity × (confirmed_price OR target_price)
-                        const quantity = inquiry?.order_quantity || 0;
-                        const price =
-                          inquiry?.confirmed_price ||
-                          inquiry?.target_price ||
-                          0;
-                        return total + quantity * price;
-                      }, 0)
-                      .toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {showEmailModal && (
-            <div style={modalOverlayStyle}>
-              <div
-                style={{
-                  ...emailModalStyle,
-                  width: "min(90vw, 50rem)",
-                  maxWidth: "90vw",
-                }}
+              <button
+                onClick={() =>
+                  setCurrentPage(Math.min(currentPage + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                style={styles.paginationButton}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "1.25rem",
-                  }}
-                >
-                  <h3
-                    style={{ margin: 0, color: "#1976D2", fontSize: "1.25rem" }}
-                  >
-                    📧 Send Bulk Email to Suppliers
-                  </h3>
-                  <button onClick={closeEmailModal} style={closeBtnStyle}>
-                    ✕
-                  </button>
-                </div>
-
-                {sendingEmail && (
-                  <div style={{ marginBottom: "1.25rem" }}>
-                    <div
-                      style={{
-                        background: "#e3f2fd",
-                        padding: "1rem",
-                        borderRadius: "0.375rem",
-                      }}
-                    >
-                      <div style={{ marginBottom: "0.5rem", fontWeight: 600 }}>
-                        Progress: {emailProgress.sent} / {emailProgress.total}{" "}
-                        emails sent
-                      </div>
-                      {emailProgress.currentInquiry && (
-                        <div style={{ color: "#666" }}>
-                          Currently sending:{" "}
-                          {emailProgress.currentInquiry.inquiry_no}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {!sendingEmail && (
-                  <>
-                    <div style={{ marginBottom: "1rem" }}>
-                      <label style={labelStyle}>Your Email Address *</label>
-                      <input
-                        type="email"
-                        value={emailData.from_email}
-                        onChange={(e) =>
-                          setEmailData((prev) => ({
-                            ...prev,
-                            from_email: e.target.value,
-                          }))
-                        }
-                        style={inputStyle}
-                        placeholder="your.email@company.com"
-                      />
-                    </div>
-
-                    <div style={{ marginBottom: "1.25rem" }}>
-                      <label style={labelStyle}>
-                        Custom Message (Optional)
-                      </label>
-                      <textarea
-                        rows={4}
-                        value={emailData.custom_message}
-                        onChange={(e) =>
-                          setEmailData((prev) => ({
-                            ...prev,
-                            custom_message: e.target.value,
-                          }))
-                        }
-                        style={{ ...inputStyle, minHeight: "6.25rem" }}
-                        placeholder="Enter a custom message for all suppliers. Leave empty to use the default message."
-                      />
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#666",
-                          marginTop: "0.25rem",
-                        }}
-                      >
-                        If left empty, a default message with inquiry details
-                        will be used.
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: "1.25rem" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: "0.5rem",
-                        }}
-                      >
-                        <label style={labelStyle}>
-                          Select Suppliers to Email *
-                        </label>
-                        <button
-                          onClick={toggleSelectAllSuppliers}
-                          style={{
-                            background: "transparent",
-                            border: "1px solid #1976D2",
-                            color: "#1976D2",
-                            padding: "0.25rem 0.5rem",
-                            borderRadius: "0.25rem",
-                            fontSize: "0.75rem",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {availableSuppliers.length > 0 &&
-                          availableSuppliers.every(
-                            (supplier) => selectedSuppliers[supplier.id]
-                          )
-                            ? "Deselect All"
-                            : "Select All"}
-                        </button>
-                      </div>
-                      <div
-                        style={{
-                          maxHeight: "12.5rem",
-                          overflowY: "auto",
-                          border: "1px solid #ddd",
-                          borderRadius: "0.375rem",
-                          padding: "0.75rem",
-                          background: "#f9f9f9",
-                        }}
-                      >
-                        {availableSuppliers.length > 0 ? (
-                          availableSuppliers.map((supplier) => (
-                            <div
-                              key={supplier.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                padding: "0.5rem 0.25rem",
-                                borderBottom: "1px solid #eee",
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                id={`supplier-${supplier.id}`}
-                                checked={!!selectedSuppliers[supplier.id]}
-                                onChange={() =>
-                                  toggleSupplierSelection(supplier.id)
-                                }
-                                style={{ marginRight: "0.5rem" }}
-                              />
-                              <label
-                                htmlFor={`supplier-${supplier.id}`}
-                                style={{ flex: 1, cursor: "pointer" }}
-                              >
-                                <div style={{ fontWeight: 600 }}>
-                                  {supplier.name}
-                                </div>
-                                <div
-                                  style={{ fontSize: "0.75rem", color: "#666" }}
-                                >
-                                  {supplier.email || "No email"}
-                                </div>
-                              </label>
-                            </div>
-                          ))
-                        ) : (
-                          <div
-                            style={{
-                              textAlign: "center",
-                              color: "#666",
-                              padding: "1.25rem",
-                            }}
-                          >
-                            No suppliers available. Please add suppliers first.
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#666",
-                          marginTop: "0.25rem",
-                        }}
-                      >
-                        Selected: {getSelectedSupplierIds().length} supplier(s)
-                        - {getSelectedSupplierNames()}
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: "1.25rem" }}>
-                      <label style={labelStyle}>
-                        Selected Inquiries ({selectedInquiries.length}):
-                      </label>
-                      <div
-                        style={{
-                          maxHeight: "9.375rem",
-                          overflowY: "auto",
-                          border: "1px solid #ddd",
-                          borderRadius: "0.375rem",
-                          padding: "0.75rem",
-                          background: "#f9f9f9",
-                        }}
-                      >
-                        {selectedInquiries.map((id) => {
-                          const inquiry = inquiries.find(
-                            (inq) => inq.id === id
-                          );
-                          return inquiry ? (
-                            <div
-                              key={id}
-                              style={{
-                                padding: "0.25rem 0",
-                                borderBottom: "1px solid #eee",
-                                fontSize: "0.8125rem",
-                              }}
-                            >
-                              • {inquiry.inquiry_no}
-                            </div>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "0.75rem",
-                  }}
-                >
-                  <button
-                    onClick={closeEmailModal}
-                    style={secondaryBtn}
-                    disabled={sendingEmail}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={sendBulkEmails}
-                    style={{
-                      ...primaryBtn,
-                      background: sendingEmail ? "#ccc" : "#4CAF50",
-                      minWidth: "12.5rem",
-                    }}
-                    disabled={
-                      sendingEmail ||
-                      !emailData.from_email ||
-                      getSelectedSupplierIds().length === 0
-                    }
-                  >
-                    {sendingEmail
-                      ? "Sending..."
-                      : `Send ${getSelectedInquiriesCount()} × ${
-                          getSelectedSupplierIds().length
-                        } Emails`}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showModal && selectedInquiry && (
-            <div style={modalOverlayStyle}>
-              <div
-                style={{
-                  ...modalStyle,
-                  width: "min(90vw, 68.75rem)",
-                  maxWidth: "90vw",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "1rem",
-                  }}
-                >
-                  <h3
-                    style={{ margin: 0, color: "#1976D2", fontSize: "1.25rem" }}
-                  >
-                    💬 Negotiation — Inquiry #{selectedInquiry.inquiry_no}
-                  </h3>
-                  <button onClick={closeModal} style={closeBtnStyle}>
-                    ✕
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "auto 1fr",
-                    gap: "1.25rem",
-                    marginBottom: "1.25rem",
-                    padding: "1rem",
-                    background: "#f8f9fa",
-                    borderRadius: "0.5rem",
-                  }}
-                >
-                  <div>
-                    {getImageUrl(selectedInquiry.image) ? (
-                      <img
-                        src={getImageUrl(selectedInquiry.image)}
-                        alt="Inquiry"
-                        style={{
-                          width: "7.5rem",
-                          height: "7.5rem",
-                          objectFit: "cover",
-                          borderRadius: "0.5rem",
-                          border: "2px solid #ddd",
-                        }}
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                          e.target.nextSibling.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      style={{
-                        width: "7.5rem",
-                        height: "7.5rem",
-                        background: "#e9ecef",
-                        borderRadius: "0.5rem",
-                        display: getImageUrl(selectedInquiry.image)
-                          ? "none"
-                          : "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#6c757d",
-                        fontSize: "0.75rem",
-                      }}
-                    >
-                      No Image
-                    </div>
-                  </div>
-
-                  <div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(10rem, 1fr))",
-                        gap: "0.9375rem",
-                      }}
-                    >
-                      <div>
-                        <strong style={detailLabelStyle}>
-                          Order Quantity:
-                        </strong>
-                        <span style={detailValueStyle}>
-                          {selectedInquiry.order_quantity || "0"}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>Customer:</strong>
-                        <span style={detailValueStyle}>
-                          {getCustomerName(selectedInquiry.customer)}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>Supplier:</strong>
-                        <span style={detailValueStyle}>
-                          {selectedInquiry.supplier_name ||
-                            selectedInquiry.supplier?.name ||
-                            "No Supplier"}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>
-                          Current Target Price:
-                        </strong>
-                        <span style={{ ...detailValueStyle, color: "#1976D2" }}>
-                          ${selectedInquiry.target_price || "0"}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>
-                          Current Confirmed Price:
-                        </strong>
-                        <span style={{ ...detailValueStyle, color: "#4CAF50" }}>
-                          ${selectedInquiry.confirmed_price || "0"}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>Garment Type:</strong>
-                        <span style={detailValueStyle}>
-                          {selectedInquiry.garment || "-"}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>Fabrication:</strong>
-                        <span style={detailValueStyle}>
-                          {selectedInquiry.fabrication?.fabrication || "-"}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>Status:</strong>
-                        <span
-                          style={{
-                            ...detailValueStyle,
-                            color: "#fff",
-                            backgroundColor:
-                              statusColors[selectedInquiry.current_status] ||
-                              statusColors.default,
-                            padding: "0.125rem 0.5rem",
-                            borderRadius: "0.75rem",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          {selectedInquiry.current_status || "pending"}
-                        </span>
-                      </div>
-                      <div>
-                        <strong style={detailLabelStyle}>Order Type:</strong>
-                        <span style={detailValueStyle}>
-                          {selectedInquiry.order_type || "-"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "1.25rem" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.75rem",
-                    }}
-                  >
-                    <h4
-                      style={{ margin: 0, color: "#1976D2", fontSize: "1rem" }}
-                    >
-                      📧 Suppliers Emailed
-                    </h4>
-                    <button
-                      onClick={() =>
-                        setShowSuppliersEmailed(!showSuppliersEmailed)
-                      }
-                      style={{
-                        background: showSuppliersEmailed
-                          ? "#2196F3"
-                          : "#f3f3f3",
-                        color: showSuppliersEmailed ? "#fff" : "#111",
-                        padding: "0.5rem 1rem",
-                        borderRadius: "0.375rem",
-                        border: "none",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                        fontSize: "0.8125rem",
-                      }}
-                    >
-                      {showSuppliersEmailed
-                        ? "Hide Suppliers Emailed"
-                        : "Show Suppliers Emailed"}
-                    </button>
-                  </div>
-                  {showSuppliersEmailed && (
-                    <div style={historyCardStyle}>
-                      {selectedInquiry.email_logs ? (
-                        selectedInquiry.email_logs.length > 0 ? (
-                          <div
-                            style={{ maxHeight: "12.5rem", overflowY: "auto" }}
-                          >
-                            {selectedInquiry.email_logs
-                              .filter((log) => log.success)
-                              .map((log, index) => (
-                                <div key={index} style={historyItemStyle}>
-                                  <div style={historyHeaderStyle}>
-                                    <span style={historyDateStyle}>
-                                      {formatDateTime(log.sent_at)}
-                                    </span>
-                                    <span style={historyUserStyle}>
-                                      To:{" "}
-                                      {log.supplier?.name || "Unknown Supplier"}{" "}
-                                      ({log.email})
-                                    </span>
-                                  </div>
-                                  <div style={historyCommentStyle}>
-                                    From: {log.from_email}
-                                    {log.custom_message && (
-                                      <div style={{ marginTop: "0.5rem" }}>
-                                        Message: "{log.custom_message}"
-                                      </div>
-                                    )}
-                                  </div>
-                                  {index <
-                                    selectedInquiry.email_logs.filter(
-                                      (log) => log.success
-                                    ).length -
-                                      1 && (
-                                    <div style={historyDividerStyle}></div>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              padding: "1.25rem",
-                              textAlign: "center",
-                              color: "#777",
-                            }}
-                          >
-                            No emails sent for this inquiry yet.
-                          </div>
-                        )
-                      ) : (
-                        <div
-                          style={{
-                            padding: "1.25rem",
-                            textAlign: "center",
-                            color: "#d32f2f",
-                          }}
-                        >
-                          Error: Email logs not loaded. Please try reopening the
-                          modal.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(15rem, 1fr))",
-                    gap: "1.25rem",
-                    marginBottom: "1.25rem",
-                  }}
-                >
-                  <div>
-                    <h4
-                      style={{
-                        marginBottom: "0.75rem",
-                        color: "#1976D2",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      New Negotiation Round
-                    </h4>
-                    <div style={priceCardStyle}>
-                      <div style={{ marginBottom: "0.75rem" }}>
-                        <label style={labelStyle}>Buyer Price ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={buyerPrice}
-                          onChange={(e) => setBuyerPrice(e.target.value)}
-                          style={inputStyle}
-                          placeholder="Enter new buyer price"
-                        />
-                      </div>
-                      <div style={{ marginBottom: "0.75rem" }}>
-                        <label style={labelStyle}>Supplier Price ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={supplierPrice}
-                          onChange={(e) => setSupplierPrice(e.target.value)}
-                          style={inputStyle}
-                          placeholder="Enter new supplier price"
-                        />
-                      </div>
-                      <div style={{ marginBottom: "0.75rem" }}>
-                        <label style={labelStyle}>Comment</label>
-                        <textarea
-                          rows={3}
-                          value={comment}
-                          onChange={(e) => setComment(e.target.value)}
-                          style={{ ...inputStyle, minHeight: "3.75rem" }}
-                          placeholder="Add negotiation comments..."
-                        />
-                      </div>
-                      <button
-                        onClick={addPendingNegotiation}
-                        style={addNegotiationBtn}
-                        disabled={!buyerPrice && !supplierPrice && !comment}
-                      >
-                        ➕ Add Negotiation Round
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4
-                      style={{
-                        marginBottom: "0.75rem",
-                        color: "#FF9800",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      Pending Negotiation Rounds ({pendingNegotiations.length})
-                    </h4>
-                    <div style={pendingCardStyle}>
-                      {pendingNegotiations.length > 0 ? (
-                        <div
-                          style={{ maxHeight: "18.75rem", overflowY: "auto" }}
-                        >
-                          {pendingNegotiations.map((negotiation, index) => (
-                            <div key={negotiation.id} style={pendingItemStyle}>
-                              <div style={pendingHeaderStyle}>
-                                <span style={pendingDateStyle}>
-                                  Round {pendingNegotiations.length - index}
-                                  <span
-                                    style={{
-                                      color: "#4CAF50",
-                                      marginLeft: "0.5rem",
-                                    }}
-                                  >
-                                    ✓ (Will be saved)
-                                  </span>
-                                </span>
-                                <button
-                                  onClick={() =>
-                                    removePendingNegotiation(negotiation.id)
-                                  }
-                                  style={removeBtnStyle}
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                              <div style={pendingPricesStyle}>
-                                {negotiation.buyer_price && (
-                                  <span style={pendingPriceItem}>
-                                    Buyer:{" "}
-                                    <strong>${negotiation.buyer_price}</strong>
-                                  </span>
-                                )}
-                                {negotiation.supplier_price && (
-                                  <span
-                                    style={{
-                                      ...pendingPriceItem,
-                                      background: "#e8f5e8",
-                                    }}
-                                  >
-                                    Supplier:{" "}
-                                    <strong>
-                                      ${negotiation.supplier_price}
-                                    </strong>
-                                  </span>
-                                )}
-                              </div>
-                              {negotiation.comment && (
-                                <div style={pendingCommentStyle}>
-                                  "{negotiation.comment}"
-                                </div>
-                              )}
-                              {index < pendingNegotiations.length - 1 && (
-                                <div style={pendingDividerStyle}></div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            padding: "1.25rem",
-                            textAlign: "center",
-                            color: "#777",
-                          }}
-                        >
-                          No pending negotiations. Add negotiation rounds above.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "1.25rem" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.75rem",
-                    }}
-                  >
-                    <h4
-                      style={{ margin: 0, color: "#1976D2", fontSize: "1rem" }}
-                    >
-                      Saved Negotiation History
-                    </h4>
-                    <div style={{ display: "flex", gap: "0.75rem" }}>
-                      <button
-                        onClick={clearNegotiationHistory}
-                        style={clearHistoryBtn}
-                        disabled={
-                          !selectedInquiry?.negotiations ||
-                          selectedInquiry.negotiations.length === 0
-                        }
-                      >
-                        🗑️ Clear History
-                      </button>
-                      <button
-                        onClick={() =>
-                          setShowSavedNegotiations(!showSavedNegotiations)
-                        }
-                        style={{
-                          background: showSavedNegotiations
-                            ? "#2196F3"
-                            : "#f3f3f3",
-                          color: showSavedNegotiations ? "#fff" : "#111",
-                          padding: "0.5rem 1rem",
-                          borderRadius: "0.375rem",
-                          border: "none",
-                          cursor: "pointer",
-                          fontWeight: 600,
-                          fontSize: "0.8125rem",
-                        }}
-                      >
-                        {showSavedNegotiations
-                          ? "Hide Negotiation History"
-                          : "Show Negotiation History"}
-                      </button>
-                    </div>
-                  </div>
-                  {showSavedNegotiations && (
-                    <div style={historyCardStyle}>
-                      {selectedInquiry.negotiations &&
-                      selectedInquiry.negotiations.length > 0 ? (
-                        <div
-                          style={{ maxHeight: "18.75rem", overflowY: "auto" }}
-                        >
-                          {selectedInquiry.negotiations.map(
-                            (negotiation, index) => (
-                              <div
-                                key={negotiation.id || index}
-                                style={historyItemStyle}
-                              >
-                                <div style={historyHeaderStyle}>
-                                  <span style={historyDateStyle}>
-                                    {formatDateTime(negotiation.created_at)}
-                                  </span>
-                                  <span style={historyUserStyle}>
-                                    by {negotiation.created_by || "System"}
-                                  </span>
-                                </div>
-                                <div style={historyPricesStyle}>
-                                  {negotiation.buyer_price && (
-                                    <span style={historyPriceItem}>
-                                      Buyer:{" "}
-                                      <strong>
-                                        ${negotiation.buyer_price}
-                                      </strong>
-                                    </span>
-                                  )}
-                                  {negotiation.supplier_price && (
-                                    <span
-                                      style={{
-                                        ...historyPriceItem,
-                                        background: "#e8f5e8",
-                                      }}
-                                    >
-                                      Supplier:{" "}
-                                      <strong>
-                                        ${negotiation.supplier_price}
-                                      </strong>
-                                    </span>
-                                  )}
-                                </div>
-                                {negotiation.comment && (
-                                  <div style={historyCommentStyle}>
-                                    "{negotiation.comment}"
-                                  </div>
-                                )}
-                                {index <
-                                  selectedInquiry.negotiations.length - 1 && (
-                                  <div style={historyDividerStyle}></div>
-                                )}
-                              </div>
-                            )
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            padding: "1.25rem",
-                            textAlign: "center",
-                            color: "#777",
-                          }}
-                        >
-                          No saved negotiation history yet.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    gap: "1rem",
-                  }}
-                >
-                  <div style={{ color: "#666", fontSize: "0.875rem", flex: 1 }}>
-                    {pendingNegotiations.length > 0 && (
-                      <div>
-                        <div>
-                          All {pendingNegotiations.length} round(s) will be
-                          saved to negotiation history
-                        </div>
-                        {updateStatusToConfirmed && (
-                          <div
-                            style={{
-                              color: "#4CAF50",
-                              fontWeight: "bold",
-                              marginTop: "0.25rem",
-                            }}
-                          >
-                            ✓ Status will be updated to "Confirmed"
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "1rem",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        padding: "0.5rem 0.75rem",
-                        background: updateStatusToConfirmed
-                          ? "#e8f5e8"
-                          : "#f8f9fa",
-                        borderRadius: "0.375rem",
-                        border: `1px solid ${
-                          updateStatusToConfirmed ? "#4CAF50" : "#ddd"
-                        }`,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        id="updateStatus"
-                        checked={updateStatusToConfirmed}
-                        onChange={(e) =>
-                          setUpdateStatusToConfirmed(e.target.checked)
-                        }
-                        style={{
-                          width: "1rem",
-                          height: "1rem",
-                          cursor: "pointer",
-                          accentColor: "#4CAF50",
-                        }}
-                      />
-                      <label
-                        htmlFor="updateStatus"
-                        style={{
-                          fontSize: "0.875rem",
-                          color: updateStatusToConfirmed ? "#2e7d32" : "#333",
-                          cursor: "pointer",
-                          fontWeight: updateStatusToConfirmed
-                            ? "600"
-                            : "normal",
-                        }}
-                      >
-                        Update status to "Confirmed"
-                      </label>
-                    </div>
-
-                    <div style={{ display: "flex", gap: "0.75rem" }}>
-                      <button onClick={closeModal} style={secondaryBtn}>
-                        Cancel
-                      </button>
-                      <button
-                        onClick={saveAllNegotiations}
-                        style={primaryBtn}
-                        disabled={saving || pendingNegotiations.length === 0}
-                      >
-                        {saving ? "Saving..." : `Save All Rounds`}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                Next →
+              </button>
+              <div style={styles.paginationInfo}>
+                Page {currentPage} of {totalPages} | Total: {filtered.length}{" "}
+                items
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>📧 Send Email to Suppliers</h3>
+              <button onClick={closeEmailModal} style={styles.closeButton}>
+                ✕
+              </button>
+            </div>
+
+            <div style={styles.modalContent}>
+              {sendingEmail ? (
+                <div style={styles.progressSection}>
+                  <div style={styles.progressText}>
+                    Sending {emailProgress.sent} of {emailProgress.total} emails
+                  </div>
+                  {emailProgress.currentInquiry && (
+                    <div style={styles.currentTask}>
+                      Currently: {emailProgress.currentInquiry.inquiry_no}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Your Email Address *</label>
+                    <input
+                      type="email"
+                      value={emailData.from_email}
+                      onChange={(e) =>
+                        setEmailData((prev) => ({
+                          ...prev,
+                          from_email: e.target.value,
+                        }))
+                      }
+                      style={styles.formInput}
+                      placeholder="your.email@company.com"
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      Custom Message (Optional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={emailData.custom_message}
+                      onChange={(e) =>
+                        setEmailData((prev) => ({
+                          ...prev,
+                          custom_message: e.target.value,
+                        }))
+                      }
+                      style={styles.textarea}
+                      placeholder="Enter a custom message..."
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <div style={styles.formLabelRow}>
+                      <label style={styles.formLabel}>Select Suppliers *</label>
+                      <button
+                        onClick={toggleSelectAllSuppliers}
+                        style={styles.selectAllButton}
+                      >
+                        {availableSuppliers.length > 0 &&
+                        availableSuppliers.every(
+                          (supplier) => selectedSuppliers[supplier.id]
+                        )
+                          ? "Deselect All"
+                          : "Select All"}
+                      </button>
+                    </div>
+                    <div style={styles.suppliersList}>
+                      {availableSuppliers.map((supplier) => (
+                        <label key={supplier.id} style={styles.supplierItem}>
+                          <input
+                            type="checkbox"
+                            checked={!!selectedSuppliers[supplier.id]}
+                            onChange={() =>
+                              toggleSupplierSelection(supplier.id)
+                            }
+                            style={styles.checkbox}
+                          />
+                          <div style={styles.supplierInfo}>
+                            <div style={styles.supplierName}>
+                              {supplier.name}
+                            </div>
+                            <div style={styles.supplierEmail}>
+                              {supplier.email || "No email"}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      Selected Inquiries ({selectedInquiries.length})
+                    </label>
+                    <div style={styles.inquiriesList}>
+                      {selectedInquiries.map((id) => {
+                        const inquiry = inquiries.find((inq) => inq.id === id);
+                        return inquiry ? (
+                          <div key={id} style={styles.inquiryItem}>
+                            {inquiry.inquiry_no}
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={styles.modalFooter}>
+              <button
+                onClick={closeEmailModal}
+                style={styles.secondaryButton}
+                disabled={sendingEmail}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendBulkEmails}
+                style={styles.primaryButton}
+                disabled={
+                  sendingEmail ||
+                  !emailData.from_email ||
+                  getSelectedSupplierIds().length === 0
+                }
+              >
+                {sendingEmail
+                  ? "Sending..."
+                  : `Send ${getSelectedInquiriesCount()} × ${
+                      getSelectedSupplierIds().length
+                    } Emails`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Negotiation Modal */}
+      {showModal && selectedInquiry && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.negotiationModal}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>
+                💬 Negotiation — {selectedInquiry.inquiry_no}
+              </h3>
+              <button onClick={closeModal} style={styles.closeButton}>
+                ✕
+              </button>
+            </div>
+
+            <div style={styles.modalContent}>
+              {/* Inquiry Details */}
+              <div style={styles.inquiryDetails}>
+                <div style={styles.inquiryImage}>
+                  {getImageUrl(selectedInquiry.image) ? (
+                    <img
+                      src={getImageUrl(selectedInquiry.image)}
+                      alt="Inquiry"
+                      style={styles.detailImage}
+                    />
+                  ) : (
+                    <div style={styles.detailImagePlaceholder}>No Image</div>
+                  )}
+                </div>
+                <div style={styles.inquiryInfo}>
+                  <div style={styles.infoGrid}>
+                    <div style={styles.infoItem}>
+                      <label style={styles.infoLabel}>Order Quantity</label>
+                      <div style={styles.infoValue}>
+                        {selectedInquiry.order_quantity?.toLocaleString() ||
+                          "0"}
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <label style={styles.infoLabel}>Customer</label>
+                      <div style={styles.infoValue}>
+                        {getCustomerName(selectedInquiry.customer)}
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <label style={styles.infoLabel}>Target Price</label>
+                      <div style={{ ...styles.infoValue, color: "#007bff" }}>
+                        $
+                        {typeof selectedInquiry.target_price === "number"
+                          ? selectedInquiry.target_price.toFixed(2)
+                          : "0.00"}
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <label style={styles.infoLabel}>Confirmed Price</label>
+                      <div style={{ ...styles.infoValue, color: "#28a745" }}>
+                        $
+                        {typeof selectedInquiry.confirmed_price === "number"
+                          ? selectedInquiry.confirmed_price.toFixed(2)
+                          : "0.00"}
+                      </div>
+                    </div>
+                    <div style={styles.infoItem}>
+                      <label style={styles.infoLabel}>Status</label>
+                      <div
+                        style={{
+                          ...styles.statusBadge,
+                          backgroundColor:
+                            statusColors[selectedInquiry.current_status] ||
+                            statusColors.default,
+                        }}
+                      >
+                        {selectedInquiry.current_status || "pending"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Negotiation Sections */}
+              <div style={styles.negotiationSections}>
+                <div style={styles.negotiationSection}>
+                  <h4 style={styles.sectionTitle}>New Negotiation Round</h4>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.inputLabel}>Buyer Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={buyerPrice}
+                      onChange={(e) => setBuyerPrice(e.target.value)}
+                      style={styles.formInput}
+                      placeholder="Enter buyer price"
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.inputLabel}>Supplier Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={supplierPrice}
+                      onChange={(e) => setSupplierPrice(e.target.value)}
+                      style={styles.formInput}
+                      placeholder="Enter supplier price"
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.inputLabel}>Comment</label>
+                    <textarea
+                      rows={2}
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      style={styles.textarea}
+                      placeholder="Add negotiation comments..."
+                    />
+                  </div>
+                  <button
+                    onClick={addPendingNegotiation}
+                    style={styles.addButton}
+                    disabled={!buyerPrice && !supplierPrice && !comment}
+                  >
+                    Add Negotiation Round
+                  </button>
+                </div>
+
+                <div style={styles.negotiationSection}>
+                  <h4 style={styles.sectionTitle}>
+                    Pending Rounds ({pendingNegotiations.length})
+                  </h4>
+                  <div style={styles.pendingList}>
+                    {pendingNegotiations.map((negotiation, index) => (
+                      <div key={negotiation.id} style={styles.pendingItem}>
+                        <div style={styles.pendingHeader}>
+                          <div style={styles.pendingRound}>
+                            Round {pendingNegotiations.length - index}
+                            <span style={styles.pendingStatus}>Pending</span>
+                          </div>
+                          <button
+                            onClick={() =>
+                              removePendingNegotiation(negotiation.id)
+                            }
+                            style={styles.removeButton}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div style={styles.pendingPrices}>
+                          {negotiation.buyer_price && (
+                            <div style={styles.priceTag}>
+                              Buyer: <strong>${negotiation.buyer_price}</strong>
+                            </div>
+                          )}
+                          {negotiation.supplier_price && (
+                            <div style={styles.priceTag}>
+                              Supplier:{" "}
+                              <strong>${negotiation.supplier_price}</strong>
+                            </div>
+                          )}
+                        </div>
+                        {negotiation.comment && (
+                          <div style={styles.pendingComment}>
+                            {negotiation.comment}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.modalFooter}>
+              <div style={styles.footerLeft}>
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={updateStatusToConfirmed}
+                    onChange={(e) =>
+                      setUpdateStatusToConfirmed(e.target.checked)
+                    }
+                    style={styles.checkbox}
+                  />
+                  Update status to "Confirmed"
+                </label>
+              </div>
+              <div style={styles.footerRight}>
+                <button onClick={closeModal} style={styles.secondaryButton}>
+                  Cancel
+                </button>
+                <button
+                  onClick={saveAllNegotiations}
+                  style={styles.primaryButton}
+                  disabled={saving || pendingNegotiations.length === 0}
+                >
+                  {saving ? "Saving..." : "Save All Rounds"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // =====================
-// Enhanced Styles for Responsiveness
+// Traditional Styles
 // =====================
 const styles = {
-  tableWrapper: {
-    width: "100%",
-    overflowX: "auto",
-    marginTop: "15px",
+  container: {
+    display: "flex",
+    minHeight: "100vh",
+    backgroundColor: "#f5f5f5",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  },
+  mainContent: {
+    flex: 1,
+    padding: "15px",
     backgroundColor: "#fff",
-    borderRadius: "6px",
-    boxShadow: "0 0 10px rgba(0,0,0,0.05)",
-    maxHeight: "calc(100vh - 230px)", // Add this to limit height and enable scrolling
-    overflowY: "auto", // Add this for vertical scrolling
+    margin: "10px",
+    borderRadius: "3px",
+    boxShadow: "0 0 5px rgba(0,0,0,0.1)",
+    position: "relative", // Add this
+    overflow: "hidden", // Add this
+  },
+  header: {
+    background: "#3a7bd5",
+    color: "white",
+    padding: "12px 15px",
+    marginBottom: "15px",
+    borderRadius: "3px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerTitle: {
+    margin: 0,
+    fontSize: "18px",
+    fontWeight: "bold",
+  },
+  headerActions: {
+    display: "flex",
+    gap: "10px",
+  },
+  headerButton: {
+    background: "#5a9bff",
+    color: "white",
+    padding: "6px 12px",
+    borderRadius: "3px",
+    textDecoration: "none",
+    fontSize: "13px",
+    border: "none",
+    cursor: "pointer",
+  },
+  headerButtonPrimary: {
+    background: "#28a745",
+    color: "white",
+    padding: "6px 12px",
+    borderRadius: "3px",
+    textDecoration: "none",
+    fontSize: "13px",
+    border: "none",
+    cursor: "pointer",
+  },
+  filterSection: {
+    background: "#f8f9fa",
+    border: "1px solid #ddd",
+    padding: "15px",
+    marginBottom: "15px",
+    borderRadius: "3px",
+  },
+  filterRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    marginBottom: "10px",
+  },
+  filterGroup: {
+    display: "flex",
+    flexDirection: "column",
+    minWidth: "120px",
+  },
+  filterLabel: {
+    fontSize: "11px",
+    color: "#666",
+    marginBottom: "3px",
+    fontWeight: "bold",
+  },
+  filterSelect: {
+    padding: "5px",
+    border: "1px solid #ccc",
+    borderRadius: "3px",
+    fontSize: "12px",
+    backgroundColor: "white",
+  },
+  filterInput: {
+    padding: "5px",
+    border: "1px solid #ccc",
+    borderRadius: "3px",
+    fontSize: "12px",
+    width: "100px",
+  },
+  checkboxFilterRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "15px",
+    marginTop: "10px",
+    padding: "10px",
+    background: "#f0f0f0",
+    borderRadius: "3px",
+  },
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    fontSize: "12px",
+    color: "#333",
+  },
+  checkbox: {
+    margin: 0,
+  },
+  dateRangeGroup: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  dateLabel: {
+    fontSize: "11px",
+    color: "#666",
+    marginBottom: "3px",
+  },
+  dateInput: {
+    padding: "5px",
+    border: "1px solid #ccc",
+    borderRadius: "3px",
+    fontSize: "12px",
+    width: "120px",
+  },
+  summaryOptions: {
+    marginTop: "10px",
+    padding: "10px",
+    background: "#e8f4fd",
+    borderRadius: "3px",
+  },
+  summaryTitle: {
+    fontSize: "13px",
+    fontWeight: "bold",
+    color: "#007bff",
+    marginBottom: "5px",
+  },
+  summaryCheckboxes: {
+    display: "flex",
+    gap: "15px",
+  },
+  summaryCheckboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    fontSize: "12px",
+    color: "#333",
+  },
+  smallCheckbox: {
+    margin: 0,
+    transform: "scale(0.8)",
+  },
+  searchBar: {
+    display: "flex",
+    gap: "10px",
+    marginTop: "10px",
+  },
+  searchInput: {
+    flex: 1,
+    padding: "6px 10px",
+    border: "1px solid #ccc",
+    borderRadius: "3px",
+    fontSize: "12px",
+  },
+  searchButton: {
+    background: "#007bff",
+    color: "white",
+    padding: "6px 15px",
+    border: "none",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  clearButton: {
+    background: "#6c757d",
+    color: "white",
+    padding: "6px 15px",
+    border: "none",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  selectionBanner: {
+    background: "#e8f4fd",
+    border: "1px solid #b3d7ff",
+    padding: "10px 15px",
+    marginBottom: "15px",
+    borderRadius: "3px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  selectionText: {
+    fontSize: "13px",
+    fontWeight: "bold",
+    color: "#007bff",
+  },
+  selectionActions: {
+    display: "flex",
+    gap: "10px",
+  },
+  emailButton: {
+    background: "#28a745",
+    color: "white",
+    padding: "5px 10px",
+    border: "none",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  clearSelectionButton: {
+    background: "#dc3545",
+    color: "white",
+    padding: "5px 10px",
+    border: "none",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  tableContainer: {
+    marginTop: "15px",
+  },
+  tableHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 0",
+    borderBottom: "2px solid #4a6fa5",
+    marginBottom: "5px",
+  },
+  resultCount: {
+    fontSize: "12px",
+    color: "#666",
+  },
+  tableWrapper: {
+    overflowX: "auto",
   },
   table: {
     width: "100%",
-    minWidth: "1200px",
     borderCollapse: "collapse",
-    fontFamily: "Segoe UI, sans-serif",
-    fontSize: "14px",
+    fontSize: "12px",
+    minWidth: "1400px",
+  },
+  th: {
+    background: "#4a6fa5",
+    color: "white",
+    padding: "8px 5px",
+    border: "1px solid #3a5f8f",
+    textAlign: "center",
+    fontWeight: "bold",
+    fontSize: "11px",
+    whiteSpace: "nowrap",
+  },
+  tr: {
+    borderBottom: "1px solid #ddd",
+  },
+  td: {
+    padding: "6px 5px",
+    border: "1px solid #ddd",
+    textAlign: "center",
+    fontSize: "11px",
+    verticalAlign: "middle",
+  },
+  loadingCell: {
+    padding: "30px",
+    textAlign: "center",
+    color: "#666",
+    fontSize: "13px",
+  },
+  emptyCell: {
+    padding: "30px",
+    textAlign: "center",
+    color: "#999",
+    fontSize: "13px",
+  },
+  productImage: {
+    width: "40px",
+    height: "40px",
+    objectFit: "cover",
+    borderRadius: "3px",
+    border: "1px solid #ddd",
+  },
+  imagePlaceholder: {
+    width: "40px",
+    height: "40px",
+    background: "#f5f5f5",
+    borderRadius: "3px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "9px",
+    color: "#999",
+    border: "1px dashed #ddd",
+  },
+  inquiryNo: {
+    fontWeight: "bold",
+    color: "#333",
+  },
+  styleCell: {
+    maxWidth: "150px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  priceCell: {
+    fontWeight: "bold",
+  },
+  valueCell: {
+    fontWeight: "bold",
+    color: "#8b5cf6",
+  },
+  supplierPrices: {
+    maxWidth: "120px",
+  },
+  supplierPriceItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: "2px",
+    fontSize: "10px",
+  },
+  supplierName: {
+    color: "#555",
+  },
+  priceValue: {
+    fontWeight: "bold",
+    color: "#333",
+  },
+  noPrices: {
+    color: "#999",
+    fontSize: "10px",
+    fontStyle: "italic",
+  },
+  morePrices: {
+    fontSize: "9px",
+    color: "#666",
+    marginTop: "2px",
+  },
+  statusBadge: {
+    display: "inline-block",
+    padding: "3px 8px",
+    borderRadius: "10px",
+    fontSize: "10px",
+    fontWeight: "bold",
+    color: "white",
+    textTransform: "uppercase",
+  },
+  remarksInput: {
+    width: "100%",
+    padding: "4px",
+    borderRadius: "3px",
+    border: "1px solid #ccc",
+    fontSize: "11px",
+    resize: "vertical",
+    minHeight: "50px",
+    outline: "none",
+  },
+  actionButtons: {
+    display: "flex",
+    gap: "5px",
+    justifyContent: "center",
+  },
+  actionButton: {
+    background: "transparent",
+    border: "1px solid #ccc",
+    padding: "3px 6px",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "11px",
+    textDecoration: "none",
+    color: "#333",
+  },
+  deleteButton: {
+    background: "transparent",
+    border: "1px solid #ffcccc",
+    padding: "3px 6px",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "11px",
+    color: "#dc3545",
+  },
+  summaryRow: {
+    background: "#e8f4fd",
+    fontWeight: "bold",
+    borderTop: "2px solid #4a6fa5",
+  },
+  summaryLabel: {
+    padding: "8px",
+    textAlign: "right",
+    fontSize: "12px",
+    color: "#333",
+  },
+  summaryValue: {
+    padding: "8px",
+    textAlign: "center",
+    fontSize: "12px",
+    color: "#28a745",
+    fontWeight: "bold",
+  },
+  summaryNote: {
+    padding: "8px",
+    textAlign: "center",
+    fontSize: "11px",
+    color: "#666",
   },
   pagination: {
     display: "flex",
     justifyContent: "center",
+    alignItems: "center",
     marginTop: "15px",
-    flexWrap: "wrap",
-    gap: "0.25rem",
+    gap: "10px",
   },
-};
-
-const cellStyle = {
-  border: "1px solid #d1dbe8",
-  padding: "10px",
-  textAlign: "center",
-  verticalAlign: "middle",
-};
-
-// Keep all your existing style constants but update for responsiveness
-const buttonStyleBlue = {
-  background: "linear-gradient(90deg, #2196F3, #1976D2)",
-  color: "#fff",
-  padding: "0.625rem 0.875rem",
-  borderRadius: "0.375rem",
-  textDecoration: "none",
-  fontWeight: 600,
-  border: "none",
-  cursor: "pointer",
-  display: "inline-block",
-  textAlign: "center",
-  whiteSpace: "nowrap",
-};
-
-const buttonStyleGreen = {
-  background: "linear-gradient(90deg, #4caf50, #45a049)",
-  color: "#fff",
-  padding: "0.625rem 0.875rem",
-  borderRadius: "0.375rem",
-  textDecoration: "none",
-  fontWeight: 600,
-  border: "none",
-  cursor: "pointer",
-  display: "inline-block",
-  textAlign: "center",
-  whiteSpace: "nowrap",
-};
-
-const searchInputStyle = {
-  padding: "0.5rem", // Reduced padding for a smaller appearance
-  borderRadius: "0.375rem", // Slightly smaller border radius
-  border: "1px solid #ddd",
-  fontSize: "0.875rem",
-  boxSizing: "border-box",
-  maxWidth: "300px", // Set a maximum width
-};
-
-const linkButtonStyle = {
-  background: "none",
-  border: "none",
-  color: "#1976D2",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "0.75rem",
-  padding: "0.25rem 0.5rem",
-  whiteSpace: "nowrap",
-};
-
-const linkStyle = {
-  color: "#1976D2",
-  textDecoration: "none",
-  fontWeight: 600,
-  fontSize: "0.75rem",
-  padding: "0.25rem 0.5rem",
-  whiteSpace: "nowrap",
-};
-
-const deleteButtonStyle = {
-  background: "none",
-  border: "none",
-  color: "#d32f2f",
-  cursor: "pointer",
-  fontWeight: 700,
-  fontSize: "0.75rem",
-  padding: "0.25rem 0.5rem",
-  whiteSpace: "nowrap",
-};
-
-// Keep all your existing modal and other styles exactly as they were
-const priceCardStyle = {
-  background: "#f8f9fa",
-  padding: "1rem",
-  borderRadius: "0.5rem",
-  border: "1px solid #e9ecef",
-};
-
-const pendingCardStyle = {
-  background: "#fff3e0",
-  padding: "1rem",
-  borderRadius: "0.5rem",
-  border: "2px dashed #FF9800",
-  maxHeight: "25rem",
-};
-
-const detailLabelStyle = {
-  display: "block",
-  fontSize: "0.75rem",
-  color: "#666",
-  marginBottom: "0.25rem",
-};
-
-const detailValueStyle = {
-  display: "block",
-  fontSize: "0.875rem",
-  fontWeight: 600,
-  color: "#333",
-};
-
-const historyCardStyle = {
-  background: "#f8f9fa",
-  padding: "1rem",
-  borderRadius: "0.5rem",
-  border: "1px solid #e9ecef",
-  maxHeight: "25rem",
-};
-
-const historyItemStyle = {
-  padding: "0.75rem",
-  background: "#fff",
-  borderRadius: "0.375rem",
-  marginBottom: "0.5rem",
-};
-
-const pendingItemStyle = {
-  padding: "0.75rem",
-  background: "#fff",
-  borderRadius: "0.375rem",
-  marginBottom: "0.5rem",
-  border: "1px solid #FF9800",
-};
-
-const historyHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "0.5rem",
-};
-
-const pendingHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "0.5rem",
-};
-
-const historyDateStyle = {
-  fontWeight: 600,
-  color: "#495057",
-  fontSize: "0.8125rem",
-};
-
-const pendingDateStyle = {
-  fontWeight: 700,
-  color: "#FF9800",
-  fontSize: "0.8125rem",
-};
-
-const historyUserStyle = {
-  color: "#6c757d",
-  fontSize: "0.75rem",
-};
-
-const historyPricesStyle = {
-  display: "flex",
-  gap: "0.75rem",
-  marginBottom: "0.5rem",
-  flexWrap: "wrap",
-};
-
-const pendingPricesStyle = {
-  display: "flex",
-  gap: "0.75rem",
-  marginBottom: "0.5rem",
-  flexWrap: "wrap",
-};
-
-const historyPriceItem = {
-  padding: "0.25rem 0.5rem",
-  background: "#e3f2fd",
-  borderRadius: "0.25rem",
-  fontSize: "0.8125rem",
-  fontWeight: 600,
-};
-
-const pendingPriceItem = {
-  padding: "0.25rem 0.5rem",
-  background: "#ffe0b2",
-  borderRadius: "0.25rem",
-  fontSize: "0.8125rem",
-  fontWeight: 600,
-};
-
-const historyCommentStyle = {
-  padding: "0.5rem",
-  background: "#f8f9fa",
-  borderRadius: "0.25rem",
-  fontStyle: "italic",
-  color: "#495057",
-  fontSize: "0.8125rem",
-  borderLeft: "3px solid #2196F3",
-};
-
-const pendingCommentStyle = {
-  padding: "0.5rem",
-  background: "#fff8e1",
-  borderRadius: "0.25rem",
-  fontStyle: "italic",
-  color: "#5d4037",
-  fontSize: "0.8125rem",
-  borderLeft: "3px solid #FF9800",
-};
-
-const historyDividerStyle = {
-  height: "1px",
-  background: "#e9ecef",
-  margin: "0.75rem 0",
-};
-
-const pendingDividerStyle = {
-  height: "1px",
-  background: "#ffe0b2",
-  margin: "0.75rem 0",
-};
-
-const removeBtnStyle = {
-  background: "none",
-  border: "none",
-  color: "#d32f2f",
-  cursor: "pointer",
-  fontSize: "0.875rem",
-  fontWeight: "bold",
-};
-
-const clearHistoryBtn = {
-  background: "#d32f2f",
-  color: "#fff",
-  padding: "0.5rem 1rem",
-  borderRadius: "0.375rem",
-  border: "none",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "0.8125rem",
-};
-
-const modalOverlayStyle = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  backgroundColor: "rgba(0,0,0,0.45)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 9999,
-};
-
-const modalStyle = {
-  maxHeight: "90vh",
-  background: "#fff",
-  borderRadius: "0.5rem",
-  padding: "1.25rem",
-  boxShadow: "0 0.75rem 2.5rem rgba(0,0,0,0.25)",
-  overflowY: "auto",
-  boxSizing: "border-box",
-};
-
-const emailModalStyle = {
-  maxHeight: "90vh",
-  background: "#fff",
-  borderRadius: "0.5rem",
-  padding: "1.25rem",
-  boxShadow: "0 0.75rem 2.5rem rgba(0,0,0,0.25)",
-  overflowY: "auto",
-  boxSizing: "border-box",
-};
-
-const closeBtnStyle = {
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  fontSize: "1.125rem",
-  color: "#666",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "0.625rem",
-  borderRadius: "0.375rem",
-  border: "1px solid #ddd",
-  fontSize: "0.875rem",
-  boxSizing: "border-box",
-};
-
-const primaryBtn = {
-  background: "#4CAF50",
-  color: "#fff",
-  padding: "0.625rem 1.25rem",
-  borderRadius: "0.375rem",
-  border: "none",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "0.875rem",
-  minWidth: "12.5rem",
-};
-
-const secondaryBtn = {
-  background: "#f3f3f3",
-  color: "#111",
-  padding: "0.625rem 1.25rem",
-  borderRadius: "0.375rem",
-  border: "none",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "0.875rem",
-  minWidth: "6.25rem",
-};
-
-const addNegotiationBtn = {
-  background: "#FF9800",
-  color: "#fff",
-  padding: "0.625rem 1rem",
-  borderRadius: "0.375rem",
-  border: "none",
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: "0.875rem",
-  width: "100%",
-};
-
-const pagerBtn = {
-  padding: "0.5rem 0.75rem",
-  margin: "0 0.25rem",
-  borderRadius: "0.375rem",
-  border: "1px solid #ddd",
-
-  cursor: "pointer",
-  fontSize: "0.875rem",
-};
-
-const activePagerBtn = {
-  ...pagerBtn,
-  background: "#4caf50",
-  color: "#fff",
-  border: "1px solid #4caf50",
-};
-
-const labelStyle = {
-  display: "block",
-  marginBottom: "0.375rem",
-  fontWeight: 600,
-  color: "#495057",
-  fontSize: "0.875rem",
+  paginationButton: {
+    padding: "5px 10px",
+    background: "white",
+    border: "1px solid #ddd",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  paginationButtonActive: {
+    padding: "5px 10px",
+    background: "#007bff",
+    color: "white",
+    border: "1px solid #007bff",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  pageNumbers: {
+    display: "flex",
+    gap: "5px",
+  },
+  paginationInfo: {
+    fontSize: "12px",
+    color: "#666",
+    marginLeft: "10px",
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: "20px",
+  },
+  modal: {
+    background: "white",
+    borderRadius: "3px",
+    width: "90%",
+    maxWidth: "600px",
+    maxHeight: "90vh",
+    overflow: "auto",
+    boxShadow: "0 0 10px rgba(0,0,0,0.3)",
+  },
+  negotiationModal: {
+    background: "white",
+    borderRadius: "3px",
+    width: "90%",
+    maxWidth: "800px",
+    maxHeight: "90vh",
+    overflow: "auto",
+    boxShadow: "0 0 10px rgba(0,0,0,0.3)",
+  },
+  modalHeader: {
+    padding: "15px",
+    borderBottom: "1px solid #ddd",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    background: "#f8f9fa",
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: "16px",
+    color: "#333",
+  },
+  closeButton: {
+    background: "none",
+    border: "none",
+    fontSize: "18px",
+    cursor: "pointer",
+    color: "#666",
+  },
+  modalContent: {
+    padding: "15px",
+  },
+  modalFooter: {
+    padding: "15px",
+    borderTop: "1px solid #ddd",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    background: "#f8f9fa",
+  },
+  progressSection: {
+    padding: "20px",
+    textAlign: "center",
+  },
+  progressText: {
+    fontSize: "14px",
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: "5px",
+  },
+  currentTask: {
+    fontSize: "12px",
+    color: "#666",
+  },
+  formGroup: {
+    marginBottom: "15px",
+  },
+  formLabel: {
+    display: "block",
+    marginBottom: "5px",
+    fontSize: "13px",
+    fontWeight: "bold",
+    color: "#333",
+  },
+  formLabelRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "5px",
+  },
+  formInput: {
+    width: "100%",
+    padding: "8px",
+    border: "1px solid #ccc",
+    borderRadius: "3px",
+    fontSize: "13px",
+  },
+  textarea: {
+    width: "100%",
+    padding: "8px",
+    border: "1px solid #ccc",
+    borderRadius: "3px",
+    fontSize: "13px",
+    resize: "vertical",
+    minHeight: "80px",
+  },
+  selectAllButton: {
+    background: "transparent",
+    color: "#007bff",
+    border: "1px solid #007bff",
+    padding: "4px 8px",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "12px",
+  },
+  suppliersList: {
+    maxHeight: "200px",
+    overflowY: "auto",
+    border: "1px solid #ddd",
+    borderRadius: "3px",
+  },
+  supplierItem: {
+    display: "flex",
+    alignItems: "center",
+    padding: "8px",
+    borderBottom: "1px solid #eee",
+  },
+  supplierInfo: {
+    marginLeft: "10px",
+  },
+  supplierName: {
+    fontSize: "13px",
+    fontWeight: "bold",
+  },
+  supplierEmail: {
+    fontSize: "12px",
+    color: "#666",
+  },
+  inquiriesList: {
+    maxHeight: "100px",
+    overflowY: "auto",
+    border: "1px solid #ddd",
+    borderRadius: "3px",
+    padding: "8px",
+  },
+  inquiryItem: {
+    padding: "4px 0",
+    fontSize: "12px",
+    color: "#333",
+  },
+  secondaryButton: {
+    background: "#6c757d",
+    color: "white",
+    padding: "8px 15px",
+    border: "none",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "13px",
+  },
+  primaryButton: {
+    background: "#007bff",
+    color: "white",
+    padding: "8px 15px",
+    border: "none",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "13px",
+  },
+  inquiryDetails: {
+    display: "flex",
+    gap: "20px",
+    marginBottom: "20px",
+    padding: "15px",
+    background: "#f8f9fa",
+    borderRadius: "3px",
+  },
+  inquiryImage: {
+    flexShrink: 0,
+  },
+  detailImage: {
+    width: "80px",
+    height: "80px",
+    objectFit: "cover",
+    borderRadius: "3px",
+    border: "1px solid #ddd",
+  },
+  detailImagePlaceholder: {
+    width: "80px",
+    height: "80px",
+    background: "#f5f5f5",
+    borderRadius: "3px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#999",
+    fontSize: "11px",
+    border: "1px dashed #ddd",
+  },
+  inquiryInfo: {
+    flex: 1,
+  },
+  infoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+    gap: "10px",
+  },
+  infoItem: {},
+  infoLabel: {
+    fontSize: "11px",
+    color: "#666",
+    marginBottom: "3px",
+  },
+  infoValue: {
+    fontSize: "13px",
+    fontWeight: "bold",
+    color: "#333",
+  },
+  negotiationSections: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "20px",
+  },
+  negotiationSection: {
+    padding: "15px",
+    background: "#f8f9fa",
+    borderRadius: "3px",
+    border: "1px solid #ddd",
+  },
+  sectionTitle: {
+    fontSize: "14px",
+    fontWeight: "bold",
+    color: "#333",
+    margin: "0 0 15px 0",
+  },
+  inputGroup: {
+    marginBottom: "10px",
+  },
+  inputLabel: {
+    display: "block",
+    marginBottom: "5px",
+    fontSize: "12px",
+    color: "#333",
+  },
+  addButton: {
+    width: "100%",
+    padding: "8px",
+    background: "#007bff",
+    color: "white",
+    border: "none",
+    borderRadius: "3px",
+    cursor: "pointer",
+    fontSize: "13px",
+  },
+  pendingList: {
+    maxHeight: "200px",
+    overflowY: "auto",
+  },
+  pendingItem: {
+    padding: "10px",
+    background: "white",
+    borderRadius: "3px",
+    border: "1px solid #ffc107",
+    marginBottom: "10px",
+  },
+  pendingHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "8px",
+  },
+  pendingRound: {
+    fontSize: "13px",
+    fontWeight: "bold",
+    color: "#333",
+  },
+  pendingStatus: {
+    background: "#fff3cd",
+    color: "#856404",
+    padding: "2px 6px",
+    borderRadius: "10px",
+    fontSize: "10px",
+    marginLeft: "8px",
+  },
+  removeButton: {
+    background: "transparent",
+    border: "none",
+    color: "#dc3545",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
+  pendingPrices: {
+    display: "flex",
+    gap: "10px",
+    marginBottom: "8px",
+  },
+  priceTag: {
+    background: "#f8f9fa",
+    padding: "5px 10px",
+    borderRadius: "3px",
+    fontSize: "12px",
+    color: "#333",
+  },
+  pendingComment: {
+    padding: "8px",
+    background: "#fff3cd",
+    borderRadius: "3px",
+    fontSize: "12px",
+    color: "#856404",
+  },
+  footerLeft: {
+    flex: 1,
+  },
+  footerRight: {
+    display: "flex",
+    gap: "10px",
+  },
 };
 
 export default Inquiry;

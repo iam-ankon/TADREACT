@@ -327,6 +327,7 @@ const LeaveHistory = () => {
       minHeight: "100vh",
       backgroundColor: "#f8f9fa",
       padding: "20px",
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     mainContainer: {
       maxWidth: "1200px",

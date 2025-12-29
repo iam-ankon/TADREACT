@@ -241,6 +241,7 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#f5f7fa",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   content: {
     flex: 1,

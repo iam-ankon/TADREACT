@@ -83,6 +83,7 @@ export default function AddBuyer() {
         display: "flex",
         minHeight: "100vh",
         backgroundColor: "#A7D5E1",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       <Sidebar />

@@ -170,6 +170,7 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#f4f7fc",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   loadingContainer: {
     display: "flex",

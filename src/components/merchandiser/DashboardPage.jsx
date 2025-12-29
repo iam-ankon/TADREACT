@@ -765,7 +765,13 @@ const DashboardPage = () => {
 
   return (
     <div
-      style={{ display: "flex", height: "100vh", backgroundColor: "#DCEEF3" }}
+      style={{
+        display: "flex",
+        height: "100vh",
+        backgroundColor: "#DCEEF3",
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}
     >
       <div style={{ display: "flex" }}>
         <Sidebar />

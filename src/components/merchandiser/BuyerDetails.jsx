@@ -72,7 +72,13 @@ export default function BuyerDetails() {
 
   return (
     <div
-      style={{ display: "flex", height: "100vh", backgroundColor: "#A7D5E1" }}
+      style={{
+        display: "flex",
+        height: "100vh",
+        backgroundColor: "#A7D5E1",
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}
     >
       <Sidebar />
       <div style={{ flex: 1, padding: "24px", overflow: "auto" }}>

@@ -254,6 +254,7 @@ const LeaveRequestDetails = () => {
       border: "1px solid #ddd",
       backgroundColor: "#fff",
       position: "relative",
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     header: {
       textAlign: "center",

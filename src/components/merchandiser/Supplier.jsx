@@ -57,6 +57,7 @@ const Supplier = () => {
         overflowY: "auto",
         backgroundColor: "#A7D5E1",
         margin: "0 auto",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       <Sidebar />

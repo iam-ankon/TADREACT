@@ -22,6 +22,7 @@ const AddSupplier = () => {
       display: "flex",
       minHeight: "100vh",
       backgroundColor: "#f3f4f6",
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     contentContainer: {
       flex: 1,

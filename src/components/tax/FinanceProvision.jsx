@@ -126,41 +126,7 @@ const FinanceProvision = () => {
     return cleanup;
   }, []);
 
-  const saveSourceOther = (data) => {
-    setSourceOther(data);
-    storageAPI.setSourceTaxOther(data);
-  };
 
-  // Enhanced function to sync individual employee data
-  const syncEmployeeData = async (employeeId) => {
-    try {
-      const backendData = await taxAPI.getTaxExtra(employeeId);
-      const backendSourceOther = backendData.data.source_other || 0;
-      const backendBonus = backendData.data.bonus || 0;
-
-      // Update local state
-      const updatedSourceOther = {
-        ...sourceOther,
-        [employeeId]: backendSourceOther,
-      };
-      setSourceOther(updatedSourceOther);
-
-      const updatedBonusOverride = {
-        ...bonusOverride,
-        [employeeId]: backendBonus,
-      };
-      setBonusOverride(updatedBonusOverride);
-
-      // Update localStorage and broadcast to other tabs
-      broadcastUpdate("sourceTaxOther", updatedSourceOther);
-      broadcastUpdate("bonusOverride", updatedBonusOverride);
-
-      return { sourceOther: backendSourceOther, bonus: backendBonus };
-    } catch (error) {
-      console.warn(`Failed to sync data for employee ${employeeId}`);
-      return null;
-    }
-  };
 
   const calculateAllTaxes = async (specificEmployeeIds = null) => {
     if (calculating) return;
@@ -234,20 +200,6 @@ const FinanceProvision = () => {
     }
   };
 
-  // Debounced tax calculation
-  useEffect(() => {
-    if (
-      employees.length > 0 &&
-      Object.keys(sourceOther).length > 0 &&
-      Object.keys(bonusOverride).length > 0
-    ) {
-      const calculateTimeout = setTimeout(() => {
-        calculateAllTaxes();
-      }, 2000);
-
-      return () => clearTimeout(calculateTimeout);
-    }
-  }, [sourceOther, bonusOverride, employees.length]);
 
   const filtered = employees.filter(
     (emp) =>
@@ -379,18 +331,6 @@ const FinanceProvision = () => {
     console.log("Exporting data...");
   };
 
-  const handleQuickSync = async () => {
-    try {
-      const employeeIds = employees.map((emp) => emp.employee_id);
-      const syncedData = await forceSyncEmployees(employeeIds);
-      setSourceOther(syncedData.sourceTaxOther);
-      setBonusOverride(syncedData.bonusOverride);
-      await calculateAllTaxes();
-      alert("Quick sync completed!");
-    } catch (error) {
-      alert("Quick sync failed: " + error.message);
-    }
-  };
 
   return (
     <div className="center-screen">
@@ -588,6 +528,7 @@ const FinanceProvision = () => {
           justify-content: center;
           align-items: center;
           padding: 1rem;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         .dashboard {
           width: 100%;

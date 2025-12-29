@@ -56,7 +56,7 @@ const LetterSend = () => {
     container: {
       display: "flex",
       height: "100vh",
-      
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       backgroundColor: "#DCEEF3",
     },
     mainContent: {

@@ -407,7 +407,7 @@ const styles = {
     display: "flex",
     height: "100vh", // Use full viewport height
     backgroundColor: "#f8fafc",
-
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     overflow: "hidden", // Prevent container scrolling
   },
   loadingContainer: {

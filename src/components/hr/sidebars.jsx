@@ -47,6 +47,7 @@ const Sidebars = () => {
     overflow: "hidden",
     flexShrink: 0,
     minWidth: "75px",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
   const headerStyle = {

@@ -286,6 +286,7 @@ const TeamLeaves = () => {
       display: "flex",
       minHeight: "100vh",
       backgroundColor: "#f8f9fa",
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     mainContent: {
       flex: 1,

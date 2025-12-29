@@ -349,6 +349,7 @@ const styles = {
     padding: '1.5rem',
     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
     marginBottom: '1.5rem',
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   header: {
     display: 'flex',

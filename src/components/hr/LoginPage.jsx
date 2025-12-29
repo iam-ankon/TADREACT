@@ -343,6 +343,7 @@ const LoginPage = () => {
             align-items: center;
             padding: 20px;
             overflow: hidden;
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
           }
           .waves {
             position: absolute;

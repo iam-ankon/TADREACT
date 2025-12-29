@@ -335,7 +335,7 @@ const CVList = () => {
 
 /* ===================== Styles ===================== */
 const styles = {
-  container: { display: "flex", minHeight: "100vh", backgroundColor: "#A7D5E1" },
+  container: { display: "flex", minHeight: "100vh", backgroundColor: "#A7D5E1", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", },
   mainContent: { padding: "2rem", flex: 1, boxSizing: "border-box", overflowY: "auto" },
   heading: { color: "#0078D4", borderBottom: "1px solid #ccc", paddingBottom: "10px", marginBottom: "20px" },
   searchBox: { display: "flex", alignItems: "center", border: "1px solid #d1dbe8", borderRadius: "4px", padding: "5px 10px", backgroundColor: "#fff" },

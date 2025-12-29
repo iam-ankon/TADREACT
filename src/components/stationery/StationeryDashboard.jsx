@@ -447,7 +447,7 @@ const StationeryDashboard = () => {
         minHeight: "100vh",
         backgroundColor: "#f9fafb",
         fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       {/* Header */}
@@ -787,7 +787,13 @@ const StationeryDashboard = () => {
                   >
                     📦 Stationery Items ({filteredItems.length})
                   </h2>
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "center",
+                    }}
+                  >
                     <input
                       type="text"
                       placeholder="🔍 Search items..."
@@ -803,8 +809,9 @@ const StationeryDashboard = () => {
                     />
                     <div style={{ color: "#6b7280", fontSize: "14px" }}>
                       {
-                        filteredItems.filter((i) => i.current_stock <= i.reorder_level)
-                          .length
+                        filteredItems.filter(
+                          (i) => i.current_stock <= i.reorder_level
+                        ).length
                       }{" "}
                       items need reorder
                     </div>
@@ -1012,7 +1019,11 @@ const StationeryDashboard = () => {
                         setEmployeeSearch(e.target.value);
                         setShowEmployeeDropdown(true);
                         if (!e.target.value) {
-                          setUsageForm({ ...usageForm, employee: "", employee_name: "" });
+                          setUsageForm({
+                            ...usageForm,
+                            employee: "",
+                            employee_name: "",
+                          });
                         }
                       }}
                       onFocus={() => setShowEmployeeDropdown(true)}
@@ -1055,15 +1066,20 @@ const StationeryDashboard = () => {
                               transition: "background-color 0.2s",
                             }}
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.backgroundColor = "#f9fafb")
+                              (e.currentTarget.style.backgroundColor =
+                                "#f9fafb")
                             }
                             onMouseLeave={(e) =>
                               (e.currentTarget.style.backgroundColor = "white")
                             }
                           >
                             <div>
-                              <div style={{ fontWeight: "500" }}>{emp.name}</div>
-                              <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                              <div style={{ fontWeight: "500" }}>
+                                {emp.name}
+                              </div>
+                              <div
+                                style={{ fontSize: "12px", color: "#6b7280" }}
+                              >
                                 ID: {emp.employee_id}
                               </div>
                             </div>
@@ -1279,7 +1295,13 @@ const StationeryDashboard = () => {
                   >
                     📝 Usage Requests ({filteredUsage.length})
                   </h2>
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "center",
+                    }}
+                  >
                     <input
                       type="text"
                       placeholder="🔍 Search usage..."
@@ -1302,15 +1324,24 @@ const StationeryDashboard = () => {
                     >
                       <span style={{ color: "#3b82f6" }}>
                         Pending:{" "}
-                        {filteredUsage.filter((u) => u.status === "pending").length}
+                        {
+                          filteredUsage.filter((u) => u.status === "pending")
+                            .length
+                        }
                       </span>
                       <span style={{ color: "#10b981" }}>
                         Approved:{" "}
-                        {filteredUsage.filter((u) => u.status === "approved").length}
+                        {
+                          filteredUsage.filter((u) => u.status === "approved")
+                            .length
+                        }
                       </span>
                       <span style={{ color: "#6b7280" }}>
                         Issued:{" "}
-                        {filteredUsage.filter((u) => u.status === "issued").length}
+                        {
+                          filteredUsage.filter((u) => u.status === "issued")
+                            .length
+                        }
                       </span>
                     </div>
                   </div>
@@ -1675,15 +1706,20 @@ const StationeryDashboard = () => {
                               transition: "background-color 0.2s",
                             }}
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.backgroundColor = "#f9fafb")
+                              (e.currentTarget.style.backgroundColor =
+                                "#f9fafb")
                             }
                             onMouseLeave={(e) =>
                               (e.currentTarget.style.backgroundColor = "white")
                             }
                           >
                             <div>
-                              <div style={{ fontWeight: "500" }}>{emp.name}</div>
-                              <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                              <div style={{ fontWeight: "500" }}>
+                                {emp.name}
+                              </div>
+                              <div
+                                style={{ fontSize: "12px", color: "#6b7280" }}
+                              >
                                 ID: {emp.employee_id}
                               </div>
                             </div>
@@ -1801,7 +1837,13 @@ const StationeryDashboard = () => {
                   >
                     🔄 Transaction History ({filteredTransactions.length})
                   </h2>
-                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "center",
+                    }}
+                  >
                     <input
                       type="text"
                       placeholder="🔍 Search transactions..."
@@ -2105,7 +2147,12 @@ const StationeryDashboard = () => {
                 <div
                   style={{
                     height: "100%",
-                    width: `${(items.filter((i) => i.current_stock > i.reorder_level).length / items.length) * 100}%`,
+                    width: `${
+                      (items.filter((i) => i.current_stock > i.reorder_level)
+                        .length /
+                        items.length) *
+                      100
+                    }%`,
                     backgroundColor: "#10b981",
                     display: "inline-block",
                   }}
@@ -2113,7 +2160,15 @@ const StationeryDashboard = () => {
                 <div
                   style={{
                     height: "100%",
-                    width: `${(items.filter((i) => i.current_stock <= i.reorder_level && i.current_stock > 0).length / items.length) * 100}%`,
+                    width: `${
+                      (items.filter(
+                        (i) =>
+                          i.current_stock <= i.reorder_level &&
+                          i.current_stock > 0
+                      ).length /
+                        items.length) *
+                      100
+                    }%`,
                     backgroundColor: "#f97316",
                     display: "inline-block",
                   }}
@@ -2121,7 +2176,11 @@ const StationeryDashboard = () => {
                 <div
                   style={{
                     height: "100%",
-                    width: `${(items.filter((i) => i.current_stock <= 0).length / items.length) * 100}%`,
+                    width: `${
+                      (items.filter((i) => i.current_stock <= 0).length /
+                        items.length) *
+                      100
+                    }%`,
                     backgroundColor: "#ef4444",
                     display: "inline-block",
                   }}

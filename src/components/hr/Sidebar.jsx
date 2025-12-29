@@ -416,6 +416,7 @@ const Sidebar = () => {
     boxShadow: "2px 0 10px rgba(0, 0, 0, 0.2)",
     paddingTop: "40px",
     zIndex: 1000,
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
   const headerStyle = {

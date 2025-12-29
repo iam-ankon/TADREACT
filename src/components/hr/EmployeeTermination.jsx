@@ -357,6 +357,7 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     margin: "auto",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   mainContent: {
     padding: "1.5rem",

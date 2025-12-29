@@ -114,6 +114,7 @@ export default function EditAgents() {
           display: "flex",
           justifyContent: "center",
           alignItems: "flex-start",
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         }}
       >
         <div

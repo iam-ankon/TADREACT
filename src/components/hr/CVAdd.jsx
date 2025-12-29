@@ -114,6 +114,7 @@ const CVAdd = () => {
       display: "flex",
       height: "100vh",
       backgroundColor: "#DCEEF3",
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     formContainer: {
       padding: "100px",

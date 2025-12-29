@@ -301,6 +301,7 @@ const AdminProvision = () => {
             background-color: #f4f7fc;
             align-items: center;
             overflow-y: auto;
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
           }
           .heading {
             font-size: 2.5rem;

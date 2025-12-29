@@ -273,6 +273,7 @@ const ITProvision = () => {
             background-color: #f4f7fc;
             min-height: 100vh;
             flex: 1;
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
           }
 
           .heading {

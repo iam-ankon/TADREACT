@@ -173,6 +173,7 @@ const AddLetterPage = () => {
     display: "flex",
     height: "100vh",
     backgroundColor: "#DCEEF3",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
   const mainContentStyle = {

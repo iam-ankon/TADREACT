@@ -52,6 +52,10 @@ import MailMdSir from "./components/hr/MailMdSir";
 import InviteMail from "./components/hr/InviteMail";
 import WeeklyAttendanceGraph from "./components/hr/WeeklyAttendanceGraph.jsx";
 import HolidaysPage from "./components/hr/HolidaysPage.jsx";
+// import Internships from "./components/hr/Internships.jsx";
+// import InternshipList from "./components/hr/InternshipList.jsx";
+// import InternshipForm from "./components/hr/InternshipForm.jsx";
+// import InternshipDetails from "./components/hr/InternshipDetails.jsx";
 
 //regular user Dashboard
 import Dashboard from "./components/hr/regular_user/Dashboard.jsx";
@@ -136,6 +140,10 @@ const AppContent = () => {
           <Route path="/employee-termination" element={<ProtectedRoute><EmployeeTermination /></ProtectedRoute>} />
           <Route path="/weekly-attendance-graph" element={<ProtectedRoute><WeeklyAttendanceGraph /></ProtectedRoute>} />
           <Route path="/holidays" element={<ProtectedRoute><HolidaysPage /></ProtectedRoute>} />
+          {/* <Route path="/internships" element={<ProtectedRoute><Internships /></ProtectedRoute>} />
+          <Route path="/internships/list" element={<ProtectedRoute><InternshipList /></ProtectedRoute>} />
+          <Route path="/internships/form" element={<ProtectedRoute><InternshipForm /></ProtectedRoute>} />
+          <Route path="/internships/details/:id" element={<ProtectedRoute><InternshipDetails /></ProtectedRoute>} /> */}
 
           {/* Regular User Routes (Accessible to ALL authenticated users) */} 
           <Route path="/apply-leave" element={<ProtectedRouteForAll><ApplyLeave /></ProtectedRouteForAll>} />

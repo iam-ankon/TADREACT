@@ -61,7 +61,8 @@ export default function AddAgents() {
       style={{
         display: "flex",
         minHeight: "100vh",
-
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         backgroundColor: "#A7D5E1",
       }}
     >

@@ -243,7 +243,7 @@ const TaxCalculators = () => {
     padding: "20px",
     maxWidth: "1200px",
     margin: "0 auto",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
   const headerStyle = {

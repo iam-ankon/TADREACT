@@ -691,6 +691,7 @@ const EmployeeDetailPage = () => {
           display: flex;
           min-height: 100vh;
           background-color: #a7d5e1;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         .sidebar-wrapper {

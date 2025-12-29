@@ -823,6 +823,7 @@ const EmployeeDetails = () => {
           background-color: #a7d5e1;
           overflow: hidden;
           justify-content: center;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         .content-wrapper {

@@ -551,6 +551,7 @@ const AddInquiry = () => {
     display: "flex",
     minHeight: "100vh",
     backgroundColor: "#f8fafc",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
   const formWrapperStyle = {

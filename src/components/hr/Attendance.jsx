@@ -1135,6 +1135,7 @@ const headerStyle = {
   marginBottom: "24px",
   flexWrap: "wrap",
   gap: "16px",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 const titleStyle = {
@@ -1184,6 +1185,7 @@ const filtersCardStyle = {
   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   border: "1px solid #e2e8f0",
   overflow: "hidden",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 const filtersHeaderStyle = {
@@ -1457,6 +1459,7 @@ const cardStyle = {
   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   border: "1px solid #e2e8f0",
   overflow: "hidden",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 const tableHeaderStyle = {
@@ -1483,6 +1486,7 @@ const tableSummaryStyle = {
 
 const tableContainerStyle = {
   overflowX: "auto",
+  
 };
 
 const tableStyle = {

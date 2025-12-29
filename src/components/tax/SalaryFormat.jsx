@@ -2405,13 +2405,14 @@ const SalaryFormat = () => {
           min-height: 100vh;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           padding: 1rem;
-          font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         .dashboard {
           width: 100%;
           max-width: 100%;
           margin: 0 auto;
+          padding: 1rem;
         }
 
         .card {
@@ -2420,6 +2421,7 @@ const SalaryFormat = () => {
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
           overflow: hidden;
           backdrop-filter: blur(10px);
+          
         }
 
         /* IMPROVED HEADER SECTION */
