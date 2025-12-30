@@ -250,7 +250,6 @@ const LeaveRequestDetails = () => {
       maxWidth: "8000px",
       margin: "auto",
       padding: "20px",
-      fontFamily: "Arial, sans-serif",
       border: "1px solid #ddd",
       backgroundColor: "#fff",
       position: "relative",

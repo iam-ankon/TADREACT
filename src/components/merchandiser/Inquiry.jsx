@@ -2348,10 +2348,6 @@ const styles = {
   supplierInfo: {
     marginLeft: "10px",
   },
-  supplierName: {
-    fontSize: "13px",
-    fontWeight: "bold",
-  },
   supplierEmail: {
     fontSize: "12px",
     color: "#666",

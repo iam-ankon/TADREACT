@@ -52,10 +52,7 @@ import MailMdSir from "./components/hr/MailMdSir";
 import InviteMail from "./components/hr/InviteMail";
 import WeeklyAttendanceGraph from "./components/hr/WeeklyAttendanceGraph.jsx";
 import HolidaysPage from "./components/hr/HolidaysPage.jsx";
-// import Internships from "./components/hr/Internships.jsx";
-// import InternshipList from "./components/hr/InternshipList.jsx";
-// import InternshipForm from "./components/hr/InternshipForm.jsx";
-// import InternshipDetails from "./components/hr/InternshipDetails.jsx";
+
 
 //regular user Dashboard
 import Dashboard from "./components/hr/regular_user/Dashboard.jsx";
@@ -85,6 +82,14 @@ import DetailsInquiry from "./components/merchandiser/DetailsInquiry";
 import AddAttachmentInquiry from "./components/merchandiser/AddAttachmentInquiry";
 import BuyerDetails from "./components/merchandiser/BuyerDetails.jsx";
 import CustomerDetailsPage from "./components/merchandiser/CustomerDetailsPage.jsx";
+
+//CSR Pages
+import DashboardCSR from "./components/csr/DashboardCSR.jsx";
+import AddSupplierCSR from "./components/csr/AddSupplierCSR.jsx";
+import EditSupplierCSR from "./components/csr/EditSupplierCSR.jsx";
+import SupplierListCSR from "./components/csr/SupplierListCSR.jsx";
+import SupplierDetailsCSR from "./components/csr/SupplierDetailsCSR.jsx";
+
 
 // Tax Calculator
 import TaxCalculator from "./components/tax/TaxCalculator.jsx";
@@ -140,10 +145,7 @@ const AppContent = () => {
           <Route path="/employee-termination" element={<ProtectedRoute><EmployeeTermination /></ProtectedRoute>} />
           <Route path="/weekly-attendance-graph" element={<ProtectedRoute><WeeklyAttendanceGraph /></ProtectedRoute>} />
           <Route path="/holidays" element={<ProtectedRoute><HolidaysPage /></ProtectedRoute>} />
-          {/* <Route path="/internships" element={<ProtectedRoute><Internships /></ProtectedRoute>} />
-          <Route path="/internships/list" element={<ProtectedRoute><InternshipList /></ProtectedRoute>} />
-          <Route path="/internships/form" element={<ProtectedRoute><InternshipForm /></ProtectedRoute>} />
-          <Route path="/internships/details/:id" element={<ProtectedRoute><InternshipDetails /></ProtectedRoute>} /> */}
+         
 
           {/* Regular User Routes (Accessible to ALL authenticated users) */} 
           <Route path="/apply-leave" element={<ProtectedRouteForAll><ApplyLeave /></ProtectedRouteForAll>} />
@@ -198,10 +200,18 @@ const AppContent = () => {
           <Route path="/inquiries/attachments" element={<ProtectedRoute><AddAttachmentInquiry /></ProtectedRoute>} />
           <Route path="/buyer-details/:id" element={<ProtectedRoute><BuyerDetails /></ProtectedRoute>} />
           <Route path="/customer-details/:id" element={<ProtectedRoute><CustomerDetailsPage /></ProtectedRoute>} />
-
+          {/* Tax Calculator Section (protect based on your needs) */}
           <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} />
           <Route path="/tax-calculator/:employeeId" element={<ProtectedRoute><TaxCalculators /></ProtectedRoute>} />
           <Route path="/salary-format" element={<ProtectedRoute><SalaryFormat /></ProtectedRoute>} />
+
+
+          {/* CSR Section (protect based on your needs) */}
+          <Route path="/csr-dashboard" element={<ProtectedRoute><DashboardCSR /></ProtectedRoute>} />
+          <Route path="/suppliersCSR" element={<ProtectedRoute><SupplierListCSR /></ProtectedRoute>} />
+          <Route path="/add-supplierCSR" element={<ProtectedRoute><AddSupplierCSR /></ProtectedRoute>} />
+          <Route path="/edit-supplier/:id" element={<ProtectedRoute><EditSupplierCSR /></ProtectedRoute>} />
+          <Route path="/suppliersCSR/:id" element={<ProtectedRoute><SupplierDetailsCSR /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

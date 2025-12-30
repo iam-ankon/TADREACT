@@ -326,7 +326,17 @@ const Sidebar = () => {
       : []),
 
     // Add specific department pages based on department
-    // ...(departmentPermissions.isQA
+    ...(departmentPermissions.isCSR
+      ? [
+          {
+            to: "/csr-dashboard",
+            icon: <FiUsers />,
+            label: "Corporate Social Responsibility",
+          },
+        ]
+      : []),
+
+    // ...(departmentPermissions.isRnD
     //   ? [
     //       {
     //         to: "/qa-dashboard",
@@ -382,6 +392,7 @@ const Sidebar = () => {
     if (departmentPermissions.isAdmin) return "Admin Department";
     if (departmentPermissions.isHR) return "Human Resources";
     if (departmentPermissions.isQA) return "Quality Assurance";
+    if (departmentPermissions.isCSR) return "Corporate Social Responsibility";
     if (departmentPermissions.isRnD) return "Research & Development";
     if (departmentPermissions.isProduction) return "Production";
     if (departmentPermissions.isSampleSection) return "Sample Section";
