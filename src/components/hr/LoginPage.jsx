@@ -52,32 +52,11 @@ const LoginPage = () => {
       placeholder: "Your employee ID" 
     },
     { 
-      id: "designation", 
-      label: "Designation", 
-      type: "text", 
-      required: false, 
-      placeholder: "Your job title " 
-    },
-    { 
-      id: "department", 
-      label: "Department", 
-      type: "dropdown", 
-      required: false, 
-      placeholder: "Search your department" 
-    },
-    { 
       id: "username", 
       label: "Username", 
       type: "text", 
       required: true, 
       placeholder: "Your username" 
-    },
-    { 
-      id: "email", 
-      label: "Email Address", 
-      type: "email", 
-      required: false, 
-      placeholder: "your.email@company.com " 
     },
     { 
       id: "password", 

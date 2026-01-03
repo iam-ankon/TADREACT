@@ -182,6 +182,10 @@ const Sidebar = () => {
     .toLowerCase()
     .includes("director - tad logistic");
 
+  const isSupplyChainManager = designation
+    .toLowerCase()
+    .includes("supply chain manager");  
+
   const isHeadOfDesign = designation.toLowerCase().includes("head of design");
 
   const dashboardPath = hasFullAccess ? "/hr-work" : "/dashboard";
@@ -274,7 +278,8 @@ const Sidebar = () => {
     isGroupHeadOfAdmin ||
     isHeadOfDesign ||
     isHeadOfFinance ||
-    isDirectorOfTadLogistic
+    isDirectorOfTadLogistic ||
+    isSupplyChainManager
       ? [
           {
             to: "/team-leaves",
@@ -305,7 +310,8 @@ const Sidebar = () => {
     isTeamLeaderDigital ||
     isTeamLeaderCompliance ||
     isHeadOfFinance ||
-    isDirectorOfTadLogistic
+    isDirectorOfTadLogistic ||
+    isSupplyChainManager
       ? [
           {
             to: "/performance-appraisal",
@@ -545,6 +551,8 @@ const Sidebar = () => {
                   ? "Team Leader Finance & Accounts"
                   : isDirectorOfTadLogistic
                   ? "LOGISTIC DEPARTMENT"
+                  : isSupplyChainManager
+                  ? "Koithe Bangladesh"
                   : getDepartmentDisplayName()}
               </div>
               {employeeInfo.reporting_leader && (

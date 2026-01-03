@@ -383,7 +383,39 @@ const PerformanceAppraisal = () => {
           }
           return false;
         });
-      } else {
+      } else if (currentUsername === "Abir") { 
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Abir"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else if (currentUsername === "Atiqur") { 
+        filteredAppraisals = allAppraisals.filter((appraisal) => {
+          const employee = allEmployees.find(
+            (emp) => emp.employee_id === appraisal.employee_id
+          );
+          if (employee) {
+            const reportingLeader = (employee.reporting_leader || "")
+              .toLowerCase()
+              .trim();
+            const shamolyVariations = ["Mr. Atiq"];
+            return shamolyVariations.some((variation) =>
+              reportingLeader.includes(variation.toLowerCase())
+            );
+          }
+          return false;
+        });
+      } else {    
         const currentUserEmployeeId = localStorage.getItem("employee_id") || "";
         filteredAppraisals = allAppraisals.filter(
           (appraisal) => appraisal.employee_id === currentUserEmployeeId
@@ -691,6 +723,44 @@ const PerformanceAppraisal = () => {
             .toLowerCase()
             .trim();
           const atiqVariations = ["Mr. Swapon"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
+      // For Abir user
+      else if (currentUsername === "Abir") {
+        console.log("👤 Filtering for Abir's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Abir"];
+          const matches = atiqVariations.some((variation) =>
+            reportingLeader.includes(variation.toLowerCase())
+          );
+          if (matches) {
+            console.log(
+              `✅ ${employee.name} reports to shamoly: ${employee.reporting_leader}`
+            );
+          }
+          return matches;
+        });
+      }
+      // For Atiqur user  
+      else if (currentUsername === "Atiqur") {
+        console.log("👤 Filtering for Atiqur's team...");
+        filteredEmployees = allEmployees.filter((employee) => {
+          const reportingLeader = (employee.reporting_leader || "")
+            .toLowerCase()
+            .trim();
+          const atiqVariations = ["Mr. Atiq"];
           const matches = atiqVariations.some((variation) =>
             reportingLeader.includes(variation.toLowerCase())
           );
