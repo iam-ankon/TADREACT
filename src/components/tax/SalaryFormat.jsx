@@ -54,6 +54,7 @@ const SalaryFormat = () => {
   const [calculatingTaxes, setCalculatingTaxes] = useState(false);
   const navigate = useNavigate();
   const [companyApprovalStatus, setCompanyApprovalStatus] = useState({});
+  const [generatingExcel, setGeneratingExcel] = useState({}); // Track Excel generation per company
 
   // BACKEND-BASED APPROVAL STATUS
   const [approvalStatus, setApprovalStatus] = useState({
@@ -291,9 +292,11 @@ const SalaryFormat = () => {
                 taxData = {
                   tax_calculation: {
                     monthly_tds: 0,
+                    calculated_tds: 0,
                     should_deduct_tax: false,
-                    calculated_tax: 0,
+                    actual_deduction: 0,
                     note: "Salary ≤ 41,000 - No tax deduction",
+                    deduction_reason: "Salary at or below 41,000 threshold",
                   },
                 };
               } else {
@@ -312,18 +315,25 @@ const SalaryFormat = () => {
 
                 taxData = response.data;
 
-                // Ensure deduction flags are set
+                // Ensure deduction flags are set properly
                 if (taxData.tax_calculation) {
-                  taxData.tax_calculation.should_deduct_tax = true;
-                  taxData.tax_calculation.actual_deduction =
-                    taxData.tax_calculation.monthly_tds || 0;
+                  // The backend should already set should_deduct_tax = true for salary > 41,000
+                  // But we ensure it here
+                  const taxCalc = taxData.tax_calculation;
+                  const calculatedTds = taxCalc.monthly_tds || taxCalc.calculated_tds || 0;
+                  
+                  taxCalc.should_deduct_tax = true; // Always true for salary > 41,000
+                  taxCalc.actual_deduction = calculatedTds; // Full deduction for > 41K
+                  taxCalc.deduction_reason = "Salary above 41,000 threshold";
                 }
               }
 
               results[empId] = taxData;
               console.log(
                 `✅ Tax calculated for ${empId}:`,
-                taxData.tax_calculation?.monthly_tds
+                taxData.tax_calculation?.monthly_tds,
+                "Should deduct:", 
+                taxData.tax_calculation?.should_deduct_tax
               );
 
               return { empId, success: true };
@@ -333,20 +343,21 @@ const SalaryFormat = () => {
               // Fallback calculation
               let calculatedTax = 0;
               if (monthlySalary > 41000) {
-                // Simple fallback calculation
-                const annualSalary = monthlySalary * 12;
-                if (annualSalary > 350000) {
-                  calculatedTax = Math.round(monthlySalary * 0.05); // 5% approximation
-                }
+                // Simple fallback calculation (5% approximation)
+                calculatedTax = Math.round(monthlySalary * 0.05);
               }
 
               results[empId] = {
                 tax_calculation: {
                   monthly_tds: calculatedTax,
+                  calculated_tds: calculatedTax,
                   should_deduct_tax: monthlySalary > 41000,
                   calculated_tax: calculatedTax,
-                  actual_deduction: calculatedTax,
+                  actual_deduction: monthlySalary > 41000 ? calculatedTax : 0,
                   note: "Calculated via fallback",
+                  deduction_reason: monthlySalary > 41000 
+                    ? "Salary above 41,000 (fallback)" 
+                    : "Salary at or below 41,000",
                 },
               };
 
@@ -480,40 +491,85 @@ const SalaryFormat = () => {
       }
 
       const result = taxResults[empId];
-      if (!result)
+      if (!result) {
         return {
           ait: 0,
           calculatedAit: 0,
           shouldDeduct: false,
           loading: false,
         };
-      if (result.error)
+      }
+      
+      if (result.error) {
         return {
           ait: 0,
           calculatedAit: 0,
           shouldDeduct: false,
           loading: false,
         };
+      }
 
       const taxCalc = result.tax_calculation || {};
-      const calculatedAit = taxCalc.calculated_tds || taxCalc.monthly_tds || 0;
-
-      // Check if tax should be deducted (salary > 41,000)
+      
+      // Get the calculated monthly TDS
+      const calculatedAit = taxCalc.monthly_tds || taxCalc.calculated_tds || 0;
+      
+      // CRITICAL FIX: Check if tax should be deducted
+      // Rule: Only deduct tax if salary > 41,000 AND calculated tax > 0
       const shouldDeduct = monthlySalary > 41000 && calculatedAit > 0;
-      const ait = shouldDeduct ? taxCalc.actual_deduction || calculatedAit : 0;
+      
+      // Set actual deduction amount based on shouldDeduct flag
+      let ait = 0;
+      if (shouldDeduct) {
+        // Use actual_deduction if available, otherwise use calculatedAit
+        ait = taxCalc.actual_deduction || calculatedAit || 0;
+      } else {
+        // No deduction for salary ≤ 41,000
+        ait = 0;
+      }
 
       return {
         ait,
         calculatedAit,
         shouldDeduct,
         loading: false,
-        deductionReason:
-          taxCalc.deduction_reason ||
-          (shouldDeduct ? "Salary above 41,000" : "Salary at or below 41,000"),
+        deductionReason: taxCalc.deduction_reason || 
+          (shouldDeduct 
+            ? "Salary above 41,000" 
+            : monthlySalary <= 41000 
+              ? "Salary at or below 41,000" 
+              : "No tax calculated"),
       };
     },
     [taxResults, loadingAit]
   );
+
+  // Debug function for tax calculation issues
+  const debugTaxCalculation = (empId, monthlySalary) => {
+    const result = taxResults[empId];
+    const taxCalc = result?.tax_calculation || {};
+    
+    console.log(`🔍 DEBUG Tax for ${empId}:`, {
+      employeeId: empId,
+      monthlySalary: monthlySalary,
+      hasResult: !!result,
+      hasTaxCalc: !!result?.tax_calculation,
+      monthlyTds: taxCalc.monthly_tds,
+      calculatedTds: taxCalc.calculated_tds,
+      shouldDeduct: taxCalc.should_deduct_tax,
+      actualDeduction: taxCalc.actual_deduction,
+      deductionReason: taxCalc.deduction_reason,
+      isSalaryAbove41K: monthlySalary > 41000,
+      calculatedAit: getAitValue(empId, monthlySalary).calculatedAit,
+      ait: getAitValue(empId, monthlySalary).ait,
+      shouldDeductResult: getAitValue(empId, monthlySalary).shouldDeduct,
+    });
+  };
+
+  // Handle AIT cell click for debugging
+  const handleAitCellClick = (empId, monthlySalary) => {
+    debugTaxCalculation(empId, monthlySalary);
+  };
 
   // FIXED: Save data function
   const saveData = async () => {
@@ -672,6 +728,101 @@ const SalaryFormat = () => {
 
   const getManual = (empId, field, defaultVal = 0) => {
     return manualData[empId]?.[field] ?? defaultVal;
+  };
+
+  // SalaryFormat.jsx - Update generateExcelForCompany function
+  const generateExcelForCompany = async (companyName) => {
+    try {
+      // Set loading state for this company
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
+
+      console.log(`📊 Generating Bank Excel file for ${companyName}...`);
+
+      // Get current month and year
+      const currentDate = new Date();
+      const month = currentDate.getMonth() + 1;
+      const year = currentDate.getFullYear();
+
+      // Call the EXISTING endpoint: /api/tax-calculator/api/generate-excel-now/
+      const response = await apiClient.post(
+        "/api/tax-calculator/api/generate-excel-now/",
+        {
+          company_name: companyName,
+          month: month,
+          year: year,
+        },
+        {
+          responseType: "blob", // Important for file download
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      // Get filename from headers or create one
+      const contentDisposition = response.headers["content-disposition"];
+      let filename = `${companyName.replace(/\s+/g, "_")}_Bank_Salary_${
+        monthNames[month - 1]
+      }_${year}.xlsx`;
+
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match && match[1]) {
+          filename = decodeURIComponent(match[1]);
+        }
+      }
+
+      // Create blob and download
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log(`✅ Bank Excel file generated and downloaded: ${filename}`);
+      alert(
+        `Bank transfer Excel file generated successfully for ${companyName}!`
+      );
+    } catch (error) {
+      console.error("❌ Error generating bank Excel file:", error);
+
+      if (error.response?.status === 404) {
+        alert(
+          `❌ No salary records found for ${companyName}. Please save salary data first by clicking "Save Data" button.`
+        );
+      } else if (error.response?.status === 500) {
+        alert(
+          `❌ Server error while generating Excel. Please check backend logs.`
+        );
+      } else if (error.response?.data) {
+        // Try to parse error message from response
+        try {
+          const reader = new FileReader();
+          reader.onload = function () {
+            const errorText = reader.result;
+            alert(`❌ Server error: ${errorText}`);
+          };
+          reader.readAsText(error.response.data);
+        } catch {
+          alert(`❌ Failed to generate bank Excel file for ${companyName}.`);
+        }
+      } else {
+        alert(
+          `❌ Failed to generate bank Excel file for ${companyName}. Error: ${error.message}`
+        );
+      }
+    } finally {
+      // Clear loading state
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
+    }
   };
 
   // FIXED: Export company data
@@ -1049,6 +1200,37 @@ const SalaryFormat = () => {
             </div>
           </div>
 
+          {/* TAX STATUS SUMMARY */}
+          <div className="tax-status-summary">
+            <div className="status-item">
+              <span className="status-label">Total Employees:</span>
+              <span className="status-value">{filteredEmployees.length}</span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">Salary {'>'} 41K:</span>
+              <span className="status-value">
+                {filteredEmployees.filter(e => Number(e.salary || 0) > 41000).length}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">Tax Calculated:</span>
+              <span className="status-value">
+                {Object.keys(taxResults).length}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">Tax Deducted:</span>
+              <span className="status-value">
+                {formatNumber(
+                  filteredEmployees.reduce((sum, e) => {
+                    const { ait } = getAitValue(e.employee_id, Number(e.salary || 0));
+                    return sum + ait;
+                  }, 0)
+                )}
+              </span>
+            </div>
+          </div>
+
           {/* TAX CALCULATION STATUS */}
           {calculatingTaxes && (
             <div className="tax-calculation-status">
@@ -1100,12 +1282,24 @@ const SalaryFormat = () => {
                       {selectedYear}
                     </h3>
                   </div>
-                  <button
-                    onClick={() => exportCompanyData(comp)}
-                    className="btn btn-export-section"
-                  >
-                    <FaFileExport /> Export {comp} Data
-                  </button>
+                  <div className="company-action-buttons">
+                    <button
+                      onClick={() => generateExcelForCompany(comp)}
+                      className="btn btn-generate-excel"
+                      disabled={generatingExcel[comp]}
+                    >
+                      <FaFileExcel />
+                      {generatingExcel[comp]
+                        ? "Generating..."
+                        : "Generate Excel"}
+                    </button>
+                    <button
+                      onClick={() => exportCompanyData(comp)}
+                      className="btn btn-export-section"
+                    >
+                      <FaFileExport /> Export {comp} Data
+                    </button>
+                  </div>
                 </div>
 
                 <div className="table-scroll-container">
@@ -1151,7 +1345,7 @@ const SalaryFormat = () => {
                           const conveyanceFull = monthlySalary * 0.05;
                           const grossFull = monthlySalary;
 
-                          // FIXED: Get AIT value
+                          // FIXED: Get AIT value with debug capability
                           const { ait, calculatedAit, shouldDeduct, loading } =
                             getAitValue(empId, monthlySalary);
 
@@ -1267,8 +1461,12 @@ const SalaryFormat = () => {
                                 } ${
                                   calculatedAit > 0 && !shouldDeduct
                                     ? "calculated-no-deduct"
+                                    : shouldDeduct
+                                    ? "tax-deducted"
                                     : ""
                                 }`}
+                                onClick={() => handleAitCellClick(empId, monthlySalary)}
+                                style={{ cursor: 'help' }}
                               >
                                 {loading ? (
                                   <span className="loading-dots">...</span>
@@ -1293,6 +1491,14 @@ const SalaryFormat = () => {
                                         title="Tax deducted (Salary > 41,000)"
                                       >
                                         ✓ Deducted
+                                      </div>
+                                    )}
+                                    {!calculatedAit && !shouldDeduct && monthlySalary > 0 && (
+                                      <div
+                                        className="tax-note"
+                                        title="No tax calculation available"
+                                      >
+                                        No tax
                                       </div>
                                     )}
                                   </div>
@@ -1508,10 +1714,6 @@ const SalaryFormat = () => {
                         <th>Employees</th>
                         <th>Gross Salary</th>
                         <th>AIT (Deducted)</th>
-                        <th>Absent Ded.</th>
-                        <th>Advance</th>
-                        <th>Cash</th>
-                        <th>Addition</th>
                         <th>Net Pay (Bank)</th>
                         <th>Total Payable</th>
                       </tr>
@@ -1604,22 +1806,6 @@ const SalaryFormat = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="deduction-amount">
-                              {formatNumber(summary.absentDed)}
-                            </td>
-                            <td className="deduction-amount">
-                              {formatNumber(summary.advance)}
-                            </td>
-                            <td className="cash-amount">
-                              {formatNumber(summary.cash)}
-                            </td>
-                            <td
-                              className={`addition-amount ${
-                                summary.addition < 0 ? "negative" : "positive"
-                              }`}
-                            >
-                              {formatNumber(summary.addition)}
-                            </td>
                             <td
                               className={`net-pay ${
                                 summary.netBank < 0 ? "negative" : "positive"
@@ -1680,65 +1866,6 @@ const SalaryFormat = () => {
                               )
                             </div>
                           </div>
-                        </td>
-                        <td className="grand-total-deduction">
-                          {formatNumber(
-                            filteredEmployees.reduce((s, e) => {
-                              const empId = e.employee_id;
-                              const salary = Number(e.salary) || 0;
-                              const doj = parseDate(e.joining_date);
-                              const isNewJoiner =
-                                doj &&
-                                doj.getMonth() + 1 === selectedMonth &&
-                                doj.getFullYear() === selectedYear;
-                              const defaultDays = isNewJoiner
-                                ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-                                : totalDaysInMonth;
-                              const daysWorked =
-                                getManual(empId, "daysWorked") || defaultDays;
-                              return (
-                                s +
-                                ((salary * 0.6) / BASE_MONTH) *
-                                  (totalDaysInMonth - daysWorked)
-                              );
-                            }, 0)
-                          )}
-                        </td>
-                        <td className="grand-total-advance">
-                          {formatNumber(
-                            filteredEmployees.reduce(
-                              (s, e) => s + getManual(e.employee_id, "advance"),
-                              0
-                            )
-                          )}
-                        </td>
-                        <td className="grand-total-cash">
-                          {formatNumber(
-                            filteredEmployees.reduce(
-                              (s, e) =>
-                                s + getManual(e.employee_id, "cashPayment"),
-                              0
-                            )
-                          )}
-                        </td>
-                        <td
-                          className={`grand-total-addition ${
-                            filteredEmployees.reduce(
-                              (s, e) =>
-                                s + getManual(e.employee_id, "addition"),
-                              0
-                            ) < 0
-                              ? "negative"
-                              : "positive"
-                          }`}
-                        >
-                          {formatNumber(
-                            filteredEmployees.reduce(
-                              (s, e) =>
-                                s + getManual(e.employee_id, "addition"),
-                              0
-                            )
-                          )}
                         </td>
                         <td
                           className={`grand-total-net ${
@@ -2051,6 +2178,42 @@ const SalaryFormat = () => {
           background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
         }
 
+        /* TAX STATUS SUMMARY */
+        .tax-status-summary {
+          display: flex;
+          gap: 1rem;
+          margin-top: 1rem;
+          padding: 1rem 2.5rem;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          flex-wrap: wrap;
+        }
+
+        .status-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 0.5rem 1rem;
+          background: white;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          min-width: 120px;
+        }
+
+        .status-label {
+          font-size: 0.8rem;
+          color: #6b7280;
+          font-weight: 600;
+          margin-bottom: 0.25rem;
+        }
+
+        .status-value {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #1f2937;
+        }
+
         /* COMPANY QUICK ACCESS */
         .company-quick-access {
           padding: 2.5rem;
@@ -2181,6 +2344,39 @@ const SalaryFormat = () => {
           color: #6b7280;
           font-size: 1.2rem;
           font-weight: 500;
+        }
+
+        .company-action-buttons {
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .btn-generate-excel {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          padding: 1rem 1.8rem;
+          border: none;
+          border-radius: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-generate-excel:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-generate-excel:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
         }
 
         /* FIXED TABLE STYLING */
@@ -2333,21 +2529,47 @@ const SalaryFormat = () => {
 
         .tax-note {
           font-size: 0.7rem;
-          color: #8b5cf6;
-          background: #f3f4f6;
-          padding: 1px 4px;
+          color: #6b7280;
+          background: #f9fafb;
+          padding: 2px 6px;
           border-radius: 4px;
           font-weight: 500;
           cursor: help;
+          border: 1px solid #e5e7eb;
+          max-width: 100px;
+          text-overflow: ellipsis;
+          overflow: hidden;
+          white-space: nowrap;
         }
 
-        .calculated-no-deduct {
-          background: linear-gradient(
-            135deg,
-            #fef3c7 0%,
-            #fde68a 100%
-          ) !important;
+        .calculated-no-deduct .tax-note {
+          background: #fef3c7;
+          border-color: #f59e0b;
+          color: #92400e;
+        }
+
+        .tax-deducted .tax-note {
+          background: #fee2e2;
+          border-color: #fca5a5;
+          color: #dc2626;
+        }
+
+        .tax-amount.calculated-no-deduct {
+          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
           border: 2px solid #f59e0b !important;
+          color: #92400e !important;
+        }
+
+        .tax-amount.tax-deducted {
+          background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%) !important;
+          border: 2px solid #ef4444 !important;
+          color: #b91c1c !important;
+        }
+
+        .tax-amount.loading {
+          background: #f3f4f6 !important;
+          border: 2px solid #d1d5db !important;
+          color: #6b7280 !important;
         }
 
         /* BEAUTIFUL COLOR CODING */
@@ -2741,6 +2963,27 @@ const SalaryFormat = () => {
           }
         }
 
+        /* TAX CALCULATION STATUS */
+        .tax-calculation-status {
+          padding: 1rem 2.5rem;
+          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+          border-bottom: 1px solid #fde68a;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          color: #92400e;
+          font-weight: 600;
+        }
+
+        .spinner-small {
+          width: 20px;
+          height: 20px;
+          border: 2px solid #f59e0b;
+          border-top: 2px solid transparent;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
         /* RESPONSIVE DESIGN */
         @media (max-width: 768px) {
           .salary-format-container {
@@ -2771,6 +3014,17 @@ const SalaryFormat = () => {
 
           .company-header {
             flex-direction: column;
+          }
+
+          .company-action-buttons {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .btn-generate-excel,
+          .btn-export-section {
+            flex: 1;
+            justify-content: center;
           }
 
           .footer {
@@ -2812,6 +3066,15 @@ const SalaryFormat = () => {
           .approval-btn {
             min-width: 100%;
           }
+
+          .tax-status-summary {
+            padding: 1rem;
+          }
+
+          .status-item {
+            min-width: 90px;
+            padding: 0.5rem;
+          }
         }
 
         @media (max-width: 480px) {
@@ -2835,6 +3098,15 @@ const SalaryFormat = () => {
             width: 100%;
           }
 
+          .company-action-buttons {
+            flex-direction: column;
+          }
+
+          .btn-generate-excel,
+          .btn-export-section {
+            width: 100%;
+          }
+
           .summary-stats {
             grid-template-columns: 1fr;
           }
@@ -2842,56 +3114,14 @@ const SalaryFormat = () => {
           .footer {
             flex-direction: column;
           }
-        }
 
-        .btn-download-excel {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          margin-left: 10px;
-        }
+          .tax-status-summary {
+            flex-direction: column;
+          }
 
-        .btn-download-excel:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        }
-
-        .btn-generate-excel {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-          padding: 8px 12px;
-          border: none;
-          border-radius: 8px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          transition: all 0.3s ease;
-        }
-
-        .btn-generate-excel:hover {
-          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-          transform: translateY(-2px);
-        }
-
-        .btn-generate-download {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
-          padding: 8px 12px;
-          border: none;
-          border-radius: 8px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          transition: all 0.3s ease;
-        }
-
-        .btn-generate-download:hover {
-          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-          transform: translateY(-2px);
+          .status-item {
+            width: 100%;
+          }
         }
       `}</style>
     </div>
