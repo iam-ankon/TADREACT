@@ -78,8 +78,10 @@ const EmployeeDetailPage = () => {
       const response = await sendWelcomeEmail(employee.id);
 
       if (response.data && response.data.success) {
-        setEmailStatus(`✅ ${response.data.message || "Welcome emails sent successfully!"}`);
-        
+        setEmailStatus(
+          `✅ ${response.data.message || "Welcome emails sent successfully!"}`
+        );
+
         // Clear status after 5 seconds
         setTimeout(() => {
           setEmailStatus("");
@@ -89,8 +91,10 @@ const EmployeeDetailPage = () => {
       }
     } catch (error) {
       console.error("Error sending welcome email:", error);
-      setEmailStatus(`❌ Error: ${error.response?.data?.message || error.message}`);
-      
+      setEmailStatus(
+        `❌ Error: ${error.response?.data?.message || error.message}`
+      );
+
       // Clear error after 5 seconds
       setTimeout(() => {
         setEmailStatus("");
@@ -475,7 +479,11 @@ const EmployeeDetailPage = () => {
           <div style={{ maxHeight: "calc(95vh - 100px)", overflowY: "auto" }}>
             {/* ADD EMAIL STATUS NOTIFICATION */}
             {emailStatus && (
-              <div className={`email-status ${emailStatus.includes('✅') ? 'success' : 'error'}`}>
+              <div
+                className={`email-status ${
+                  emailStatus.includes("✅") ? "success" : "error"
+                }`}
+              >
                 {emailStatus}
               </div>
             )}
@@ -492,7 +500,7 @@ const EmployeeDetailPage = () => {
                   className="btn-email"
                   disabled={sendingEmail}
                 >
-                  <FaPaperPlane /> 
+                  <FaPaperPlane />
                   {sendingEmail ? "Sending..." : "Send Welcome Email"}
                 </button>
                 <button
@@ -558,16 +566,25 @@ const EmployeeDetailPage = () => {
                     <span>৳{employee.salary}</span>
                   </div>
                   <div className="detail-row">
+                    <span>Salary (Cash Portion):</span>
+                    <span>৳{employee.salary_cash || "N/A"}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span>Total Salary:</span>
+                    <span>
+                      ৳
+                      {Number(employee.salary) +
+                        Number(employee.salary_cash || 0)}
+                    </span>
+                  </div>
+
+                  <div className="detail-row">
                     <span>Joining Date:</span>
                     <span>{employee.joining_date}</span>
                   </div>
                   <div className="detail-row">
                     <span>Reporting Leader:</span>
                     <span>{employee.reporting_leader}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span> Device ID:</span>
-                    <span>{employee.device_user_id || "N/A"}</span>
                   </div>
                   <div className="detail-row">
                     <span>Customers:</span>
@@ -686,7 +703,7 @@ const EmployeeDetailPage = () => {
         </div>
       </div>
 
-      <style >{`
+      <style>{`
         .employee-detail-container {
           display: flex;
           min-height: 100vh;

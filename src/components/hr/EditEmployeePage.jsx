@@ -31,6 +31,7 @@ const EditEmployeePage = () => {
     customer: [],
     company: "",
     salary: "",
+    salary_cash: "",
     reporting_leader: "",
     special_skills: "",
     remarks: "",
@@ -146,6 +147,7 @@ const EditEmployeePage = () => {
         jsonData.department = Number(employee.department);
       if (employee.company) jsonData.company = Number(employee.company);
       if (employee.salary) jsonData.salary = Number(employee.salary);
+      if (employee.salary_cash) jsonData.salary_cash = Number(employee.salary_cash);
 
       // Remove undefined values
       Object.keys(jsonData).forEach((key) => {
@@ -347,6 +349,7 @@ const EditEmployeePage = () => {
               { name: "nid_number", label: "NID Number" },
               { name: "blood_group", label: "Blood Group" },
               { name: "salary", label: "Salary", type: "number" },
+              { name: "salary_cash", label: "Salary (Cash Portion)", type: "number" },
               { name: "reporting_leader", label: "Reporting Leader" },
               {
                 name: "gender",

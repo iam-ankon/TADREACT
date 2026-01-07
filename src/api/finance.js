@@ -1,4 +1,4 @@
-// src/services/finance.js - COMPLETE FIXED VERSION
+// src/services/finance.js - COMPLETE FIXED VERSION WITH BATCH CALCULATION
 import axios from "axios";
 
 const API_BASE = "http://119.148.51.38:8000/api/tax-calculator";
@@ -25,6 +25,8 @@ const getAuthToken = () => {
   return token;
 };
 
+// finance.js - Update the getCSRFToken function
+
 // Get CSRF token function (for Django REST Framework)
 const getCSRFToken = () => {
   let csrfToken = null;
@@ -34,7 +36,7 @@ const getCSRFToken = () => {
     return window._csrfToken;
   }
 
-  // Method 2: Try to get from cookie
+  // Method 2: Try to get from cookie (Django sets this)
   const cookies = document.cookie.split(";");
   for (let cookie of cookies) {
     const [name, value] = cookie.trim().split("=");
@@ -44,12 +46,45 @@ const getCSRFToken = () => {
     }
   }
 
-  // Method 3: Try to get from meta tag
+  // Method 3: Try to get from meta tag (if Django template includes it)
   if (!csrfToken) {
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     if (csrfMeta) {
       csrfToken = csrfMeta.getAttribute("content");
     }
+  }
+
+  // Method 4: Try to fetch CSRF token from Django endpoint
+  if (!csrfToken && !window._csrfFetching) {
+    // Only fetch once
+    window._csrfFetching = true;
+
+    fetch(`${API_BASE.replace("/api/tax-calculator", "")}/api/csrf/`, {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    })
+      .then((response) => {
+        if (response.ok) {
+          return response.json();
+        }
+        return null;
+      })
+      .then((data) => {
+        if (data && data.csrfToken) {
+          window._csrfToken = data.csrfToken;
+          csrfToken = data.csrfToken;
+        }
+      })
+      .catch(() => {
+        // Silently fail - we're using Token Auth anyway
+      })
+      .finally(() => {
+        window._csrfFetching = false;
+      });
   }
 
   // Cache for future use
@@ -59,6 +94,41 @@ const getCSRFToken = () => {
 
   return csrfToken;
 };
+
+// Update the request interceptor to be less strict about CSRF
+apiClient.interceptors.request.use(
+  (config) => {
+    console.log(
+      `🚀 Finance API - ${config.method?.toUpperCase()} to: ${config.url}`
+    );
+
+    // 1. Add Django Token Authentication (same as HRMS)
+    const authToken = getAuthToken();
+    if (authToken) {
+      config.headers["Authorization"] = `Token ${authToken}`;
+      console.log("🔑 Finance API - Auth token added");
+    } else {
+      console.warn("⚠️ Finance API - No auth token found!");
+    }
+
+    // 2. Add CSRF token for state-changing requests IF AVAILABLE
+    // BUT don't warn if not found - Token Auth doesn't require it
+    const method = config.method?.toLowerCase();
+    if (method && ["post", "patch", "put", "delete"].includes(method)) {
+      const csrfToken = getCSRFToken();
+      if (csrfToken) {
+        config.headers["X-CSRFToken"] = csrfToken;
+        console.log("🔒 Finance API - CSRF token added");
+      }
+      // No warning - Token Auth works without CSRF
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Add request interceptor - UPDATED with proper auth
 apiClient.interceptors.request.use(
@@ -194,12 +264,108 @@ export const employeeAPI = {
       .then((response) =>
         response.data.find((e) => e.employee_id === employeeId)
       ),
+
+  // Get employees with cache
+  getEmployeesWithCache: async () => {
+    const cacheKey = "employees_cache";
+    const cacheExpiry = 30 * 60 * 1000; // 30 minutes
+
+    // Check cache
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < cacheExpiry) {
+        console.log("📁 Returning cached employees");
+        return { data };
+      }
+    }
+
+    // Fetch fresh data
+    try {
+      const response = await employeeAPI.getAll();
+      const validEmployees = response.data.filter(
+        (e) => e.salary && e.employee_id
+      );
+
+      // Cache the result
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          data: validEmployees,
+          timestamp: Date.now(),
+        })
+      );
+
+      console.log("🔄 Fetched fresh employee data");
+      return { data: validEmployees };
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+      throw error;
+    }
+  },
 };
 
 // Tax Calculation APIs
 export const taxAPI = {
-  // Calculate tax
+  // Calculate tax (individual)
   calculate: (data) => apiClient.post("/calculate/", data),
+
+  // Save calculated tax to backend
+  saveCalculatedTax: (data) => apiClient.post("/save-calculated-tax/", data),
+
+  // Get saved taxes from backend
+  getCalculatedTaxes: (data) => apiClient.post("/get-calculated-taxes/", data),
+
+  // Clear saved taxes
+  clearCalculatedTaxes: (data) =>
+    apiClient.post("/clear-calculated-taxes/", data),
+
+  // Batch calculate taxes for multiple employees
+  batchCalculate: async (employeeData) => {
+    try {
+      const response = await apiClient.post(
+        "/batch-calculate/",
+        { employees: employeeData },
+        {
+          timeout: 60000, // 60 seconds for large batches
+        }
+      );
+      return response;
+    } catch (error) {
+      console.error("Batch tax calculation failed:", error);
+      throw error;
+    }
+  },
+
+  getAitValue: async (employeeId, month, year) => {
+    try {
+      const response = await apiClient.get(
+        `/get-ait/${employeeId}/${year}/${month}/`
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to fetch AIT for ${employeeId}:`, error);
+      return {
+        ait: 0,
+        calculatedAit: 0,
+        shouldDeduct: false,
+        loading: false,
+      };
+    }
+  },
+
+  // Batch get AIT values for multiple employees
+  getAitValuesBatch: async (employeeData) => {
+    try {
+      const response = await apiClient.post("/batch-get-ait/", {
+        employees: employeeData,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Batch AIT fetch failed:", error);
+      return {};
+    }
+  },
 
   // Save tax extra data
   saveTaxExtra: (data) => apiClient.post("/save-tax-extra/", data),
@@ -343,9 +509,43 @@ export const approvalAPI = {
     ),
 };
 
-// Enhanced storage utilities with backend sync
+// Enhanced storage utilities with backend sync and input hashing
 export const storageAPI = {
-  // Tax Results Storage by Employee ID
+  // Generate input hash for cache validation
+  generateInputHash: (employeeId, sourceVal, bonusVal) => {
+    return btoa(`${employeeId}_${sourceVal}_${bonusVal}_${Date.now()}`);
+  },
+
+  // Store tax result with input hash
+  setTaxResultsByEmployee: (employeeId, data, inputHash = null) => {
+    const allResults = JSON.parse(localStorage.getItem("taxResults") || "{}");
+
+    // Generate hash if not provided
+    if (!inputHash && data) {
+      const source = data?.tax_calculation?.source_tax_other || 0;
+      const bonus = data?.salary_breakdown?.bonus || 0;
+      inputHash = storageAPI.generateInputHash(employeeId, source, bonus);
+    }
+
+    allResults[employeeId] = {
+      data,
+      timestamp: new Date().toISOString(),
+      inputHash,
+    };
+
+    localStorage.setItem("taxResults", JSON.stringify(allResults));
+
+    // Trigger cross-tab sync
+    window.dispatchEvent(
+      new CustomEvent("financeDataUpdated", {
+        detail: { type: "taxResults", data: allResults },
+      })
+    );
+
+    return true;
+  },
+
+  // Get tax results for all or specific employee
   getTaxResultsByEmployee: (employeeId = null) => {
     const allResults = JSON.parse(localStorage.getItem("taxResults") || "{}");
 
@@ -355,54 +555,95 @@ export const storageAPI = {
     return allResults;
   },
 
-  setTaxResultsByEmployee: (employeeId, taxData) => {
-    const allResults = JSON.parse(localStorage.getItem("taxResults") || "{}");
-    allResults[employeeId] = {
-      data: taxData,
-      timestamp: new Date().toISOString(),
-    };
-    localStorage.setItem("taxResults", JSON.stringify(allResults));
+  // Get tax result with input validation
+  getTaxResult: (employeeId, validateHash = null) => {
+    const key = `tax_result_${employeeId}`;
+    const cached = localStorage.getItem(key);
+    if (!cached) return null;
 
-    // Trigger cross-tab sync
-    window.dispatchEvent(
-      new CustomEvent("financeDataUpdated", {
-        detail: { type: "taxResults", data: allResults },
-      })
-    );
+    const parsed = JSON.parse(cached);
+
+    // Validate input hash if provided
+    if (validateHash && parsed.inputHash !== validateHash) {
+      return null;
+    }
+
+    return parsed;
   },
 
-  removeTaxResultsByEmployee: (employeeId) => {
+  // Clear specific tax result
+  clearTaxResult: (employeeId) => {
     const allResults = JSON.parse(localStorage.getItem("taxResults") || "{}");
     delete allResults[employeeId];
     localStorage.setItem("taxResults", JSON.stringify(allResults));
+
+    // Also clear individual key for backward compatibility
+    localStorage.removeItem(`tax_result_${employeeId}`);
+    return true;
   },
+
+  removeTaxResultsByEmployee: (employeeId) =>
+    storageAPI.clearTaxResult(employeeId),
 
   clearAllTaxResults: () => {
     localStorage.removeItem("taxResults");
   },
 
-  // Check if cache is valid
-  isTaxCacheValid: (cachedData, maxAgeHours = 24) => {
+  // Check if cache is valid with input validation
+  isTaxCacheValid: (
+    cachedData,
+    employeeId = null,
+    currentSource = 0,
+    currentBonus = 0,
+    maxAgeHours = 24
+  ) => {
     if (!cachedData || !cachedData.timestamp) return false;
 
+    // Check timestamp
     const cacheTime = new Date(cachedData.timestamp);
     const now = new Date();
     const hoursDiff = (now - cacheTime) / (1000 * 60 * 60);
+    if (hoursDiff >= maxAgeHours) return false;
 
-    return hoursDiff < maxAgeHours;
+    // Check input hash if employeeId provided
+    if (employeeId && cachedData.inputHash) {
+      const currentHash = storageAPI.generateInputHash(
+        employeeId,
+        currentSource,
+        currentBonus
+      );
+      return cachedData.inputHash === currentHash;
+    }
+
+    return true;
   },
 
-  // Get valid cached results for multiple employees
-  getValidTaxResults: (employeeIds, maxAgeHours = 24) => {
+  // Get valid cached results for multiple employees with input validation
+  getValidTaxResults: (
+    employeeIds,
+    sourceOtherData = {},
+    bonusOverrideData = {},
+    maxAgeHours = 24
+  ) => {
     const allResults = JSON.parse(localStorage.getItem("taxResults") || "{}");
     const validResults = {};
 
     employeeIds.forEach((id) => {
+      const cached = allResults[id];
+      const currentSource = sourceOtherData[id] || 0;
+      const currentBonus = bonusOverrideData[id] || 0;
+
       if (
-        allResults[id] &&
-        storageAPI.isTaxCacheValid(allResults[id], maxAgeHours)
+        cached &&
+        storageAPI.isTaxCacheValid(
+          cached,
+          id,
+          currentSource,
+          currentBonus,
+          maxAgeHours
+        )
       ) {
-        validResults[id] = allResults[id].data;
+        validResults[id] = cached.data;
       }
     });
 
@@ -504,11 +745,11 @@ export const storageAPI = {
     );
   },
 
-  // Cached Tax Results
-  getCachedTaxResults: () =>
+  // Cached Tax Results (backward compatibility)
+  getLegacyCachedTaxResults: () =>
     JSON.parse(localStorage.getItem("cachedTaxResults") || "{}"),
 
-  setCachedTaxResults: (data) =>
+  setLegacyCachedTaxResults: (data) =>
     localStorage.setItem("cachedTaxResults", JSON.stringify(data)),
 
   // Salary Manual Data
@@ -525,7 +766,7 @@ export const storageAPI = {
     localStorage.setItem("lastSyncTime", timestamp.toString()),
 };
 
-// Full sync - always sync from backend
+// In finance.js - Add this function
 export const syncAllDataFromBackend = async (employeeIds = []) => {
   try {
     console.log(`Full syncing data for ${employeeIds.length} employees...`);
@@ -553,6 +794,8 @@ export const syncAllDataFromBackend = async (employeeIds = []) => {
   }
 };
 
+// Also add this function to storageAPI
+storageAPI.syncAllDataFromBackend = syncAllDataFromBackend;
 // Force sync for specific employees
 export const forceSyncEmployees = async (employeeIds = []) => {
   try {
@@ -624,15 +867,19 @@ export const smartSyncData = async (employeeIds = []) => {
 // Listen for storage changes across browser tabs
 export const setupCrossTabSync = (callback) => {
   const handleStorageChange = (e) => {
-    if (e.key === "sourceTaxOther" || e.key === "bonusOverride") {
+    if (
+      e.key === "sourceTaxOther" ||
+      e.key === "bonusOverride" ||
+      e.key === "taxResults"
+    ) {
       console.log("Storage changed in another tab:", e.key);
-      callback();
+      if (callback) callback();
     }
   };
 
   const handleCustomEvent = (e) => {
     console.log("Custom event received:", e.detail.type);
-    callback();
+    if (callback) callback(e);
   };
 
   window.addEventListener("storage", handleStorageChange);
@@ -652,6 +899,8 @@ export const broadcastUpdate = (type, data) => {
     storageAPI.setSourceTaxOther(data);
   } else if (type === "bonusOverride") {
     storageAPI.setBonusOverride(data);
+  } else if (type === "taxResults") {
+    localStorage.setItem("taxResults", JSON.stringify(data));
   }
 
   // Also dispatch custom event for immediate response
@@ -798,6 +1047,43 @@ export const salaryUtils = {
   },
 };
 
+// Batch calculation utility
+export const batchCalculationUtils = {
+  // Prepare batch data for calculation
+  prepareBatchData: (
+    employees,
+    sourceOtherData = {},
+    bonusOverrideData = {}
+  ) => {
+    return employees
+      .filter((emp) => emp.salary && emp.employee_id)
+      .map((emp) => ({
+        employee_id: emp.employee_id,
+        salary: emp.salary,
+        gender: emp.gender === "M" ? "Male" : "Female",
+        source_other: sourceOtherData[emp.employee_id] || 0,
+        bonus: bonusOverrideData[emp.employee_id] || 0,
+      }));
+  },
+
+  // Process batch results
+  processBatchResults: (batchResults, employeeIds) => {
+    const results = {};
+    const errors = [];
+
+    employeeIds.forEach((empId) => {
+      const result = batchResults[empId];
+      if (result && !result.error) {
+        results[empId] = result;
+      } else if (result?.error) {
+        errors.push({ empId, error: result.error });
+      }
+    });
+
+    return { results, errors };
+  },
+};
+
 // Export all APIs as a single object for easy importing
 export const financeAPI = {
   employee: employeeAPI,
@@ -807,6 +1093,41 @@ export const financeAPI = {
   approval: approvalAPI,
   storage: storageAPI,
   utils: salaryUtils,
+  batch: batchCalculationUtils,
+
+  // Batch calculation method
+  batchCalculateTaxes: async (
+    employees,
+    sourceOtherData = {},
+    bonusOverrideData = {}
+  ) => {
+    try {
+      const batchData = batchCalculationUtils.prepareBatchData(
+        employees,
+        sourceOtherData,
+        bonusOverrideData
+      );
+
+      if (batchData.length === 0) {
+        return { results: {}, errors: [] };
+      }
+
+      const response = await taxAPI.batchCalculate({ employees: batchData });
+
+      if (response.data.success) {
+        const employeeIds = batchData.map((emp) => emp.employee_id);
+        return batchCalculationUtils.processBatchResults(
+          response.data.results,
+          employeeIds
+        );
+      }
+
+      return { results: {}, errors: [{ error: "Batch calculation failed" }] };
+    } catch (error) {
+      console.error("Batch tax calculation error:", error);
+      return { results: {}, errors: [{ error: error.message }] };
+    }
+  },
 };
 
 // Default export
