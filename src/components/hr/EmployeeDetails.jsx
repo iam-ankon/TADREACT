@@ -72,7 +72,11 @@ const EmployeeDetails = () => {
   const employeesPerPage = 10;
   const isInitialMount = useRef(true);
   const filterTimeoutRef = useRef(null);
-  const dropdownRef = useRef(null);
+  
+  // Separate refs for each dropdown
+  const designationDropdownRef = useRef(null);
+  const departmentDropdownRef = useRef(null);
+  const birthdateDropdownRef = useRef(null);
 
   // Load from localStorage
   useEffect(() => {
@@ -300,10 +304,23 @@ const EmployeeDetails = () => {
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      const isOutsideDesignation = 
+        designationDropdownRef.current && 
+        !designationDropdownRef.current.contains(event.target);
+      
+      const isOutsideDepartment = 
+        departmentDropdownRef.current && 
+        !departmentDropdownRef.current.contains(event.target);
+      
+      const isOutsideBirthdate = 
+        birthdateDropdownRef.current && 
+        !birthdateDropdownRef.current.contains(event.target);
+
+      if (isOutsideDesignation && isOutsideDepartment && isOutsideBirthdate) {
         closeDropdowns();
       }
     };
+    
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [closeDropdowns]);
@@ -442,7 +459,7 @@ const EmployeeDetails = () => {
               {/* Designation Filter */}
               <div className="filter-group">
                 <label>Designation</label>
-                <div className="custom-select-wrapper" ref={dropdownRef}>
+                <div className="custom-select-wrapper" ref={designationDropdownRef}>
                   <div
                     className={`custom-select ${showDesignationDropdown ? 'open' : ''}`}
                     onClick={() => {
@@ -490,7 +507,7 @@ const EmployeeDetails = () => {
               {/* Department Filter */}
               <div className="filter-group">
                 <label>Department</label>
-                <div className="custom-select-wrapper">
+                <div className="custom-select-wrapper" ref={departmentDropdownRef}>
                   <div
                     className={`custom-select ${showDepartmentDropdown ? 'open' : ''}`}
                     onClick={() => {
@@ -538,7 +555,7 @@ const EmployeeDetails = () => {
               {/* Birthdate Filter */}
               <div className="filter-group">
                 <label>Birth Date</label>
-                <div className="custom-select-wrapper">
+                <div className="custom-select-wrapper" ref={birthdateDropdownRef}>
                   <div
                     className={`custom-select ${showBirthdatePicker ? 'open' : ''}`}
                     onClick={() => {
@@ -701,7 +718,6 @@ const EmployeeDetails = () => {
                         </td>
                         <td>
                           <div className="action-buttons">
-                        
                             <button
                               className="btn-action attachment"
                               onClick={() => navigate(`/employee/${employee.id}/attachments`)}

@@ -1,4 +1,4 @@
-// src/pages/finance/SalaryFormat.jsx
+// src/pages/finance/SalaryFormat.jsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,12 +19,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
 // FIXED: Import the complete finance API
-import apiClient, {
-  employeeAPI,
-  taxAPI,
-  salaryAPI,
-  storageAPI,
-} from "../../api/finance";
+import { financeAPI } from "../../api/finance";
 
 const parseDate = (dateStr) => {
   if (!dateStr) return null;
@@ -97,60 +92,269 @@ const SalaryFormat = () => {
     }, {});
   }, [filteredEmployees]);
 
-  // FIXED: Load tax data from storage
+  // FIXED: Load initial data immediately
   useEffect(() => {
-    const loadStoredData = async () => {
-      try {
-        // Load manual data
-        const savedManual = storageAPI.getSalaryManualData();
-        if (savedManual) setManualData(savedManual);
-
-        // Load cached tax results
-        const cachedResults = storageAPI.getCachedTaxResults();
-        if (cachedResults) {
-          setTaxResults(cachedResults);
-
-          // Set loading states for AIT values
-          const loadingStates = {};
-          Object.keys(cachedResults).forEach((empId) => {
-            loadingStates[empId] = false;
-          });
-          setLoadingAit(loadingStates);
-        }
-
-        // Load source other and bonus override
-        const sourceData = await storageAPI.getSourceTaxOther();
-        if (sourceData) setSourceOther(sourceData);
-
-        const bonusData = await storageAPI.getBonusOverride();
-        if (bonusData) setBonusOverride(bonusData);
-      } catch (error) {
-        console.error("Error loading stored data:", error);
-      }
-    };
-
-    loadStoredData();
-  }, []);
-
-  // FIXED: Load employees
-  useEffect(() => {
-    const fetchEmployees = async () => {
+    const loadInitialData = async () => {
       try {
         setLoading(true);
-        const res = await employeeAPI.getAll();
+        console.log("📊 Loading initial data for Salary Format...");
+
+        // 1. Load employees
+        const res = await financeAPI.employee.getAll();
         const filtered = res.data.filter((e) => e.salary && e.employee_id);
         setEmployees(filtered);
         setFilteredEmployees(filtered);
-      } catch (e) {
-        console.error("Failed to fetch employees:", e);
+
+        const employeeIds = filtered.map((emp) => emp.employee_id);
+        console.log(`✅ Loaded ${filtered.length} employees`);
+
+        // 2. Load source other and bonus from backend
+        const { sourceTaxOther, bonusOverride: bonusData } =
+          await financeAPI.storage.smartSyncData(employeeIds);
+        setSourceOther(sourceTaxOther);
+        setBonusOverride(bonusData);
+
+        // 3. Load manual data
+        const savedManual = financeAPI.storage.getSalaryManualData();
+        if (savedManual) setManualData(savedManual);
+
+        // 4. CRITICAL: Load tax results IMMEDIATELY (like other screens do)
+        // Set initial loading states
+        employeeIds.forEach((empId) => {
+          setLoadingAit((prev) => ({ ...prev, [empId]: true }));
+        });
+
+        await loadTaxResultsImmediately(employeeIds, filtered);
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchEmployees();
-  }, []);
 
-  // FIXED: UPDATED LOAD APPROVAL STATUS FUNCTION
+    loadInitialData();
+  }, [selectedMonth, selectedYear]);
+
+  // Auto-sync on component mount
+  useEffect(() => {
+    const autoSync = async () => {
+      if (employees.length > 0 && Object.keys(taxResults).length === 0) {
+        console.log("🔄 Auto-syncing tax data...");
+        await handleSyncData();
+      }
+    };
+
+    // Wait 2 seconds then auto-sync
+    const timer = setTimeout(autoSync, 2000);
+    return () => clearTimeout(timer);
+  }, [employees.length, taxResults]);
+
+  // Add this function after the useEffect
+  const loadTaxResultsImmediately = async (employeeIds, employeeList) => {
+    console.log("🚀 Loading tax results immediately...");
+
+    try {
+      // First check localStorage cache (fastest)
+      const cachedResults = financeAPI.storage.getTaxResultsByEmployee();
+      const initialResults = {};
+
+      // Use cached results if available
+      Object.keys(cachedResults).forEach((empId) => {
+        if (cachedResults[empId] && cachedResults[empId].data) {
+          initialResults[empId] = cachedResults[empId].data;
+        }
+      });
+
+      console.log(
+        `📁 Found ${Object.keys(initialResults).length} cached results`
+      );
+
+      // Set tax results immediately from cache
+      if (Object.keys(initialResults).length > 0) {
+        setTaxResults(initialResults);
+      }
+
+      // Also check database in foreground for critical data
+      try {
+        const savedResponse = await financeAPI.tax.getCalculatedTaxes({
+          employee_ids: employeeIds,
+          month: selectedMonth,
+          year: selectedYear,
+        });
+
+        if (savedResponse.data.success && savedResponse.data.results) {
+          const databaseResults = {};
+          const savedResults = savedResponse.data.results;
+
+          Object.keys(savedResults).forEach((empId) => {
+            if (savedResults[empId]?.calculation_data) {
+              databaseResults[empId] = savedResults[empId].calculation_data;
+            }
+          });
+
+          if (Object.keys(databaseResults).length > 0) {
+            console.log(
+              `💾 Found ${
+                Object.keys(databaseResults).length
+              } tax calculations in database`
+            );
+
+            // Update with database results
+            setTaxResults((prev) => ({
+              ...prev,
+              ...databaseResults,
+            }));
+
+            // Save to cache
+            Object.keys(databaseResults).forEach((empId) => {
+              financeAPI.storage.setTaxResultsByEmployee(
+                empId,
+                databaseResults[empId]
+              );
+            });
+          }
+        }
+      } catch (dbError) {
+        console.warn("Database check failed:", dbError);
+      }
+
+      // Calculate missing ones immediately (not in background)
+      const missingIds = employeeIds.filter(
+        (id) => !initialResults[id] && !taxResults[id]
+      );
+      if (missingIds.length > 0) {
+        console.log(
+          `🧮 Calculating taxes for ${missingIds.length} employees immediately...`
+        );
+
+        // Get source and bonus data
+        const { sourceTaxOther, bonusOverride: bonusData } =
+          await financeAPI.storage.getSourceTaxOther();
+
+        // Start calculation immediately
+        calculateMissingTaxes(
+          employeeList,
+          missingIds,
+          sourceTaxOther,
+          bonusData
+        );
+      } else {
+        // Clear all loading states if no calculations needed
+        employeeIds.forEach((empId) => {
+          setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+        });
+      }
+    } catch (error) {
+      console.error("Error loading tax results:", error);
+      // Clear loading states on error
+      employeeIds.forEach((empId) => {
+        setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+      });
+    }
+  };
+
+  const calculateMissingTaxes = useCallback(
+    async (employeeList, employeeIds, sourceData, bonusData) => {
+      if (!employeeIds.length) return;
+
+      console.log(
+        `🧮 Calculating taxes for ${employeeIds.length} employees...`
+      );
+      setCalculatingTaxes(true);
+
+      const newResults = { ...taxResults };
+
+      // Set loading states for each employee
+      employeeIds.forEach((empId) => {
+        setLoadingAit((prev) => ({ ...prev, [empId]: true }));
+      });
+
+      const batchSize = 10; // Increased batch size for faster calculation
+
+      for (let i = 0; i < employeeIds.length; i += batchSize) {
+        const batchIds = employeeIds.slice(i, i + batchSize);
+
+        await Promise.all(
+          batchIds.map(async (empId) => {
+            const emp = employeeList.find((e) => e.employee_id === empId);
+            if (!emp) {
+              setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+              return;
+            }
+
+            const monthlySalary = Number(emp.salary) || 0;
+
+            try {
+              let taxData;
+
+              if (monthlySalary <= 41000) {
+                // No tax deduction
+                taxData = {
+                  tax_calculation: {
+                    monthly_tds: 0,
+                    calculated_tds: 0,
+                    should_deduct_tax: false,
+                    actual_deduction: 0,
+                    deduction_reason: "Salary ≤ 41,000 - No tax deduction",
+                  },
+                  salary_breakdown: {
+                    bonus: bonusData[empId] || 0,
+                    monthly_salary: monthlySalary,
+                  },
+                };
+              } else {
+                // Calculate tax
+                const response = await financeAPI.tax.calculate({
+                  employee_id: empId,
+                  gender: emp.gender === "M" ? "Male" : "Female",
+                  source_other: sourceData[empId] || 0,
+                  bonus: bonusData[empId] || 0,
+                  monthly_salary: monthlySalary,
+                });
+
+                taxData = response.data;
+              }
+
+              // Update state immediately
+              newResults[empId] = taxData;
+              setTaxResults((prev) => ({ ...prev, [empId]: taxData }));
+
+              // Clear loading state
+              setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+
+              // Save to cache immediately
+              financeAPI.storage.setTaxResultsByEmployee(empId, taxData);
+
+              // Save to database in background
+              financeAPI.tax
+                .saveCalculatedTax({
+                  employee_id: empId,
+                  month: selectedMonth,
+                  year: selectedYear,
+                  calculation_data: taxData,
+                  calculated_by: "system",
+                })
+                .catch((e) => console.warn(`Save failed for ${empId}:`, e));
+            } catch (err) {
+              console.error(`Failed to calculate for ${empId}:`, err);
+              setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+            }
+          })
+        );
+
+        // Small delay between batches to prevent overwhelming the server
+        if (i + batchSize < employeeIds.length) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      setCalculatingTaxes(false);
+      console.log(`✅ Tax calculation completed`);
+    },
+    [taxResults, selectedMonth, selectedYear]
+  );
+
+  // FIXED: Load approval status from backend
   const loadApprovalStatus = useCallback(
     async (companyName = "All Companies") => {
       try {
@@ -159,11 +363,8 @@ const SalaryFormat = () => {
           `📡 Loading approval status for company: ${companyName}...`
         );
 
-        // Use apiClient instead of fetch
-        const response = await apiClient.get(
-          `/api/approval-status/?company_name=${encodeURIComponent(
-            companyName
-          )}`
+        const response = await financeAPI.approval.getApprovalStatus(
+          companyName
         );
 
         console.log(
@@ -254,190 +455,6 @@ const SalaryFormat = () => {
     detectUser();
   }, []);
 
-  // FIXED: IMPROVED TAX CALCULATION FUNCTION
-  const calculateTaxesForEmployees = useCallback(
-    async (employeeList = filteredEmployees) => {
-      if (employeeList.length === 0) return;
-
-      console.log(
-        `🧮 Calculating taxes for ${employeeList.length} employees...`
-      );
-      setCalculatingTaxes(true);
-
-      try {
-        const results = { ...taxResults };
-        const newLoadingStates = { ...loadingAit };
-
-        // Process in smaller batches to avoid overwhelming the server
-        const batchSize = 3;
-        for (let i = 0; i < employeeList.length; i += batchSize) {
-          const batch = employeeList.slice(i, i + batchSize);
-
-          const batchPromises = batch.map(async (emp) => {
-            const empId = emp.employee_id;
-            const monthlySalary = Number(emp.salary) || 0;
-            const gender = emp.gender === "M" ? "Male" : "Female";
-            const other = sourceOther[empId] || 0;
-            const bonus = bonusOverride[empId] || monthlySalary; // Default to 1 month salary
-
-            // Set loading state
-            newLoadingStates[empId] = true;
-            setLoadingAit({ ...newLoadingStates });
-
-            try {
-              let taxData;
-
-              if (monthlySalary <= 41000) {
-                // No tax deduction for salary ≤ 41,000
-                taxData = {
-                  tax_calculation: {
-                    monthly_tds: 0,
-                    calculated_tds: 0,
-                    should_deduct_tax: false,
-                    actual_deduction: 0,
-                    note: "Salary ≤ 41,000 - No tax deduction",
-                    deduction_reason: "Salary at or below 41,000 threshold",
-                  },
-                };
-              } else {
-                // Calculate tax for salary > 41,000 using the API
-                console.log(
-                  `Calculating tax for ${empId}: Salary ${monthlySalary}`
-                );
-
-                const response = await taxAPI.calculate({
-                  employee_id: empId,
-                  gender: gender,
-                  source_other: parseFloat(String(other)) || 0,
-                  monthly_salary: monthlySalary,
-                  bonus: bonus,
-                });
-
-                taxData = response.data;
-
-                // Ensure deduction flags are set properly
-                if (taxData.tax_calculation) {
-                  // The backend should already set should_deduct_tax = true for salary > 41,000
-                  // But we ensure it here
-                  const taxCalc = taxData.tax_calculation;
-                  const calculatedTds = taxCalc.monthly_tds || taxCalc.calculated_tds || 0;
-                  
-                  taxCalc.should_deduct_tax = true; // Always true for salary > 41,000
-                  taxCalc.actual_deduction = calculatedTds; // Full deduction for > 41K
-                  taxCalc.deduction_reason = "Salary above 41,000 threshold";
-                }
-              }
-
-              results[empId] = taxData;
-              console.log(
-                `✅ Tax calculated for ${empId}:`,
-                taxData.tax_calculation?.monthly_tds,
-                "Should deduct:", 
-                taxData.tax_calculation?.should_deduct_tax
-              );
-
-              return { empId, success: true };
-            } catch (error) {
-              console.error(`❌ Tax calculation failed for ${empId}:`, error);
-
-              // Fallback calculation
-              let calculatedTax = 0;
-              if (monthlySalary > 41000) {
-                // Simple fallback calculation (5% approximation)
-                calculatedTax = Math.round(monthlySalary * 0.05);
-              }
-
-              results[empId] = {
-                tax_calculation: {
-                  monthly_tds: calculatedTax,
-                  calculated_tds: calculatedTax,
-                  should_deduct_tax: monthlySalary > 41000,
-                  calculated_tax: calculatedTax,
-                  actual_deduction: monthlySalary > 41000 ? calculatedTax : 0,
-                  note: "Calculated via fallback",
-                  deduction_reason: monthlySalary > 41000 
-                    ? "Salary above 41,000 (fallback)" 
-                    : "Salary at or below 41,000",
-                },
-              };
-
-              return { empId, success: false, error: error.message };
-            } finally {
-              // Clear loading state
-              newLoadingStates[empId] = false;
-              setLoadingAit({ ...newLoadingStates });
-            }
-          });
-
-          await Promise.all(batchPromises);
-
-          // Update state after each batch
-          setTaxResults({ ...results });
-          storageAPI.setCachedTaxResults(results);
-
-          // Small delay between batches
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        }
-
-        console.log("✅ All tax calculations completed");
-
-        // Calculate total tax
-        const totalTax = Object.values(results).reduce((sum, result) => {
-          return sum + (result?.tax_calculation?.actual_deduction || 0);
-        }, 0);
-
-        console.log(`💰 Total AIT to deduct: ${formatNumber(totalTax)}`);
-      } catch (error) {
-        console.error("❌ Error in tax calculation process:", error);
-      } finally {
-        setCalculatingTaxes(false);
-      }
-    },
-    [taxResults, loadingAit, sourceOther, bonusOverride, filteredEmployees]
-  );
-
-  // FIXED: Trigger tax calculation when employees are loaded
-  useEffect(() => {
-    if (employees.length > 0 && !calculatingTaxes) {
-      // Check which employees need tax calculation
-      const employeesNeedingCalculation = employees.filter((emp) => {
-        const empId = emp.employee_id;
-        const monthlySalary = Number(emp.salary) || 0;
-
-        // Check if we already have a valid tax result
-        const existingResult = taxResults[empId];
-
-        // Need calculation if:
-        // 1. No existing result OR
-        // 2. Salary has changed significantly OR
-        // 3. We need to check if salary > 41K
-        if (!existingResult) return true;
-
-        // Check if salary changed by more than 1%
-        const existingSalary = existingResult.monthly_salary;
-        if (
-          existingSalary &&
-          Math.abs(monthlySalary - existingSalary) > monthlySalary * 0.01
-        ) {
-          return true;
-        }
-
-        return false;
-      });
-
-      if (employeesNeedingCalculation.length > 0) {
-        console.log(
-          `📊 ${employeesNeedingCalculation.length} employees need tax calculation`
-        );
-
-        // Small delay to let UI render first
-        setTimeout(() => {
-          calculateTaxesForEmployees(employeesNeedingCalculation);
-        }, 1000);
-      }
-    }
-  }, [employees, calculatingTaxes, taxResults, calculateTaxesForEmployees]);
-
   // FIXED: Filter employees based on search
   useEffect(() => {
     const term = searchTerm.toLowerCase().trim();
@@ -467,7 +484,100 @@ const SalaryFormat = () => {
     }
   }, [currentUser, employees.length, loadApprovalStatus]);
 
-  // FIXED: MANUAL TAX RECALCULATION BUTTON
+  // FIXED: Get AIT value with proper deduction logic (similar to FinanceProvision)
+  const getAitValue = useCallback(
+    (empId, monthlySalary) => {
+      const loadingState = loadingAit[empId] || false;
+
+      if (loadingState) {
+        return { ait: 0, calculatedAit: 0, shouldDeduct: false, loading: true };
+      }
+
+      const result = taxResults[empId];
+
+      // DEBUG: Log what we have
+      console.log(`🔍 getAitValue for ${empId}:`, {
+        hasResult: !!result,
+        result: result,
+        monthlySalary: monthlySalary,
+      });
+
+      if (!result) {
+        return {
+          ait: 0,
+          calculatedAit: 0,
+          shouldDeduct: false,
+          loading: false,
+          deductionReason: "No tax data found",
+        };
+      }
+
+      // Extract tax calculation data
+      const taxCalc = result.tax_calculation || {};
+
+      // Get calculated TDS value - check multiple possible field names
+      let calculatedAit = 0;
+      if (taxCalc.monthly_tds !== undefined) {
+        calculatedAit = parseFloat(taxCalc.monthly_tds) || 0;
+      } else if (taxCalc.calculated_tds !== undefined) {
+        calculatedAit = parseFloat(taxCalc.calculated_tds) || 0;
+      } else if (taxCalc.net_tax_payable !== undefined) {
+        calculatedAit = parseFloat(taxCalc.net_tax_payable) || 0;
+      }
+
+      // CRITICAL FIX: Check if tax should be deducted
+      let shouldDeduct = false;
+
+      // Rule 1: If salary <= 41,000, no tax deduction
+      if (monthlySalary <= 41000) {
+        shouldDeduct = false;
+      }
+      // Rule 2: Use the flag from backend if available
+      else if (taxCalc.should_deduct_tax !== undefined) {
+        shouldDeduct = taxCalc.should_deduct_tax === true;
+      }
+      // Rule 3: If calculated tax > 0 and salary > 41,000, deduct
+      else if (calculatedAit > 0) {
+        shouldDeduct = true;
+      }
+
+      // Set actual deduction amount
+      let ait = 0;
+      if (shouldDeduct) {
+        // Use actual_deduction if available, otherwise use calculatedAit
+        ait = parseFloat(taxCalc.actual_deduction) || calculatedAit || 0;
+      } else {
+        ait = 0;
+      }
+
+      console.log(`📊 AIT calculation for ${empId}:`, {
+        salary: monthlySalary,
+        calculatedAit: calculatedAit,
+        shouldDeduct: shouldDeduct,
+        actualAit: ait,
+        taxCalcData: taxCalc,
+      });
+
+      return {
+        ait,
+        calculatedAit,
+        shouldDeduct,
+        loading: false,
+        deductionReason:
+          taxCalc.deduction_reason ||
+          (shouldDeduct
+            ? `Salary above 41,000 (${formatNumber(monthlySalary)})`
+            : monthlySalary <= 41000
+            ? `Salary at or below 41,000 threshold (${formatNumber(
+                monthlySalary
+              )})`
+            : "No tax calculated"),
+      };
+    },
+    [taxResults, loadingAit]
+  );
+
+  // MANUAL TAX RECALCULATION BUTTON (similar to FinanceProvision)
   const handleRecalculateTaxes = async () => {
     if (
       window.confirm(
@@ -476,99 +586,99 @@ const SalaryFormat = () => {
     ) {
       // Clear existing tax results
       setTaxResults({});
-      storageAPI.clearAllTaxResults();
+      financeAPI.storage.clearAllTaxResults();
+
+      // Set loading states
+      filteredEmployees.forEach((emp) => {
+        setLoadingAit((prev) => ({ ...prev, [emp.employee_id]: true }));
+      });
+
+      // Clear backend calculations
+      try {
+        await financeAPI.tax.clearCalculatedTaxes({
+          month: selectedMonth,
+          year: selectedYear,
+        });
+      } catch (err) {
+        console.warn("Could not clear backend:", err);
+      }
 
       // Recalculate for all filtered employees
-      await calculateTaxesForEmployees(filteredEmployees);
+      const employeeIds = filteredEmployees.map((emp) => emp.employee_id);
+      const { sourceTaxOther, bonusOverride: bonusData } =
+        await financeAPI.storage.getSourceTaxOther();
+
+      calculateMissingTaxes(
+        filteredEmployees,
+        employeeIds,
+        sourceTaxOther,
+        bonusData
+      );
     }
   };
 
-  // FIXED: Get AIT value with proper deduction logic
-  const getAitValue = useCallback(
-    (empId, monthlySalary) => {
-      if (loadingAit[empId]) {
-        return { ait: 0, calculatedAit: 0, shouldDeduct: false, loading: true };
-      }
+  const handleSyncData = async () => {
+    try {
+      console.log("🔄 Syncing data...");
+      setCalculatingTaxes(true);
 
-      const result = taxResults[empId];
-      if (!result) {
-        return {
-          ait: 0,
-          calculatedAit: 0,
-          shouldDeduct: false,
-          loading: false,
-        };
-      }
-      
-      if (result.error) {
-        return {
-          ait: 0,
-          calculatedAit: 0,
-          shouldDeduct: false,
-          loading: false,
-        };
-      }
+      // Show loading states
+      filteredEmployees.forEach((emp) => {
+        setLoadingAit((prev) => ({ ...prev, [emp.employee_id]: true }));
+      });
 
-      const taxCalc = result.tax_calculation || {};
-      
-      // Get the calculated monthly TDS
-      const calculatedAit = taxCalc.monthly_tds || taxCalc.calculated_tds || 0;
-      
-      // CRITICAL FIX: Check if tax should be deducted
-      // Rule: Only deduct tax if salary > 41,000 AND calculated tax > 0
-      const shouldDeduct = monthlySalary > 41000 && calculatedAit > 0;
-      
-      // Set actual deduction amount based on shouldDeduct flag
-      let ait = 0;
-      if (shouldDeduct) {
-        // Use actual_deduction if available, otherwise use calculatedAit
-        ait = taxCalc.actual_deduction || calculatedAit || 0;
+      const employeeIds = employees.map((emp) => emp.employee_id);
+
+      // Get fresh from database
+      const savedResponse = await financeAPI.tax.getCalculatedTaxes({
+        employee_ids: employeeIds,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      if (savedResponse.data.success && savedResponse.data.results) {
+        const databaseResults = {};
+        const savedResults = savedResponse.data.results;
+
+        Object.keys(savedResults).forEach((empId) => {
+          if (savedResults[empId]?.calculation_data) {
+            databaseResults[empId] = savedResults[empId].calculation_data;
+          }
+        });
+
+        setTaxResults(databaseResults);
+
+        // Clear loading states for employees with data
+        Object.keys(databaseResults).forEach((empId) => {
+          setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+        });
+
+        console.log(`✅ Synced ${Object.keys(databaseResults).length} records`);
+        alert(
+          `✅ Data synced! Found ${
+            Object.keys(databaseResults).length
+          } records.`
+        );
       } else {
-        // No deduction for salary ≤ 41,000
-        ait = 0;
+        alert("⚠️ No data found. Calculating taxes...");
+
+        // If no data, calculate taxes
+        const { sourceTaxOther, bonusOverride: bonusData } =
+          await financeAPI.storage.getSourceTaxOther();
+
+        await calculateMissingTaxes(
+          filteredEmployees,
+          employeeIds,
+          sourceTaxOther,
+          bonusData
+        );
       }
-
-      return {
-        ait,
-        calculatedAit,
-        shouldDeduct,
-        loading: false,
-        deductionReason: taxCalc.deduction_reason || 
-          (shouldDeduct 
-            ? "Salary above 41,000" 
-            : monthlySalary <= 41000 
-              ? "Salary at or below 41,000" 
-              : "No tax calculated"),
-      };
-    },
-    [taxResults, loadingAit]
-  );
-
-  // Debug function for tax calculation issues
-  const debugTaxCalculation = (empId, monthlySalary) => {
-    const result = taxResults[empId];
-    const taxCalc = result?.tax_calculation || {};
-    
-    console.log(`🔍 DEBUG Tax for ${empId}:`, {
-      employeeId: empId,
-      monthlySalary: monthlySalary,
-      hasResult: !!result,
-      hasTaxCalc: !!result?.tax_calculation,
-      monthlyTds: taxCalc.monthly_tds,
-      calculatedTds: taxCalc.calculated_tds,
-      shouldDeduct: taxCalc.should_deduct_tax,
-      actualDeduction: taxCalc.actual_deduction,
-      deductionReason: taxCalc.deduction_reason,
-      isSalaryAbove41K: monthlySalary > 41000,
-      calculatedAit: getAitValue(empId, monthlySalary).calculatedAit,
-      ait: getAitValue(empId, monthlySalary).ait,
-      shouldDeductResult: getAitValue(empId, monthlySalary).shouldDeduct,
-    });
-  };
-
-  // Handle AIT cell click for debugging
-  const handleAitCellClick = (empId, monthlySalary) => {
-    debugTaxCalculation(empId, monthlySalary);
+    } catch (error) {
+      console.error("❌ Sync failed:", error);
+      alert("❌ Sync failed. Check console.");
+    } finally {
+      setCalculatingTaxes(false);
+    }
   };
 
   // FIXED: Save data function
@@ -579,6 +689,7 @@ const SalaryFormat = () => {
         if (!empId) return null;
 
         const monthlySalary = Number(emp.salary) || 0;
+        const salaryCash = Number(emp.salary_cash) || 0;
 
         const basicFull = Number((monthlySalary * 0.6).toFixed(2));
         const houseRentFull = Number((monthlySalary * 0.3).toFixed(2));
@@ -622,7 +733,7 @@ const SalaryFormat = () => {
           ).toFixed(2)
         );
         const totalPayable = Number(
-          (netPayBank + cashPayment + ait).toFixed(2)
+          (netPayBank + cashPayment + ait + salaryCash).toFixed(2)
         );
 
         let dojStr = "";
@@ -670,7 +781,7 @@ const SalaryFormat = () => {
     console.log("Saving payroll data:", payload.length, "rows");
 
     try {
-      const res = await salaryAPI.saveSalary(payload);
+      const res = await financeAPI.salary.saveSalary(payload);
       const saved = res.data.saved || 0;
       const errors = res.data.errors || [];
 
@@ -723,14 +834,13 @@ const SalaryFormat = () => {
       },
     };
     setManualData(newData);
-    storageAPI.setSalaryManualData(newData);
+    financeAPI.storage.setSalaryManualData(newData);
   };
 
   const getManual = (empId, field, defaultVal = 0) => {
     return manualData[empId]?.[field] ?? defaultVal;
   };
 
-  // SalaryFormat.jsx - Update generateExcelForCompany function
   const generateExcelForCompany = async (companyName) => {
     try {
       // Set loading state for this company
@@ -743,51 +853,30 @@ const SalaryFormat = () => {
       const month = currentDate.getMonth() + 1;
       const year = currentDate.getFullYear();
 
-      // Call the EXISTING endpoint: /api/tax-calculator/api/generate-excel-now/
-      const response = await apiClient.post(
-        "/api/tax-calculator/api/generate-excel-now/",
-        {
+      // Call the NEW bank transfer endpoint
+      const response =
+        await financeAPI.salaryRecordsAPI.generateBankTransferExcel({
           company_name: companyName,
           month: month,
           year: year,
-        },
-        {
-          responseType: "blob", // Important for file download
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      // Get filename from headers or create one
-      const contentDisposition = response.headers["content-disposition"];
-      let filename = `${companyName.replace(/\s+/g, "_")}_Bank_Salary_${
-        monthNames[month - 1]
-      }_${year}.xlsx`;
-
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="(.+)"/);
-        if (match && match[1]) {
-          filename = decodeURIComponent(match[1]);
-        }
-      }
-
-      // Create blob and download
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
+        });
 
       // Create download link
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.download = filename;
+      link.setAttribute(
+        "download",
+        `${companyName.replace(/\s+/g, "_")}_Bank_Salary_${
+          monthNames[month - 1]
+        }_${year}.xlsx`
+      );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      console.log(`✅ Bank Excel file generated and downloaded: ${filename}`);
+      console.log(`✅ Bank transfer Excel file generated and downloaded!`);
       alert(
         `Bank transfer Excel file generated successfully for ${companyName}!`
       );
@@ -802,18 +891,6 @@ const SalaryFormat = () => {
         alert(
           `❌ Server error while generating Excel. Please check backend logs.`
         );
-      } else if (error.response?.data) {
-        // Try to parse error message from response
-        try {
-          const reader = new FileReader();
-          reader.onload = function () {
-            const errorText = reader.result;
-            alert(`❌ Server error: ${errorText}`);
-          };
-          reader.readAsText(error.response.data);
-        } catch {
-          alert(`❌ Failed to generate bank Excel file for ${companyName}.`);
-        }
       } else {
         alert(
           `❌ Failed to generate bank Excel file for ${companyName}. Error: ${error.message}`
@@ -824,135 +901,48 @@ const SalaryFormat = () => {
       setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
     }
   };
+  // Function to call backend Excel generation
+  const exportCompanyData = async (companyName) => {
+    try {
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
 
-  // FIXED: Export company data
-  const exportCompanyData = (companyName) => {
-    const emps = grouped[companyName];
-    if (!emps || emps.length === 0) return;
-
-    const headers = [
-      "SL",
-      "Name",
-      "ID",
-      "Designation",
-      "DOJ",
-      "Basic",
-      "House Rent",
-      "Medical",
-      "Conveyance",
-      "Gross Salary",
-      "Total Days",
-      "Days Worked",
-      "Absent Days",
-      "Absent Deduction",
-      "Advance",
-      "AIT",
-      "Total Deduction",
-      "OT Hours",
-      "Addition",
-      "Cash Payment",
-      "Net Pay (Bank)",
-      "Total Payable",
-      "Remarks",
-      "Bank Account",
-      "Branch Code",
-    ];
-
-    const rows = [];
-
-    emps.forEach((emp, idx) => {
-      const monthlySalary = Number(emp.salary) || 0;
-      const empId = emp.employee_id;
-
-      const basicFull = monthlySalary * 0.6;
-      const houseRentFull = monthlySalary * 0.3;
-      const medicalFull = monthlySalary * 0.05;
-      const conveyanceFull = monthlySalary * 0.05;
-      const grossFull = monthlySalary;
-
-      // Get tax calculation with deduction logic
-      const { ait } = getAitValue(empId, monthlySalary);
-
-      const daysWorkedManual = getManual(empId, "daysWorked");
-      const cashPayment = getManual(empId, "cashPayment");
-      const addition = getManual(empId, "addition");
-      const advance = getManual(empId, "advance");
-      const remarks = getManual(empId, "remarks", "");
-
-      const doj = parseDate(emp.joining_date);
-      const isNewJoiner =
-        doj &&
-        doj.getMonth() + 1 === selectedMonth &&
-        doj.getFullYear() === selectedYear;
-      const defaultDays = isNewJoiner
-        ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-        : totalDaysInMonth;
-      const daysWorked = daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
-      const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
-
-      const dailyRate = monthlySalary / totalDaysInMonth;
-      const dailyBasic = basicFull / BASE_MONTH;
-      const absentDeduction = dailyBasic * absentDays;
-      const totalDeduction = ait + advance + absentDeduction;
-
-      const netPayBank =
-        (monthlySalary / totalDaysInMonth) * daysWorked -
-        cashPayment -
-        totalDeduction +
-        addition;
-      const totalPayable = netPayBank + cashPayment + ait;
-
-      rows.push([
-        idx + 1,
-        emp.name,
-        empId,
-        emp.designation,
-        emp.joining_date,
-        basicFull,
-        houseRentFull,
-        medicalFull,
-        conveyanceFull,
-        grossFull,
-        totalDaysInMonth,
-        daysWorked,
-        absentDays,
-        absentDeduction,
-        advance,
-        ait,
-        totalDeduction,
-        0,
-        addition,
-        cashPayment,
-        netPayBank,
-        totalPayable,
-        remarks,
-        emp.bank_account,
-        emp.branch_name,
-      ]);
-    });
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-
-    const colWidths = headers.map((_, i) => {
-      const max = Math.max(
-        ...rows.map((row) => (row[i] != null ? String(row[i]).length : 0)),
-        String(headers[i]).length
+      console.log(
+        `🔄 Requesting Excel generation from backend for ${companyName}...`
       );
-      return { wch: Math.min(max + 2, 50) };
-    });
-    ws["!cols"] = colWidths;
 
-    XLSX.utils.book_append_sheet(wb, ws, "Salary Sheet");
+      const response = await financeAPI.salaryRecordsAPI.generateExcelNow({
+        company_name: companyName,
+        month: selectedMonth,
+        year: selectedYear,
+      });
 
-    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(
-      blob,
-      `${companyName}_Salary_${
-        monthNames[selectedMonth - 1]
-      }_${selectedYear}.xlsx`
-    );
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `${companyName}_SALARY_${
+          monthNames[selectedMonth - 1]
+        }_${selectedYear}.xlsx`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      console.log(`✅ Excel generated successfully from backend`);
+      alert(`✅ Excel file generated from backend and downloaded!`);
+    } catch (error) {
+      console.error("❌ Excel generation failed:", error);
+      alert(
+        `❌ Failed to generate Excel: ${
+          error.response?.data?.error || error.message
+        }`
+      );
+    } finally {
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
+    }
   };
 
   const exportAllCompanies = () => {
@@ -1067,7 +1057,7 @@ const SalaryFormat = () => {
     console.log(`📧 Processing ${step} for ${companyName} by ${currentUser}`);
 
     try {
-      const response = await apiClient.post("/api/salary-approval/", {
+      const response = await financeAPI.approval.sendApproval({
         step: step,
         company_name: companyName,
         user_name: currentUser,
@@ -1149,13 +1139,22 @@ const SalaryFormat = () => {
 
                 <div className="action-buttons">
                   <button
+                    onClick={handleSyncData}
+                    className="btn btn-sync"
+                    disabled={calculatingTaxes}
+                  >
+                    <FaSync />
+                    Sync DB
+                  </button>
+
+                  {/* <button
                     onClick={handleRecalculateTaxes}
                     className="btn btn-recalculate"
                     disabled={calculatingTaxes}
                   >
                     <FaSync />
                     {calculatingTaxes ? "Calculating..." : "Recalc Taxes"}
-                  </button>
+                  </button> */}
 
                   <button
                     onClick={exportAllCompanies}
@@ -1207,9 +1206,12 @@ const SalaryFormat = () => {
               <span className="status-value">{filteredEmployees.length}</span>
             </div>
             <div className="status-item">
-              <span className="status-label">Salary {'>'} 41K:</span>
+              <span className="status-label">Salary {">"} 41K:</span>
               <span className="status-value">
-                {filteredEmployees.filter(e => Number(e.salary || 0) > 41000).length}
+                {
+                  filteredEmployees.filter((e) => Number(e.salary || 0) > 41000)
+                    .length
+                }
               </span>
             </div>
             <div className="status-item">
@@ -1223,7 +1225,10 @@ const SalaryFormat = () => {
               <span className="status-value">
                 {formatNumber(
                   filteredEmployees.reduce((sum, e) => {
-                    const { ait } = getAitValue(e.employee_id, Number(e.salary || 0));
+                    const { ait } = getAitValue(
+                      e.employee_id,
+                      Number(e.salary || 0)
+                    );
                     return sum + ait;
                   }, 0)
                 )}
@@ -1327,6 +1332,7 @@ const SalaryFormat = () => {
                           <th>OT Hours</th>
                           <th>Addition</th>
                           <th>Cash Payment</th>
+                          <th>Cash Salary</th>
                           <th>Net Pay (Bank)</th>
                           <th>Total Payable</th>
                           <th>Bank Account</th>
@@ -1337,6 +1343,7 @@ const SalaryFormat = () => {
                       <tbody>
                         {emps.map((emp, idx) => {
                           const monthlySalary = Number(emp.salary) || 0;
+                          const salaryCash = Number(emp.salary_cash) || 0;
                           const empId = emp.employee_id;
 
                           const basicFull = monthlySalary * 0.6;
@@ -1345,7 +1352,7 @@ const SalaryFormat = () => {
                           const conveyanceFull = monthlySalary * 0.05;
                           const grossFull = monthlySalary;
 
-                          // FIXED: Get AIT value with debug capability
+                          // FIXED: Get AIT value from backend (same as FinanceProvision)
                           const { ait, calculatedAit, shouldDeduct, loading } =
                             getAitValue(empId, monthlySalary);
 
@@ -1378,6 +1385,7 @@ const SalaryFormat = () => {
                           const dailyRate = monthlySalary / totalDaysInMonth;
                           const dailyBasic = basicFull / BASE_MONTH;
                           const absentDeduction = dailyBasic * absentDays;
+                          
                           const totalDeduction =
                             ait + advance + absentDeduction;
 
@@ -1386,7 +1394,7 @@ const SalaryFormat = () => {
                             cashPayment -
                             totalDeduction +
                             addition;
-                          const totalPayable = netPayBank + cashPayment + ait;
+                          const totalPayable = netPayBank + cashPayment + ait + salaryCash;
 
                           return (
                             <tr key={empId} className="data-row">
@@ -1465,11 +1473,14 @@ const SalaryFormat = () => {
                                     ? "tax-deducted"
                                     : ""
                                 }`}
-                                onClick={() => handleAitCellClick(empId, monthlySalary)}
-                                style={{ cursor: 'help' }}
                               >
                                 {loading ? (
-                                  <span className="loading-dots">...</span>
+                                  <div className="loading-spinner-small">
+                                    <div className="spinner-tiny"></div>
+                                    <span className="loading-text">
+                                      Calculating...
+                                    </span>
+                                  </div>
                                 ) : (
                                   <div className="tax-breakdown">
                                     <div className="tax-amount-main">
@@ -1493,14 +1504,16 @@ const SalaryFormat = () => {
                                         ✓ Deducted
                                       </div>
                                     )}
-                                    {!calculatedAit && !shouldDeduct && monthlySalary > 0 && (
-                                      <div
-                                        className="tax-note"
-                                        title="No tax calculation available"
-                                      >
-                                        No tax
-                                      </div>
-                                    )}
+                                    {!calculatedAit &&
+                                      !shouldDeduct &&
+                                      monthlySalary > 0 && (
+                                        <div
+                                          className="tax-note"
+                                          title="No tax calculation available"
+                                        >
+                                          No tax
+                                        </div>
+                                      )}
                                   </div>
                                 )}
                               </td>
@@ -1540,6 +1553,9 @@ const SalaryFormat = () => {
                                   }
                                   className="editable-input cash-input"
                                 />
+                              </td>
+                              <td className="total-payable">
+                                {formatNumber(salaryCash + cashPayment)}
                               </td>
 
                               <td
@@ -1658,14 +1674,14 @@ const SalaryFormat = () => {
                   <FaUsers className="section-icon" />
                   Summary Overview
                 </h2>
-                <div className="summary-actions">
+                {/* <div className="summary-actions">
                   <button
                     onClick={exportAllCompanies}
                     className="btn btn-export-all"
                   >
                     <FaFileExport /> Export All
                   </button>
-                </div>
+                </div> */}
               </div>
 
               <div className="summary-stats">
@@ -2156,6 +2172,24 @@ const SalaryFormat = () => {
           background: linear-gradient(135deg, #059669 0%, #047857 100%);
         }
 
+        .btn-sync {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: white;
+        }
+
+        .btn-sync:hover {
+          background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        }
+
+        .btn-recalculate {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: white;
+        }
+
+        .btn-recalculate:hover {
+          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+        }
+
         .btn-export-all,
         .btn-export-section {
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -2487,31 +2521,37 @@ const SalaryFormat = () => {
           width: 130px;
         }
 
-        /* AIT LOADING STYLES */
-        .tax-amount.loading {
+        /* LOADING SPINNER FOR AIT CELLS */
+        .loading-spinner-small {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 5px;
+        }
+
+        .spinner-tiny {
+          width: 16px;
+          height: 16px;
+          border: 2px solid #8b5cf6;
+          border-top: 2px solid transparent;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+          font-size: 0.7rem;
           color: #6b7280;
-          font-style: italic;
-          background: #f3f4f6;
-          padding: 0.5rem;
-          border-radius: 8px;
         }
 
-        .loading-dots {
-          animation: loadingDots 1.5s infinite;
-          color: #8b5cf6;
-        }
-
-        @keyframes loadingDots {
-          0%,
-          20% {
-            opacity: 0;
-          }
-          50% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 0;
-          }
+        .tax-amount.loading {
+          background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%) !important;
+          border: 2px solid #d1d5db !important;
+          color: #6b7280 !important;
+          min-height: 60px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         /* TAX BREAKDOWN STYLES */

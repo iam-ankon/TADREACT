@@ -495,6 +495,38 @@ export const salaryRecordsAPI = {
 
   // Debug endpoint
   getDebugInfo: () => apiClient.get("/salary-records-debug/"),
+
+  //   // New function for immediate Excel generation
+  // generateExcelNow: (companyName, month, year) => {
+  //   return apiClient.post('/api/generate-excel-now/', {
+  //     company_name: companyName,
+  //     month: month,
+  //     year: year
+  //   }, {
+  //     responseType: 'blob', // Important for file downloads
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //     }
+  //   });
+  // },
+
+  generateExcelNow: (data) => {
+    return apiClient.post("/generate-excel-now/", data, {
+      responseType: "blob", // Important for file download
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
+
+  generateBankTransferExcel: (data) => {
+    return apiClient.post("/generate-bank-transfer-excel/", data, {
+      responseType: "blob", // Important for file download
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
 };
 
 // Approval APIs
@@ -1094,6 +1126,8 @@ export const financeAPI = {
   storage: storageAPI,
   utils: salaryUtils,
   batch: batchCalculationUtils,
+
+  salaryRecordsAPI: salaryRecordsAPI,
 
   // Batch calculation method
   batchCalculateTaxes: async (

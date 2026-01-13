@@ -3,6 +3,7 @@ import {
   getAttendance,
   getEmployees,
   getCompanies,
+  deleteAttendanceByMonth,
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
@@ -15,6 +16,12 @@ const Attendance = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Delete functionality states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const [monthFilter, setMonthFilter] = useState(() => {
     const now = new Date();
@@ -86,9 +93,44 @@ const Attendance = () => {
     }
   }, [dateRangeStart, dateRangeEnd]);
 
-  // ... (all the helper functions remain exactly the same)
+  // Delete monthly attendance function
+  const handleDeleteMonthlyAttendance = async () => {
+    if (!monthFilter) {
+      alert("Please select a month first");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ALL attendance records for ${monthFilter}? This action cannot be undone!`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError("");
+    
+    try {
+      const [year, month] = monthFilter.split('-');
+      await deleteAttendanceByMonth(year, month);
+      
+      // Refresh attendance data
+      const attRes = await getAttendance();
+      setAttendance(attRes?.data || []);
+      
+      setDeleteSuccess(true);
+      setTimeout(() => setDeleteSuccess(false), 3000);
+      
+      // Show success message
+      alert(`Successfully deleted attendance records for ${monthFilter}`);
+    } catch (error) {
+      setDeleteError(error.message || "Failed to delete attendance");
+      alert(`Error: ${error.message || "Failed to delete attendance"}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Helper functions
   const formatTimeToAMPM = (timeStr) => {
-    if (!timeStr) return "9:30 AM"; // Default to 8:00 AM when no time provided
+    if (!timeStr) return "9:30 AM";
 
     try {
       const timePart = timeStr.includes("T")
@@ -99,7 +141,7 @@ const Attendance = () => {
       const hours12 = hours % 12 || 12;
       return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
     } catch {
-      return "9:30 AM"; // Default to 8:00 AM on error
+      return "9:30 AM";
     }
   };
 
@@ -145,7 +187,7 @@ const Attendance = () => {
     };
   };
 
-  // ... (all filter functions remain exactly the same)
+  // Filter functions
   const filterAttendanceByNameAndId = (records) => {
     if (!records || !Array.isArray(records)) return [];
     if (!searchTerm) return records;
@@ -245,7 +287,7 @@ const Attendance = () => {
     return filtered;
   };
 
-  // ... (all report generation functions remain exactly the same)
+  // Report generation functions
   const generateSmartReport = () => {
     let data = getFilteredAttendance();
     if (!data || data.length === 0) {
@@ -508,6 +550,29 @@ const Attendance = () => {
             </div>
           </div>
 
+          {/* Status Messages */}
+          {(deleteSuccess || deleteError) && (
+            <div style={{
+              padding: "12px 16px",
+              marginBottom: "16px",
+              borderRadius: "8px",
+              backgroundColor: deleteSuccess ? "#d1fae5" : "#fee2e2",
+              border: `1px solid ${deleteSuccess ? "#10b981" : "#ef4444"}`,
+              color: deleteSuccess ? "#065f46" : "#991b1b",
+              fontSize: "14px",
+              fontWeight: "500",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}>
+              <span>{deleteSuccess ? "✅" : "❌"}</span>
+              {deleteSuccess 
+                ? `Successfully deleted attendance for ${monthFilter}` 
+                : `Error: ${deleteError}`
+              }
+            </div>
+          )}
+
           {/* IMPROVED FILTERS & REPORTS CARD */}
           <div style={filtersCardStyle}>
             <div style={filtersHeaderStyle}>
@@ -752,13 +817,27 @@ const Attendance = () => {
 
             {/* Action Buttons */}
             <div style={actionButtonsRowStyle}>
-              <button
-                onClick={() => setShowEmployeeSearch(true)}
-                style={secondaryActionButtonStyle}
-              >
-                <span style={buttonIconStyle}>📋</span>
-                Select Employees for Report
-              </button>
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  onClick={() => setShowEmployeeSearch(true)}
+                  style={secondaryActionButtonStyle}
+                >
+                  <span style={buttonIconStyle}>📋</span>
+                  Select Employees for Report
+                </button>
+                
+                {/* DELETE BUTTON */}
+                {monthFilter && (
+                  <button
+                    onClick={handleDeleteMonthlyAttendance}
+                    style={isDeleting ? deleteButtonStyleDisabled : deleteButtonStyle}
+                    disabled={isDeleting}
+                  >
+                    <span style={buttonIconStyle}>{isDeleting ? "⏳" : "🗑️"}</span>
+                    {isDeleting ? "Deleting..." : "Delete Monthly Data"}
+                  </button>
+                )}
+              </div>
 
               <div style={reportButtonsGroupStyle}>
                 <button
@@ -1127,7 +1206,7 @@ const Attendance = () => {
   );
 };
 
-// ... (all the style objects remain exactly the same)
+// Styles
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
@@ -1379,6 +1458,29 @@ const secondaryActionButtonStyle = {
   alignItems: "center",
   gap: "8px",
   transition: "all 0.2s ease",
+};
+
+const deleteButtonStyle = {
+  background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  padding: "12px 20px",
+  cursor: "pointer",
+  fontWeight: "600",
+  fontSize: "14px",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  transition: "all 0.2s ease",
+  boxShadow: "0 2px 4px rgba(239, 68, 68, 0.2)",
+};
+
+const deleteButtonStyleDisabled = {
+  ...deleteButtonStyle,
+  background: "#9ca3af",
+  cursor: "not-allowed",
+  opacity: 0.7,
 };
 
 const reportButtonsGroupStyle = {

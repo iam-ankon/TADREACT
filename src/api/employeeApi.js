@@ -157,6 +157,132 @@ export const getCsrfToken = () => {
   return null;
 };
 
+
+export const sendLeaveEmailToMD = async (emailData) => {
+  try {
+    // Use the properly exported hrmsApi instance
+    const response = await hrmsApi.post(
+      'send-leave-email-to-md/',
+      emailData
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error sending email to MD:', error);
+    throw error;
+  }
+};
+
+
+
+/* -------------------------------------------------------------------------- */
+/*  DELETE ATTENDANCE BY MONTH                                               */
+/* -------------------------------------------------------------------------- */
+export const deleteAttendanceByMonth = async (year, month) => {
+  try {
+    console.log(`🗑️ Deleting attendance for ${year}-${month}`);
+    
+    // Option 1: Try the specific endpoint first (might be implemented later)
+    try {
+      const response = await hrmsApi.delete(`attendance/delete_by_month/`, {
+        params: {
+          year: year,
+          month: month
+        }
+      });
+      console.log("✅ Monthly attendance deleted via dedicated endpoint");
+      return response.data;
+    } catch (endpointError) {
+      console.log("⚠️ Dedicated endpoint not found, falling back to manual deletion");
+    }
+    
+    // Option 2: Manual deletion by fetching and deleting each record
+    console.log("🔍 Fetching all attendance records...");
+    const allAttendance = await hrmsApi.get("attendance/");
+    
+    if (!allAttendance.data || !Array.isArray(allAttendance.data)) {
+      throw new Error("No attendance data found");
+    }
+    
+    // Filter records for the specific month
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+    const recordsToDelete = allAttendance.data.filter(record => {
+      if (!record || !record.date) return false;
+      
+      // Handle different date formats
+      const dateStr = record.date.includes('T') 
+        ? record.date.split('T')[0] 
+        : record.date;
+      
+      return dateStr.startsWith(prefix);
+    });
+    
+    console.log(`📊 Found ${recordsToDelete.length} records to delete for ${prefix}`);
+    
+    if (recordsToDelete.length === 0) {
+      return {
+        success: true,
+        message: "No records found for this month",
+        deleted_count: 0
+      };
+    }
+    
+    // Show progress
+    let deletedCount = 0;
+    let errors = [];
+    
+    // Delete in batches to avoid overwhelming the server
+    const batchSize = 10;
+    for (let i = 0; i < recordsToDelete.length; i += batchSize) {
+      const batch = recordsToDelete.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(record => 
+        hrmsApi.delete(`attendance/${record.id}/`)
+          .then(() => {
+            deletedCount++;
+            console.log(`✅ Deleted record ${record.id} (${deletedCount}/${recordsToDelete.length})`);
+            return true;
+          })
+          .catch(error => {
+            console.warn(`❌ Failed to delete record ${record.id}:`, error.message);
+            errors.push({ id: record.id, error: error.message });
+            return false;
+          })
+      );
+      
+      await Promise.all(batchPromises);
+      
+      // Small delay between batches
+      if (i + batchSize < recordsToDelete.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    console.log(`🎯 Deletion complete: ${deletedCount} successful, ${errors.length} failed`);
+    
+    return {
+      success: true,
+      message: `Deleted ${deletedCount} attendance records for ${year}-${month}`,
+      deleted_count: deletedCount,
+      failed_count: errors.length,
+      errors: errors
+    };
+    
+  } catch (error) {
+    console.error("❌ Error deleting monthly attendance:", error);
+    console.error("Error details:", error.response?.data);
+    
+    // More specific error messages
+    let errorMessage = "Failed to delete attendance";
+    if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    throw new Error(errorMessage);
+  }
+};
+
 /* -------------------------------------------------------------------------- */
 /*  2.  AXIOS INSTANCES (authenticated)                                      */
 /* -------------------------------------------------------------------------- */

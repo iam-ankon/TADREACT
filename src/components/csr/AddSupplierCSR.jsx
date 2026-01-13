@@ -5,189 +5,210 @@ import { createSupplier } from "../../api/supplierApi";
 const AddSupplierCSR = () => {
   const navigate = useNavigate();
 
-  // State for form data with all fields from AddSupplier.jsx
+  // State for form data based on the new Supplier model from Excel
   const [formData, setFormData] = useState({
-    // Basic Information (from basic tab)
-    name: "",
-    short_name: "",
-    local_name: "",
+    // Basic Information from General Information sheet
+    sl_no: "",
+    supplier_name: "",
+    supplier_id: "",
+    location: "",
+    supplier_category: "",
+    year_of_establishment: "",
+    
+    // Building Type
+    rented_building: false,
+    share_building: false,
+    own_property: false,
+    
+    // Ownership and Contact Details
+    ownership_details: "",
+    factory_main_contact: "",
+    factory_merchandiser_contact: "",
+    factory_hr_compliance_contact: "",
+    
+    // Building Details
+    building_details: "",
+    total_area: "",
+    
+    // Manpower
+    manpower_workers_male: "",
+    manpower_workers_female: "",
+    manpower_staff_male: "",
+    manpower_staff_female: "",
+    total_manpower: "",
+    
+    // Production Information
+    production_process: "",
+    manufacturing_item: "",
+    capacity_per_month: "",
+    business_by_market: "",
+    
+    // Customer Information
+    existing_customer: "",
+    number_of_sewing_line: "",
+    total_number_of_machineries: "",
+    
+    // Financial Information
+    yearly_turnover_usd: "",
+    
+    // Other Details
+    weekly_holiday: "Friday",
+    bgmea_number: "",
+    rsc: "",
+    tad_group_order_status: "",
+    
+    // Certifications (from Certifications sheet)
+    bsci_last_audit_date: "",
+    bsci_rating: "",
+    bsci_validity: "",
+    bsci_validity_days_remaining: "",
+    bsci_status: "",
+    
+    sedex_last_audit_date: "",
+    sedex_rating: "",
+    sedex_validity: "",
+    sedex_validity_days_remaining: "",
+    sedex_status: "",
+    
+    wrap_last_audit_date: "",
+    wrap_rating: "",
+    wrap_validity: "",
+    wrap_validity_days_remaining: "",
+    wrap_status: "",
+    
+    security_audit_last_date: "",
+    security_audit_rating: "",
+    security_audit_validity: "",
+    security_audit_validity_days_remaining: "",
+    security_audit_status: "",
+    
+    oeko_tex_validity: "",
+    oeko_tex_validity_days_remaining: "",
+    oeko_tex_status: "",
+    
+    gots_validity: "",
+    gots_validity_days_remaining: "",
+    gots_status: "",
+    
+    ocs_validity: "",
+    ocs_validity_days_remaining: "",
+    ocs_status: "",
+    
+    grs_validity: "",
+    grs_validity_days_remaining: "",
+    grs_status: "",
+    
+    rcs_validity: "",
+    rcs_validity_days_remaining: "",
+    rcs_status: "",
+    
+    iso_9001_validity: "",
+    iso_9001_validity_days_remaining: "",
+    iso_9001_status: "",
+    
+    iso_14001_validity: "",
+    iso_14001_validity_days_remaining: "",
+    iso_14001_status: "",
+    
+    certification_remarks: "",
+    
+    // Legal License Information (from License sheet)
+    trade_license_validity: "",
+    trade_license_days_remaining: "",
+    
+    factory_license_validity: "",
+    factory_license_days_remaining: "",
+    
+    fire_license_validity: "",
+    fire_license_days_remaining: "",
+    
+    membership_validity: "",
+    membership_days_remaining: "",
+    
+    group_insurance_validity: "",
+    group_insurance_days_remaining: "",
+    
+    boiler_no: "",
+    boiler_license_validity: "",
+    boiler_license_days_remaining: "",
+    
+    berc_license_validity: "",
+    berc_days_remaining: "",
+    
+    license_remarks: "",
+    
+    // Fire Safety Information (from Fire safety sheet)
+    last_fire_training_by_fscd: "",
+    fscd_next_fire_training_date: "",
+    last_fire_drill_record_by_fscd: "",
+    fscd_next_drill_date: "",
+    total_fire_fighter_rescue_first_aider_fscd: "",
+    fire_safety_remarks: "",
+    
+    // Wages & Benefit Information (from Wages & benefit sheet)
+    minimum_wages_paid: false,
+    earn_leave_status: false,
+    service_benefit: false,
+    maternity_benefit: false,
+    yearly_increment: false,
+    festival_bonus: false,
+    salary_due_status: false,
+    due_salary_month: "",
+    
+    // Environmental Information (from Environment sheet)
+    water_test_report_doe: "",
+    zdhc_water_test_report: "",
+    higg_fem_self_assessment_score: "",
+    higg_fem_verification_assessment_score: "",
+    behive_chemical_inventory: false,
+    
+    // Accord RSC Information (from Accord RSC sheet)
+    rsc_id: "",
+    progress_rate: "",
+    
+    // Structural Safety
+    structural_initial_audit_date: "",
+    structural_initial_findings: "",
+    structural_last_follow_up_audit_date: "",
+    structural_total_findings: "",
+    structural_total_corrected: "",
+    structural_total_in_progress: "",
+    structural_total_pending_verification: "",
+    
+    // Fire Safety (from Accord RSC)
+    fire_initial_audit_date: "",
+    fire_initial_findings: "",
+    fire_last_follow_up_audit_date: "",
+    fire_total_findings: "",
+    fire_total_corrected: "",
+    fire_total_in_progress: "",
+    fire_total_pending_verification: "",
+    
+    // Electrical Safety
+    electrical_initial_audit_date: "",
+    electrical_initial_findings: "",
+    electrical_last_follow_up_audit_date: "",
+    electrical_total_findings: "",
+    electrical_total_corrected: "",
+    electrical_total_in_progress: "",
+    electrical_total_pending_verification: "",
+    
+    // PC & Safety Committee Information (from PC & Safety Committee sheet)
+    last_pc_election_date: "",
+    last_pc_meeting_date: "",
+    last_safety_committee_formation_date: "",
+    last_safety_committee_meeting_date: "",
+    
+    // CSR Information (from CSR sheet)
+    donation_local_community: false,
+    tree_plantation_local_community: false,
+    sanitary_napkin_status: false,
+    fair_shop: false,
+    any_gift_provided_during_festival: false,
+    
+    // Additional contact fields if needed
     email: "",
-    website: "",
-    name_1: "",
-    name_2: "",
-    name_3: "",
-    about_us: "",
-    company_phone: "",
-    preferred_language: "",
-    deactivation_date: "",
-    planned_inactivation_date: "",
-    vendor_rating: "",
-    capability: "",
-
-    // Vendor Information
-    vendor_id: "",
-    reference_no: "",
-    vendor_type: "",
-    business_type: "",
-    holding_group: "",
-    place_of_incorporation: "",
-    vendor_access_creation: false,
-    purchasing_group: "",
-    contract_sign_date: "",
-    deactivation_reason: "",
-    year_established: "",
-
-    // Address (from address tab)
-    address_type: "",
-    address_country_region: "",
-    address_street: "",
-    address_town_city: "",
-    address_gps_lng: "",
-    address_gps_lat: "",
-    address_postal_code: "",
-    address_port_of_loading_discharge: "",
-    address_language: "",
-    address_gps_text: "",
-    address_inactive: false,
-    address_eu_country: false,
-
-    // Contact 1 (from address tab)
-    contact1_type: "",
-    contact1_texweave_access: false,
-    contact1_title: "",
-    contact1_first_name: "",
-    contact1_last_name: "",
-    contact1_position: "",
-    contact1_tel: "",
-    contact1_mobile: "",
-    contact1_email: "",
-    contact1_department: "",
-
-    // Shipment Terms
-    incoterm: "",
-    avg_lead_time_days: "",
-    payment_method: "",
-    payment_term: "",
-    currency: "",
-    cash_discount: "",
-    liability_insurance: "",
-    export_license_no: "",
-
-    // Agreements
-    agreement_code: "",
-    agreement_name: "",
-    agreement_type: "",
-    agreement_description: "",
-    agreement_status: "pending",
-    agreement_doc_status: "draft",
-    agreement_signature_due_date: "",
-    agreement_expiry_date: "",
-    agreement_accepted_on: "",
-    agreement_instruction_to_vendor: "",
-    agreement_vendor_action_required: false,
-    agreement_contract_file: null,
-    agreement_vendor_signing_copy: null,
-
-    // Classification
-    classification_code: "",
-    classification_name: "",
-
-    // Financial Details
-    account_name: "",
-    account_no: "",
-    account_no_2: "",
-    bank_key: "",
-    bank_name: "",
-    country_of_bank: "",
-    bank_code_swift_code: "",
-    discount_rate: "",
-    total_annual_turnover: "",
-    export_annual_turnover: "",
-    credit_report: "",
-    credit_limit: "",
-    agent_payment: "",
-    super_bonus: "",
-
-    // Certifications
-    certification_type: "",
-    certification_name: "",
-    certification_number: "",
-    certification_issue_date: "",
-    certification_expiry_date: "",
-    certification_status: "",
-    certification_institute_country: "",
-    certification_notes: "",
-    certification_attachment: null,
-
-    // Factories
-    factory_name: "",
-    factory_id: "",
-    factory_type: "",
-    factory_status: "",
-    factory_doc_status: "",
-    factory_vendor_ref: "",
-    factory_vendor_reverse_ref: "",
-    factory_contact: "",
-    factory_phone: "",
-    factory_address: "",
-    factory_capacity: "",
-    factory_related: "",
-    factory_related_since: "",
-    factory_note: "",
-    factory_default: false,
-    factory_sync: false,
-    audit_social: false,
-    audit_1st_enlistment: false,
-    audit_2nd_enlistment: false,
-    audit_qualification_visit: false,
-    audit_kik_csr: false,
-    audit_environmental: false,
-    audit_qc_visit: false,
-
-    // QA Assessment
-    qa_rank: "",
-    qa_assessment_level: "",
-    qa_risk_level: "",
-    qa_performance_level: "",
-    qa_score: "",
-    qa_disposal_licensing: "",
-    qa_accredited: false,
-    qa_summary: "",
-
-    // Latest Audit Report
-    latest_audit_report_no: "",
-    latest_audit_version: "",
-    latest_audit_report_type: "",
-    latest_audit_customer: "",
-    latest_audit_date: "",
-    latest_auditor: "",
-    latest_audit_party: "",
-    latest_audit_result: "",
-    latest_audit_expiry_date: "",
-    latest_audit_report_date: "",
-    latest_audit_status: "",
-    latest_audit_editing_status: "",
-
-    // Images & Attachments
-    image_type: "",
-    image_description: "",
-    image_file: null,
-    image_last_modified_by: "",
-    image_last_modified_on: "",
-    attachment_type: "",
-    attachment_description: "",
-    attachment_file: null,
-    attachment_last_modified_by: "",
-    attachment_last_modified_on: "",
-    shared_file_name: "",
-    shared_file_type: "",
-    shared_file_description: "",
-    shared_file: null,
-    shared_file_details: "",
-    shared_file_status: "",
-    shared_file_effective_from: "",
-    shared_file_effective_to: "",
-    shared_file_notes: "",
+    phone: "",
   });
 
   // State for loading and errors
@@ -242,24 +263,25 @@ const AddSupplierCSR = () => {
     try {
       console.log("Sending form data:", formData);
 
-      // WORKAROUND: If email is empty string, set it to a unique value
-      const dataToSend = { ...formData };
-
-      // Generate a unique email placeholder if email is empty
-      if (!dataToSend.email || dataToSend.email.trim() === "") {
-        dataToSend.email = `no-email-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}@placeholder.com`;
+      // Calculate total manpower if not provided
+      if (!formData.total_manpower) {
+        const total = (
+          (parseInt(formData.manpower_workers_male) || 0) +
+          (parseInt(formData.manpower_workers_female) || 0) +
+          (parseInt(formData.manpower_staff_male) || 0) +
+          (parseInt(formData.manpower_staff_female) || 0)
+        );
+        formData.total_manpower = total > 0 ? total : "";
       }
 
-      // Create FormData for file uploads
+      // Create FormData for file uploads (if any)
       const formDataToSend = new FormData();
 
       // Append all form data
-      Object.keys(dataToSend).forEach((key) => {
-        const value = dataToSend[key];
+      Object.keys(formData).forEach((key) => {
+        const value = formData[key];
 
-        if (value !== null && value !== undefined) {
+        if (value !== null && value !== undefined && value !== "") {
           if (value instanceof File) {
             formDataToSend.append(key, value);
           } else if (typeof value === "boolean") {
@@ -313,18 +335,16 @@ const AddSupplierCSR = () => {
   };
 
   const tabs = [
-    { id: "basic", label: "Basic Info", icon: "🏢" },
-    { id: "vendor", label: "Vendor", icon: "👤" },
-    { id: "address", label: "Address", icon: "📍" },
-    { id: "shipment", label: "Shipment", icon: "🚚" },
-    { id: "agreement", label: "Agreements", icon: "📝" },
-    { id: "financial", label: "Financial", icon: "💰" },
-    { id: "classification", label: "Classification", icon: "🏷️" },
+    { id: "basic", label: "General Info", icon: "🏢" },
+    { id: "building", label: "Building & Manpower", icon: "🏭" },
+    { id: "production", label: "Production", icon: "⚙️" },
     { id: "certifications", label: "Certifications", icon: "📜" },
-    { id: "factories", label: "Factories", icon: "🏭" },
-    { id: "qa", label: "QA Assessment", icon: "📊" },
-    { id: "audit", label: "Audit", icon: "📋" },
-    { id: "images", label: "Attachments", icon: "📎" },
+    { id: "licenses", label: "Licenses", icon: "📋" },
+    { id: "safety", label: "Safety", icon: "🚨" },
+    { id: "compliance", label: "Compliance", icon: "✅" },
+    { id: "environment", label: "Environment", icon: "🌱" },
+    { id: "rsc", label: "RSC Audit", icon: "🔍" },
+    { id: "csr", label: "CSR", icon: "🤝" },
   ];
 
   // Helper function to render input fields
@@ -417,32 +437,6 @@ const AddSupplierCSR = () => {
     );
   };
 
-  const renderFileInput = (label, name, accept = "*/*") => {
-    const file = formData[name];
-
-    return (
-      <div style={styles.formGroup}>
-        <label style={styles.label}>{label}</label>
-        <div style={styles.fileInputWrapper}>
-          <label style={styles.fileInputLabel}>
-            <input
-              type="file"
-              name={name}
-              onChange={handleChange}
-              style={styles.fileInput}
-              accept={accept}
-              disabled={isLoading}
-            />
-            <span style={styles.fileInputButton}>📁 Choose File</span>
-            <span style={styles.fileName}>
-              {file ? file.name : "No file chosen"}
-            </span>
-          </label>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -461,9 +455,9 @@ const AddSupplierCSR = () => {
           >
             ←
           </button>
-          <h1 style={styles.title}>Add New Supplier</h1>
+          <h1 style={styles.title}>Add New Supplier/Factory</h1>
           <p style={styles.subtitle}>
-            Fill in the supplier details below (All fields are optional)
+            Fill in the supplier/factory details based on Excel structure
           </p>
         </div>
         <div style={styles.progress}>
@@ -533,266 +527,86 @@ const AddSupplierCSR = () => {
           {activeTab === "basic" && (
             <div style={styles.formSection}>
               <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Basic Information</h3>
+                <h3 style={styles.sectionTitle}>General Information</h3>
                 <div style={styles.sectionHint}>
-                  Company details and contact information (All fields optional)
+                  Basic factory/supplier details
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderInput("Company Name", "name", "text")}
-                {renderInput("Short Name", "short_name")}
-                {renderInput("Local Name", "local_name")}
+                {renderInput("SL No", "sl_no", "number")}
+                {renderInput("Supplier/Factory Name", "supplier_name", "text")}
+                {renderInput("Supplier ID", "supplier_id", "text")}
+                {renderTextarea("Location", "location", 2)}
+                {renderSelect("Supplier Category", "supplier_category", [
+                  { value: "Woven", label: "Woven" },
+                  { value: "Sweater", label: "Sweater" },
+                  { value: "Knit & Lingerie", label: "Knit & Lingerie" },
+                  { value: "Knit", label: "Knit" },
+                  { value: "Lingerie", label: "Lingerie" },
+                ])}
+                {renderInput("Year of Establishment", "year_of_establishment", "number")}
+                {renderTextarea("Ownership Details", "ownership_details", 3)}
+                {renderTextarea("Factory Main Contact", "factory_main_contact", 2)}
+                {renderTextarea("Factory Merchandiser Contact", "factory_merchandiser_contact", 2)}
+                {renderTextarea("Factory HR/Compliance Contact", "factory_hr_compliance_contact", 2)}
                 {renderInput("Email", "email", "email")}
-                {renderInput("Website", "website", "url")}
-                {renderInput("Name 1", "name_1")}
-                {renderInput("Name 2", "name_2")}
-                {renderInput("Name 3", "name_3")}
-                {renderInput("Company Phone", "company_phone", "tel")}
-                {renderTextarea("About Us", "about_us")}
-                {renderSelect("Preferred Language", "preferred_language", [
-                  { value: "English", label: "English" },
-                  { value: "Turkish", label: "Turkish" },
-                  { value: "Chinese", label: "Chinese" },
-                  { value: "Spanish", label: "Spanish" },
-                  { value: "German", label: "German" },
-                ])}
-                {renderInput("Deactivation Date", "deactivation_date", "date")}
-                {renderInput(
-                  "Planned Inactivation Date",
-                  "planned_inactivation_date",
-                  "date"
-                )}
-                {renderSelect("Vendor Rating", "vendor_rating", [
-                  { value: "A", label: "A - Excellent" },
-                  { value: "B", label: "B - Good" },
-                  { value: "C", label: "C - Average" },
-                  { value: "D", label: "D - Poor" },
-                ])}
-                {renderInput("Capability", "capability")}
+                {renderInput("Phone", "phone", "tel")}
               </div>
             </div>
           )}
 
-          {activeTab === "vendor" && (
+          {activeTab === "building" && (
             <div style={styles.formSection}>
               <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Vendor Details</h3>
+                <h3 style={styles.sectionTitle}>Building & Manpower Details</h3>
                 <div style={styles.sectionHint}>
-                  Vendor identification and business information
+                  Facility and workforce information
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderInput("Vendor ID", "vendor_id")}
-                {renderInput("Reference No", "reference_no")}
-                {renderInput("Vendor Type", "vendor_type")}
-                {renderInput("Business Type", "business_type")}
-                {renderInput("Holding Group", "holding_group")}
-                {renderInput(
-                  "Place of Incorporation",
-                  "place_of_incorporation"
-                )}
-                {renderInput("Year Established", "year_established", "number")}
-                {renderInput("Purchasing Group", "purchasing_group")}
-                {renderInput(
-                  "Contract Sign Date",
-                  "contract_sign_date",
-                  "date"
-                )}
-                {renderInput("Deactivation Reason", "deactivation_reason")}
-                {renderCheckbox(
-                  "Enable Vendor Access",
-                  "vendor_access_creation",
-                  "Allow vendor to access the portal"
-                )}
+                {renderCheckbox("Rented Building", "rented_building")}
+                {renderCheckbox("Share Building", "share_building")}
+                {renderCheckbox("Own Property", "own_property")}
+                {renderTextarea("Building Details", "building_details", 3)}
+                {renderInput("Total Area (sq ft)", "total_area", "number")}
+                
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>Manpower</h4>
+                  {renderInput("Workers - Male", "manpower_workers_male", "number")}
+                  {renderInput("Workers - Female", "manpower_workers_female", "number")}
+                  {renderInput("Staff - Male", "manpower_staff_male", "number")}
+                  {renderInput("Staff - Female", "manpower_staff_female", "number")}
+                  {renderInput("Total Manpower", "total_manpower", "number")}
+                </div>
               </div>
             </div>
           )}
 
-          {activeTab === "address" && (
+          {activeTab === "production" && (
             <div style={styles.formSection}>
               <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Address & Contact</h3>
+                <h3 style={styles.sectionTitle}>Production Information</h3>
                 <div style={styles.sectionHint}>
-                  Physical location and primary contact details
+                  Manufacturing and business details
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderInput("Address Type", "address_type")}
-                {renderInput("Country/Region", "address_country_region")}
-                {renderTextarea("Street Address", "address_street", 2)}
-                {renderInput("Town/City", "address_town_city")}
-                {renderInput("Postal Code", "address_postal_code")}
-                {renderInput("GPS Longitude", "address_gps_lng")}
-                {renderInput("GPS Latitude", "address_gps_lat")}
-                {renderInput(
-                  "Port of Loading/Discharge",
-                  "address_port_of_loading_discharge"
-                )}
-                {renderInput("Language", "address_language")}
-                {renderTextarea("GPS Description", "address_gps_text")}
-                {renderCheckbox("Inactive Address", "address_inactive")}
-                {renderCheckbox("EU Country", "address_eu_country")}
-              </div>
-
-              <div style={styles.subSection}>
-                <div style={styles.sectionHeader}>
-                  <h4 style={styles.subSectionTitle}>Primary Contact</h4>
-                  <div style={styles.sectionHint}>
-                    Main contact person details
-                  </div>
-                </div>
-                <div style={styles.formGrid}>
-                  {renderInput("Contact Type", "contact1_type")}
-                  {renderInput("Title", "contact1_title")}
-                  {renderInput("First Name", "contact1_first_name")}
-                  {renderInput("Last Name", "contact1_last_name")}
-                  {renderInput("Position", "contact1_position")}
-                  {renderInput("Telephone", "contact1_tel", "tel")}
-                  {renderInput("Mobile", "contact1_mobile", "tel")}
-                  {renderInput("Email", "contact1_email", "email")}
-                  {renderInput("Department", "contact1_department")}
-                  {renderCheckbox(
-                    "Texweave Access",
-                    "contact1_texweave_access",
-                    "Grant access to Texweave platform"
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "shipment" && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Shipment Terms</h3>
-                <div style={styles.sectionHint}>
-                  Logistics and payment terms
-                </div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderSelect("Incoterm", "incoterm", [
-                  { value: "EXW", label: "EXW - Ex Works" },
-                  { value: "FOB", label: "FOB - Free on Board" },
-                  { value: "CIF", label: "CIF - Cost, Insurance & Freight" },
-                  { value: "DDP", label: "DDP - Delivered Duty Paid" },
+                {renderTextarea("Production Process", "production_process", 3)}
+                {renderTextarea("Manufacturing Items", "manufacturing_item", 3)}
+                {renderInput("Capacity per Month", "capacity_per_month")}
+                {renderInput("Business by Market", "business_by_market")}
+                {renderTextarea("Existing Customers", "existing_customer", 3)}
+                {renderInput("Number of Sewing Lines", "number_of_sewing_line", "number")}
+                {renderInput("Total Number of Machineries", "total_number_of_machineries", "number")}
+                {renderInput("Yearly Turnover (USD)", "yearly_turnover_usd", "number")}
+                {renderSelect("Weekly Holiday", "weekly_holiday", [
+                  { value: "Friday", label: "Friday" },
+                  { value: "Saturday", label: "Saturday" },
+                  { value: "Sunday", label: "Sunday" },
                 ])}
-                {renderInput(
-                  "Average Lead Time (days)",
-                  "avg_lead_time_days",
-                  "number"
-                )}
-                {renderSelect("Payment Method", "payment_method", [
-                  { value: "TT", label: "Telegraphic Transfer" },
-                  { value: "LC", label: "Letter of Credit" },
-                  { value: "DP", label: "Documents against Payment" },
-                  { value: "DA", label: "Documents against Acceptance" },
-                ])}
-                {renderInput("Payment Term", "payment_term")}
-                {renderSelect("Currency", "currency", [
-                  { value: "USD", label: "USD - US Dollar" },
-                  { value: "EUR", label: "EUR - Euro" },
-                  { value: "GBP", label: "GBP - British Pound" },
-                  { value: "CNY", label: "CNY - Chinese Yuan" },
-                ])}
-                {renderInput("Cash Discount (%)", "cash_discount", "number")}
-                {renderInput("Liability Insurance", "liability_insurance")}
-                {renderInput("Export License No", "export_license_no")}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "agreement" && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Agreements</h3>
-                <div style={styles.sectionHint}>
-                  Contract and agreement details
-                </div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput("Agreement Code", "agreement_code")}
-                {renderInput("Agreement Name", "agreement_name")}
-                {renderInput("Agreement Type", "agreement_type")}
-                {renderTextarea(
-                  "Agreement Description",
-                  "agreement_description"
-                )}
-                {renderSelect("Agreement Status", "agreement_status", [
-                  { value: "pending", label: "Pending" },
-                  { value: "active", label: "Active" },
-                  { value: "expired", label: "Expired" },
-                  { value: "cancelled", label: "Cancelled" },
-                ])}
-                {renderSelect("Document Status", "agreement_doc_status", [
-                  { value: "draft", label: "Draft" },
-                  { value: "submitted", label: "Submitted" },
-                  { value: "approved", label: "Approved" },
-                  { value: "rejected", label: "Rejected" },
-                ])}
-                {renderInput(
-                  "Signature Due Date",
-                  "agreement_signature_due_date",
-                  "date"
-                )}
-                {renderInput("Expiry Date", "agreement_expiry_date", "date")}
-                {renderInput("Accepted On", "agreement_accepted_on", "date")}
-                {renderTextarea(
-                  "Instruction to Vendor",
-                  "agreement_instruction_to_vendor"
-                )}
-                {renderCheckbox(
-                  "Vendor Action Required",
-                  "agreement_vendor_action_required",
-                  "Vendor needs to take action"
-                )}
-                {renderFileInput("Contract File", "agreement_contract_file")}
-                {renderFileInput(
-                  "Vendor Signing Copy",
-                  "agreement_vendor_signing_copy"
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "financial" && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Financial Details</h3>
-                <div style={styles.sectionHint}>
-                  Banking and financial information
-                </div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput("Account Name", "account_name")}
-                {renderInput("Account No.", "account_no")}
-                {renderInput("Account No. 2", "account_no_2")}
-                {renderInput("Bank Key", "bank_key")}
-                {renderInput("Bank Name", "bank_name")}
-                {renderInput("Country of Bank", "country_of_bank")}
-                {renderInput("Bank Code / Swift Code", "bank_code_swift_code")}
-                {renderInput("Discount Rate", "discount_rate")}
-                {renderInput("Total Annual Turnover", "total_annual_turnover")}
-                {renderInput(
-                  "Export Annual Turnover",
-                  "export_annual_turnover"
-                )}
-                {renderInput("Credit Report", "credit_report")}
-                {renderInput("Credit Limit", "credit_limit", "number")}
-                {renderInput("Agent Payment", "agent_payment", "number")}
-                {renderInput("Super Bonus", "super_bonus")}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "classification" && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Classification</h3>
-                <div style={styles.sectionHint}>Supplier categorization</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput("Classification Code", "classification_code")}
-                {renderInput("Classification Name", "classification_name")}
+                {renderInput("BGMEA Number", "bgmea_number")}
+                {renderInput("RSC", "rsc")}
+                {renderInput("TAD Group Order Status", "tad_group_order_status")}
               </div>
             </div>
           )}
@@ -802,247 +616,224 @@ const AddSupplierCSR = () => {
               <div style={styles.sectionHeader}>
                 <h3 style={styles.sectionTitle}>Certifications</h3>
                 <div style={styles.sectionHint}>
-                  Industry certifications and standards
+                  Social and product certifications
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderInput("Certification Type", "certification_type")}
-                {renderInput("Certification Name", "certification_name")}
-                {renderInput("Certification Number", "certification_number")}
-                {renderInput("Issue Date", "certification_issue_date", "date")}
-                {renderInput(
-                  "Expiry Date",
-                  "certification_expiry_date",
-                  "date"
-                )}
-                {renderSelect("Status", "certification_status", [
-                  { value: "active", label: "Active" },
-                  { value: "expired", label: "Expired" },
-                  { value: "pending_renewal", label: "Pending Renewal" },
-                  { value: "suspended", label: "Suspended" },
-                ])}
-                {renderInput(
-                  "Institute Country",
-                  "certification_institute_country"
-                )}
-                {renderTextarea("Notes", "certification_notes")}
-                {renderFileInput("Attachment", "certification_attachment")}
+                {/* BSCI */}
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>BSCI</h4>
+                  {renderInput("Last Audit Date", "bsci_last_audit_date", "date")}
+                  {renderInput("Rating", "bsci_rating")}
+                  {renderInput("Validity", "bsci_validity", "date")}
+                  {renderInput("Days Remaining", "bsci_validity_days_remaining", "number")}
+                  {renderInput("Status", "bsci_status")}
+                </div>
+
+                {/* SEDEX */}
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>SEDEX</h4>
+                  {renderInput("Last Audit Date", "sedex_last_audit_date", "date")}
+                  {renderInput("Rating", "sedex_rating")}
+                  {renderInput("Validity", "sedex_validity", "date")}
+                  {renderInput("Days Remaining", "sedex_validity_days_remaining", "number")}
+                  {renderInput("Status", "sedex_status")}
+                </div>
+
+                {/* WRAP */}
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>WRAP</h4>
+                  {renderInput("Last Audit Date", "wrap_last_audit_date", "date")}
+                  {renderInput("Rating", "wrap_rating")}
+                  {renderInput("Validity", "wrap_validity", "date")}
+                  {renderInput("Days Remaining", "wrap_validity_days_remaining", "number")}
+                  {renderInput("Status", "wrap_status")}
+                </div>
+
+                {/* Security Audit */}
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>Security Audit (CTPAT/GSV)</h4>
+                  {renderInput("Last Audit Date", "security_audit_last_date", "date")}
+                  {renderInput("Rating", "security_audit_rating")}
+                  {renderInput("Validity", "security_audit_validity", "date")}
+                  {renderInput("Days Remaining", "security_audit_validity_days_remaining", "number")}
+                  {renderInput("Status", "security_audit_status")}
+                </div>
+
+                {/* Other Certifications */}
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>Other Certifications</h4>
+                  {renderInput("Oeko-Tex Validity", "oeko_tex_validity", "date")}
+                  {renderInput("GOTS Validity", "gots_validity", "date")}
+                  {renderInput("OCS Validity", "ocs_validity", "date")}
+                  {renderInput("GRS Validity", "grs_validity", "date")}
+                  {renderInput("RCS Validity", "rcs_validity", "date")}
+                  {renderInput("ISO 9001 Validity", "iso_9001_validity", "date")}
+                  {renderInput("ISO 14001 Validity", "iso_14001_validity", "date")}
+                </div>
+
+                {renderTextarea("Certification Remarks", "certification_remarks", 3)}
               </div>
             </div>
           )}
 
-          {activeTab === "factories" && (
+          {activeTab === "licenses" && (
             <div style={styles.formSection}>
               <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Factory Details</h3>
+                <h3 style={styles.sectionTitle}>Legal Licenses</h3>
                 <div style={styles.sectionHint}>
-                  Manufacturing facilities information
+                  Government and regulatory licenses
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderInput("Factory Name", "factory_name")}
-                {renderInput("Factory ID", "factory_id")}
-                {renderInput("Factory Type", "factory_type")}
-                {renderSelect("Factory Status", "factory_status", [
-                  { value: "active", label: "Active" },
-                  { value: "inactive", label: "Inactive" },
-                  { value: "under_construction", label: "Under Construction" },
-                  { value: "closed", label: "Closed" },
-                ])}
-                {renderInput("Document Status", "factory_doc_status")}
-                {renderInput("Vendor Ref", "factory_vendor_ref")}
-                {renderInput(
-                  "Vendor Reverse Ref",
-                  "factory_vendor_reverse_ref"
-                )}
-                {renderInput("Factory Contact", "factory_contact")}
-                {renderInput("Factory Phone", "factory_phone")}
-                {renderTextarea("Factory Address", "factory_address")}
-                {renderInput("Capacity", "factory_capacity")}
-                {renderInput("Related Factory", "factory_related")}
-                {renderInput("Related Since", "factory_related_since", "date")}
-                {renderTextarea("Factory Note", "factory_note")}
-                {renderCheckbox(
-                  "Default Factory",
-                  "factory_default",
-                  "Set as primary factory"
-                )}
-                {renderCheckbox(
-                  "Sync",
-                  "factory_sync",
-                  "Synchronize with main system"
-                )}
+                {renderInput("Trade License Validity", "trade_license_validity", "date")}
+                {renderInput("Trade License Days Remaining", "trade_license_days_remaining", "number")}
+                {renderInput("Factory License Validity", "factory_license_validity", "date")}
+                {renderInput("Factory License Days Remaining", "factory_license_days_remaining", "number")}
+                {renderInput("Fire License Validity", "fire_license_validity", "date")}
+                {renderInput("Fire License Days Remaining", "fire_license_days_remaining", "number")}
+                {renderInput("Membership Validity", "membership_validity", "date")}
+                {renderInput("Membership Days Remaining", "membership_days_remaining", "number")}
+                {renderInput("Group Insurance Validity", "group_insurance_validity", "date")}
+                {renderInput("Group Insurance Days Remaining", "group_insurance_days_remaining", "number")}
+                {renderInput("Boiler No", "boiler_no")}
+                {renderInput("Boiler License Validity", "boiler_license_validity", "date")}
+                {renderInput("Boiler License Days Remaining", "boiler_license_days_remaining", "number")}
+                {renderInput("BERC License Validity", "berc_license_validity", "date")}
+                {renderInput("BERC Days Remaining", "berc_days_remaining", "number")}
+                {renderTextarea("License Remarks", "license_remarks", 3)}
+              </div>
+            </div>
+          )}
 
-                <div style={styles.checkboxGroup}>
-                  <div style={styles.checkboxGroupTitle}>Audit Types</div>
-                  {renderCheckbox("Social Audit", "audit_social")}
-                  {renderCheckbox(
-                    "1st Enlistment Audit",
-                    "audit_1st_enlistment"
-                  )}
-                  {renderCheckbox(
-                    "2nd Enlistment Audit",
-                    "audit_2nd_enlistment"
-                  )}
-                  {renderCheckbox(
-                    "Qualification Visit",
-                    "audit_qualification_visit"
-                  )}
-                  {renderCheckbox("KIK CSR Audit", "audit_kik_csr")}
-                  {renderCheckbox("Environmental Audit", "audit_environmental")}
-                  {renderCheckbox("QC Visit", "audit_qc_visit")}
+          {activeTab === "safety" && (
+            <div style={styles.formSection}>
+              <div style={styles.sectionHeader}>
+                <h3 style={styles.sectionTitle}>Fire Safety</h3>
+                <div style={styles.sectionHint}>
+                  Fire safety training and equipment
+                </div>
+              </div>
+              <div style={styles.formGrid}>
+                {renderInput("Last Fire Training by FSCD", "last_fire_training_by_fscd", "date")}
+                {renderInput("FSCD Next Fire Training Date", "fscd_next_fire_training_date", "date")}
+                {renderInput("Last Fire Drill Record by FSCD", "last_fire_drill_record_by_fscd", "date")}
+                {renderInput("FSCD Next Drill Date", "fscd_next_drill_date", "date")}
+                {renderInput("Total Fire Fighter/Rescue/First Aider (FSCD)", "total_fire_fighter_rescue_first_aider_fscd", "number")}
+                {renderTextarea("Fire Safety Remarks", "fire_safety_remarks", 3)}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "compliance" && (
+            <div style={styles.formSection}>
+              <div style={styles.sectionHeader}>
+                <h3 style={styles.sectionTitle}>Wages & Benefits Compliance</h3>
+                <div style={styles.sectionHint}>
+                  Labor compliance and benefits status
+                </div>
+              </div>
+              <div style={styles.formGrid}>
+                {renderCheckbox("Minimum Wages Paid", "minimum_wages_paid")}
+                {renderCheckbox("Earn Leave Status", "earn_leave_status")}
+                {renderCheckbox("Service Benefit", "service_benefit")}
+                {renderCheckbox("Maternity Benefit", "maternity_benefit")}
+                {renderCheckbox("Yearly Increment", "yearly_increment")}
+                {renderCheckbox("Festival Bonus", "festival_bonus")}
+                {renderCheckbox("Salary Due Status", "salary_due_status")}
+                {renderInput("Due Salary Month", "due_salary_month")}
+                
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>PC & Safety Committee</h4>
+                  {renderInput("Last PC Election Date", "last_pc_election_date", "date")}
+                  {renderInput("Last PC Meeting Date", "last_pc_meeting_date", "date")}
+                  {renderInput("Last Safety Committee Formation Date", "last_safety_committee_formation_date", "date")}
+                  {renderInput("Last Safety Committee Meeting Date", "last_safety_committee_meeting_date", "date")}
                 </div>
               </div>
             </div>
           )}
 
-          {activeTab === "qa" && (
+          {activeTab === "environment" && (
             <div style={styles.formSection}>
               <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>QA Assessment</h3>
+                <h3 style={styles.sectionTitle}>Environmental Compliance</h3>
                 <div style={styles.sectionHint}>
-                  Quality assurance evaluation
+                  Environmental test reports and assessments
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderSelect("QA Rank", "qa_rank", [
-                  { value: "A", label: "A - Excellent" },
-                  { value: "B", label: "B - Good" },
-                  { value: "C", label: "C - Average" },
-                  { value: "D", label: "D - Poor" },
-                ])}
-                {renderSelect("Assessment Level", "qa_assessment_level", [
-                  { value: "high", label: "High" },
-                  { value: "medium", label: "Medium" },
-                  { value: "low", label: "Low" },
-                ])}
-                {renderSelect("Risk Level", "qa_risk_level", [
-                  { value: "high", label: "High Risk" },
-                  { value: "medium", label: "Medium Risk" },
-                  { value: "low", label: "Low Risk" },
-                ])}
-                {renderSelect("Performance Level", "qa_performance_level", [
-                  { value: "excellent", label: "Excellent" },
-                  { value: "good", label: "Good" },
-                  { value: "fair", label: "Fair" },
-                  { value: "poor", label: "Poor" },
-                ])}
-                {renderInput("QA Score", "qa_score", "number")}
-                {renderInput("Disposal Licensing", "qa_disposal_licensing")}
-                {renderCheckbox(
-                  "QA Accredited",
-                  "qa_accredited",
-                  "Officially accredited by QA body"
-                )}
-                {renderTextarea("QA Summary", "qa_summary")}
+                {renderInput("Water Test Report DOE", "water_test_report_doe", "date")}
+                {renderInput("ZDHC Water Test Report", "zdhc_water_test_report", "date")}
+                {renderInput("Higg FEM Self Assessment Score", "higg_fem_self_assessment_score", "number")}
+                {renderInput("Higg FEM Verification Assessment Score", "higg_fem_verification_assessment_score", "number")}
+                {renderCheckbox("Behive Chemical Inventory", "behive_chemical_inventory")}
               </div>
             </div>
           )}
 
-          {activeTab === "audit" && (
+          {activeTab === "rsc" && (
             <div style={styles.formSection}>
               <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Latest Audit Report</h3>
+                <h3 style={styles.sectionTitle}>RSC Audit Details</h3>
                 <div style={styles.sectionHint}>
-                  Most recent audit information
+                  Accord RSC audit findings
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderInput("Audit Report No", "latest_audit_report_no")}
-                {renderInput("Audit Version", "latest_audit_version")}
-                {renderSelect("Audit Type", "latest_audit_report_type", [
-                  { value: "social", label: "Social Compliance" },
-                  { value: "quality", label: "Quality Control" },
-                  { value: "environmental", label: "Environmental" },
-                  { value: "safety", label: "Health & Safety" },
-                ])}
-                {renderInput("Audit Customer", "latest_audit_customer")}
-                {renderInput("Audit Date", "latest_audit_date", "date")}
-                {renderInput("Auditor", "latest_auditor")}
-                {renderInput("Audit Party", "latest_audit_party")}
-                {renderSelect("Audit Result", "latest_audit_result", [
-                  { value: "passed", label: "Passed" },
-                  { value: "failed", label: "Failed" },
-                  { value: "conditional", label: "Conditional Pass" },
-                  { value: "pending", label: "Pending Review" },
-                ])}
-                {renderInput(
-                  "Audit Expiry Date",
-                  "latest_audit_expiry_date",
-                  "date"
-                )}
-                {renderInput(
-                  "Audit Report Date",
-                  "latest_audit_report_date",
-                  "date"
-                )}
-                {renderSelect("Audit Status", "latest_audit_status", [
-                  { value: "draft", label: "Draft" },
-                  { value: "finalized", label: "Finalized" },
-                  { value: "published", label: "Published" },
-                  { value: "archived", label: "Archived" },
-                ])}
-                {renderInput("Editing Status", "latest_audit_editing_status")}
+                {renderInput("RSC ID", "rsc_id")}
+                {renderInput("Progress Rate", "progress_rate", "number")}
+                
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>Structural Safety</h4>
+                  {renderInput("Initial Audit Date", "structural_initial_audit_date", "date")}
+                  {renderInput("Initial Findings", "structural_initial_findings", "number")}
+                  {renderInput("Last Follow Up Audit Date", "structural_last_follow_up_audit_date", "date")}
+                  {renderInput("Total Findings", "structural_total_findings", "number")}
+                  {renderInput("Total Corrected", "structural_total_corrected", "number")}
+                  {renderInput("Total In Progress", "structural_total_in_progress", "number")}
+                  {renderInput("Total Pending Verification", "structural_total_pending_verification", "number")}
+                </div>
+
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>Fire Safety</h4>
+                  {renderInput("Initial Audit Date", "fire_initial_audit_date", "date")}
+                  {renderInput("Initial Findings", "fire_initial_findings", "number")}
+                  {renderInput("Last Follow Up Audit Date", "fire_last_follow_up_audit_date", "date")}
+                  {renderInput("Total Findings", "fire_total_findings", "number")}
+                  {renderInput("Total Corrected", "fire_total_corrected", "number")}
+                  {renderInput("Total In Progress", "fire_total_in_progress", "number")}
+                  {renderInput("Total Pending Verification", "fire_total_pending_verification", "number")}
+                </div>
+
+                <div style={styles.subSection}>
+                  <h4 style={styles.subSectionTitle}>Electrical Safety</h4>
+                  {renderInput("Initial Audit Date", "electrical_initial_audit_date", "date")}
+                  {renderInput("Initial Findings", "electrical_initial_findings", "number")}
+                  {renderInput("Last Follow Up Audit Date", "electrical_last_follow_up_audit_date", "date")}
+                  {renderInput("Total Findings", "electrical_total_findings", "number")}
+                  {renderInput("Total Corrected", "electrical_total_corrected", "number")}
+                  {renderInput("Total In Progress", "electrical_total_in_progress", "number")}
+                  {renderInput("Total Pending Verification", "electrical_total_pending_verification", "number")}
+                </div>
               </div>
             </div>
           )}
 
-          {activeTab === "images" && (
+          {activeTab === "csr" && (
             <div style={styles.formSection}>
               <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Images & Attachments</h3>
+                <h3 style={styles.sectionTitle}>Corporate Social Responsibility</h3>
                 <div style={styles.sectionHint}>
-                  Upload supporting documents and files
+                  CSR activities and community engagement
                 </div>
               </div>
               <div style={styles.formGrid}>
-                {renderInput("Image Type", "image_type")}
-                {renderInput("Image Description", "image_description")}
-                {renderFileInput("Image File", "image_file", "image/*")}
-                {renderInput("Last Modified By", "image_last_modified_by")}
-                {renderInput(
-                  "Last Modified On",
-                  "image_last_modified_on",
-                  "datetime-local"
-                )}
-
-                {renderInput("Attachment Type", "attachment_type")}
-                {renderInput(
-                  "Attachment Description",
-                  "attachment_description"
-                )}
-                {renderFileInput("Attachment File", "attachment_file")}
-                {renderInput("Last Modified By", "attachment_last_modified_by")}
-                {renderInput(
-                  "Last Modified On",
-                  "attachment_last_modified_on",
-                  "datetime-local"
-                )}
-
-                {renderInput("Shared File Name", "shared_file_name")}
-                {renderInput("Shared File Type", "shared_file_type")}
-                {renderInput(
-                  "Shared File Description",
-                  "shared_file_description"
-                )}
-                {renderFileInput("Shared File", "shared_file")}
-                {renderInput("Shared File Details", "shared_file_details")}
-                {renderSelect("Shared File Status", "shared_file_status", [
-                  { value: "active", label: "Active" },
-                  { value: "inactive", label: "Inactive" },
-                  { value: "archived", label: "Archived" },
-                ])}
-                {renderInput(
-                  "Effective From",
-                  "shared_file_effective_from",
-                  "date"
-                )}
-                {renderInput(
-                  "Effective To",
-                  "shared_file_effective_to",
-                  "date"
-                )}
-                {renderTextarea("Notes", "shared_file_notes")}
+                {renderCheckbox("Donation to Local Community", "donation_local_community")}
+                {renderCheckbox("Tree Plantation in Local Community", "tree_plantation_local_community")}
+                {renderCheckbox("Sanitary Napkin Status", "sanitary_napkin_status")}
+                {renderCheckbox("Fair Shop", "fair_shop")}
+                {renderCheckbox("Any Gift Provided During Festival", "any_gift_provided_during_festival")}
               </div>
             </div>
           )}
@@ -1103,7 +894,7 @@ const AddSupplierCSR = () => {
                 ← Previous
               </button>
             )}
-            {activeTab !== "images" ? (
+            {activeTab !== "csr" ? (
               <button
                 type="button"
                 onClick={() => {
@@ -1320,14 +1111,16 @@ const styles = {
     fontWeight: "600",
     margin: "2rem 0 0.5rem 0",
     color: "#334155",
+    borderBottom: "1px solid #e2e8f0",
+    paddingBottom: "0.5rem",
   },
   sectionHint: {
     fontSize: "0.875rem",
     color: "#64748b",
   },
   subSection: {
-    marginTop: "2rem",
-    paddingTop: "2rem",
+    marginTop: "1.5rem",
+    paddingTop: "1.5rem",
     borderTop: "1px solid #e2e8f0",
   },
   formGrid: {
@@ -1432,40 +1225,6 @@ const styles = {
     height: "1rem",
     width: "1rem",
     accentColor: "#3b82f6",
-  },
-  fileInputWrapper: {
-    width: "100%",
-  },
-  fileInputLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    cursor: "pointer",
-  },
-  fileInput: {
-    display: "none",
-  },
-  fileInputButton: {
-    padding: "0.625rem 1rem",
-    backgroundColor: "#f3f4f6",
-    border: "1px solid #d1d5db",
-    borderRadius: "6px",
-    fontSize: "0.875rem",
-    fontWeight: "500",
-    color: "#374151",
-    whiteSpace: "nowrap",
-    transition: "background-color 0.2s",
-  },
-  fileInputButtonHover: {
-    backgroundColor: "#e5e7eb",
-  },
-  fileName: {
-    fontSize: "0.875rem",
-    color: "#6b7280",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    flex: "1",
   },
   formActions: {
     display: "flex",

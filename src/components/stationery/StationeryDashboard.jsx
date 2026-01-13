@@ -23,13 +23,15 @@ const StationeryDashboard = () => {
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
 
   // Form states
-  const [itemForm, setItemForm] = useState({
+  const initialItemForm = {
     name: "",
     description: "",
     unit: "pcs",
     reorder_level: 10,
     current_stock: 0,
-  });
+  };
+  const [itemForm, setItemForm] = useState(initialItemForm);
+  const [editingItemId, setEditingItemId] = useState(null);
 
   const [usageForm, setUsageForm] = useState({
     employee: "",
@@ -233,26 +235,57 @@ const StationeryDashboard = () => {
     setShowEmployeeDropdown(false);
   };
 
+  // Handle edit item
+  const handleEditItem = (item) => {
+    setItemForm({
+      id: item.id,
+      name: item.name,
+      description: item.description || "",
+      unit: item.unit,
+      reorder_level: item.reorder_level,
+      current_stock: item.current_stock,
+    });
+    setEditingItemId(item.id);
+  };
+
+  const handleCancelEdit = () => {
+    setItemForm(initialItemForm);
+    setEditingItemId(null);
+  };
+
   // Handle form submissions
-  const handleAddItem = async (e) => {
+  const handleSubmitItem = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-      await axios.post(`${API_BASE}stationery_items/`, itemForm, {
-        headers: getAuthHeaders(),
-      });
-      setSuccess("Stationery item added successfully!");
-      setItemForm({
-        name: "",
-        description: "",
-        unit: "pcs",
-        reorder_level: 10,
-        current_stock: 0,
-      });
+      let response;
+      if (editingItemId) {
+        // Update existing item
+        response = await axios.put(
+          `${API_BASE}stationery_items/${editingItemId}/`,
+          itemForm,
+          {
+            headers: getAuthHeaders(),
+          }
+        );
+        setSuccess("Stationery item updated successfully!");
+      } else {
+        // Add new item
+        response = await axios.post(`${API_BASE}stationery_items/`, itemForm, {
+          headers: getAuthHeaders(),
+        });
+        setSuccess("Stationery item added successfully!");
+      }
+      setItemForm(initialItemForm);
+      setEditingItemId(null);
       fetchItems();
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError("Failed to add stationery item");
+      setError(
+        editingItemId
+          ? "Failed to update stationery item"
+          : "Failed to add stationery item"
+      );
       console.error(err);
     } finally {
       setLoading(false);
@@ -621,7 +654,7 @@ const StationeryDashboard = () => {
                 gap: "30px",
               }}
             >
-              {/* Add Item Form */}
+              {/* Add/Edit Item Form */}
               <div
                 style={{
                   backgroundColor: "white",
@@ -639,9 +672,11 @@ const StationeryDashboard = () => {
                     fontWeight: "600",
                   }}
                 >
-                  ➕ Add New Stationery Item
+                  {editingItemId
+                    ? "✏️ Edit Stationery Item"
+                    : "➕ Add New Stationery Item"}
                 </h2>
-                <form onSubmit={handleAddItem}>
+                <form onSubmit={handleSubmitItem}>
                   {[
                     "name",
                     "description",
@@ -746,24 +781,55 @@ const StationeryDashboard = () => {
                       )}
                     </div>
                   ))}
-                  <button
-                    type="submit"
-                    disabled={loading}
+                  <div
                     style={{
-                      width: "100%",
-                      padding: "12px",
-                      backgroundColor: "#3b82f6",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      fontSize: "15px",
-                      fontWeight: "500",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      opacity: loading ? 0.7 : 1,
+                      display: "flex",
+                      gap: "10px",
+                      marginTop: "20px",
                     }}
                   >
-                    {loading ? "Adding..." : "Add Stationery Item"}
-                  </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      style={{
+                        flex: 1,
+                        padding: "12px",
+                        backgroundColor: "#3b82f6",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontSize: "15px",
+                        fontWeight: "500",
+                        cursor: loading ? "not-allowed" : "pointer",
+                        opacity: loading ? 0.7 : 1,
+                      }}
+                    >
+                      {loading
+                        ? "Processing..."
+                        : editingItemId
+                        ? "Update Stationery Item"
+                        : "Add Stationery Item"}
+                    </button>
+                    {editingItemId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        style={{
+                          flex: 1,
+                          padding: "12px",
+                          backgroundColor: "#ef4444",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "15px",
+                          fontWeight: "500",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </form>
               </div>
 
@@ -830,7 +896,7 @@ const StationeryDashboard = () => {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+                      gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 0.5fr",
                       padding: "15px 20px",
                       backgroundColor: "#f9fafb",
                       borderBottom: "1px solid #e5e7eb",
@@ -844,6 +910,7 @@ const StationeryDashboard = () => {
                     <div>Current Stock</div>
                     <div>Reorder Level</div>
                     <div>Status</div>
+                    <div>Actions</div>
                   </div>
                   <div style={{ maxHeight: "500px", overflowY: "auto" }}>
                     {filteredItems.map((item) => {
@@ -853,7 +920,7 @@ const StationeryDashboard = () => {
                           key={item.id}
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+                            gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 0.5fr",
                             padding: "15px 20px",
                             borderBottom: "1px solid #f3f4f6",
                             alignItems: "center",
@@ -898,6 +965,22 @@ const StationeryDashboard = () => {
                             >
                               {status.label}
                             </span>
+                          </div>
+                          <div>
+                            <button
+                              onClick={() => handleEditItem(item)}
+                              style={{
+                                padding: "4px 8px",
+                                backgroundColor: "#3b82f6",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                              }}
+                            >
+                              Edit
+                            </button>
                           </div>
                         </div>
                       );
@@ -1015,17 +1098,7 @@ const StationeryDashboard = () => {
                           ? `${usageForm.employee_name} (Selected)`
                           : employeeSearch
                       }
-                      onChange={(e) => {
-                        setEmployeeSearch(e.target.value);
-                        setShowEmployeeDropdown(true);
-                        if (!e.target.value) {
-                          setUsageForm({
-                            ...usageForm,
-                            employee: "",
-                            employee_name: "",
-                          });
-                        }
-                      }}
+                      onChange={(e) => setEmployeeSearch(e.target.value)}
                       onFocus={() => setShowEmployeeDropdown(true)}
                       style={{
                         width: "100%",
@@ -1034,7 +1107,6 @@ const StationeryDashboard = () => {
                         borderRadius: "6px",
                         fontSize: "14px",
                       }}
-                      required
                     />
                     {showEmployeeDropdown && filteredEmployees.length > 0 && (
                       <div

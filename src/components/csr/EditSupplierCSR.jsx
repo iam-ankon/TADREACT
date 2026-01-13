@@ -283,7 +283,7 @@ const EditSupplierCSR = () => {
 
       console.log("Supplier updated successfully:", response.data);
       alert("Supplier updated successfully!");
-      navigate("/suppliersCSR");
+      navigate("/suppliersCSR/" + id);
     } catch (error) {
       console.error("Error updating supplier:", error);
 

@@ -1,14 +1,17 @@
+// EditLeaveRequest.jsx - Updated with Email Button and Link
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getEmployeeLeaveById,
   updateEmployeeLeave,
   getEmployeeDetailsByCode,
+  sendLeaveEmailToMD, // You'll need to create this API function
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
 const EditLeaveRequest = () => {
   const [loading, setLoading] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -20,6 +23,7 @@ const EditLeaveRequest = () => {
     company: "",
     personal_phone: "",
     sub_person: "",
+    email: "",
     from_email: "",
     to: "",
     to_email: "",
@@ -93,7 +97,7 @@ const EditLeaveRequest = () => {
           employee: employeeName || data.employee || "",
           employee_code: employeeCode || "",
           designation: correctDesignation,
-          email: data.email || data.employee?.email || data.from_email || "",
+          email: data.from_email || "",
           to: data.to_email || data.to || "",
           date: data.date ? data.date.split("T")[0] : "",
           start_date: data.start_date ? data.start_date.split("T")[0] : "",
@@ -118,9 +122,8 @@ const EditLeaveRequest = () => {
           status: data.status || "pending",
           emergency_contact: data.emergency_contact || "",
           reason: data.reason || "",
-          from_email: data.employee?.email || "",
-          to_email: data.to || "",
-          cc: data.cc || "",
+          personal_phone:
+            data.personal_phone || data.employee?.personal_phone || "",
         };
 
         console.log("🔄 Mapped Form Data:", mappedData);
@@ -149,22 +152,57 @@ const EditLeaveRequest = () => {
         comment: formData.comment || "",
         hrcomment: formData.hrcomment || "",
         teamleader: formData.teamleader || "",
-        from_email: formData.from_email || "",
-        to_email: formData.to_email || "",
-        cc: formData.cc || "",
       };
+
+      // Explicitly remove email fields if they somehow got included
+      delete updateData.email;
+      delete updateData.to;
+      delete updateData.from_email;
+      delete updateData.to_email;
 
       console.log("📤 Sending update data:", updateData);
 
       await updateEmployeeLeave(id, updateData);
       alert("Leave request updated successfully!");
-      navigate("/employee_leave");
     } catch (err) {
       console.error("Error updating leave request:", err);
       console.error("Error details:", err.response?.data);
       alert("Failed to update leave request. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add this function to send email to MD Sir
+  const sendEmailToMDSir = async () => {
+    try {
+      setSendingEmail(true);
+
+      // Prepare email data
+      const emailData = {
+        leave_id: id,
+        employee_name: formData.employee,
+        employee_id: formData.employee_code,
+        designation: formData.designation,
+        department: formData.department,
+        leave_type: formData.leave_type,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        leave_days: formData.leave_days,
+        reason: formData.reason,
+        status: formData.status,
+        current_comment: formData.comment || "No comment yet",
+      };
+
+      // You'll need to create this API function
+      const response = await sendLeaveEmailToMD(emailData);
+
+      alert("Email sent to MD Sir successfully!");
+    } catch (error) {
+      console.error("Error sending email:", error);
+      alert("Failed to send email. Please try again.");
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -184,7 +222,18 @@ const EditLeaveRequest = () => {
       <Sidebars />
       <div style={styles.mainContent}>
         <div style={styles.header}>
-          <h1 style={styles.headerTitle}>Edit Leave Request</h1>
+          <div style={styles.headerTop}>
+            <h1 style={styles.headerTitle}>Edit Leave Request</h1>
+            <div style={styles.headerActions}>
+              <button
+                style={styles.emailButton}
+                onClick={sendEmailToMDSir}
+                disabled={sendingEmail || loading}
+              >
+                {sendingEmail ? "Sending..." : "📧 Email to MD Sir"}
+              </button>
+            </div>
+          </div>
           <p style={styles.headerSubtitle}>
             Review and update employee leave application
           </p>
@@ -201,6 +250,16 @@ const EditLeaveRequest = () => {
                   <p style={styles.sectionDescription}>
                     Read-only employee details
                   </p>
+                </div>
+                <div style={styles.sectionActions}>
+                  <button
+                    style={styles.smallEmailButton}
+                    onClick={sendEmailToMDSir}
+                    disabled={sendingEmail || loading}
+                    title="Send email notification to MD Sir"
+                  >
+                    {sendingEmail ? "⏳" : "📧 Notify MD"}
+                  </button>
                 </div>
               </div>
 
@@ -236,7 +295,6 @@ const EditLeaveRequest = () => {
                       value={formData[field.name] || ""}
                       style={styles.readOnlyInput}
                       readOnly
-                      disabled
                     />
                   </div>
                 ))}
@@ -297,26 +355,6 @@ const EditLeaveRequest = () => {
               </div>
 
               <div style={styles.formGrid}>
-                {[
-                  { label: "From Email", name: "from_email", type: "email" },
-                  { label: "To Email", name: "to_email", type: "email" },
-                  { label: "CC", name: "cc", type: "email" },
-                 
-                ].map((field) => (
-                  <div key={field.name} style={styles.formGroup}>
-                    <label style={styles.formLabel}>{field.label}</label>
-                    <input
-                      type={field.type}
-                      name={field.name}
-                      value={formData[field.name] || ""}
-                      onChange={handleChange}
-                      style={styles.editableInput}
-                      disabled={loading}
-                      placeholder={`Enter ${field.label.toLowerCase()}`}
-                    />
-                  </div>
-                ))}
-
                 <div style={styles.formGroup}>
                   <label style={styles.formLabel}>Status</label>
                   <select
@@ -342,7 +380,7 @@ const EditLeaveRequest = () => {
                 <div style={styles.fullWidthGroup}>
                   <label style={styles.formLabel}>Team Leader Comment</label>
                   <textarea
-                    name="comment"
+                    name="teamleader"
                     value={formData.teamleader || ""}
                     onChange={handleChange}
                     style={styles.editableTextArea}
@@ -360,7 +398,7 @@ const EditLeaveRequest = () => {
                     onChange={handleChange}
                     style={styles.editableTextArea}
                     disabled={loading}
-                    placeholder="Enter comments from MD..."
+                    placeholder="Enter comments from MD Sir..."
                     rows="3"
                   ></textarea>
                 </div>
@@ -386,15 +424,30 @@ const EditLeaveRequest = () => {
                 type="button"
                 onClick={() => navigate("/employee_leave")}
                 style={styles.cancelButton}
-                disabled={loading}
+                disabled={loading || sendingEmail}
               >
                 Cancel
               </button>
               <button
                 type="button"
+                onClick={sendEmailToMDSir}
+                style={styles.emailActionButton}
+                disabled={loading || sendingEmail}
+              >
+                {sendingEmail ? (
+                  <>
+                    <div style={styles.buttonSpinner}></div>
+                    Sending Email...
+                  </>
+                ) : (
+                  "📧 Send to MD Sir"
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={handleSubmit}
                 style={styles.submitButton}
-                disabled={loading}
+                disabled={loading || sendingEmail}
               >
                 {loading ? (
                   <>
@@ -428,7 +481,8 @@ const styles = {
     display: "flex",
     backgroundColor: "#f8fafc",
     minHeight: "100vh",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily:
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   loadingContainer: {
     display: "flex",
@@ -456,9 +510,15 @@ const styles = {
     overflow: "auto",
   },
   header: {
-    marginBottom: "2px",
-    paddingBottom: "6px",
+    marginBottom: "24px",
+    paddingBottom: "16px",
     borderBottom: "1px solid #e2e8f0",
+  },
+  headerTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: "8px",
   },
   headerTitle: {
     fontSize: "28px",
@@ -471,6 +531,79 @@ const styles = {
     color: "#64748b",
     margin: "0",
   },
+  headerActions: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  },
+  emailButton: {
+    padding: "8px 16px",
+    backgroundColor: "#10b981",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    transition: "background-color 0.2s ease",
+  },
+  linkButton: {
+    padding: "8px 16px",
+    backgroundColor: "#8b5cf6",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    transition: "background-color 0.2s ease",
+  },
+  linkContainer: {
+    marginTop: "20px",
+    padding: "16px",
+    backgroundColor: "#f0f9ff",
+    border: "1px solid #bae6fd",
+    borderRadius: "8px",
+  },
+  linkLabel: {
+    fontWeight: "600",
+    marginBottom: "8px",
+    color: "#0369a1",
+    fontSize: "14px",
+  },
+  linkBox: {
+    backgroundColor: "white",
+    padding: "12px",
+    borderRadius: "6px",
+    border: "1px solid #cbd5e1",
+    fontSize: "14px",
+    wordBreak: "break-all",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "8px",
+  },
+  copyButton: {
+    backgroundColor: "transparent",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "16px",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    transition: "background-color 0.2s ease",
+  },
+  linkNote: {
+    fontSize: "12px",
+    color: "#64748b",
+    margin: "0",
+    fontStyle: "italic",
+  },
   formContainer: {
     backgroundColor: "#fff",
     borderRadius: "12px",
@@ -481,7 +614,7 @@ const styles = {
     margin: "0 auto",
   },
   scrollContainer: {
-    maxHeight: "calc(100vh - 120px)",
+    maxHeight: "calc(100vh - 200px)",
     overflowY: "auto",
     padding: "24px",
   },
@@ -514,6 +647,23 @@ const styles = {
     fontSize: "14px",
     color: "#64748b",
     margin: "0",
+  },
+  sectionActions: {
+    marginLeft: "auto",
+  },
+  smallEmailButton: {
+    padding: "6px 12px",
+    backgroundColor: "#10b981",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    transition: "background-color 0.2s ease",
   },
   formGrid: {
     display: "grid",
@@ -611,6 +761,20 @@ const styles = {
     fontWeight: "500",
     transition: "all 0.2s ease",
   },
+  emailActionButton: {
+    padding: "12px 24px",
+    backgroundColor: "#10b981",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+    transition: "all 0.2s ease",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
   submitButton: {
     padding: "12px 24px",
     backgroundColor: "#3b82f6",
@@ -638,6 +802,42 @@ const styles = {
 // Enhanced hover effects using event handlers instead of style objects
 const enhancedStyles = {
   ...styles,
+  emailButton: {
+    ...styles.emailButton,
+    ":hover": {
+      backgroundColor: "#059669",
+    },
+    ":disabled": {
+      backgroundColor: "#a7f3d0",
+      cursor: "not-allowed",
+    },
+  },
+  linkButton: {
+    ...styles.linkButton,
+    ":hover": {
+      backgroundColor: "#7c3aed",
+    },
+    ":disabled": {
+      backgroundColor: "#c4b5fd",
+      cursor: "not-allowed",
+    },
+  },
+  copyButton: {
+    ...styles.copyButton,
+    ":hover": {
+      backgroundColor: "#f1f5f9",
+    },
+  },
+  smallEmailButton: {
+    ...styles.smallEmailButton,
+    ":hover": {
+      backgroundColor: "#059669",
+    },
+    ":disabled": {
+      backgroundColor: "#a7f3d0",
+      cursor: "not-allowed",
+    },
+  },
   cancelButton: {
     ...styles.cancelButton,
     ":hover": {
@@ -647,6 +847,16 @@ const enhancedStyles = {
     ":disabled": {
       backgroundColor: "#f1f5f9",
       color: "#94a3b8",
+      cursor: "not-allowed",
+    },
+  },
+  emailActionButton: {
+    ...styles.emailActionButton,
+    ":hover": {
+      backgroundColor: "#059669",
+    },
+    ":disabled": {
+      backgroundColor: "#a7f3d0",
       cursor: "not-allowed",
     },
   },

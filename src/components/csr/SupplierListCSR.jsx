@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getSuppliers, deleteSupplier } from "../../api/supplierApi"; // Assume this file contains API call functions
+import { getSuppliers, deleteSupplier } from "../../api/supplierApi";
 
 const SupplierListCSR = () => {
   const [suppliers, setSuppliers] = useState([]);
@@ -13,11 +13,13 @@ const SupplierListCSR = () => {
   useEffect(() => {
     fetchSuppliers();
   }, []);
+
   const fetchSuppliers = async () => {
     try {
       setLoading(true);
       const response = await getSuppliers();
-      setSuppliers(response.data || []);
+      // Ensure response.data is an array
+      setSuppliers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       alert("Failed to load suppliers");
@@ -27,12 +29,22 @@ const SupplierListCSR = () => {
   };
 
   const filteredSuppliers = suppliers.filter((supplier) => {
-    const matchesSearch =
-      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.vendor_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      filterStatus === "all" || supplier.agreement_status === filterStatus;
+    if (!supplier) return false;
+    
+    // Use safe property access with optional chaining and nullish coalescing
+    const name = supplier.supplier_name || supplier.name || "";
+    const vendorId = supplier.supplier_id || supplier.vendor_id || "";
+    const email = supplier.email || "";
+    
+    const matchesSearch = searchTerm.trim() === "" || 
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendorId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Use the supplier's status or default to "active"
+    const status = supplier.bsci_status || supplier.sedex_status || supplier.agreement_status || "active";
+    const matchesStatus = filterStatus === "all" || status === filterStatus;
+    
     return matchesSearch && matchesStatus;
   });
 
@@ -57,13 +69,19 @@ const SupplierListCSR = () => {
       }
     }
   };
+
   const getStatusColor = (status) => {
-    switch (status) {
+    if (!status) return "#e2e3e5";
+    
+    switch (status.toLowerCase()) {
       case "active":
+      case "valid":
         return "#d4edda";
       case "pending":
+      case "in progress":
         return "#fff3cd";
       case "expired":
+      case "invalid":
         return "#f8d7da";
       case "cancelled":
         return "#e2e3e5";
@@ -73,12 +91,17 @@ const SupplierListCSR = () => {
   };
 
   const getStatusTextColor = (status) => {
-    switch (status) {
+    if (!status) return "#383d41";
+    
+    switch (status.toLowerCase()) {
       case "active":
+      case "valid":
         return "#155724";
       case "pending":
+      case "in progress":
         return "#856404";
       case "expired":
+      case "invalid":
         return "#721c24";
       case "cancelled":
         return "#383d41";
@@ -96,154 +119,193 @@ const SupplierListCSR = () => {
         </Link>
       </div>
 
-      {/* Filters and Search */}
-      <div style={styles.filters}>
-        <div style={styles.searchBox}>
-          <input
-            type="text"
-            placeholder="Search suppliers..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
-          <span style={styles.searchIcon}>🔍</span>
-        </div>
-
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Filter by Status:</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={styles.filterSelect}
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="expired">Expired</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Suppliers Table */}
-      <div style={styles.tableContainer}>
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.tableHeader}>
-              <th style={styles.tableHeaderCell}>Vendor ID</th>
-              <th style={styles.tableHeaderCell}>Company Name</th>
-              <th style={styles.tableHeaderCell}>Contact Person</th>
-              <th style={styles.tableHeaderCell}>Email</th>
-              <th style={styles.tableHeaderCell}>Rating</th>
-              <th style={styles.tableHeaderCell}>Agreement Status</th>
-              <th style={styles.tableHeaderCell}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentSuppliers.map((supplier) => (
-              <tr key={supplier.id} style={styles.tableRow}>
-                <td style={styles.tableCell}>{supplier.vendor_id}</td>
-                <td style={styles.tableCell}>
-                  <Link to={`/suppliersCSR/${supplier.id}`} style={styles.link}>
-                    {supplier.name}
-                  </Link>
-                </td>
-                <td style={styles.tableCell}>{supplier.contact_name}</td>
-                <td style={styles.tableCell}>{supplier.email}</td>
-                <td style={styles.tableCell}>
-                  <span style={styles.ratingBadge}>
-                    {supplier.vendor_rating}
-                  </span>
-                </td>
-                <td style={styles.tableCell}>
-                  <span
-                    style={{
-                      ...styles.statusBadge,
-                      backgroundColor: getStatusColor(
-                        supplier.agreement_status
-                      ),
-                      color: getStatusTextColor(supplier.agreement_status),
-                    }}
-                  >
-                    {supplier.agreement_status.charAt(0).toUpperCase() +
-                      supplier.agreement_status.slice(1)}
-                  </span>
-                </td>
-                <td style={styles.tableCell}>
-                  <div style={styles.actionButtons}>
-                    <Link
-                      to={`/edit-supplier/${supplier.id}`}
-                      style={styles.editButton}
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(supplier.id)}
-                      style={styles.deleteButton}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div style={styles.pagination}>
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            style={{
-              ...styles.pageButton,
-              ...(currentPage === 1 ? styles.disabledButton : {}),
-            }}
-          >
-            Previous
-          </button>
-
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              style={{
-                ...styles.pageButton,
-                ...(currentPage === page ? styles.activePageButton : {}),
-              }}
-            >
-              {page}
-            </button>
-          ))}
-
-          <button
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            style={{
-              ...styles.pageButton,
-              ...(currentPage === totalPages ? styles.disabledButton : {}),
-            }}
-          >
-            Next
-          </button>
+      {/* Loading State */}
+      {loading && (
+        <div style={styles.loading}>
+          <div style={styles.spinner}></div>
+          Loading suppliers...
         </div>
       )}
 
-      {/* Summary */}
-      <div style={styles.summary}>
-        <p>
-          Showing {currentSuppliers.length} of {filteredSuppliers.length}{" "}
-          suppliers
-        </p>
-      </div>
+      {/* Filters and Search - Only show when not loading */}
+      {!loading && (
+        <>
+          <div style={styles.filters}>
+            <div style={styles.searchBox}>
+              <input
+                type="text"
+                placeholder="Search by name, ID, or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={styles.searchInput}
+              />
+              <span style={styles.searchIcon}>🔍</span>
+            </div>
+
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>Filter by Status:</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="valid">Valid</option>
+                <option value="pending">Pending</option>
+                <option value="expired">Expired</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Suppliers Table */}
+          <div style={styles.tableContainer}>
+            {filteredSuppliers.length === 0 ? (
+              <div style={styles.emptyState}>
+                <div style={styles.emptyStateIcon}>📭</div>
+                <h3>No suppliers found</h3>
+                <p>
+                  {searchTerm || filterStatus !== "all"
+                    ? "Try adjusting your search or filter"
+                    : "Add your first supplier to get started"}
+                </p>
+                {!searchTerm && filterStatus === "all" && (
+                  <Link to="/add-supplierCSR" style={styles.addButton}>
+                    + Add New Supplier
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHeader}>
+                    <th style={styles.tableHeaderCell}>SL NO</th>
+                    <th style={styles.tableHeaderCell}>Factory Name</th>
+                    <th style={styles.tableHeaderCell}>Location</th>
+                    <th style={styles.tableHeaderCell}>Category</th>
+                    <th style={styles.tableHeaderCell}>Status</th>
+                    <th style={styles.tableHeaderCell}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentSuppliers.map((supplier) => (
+                    <tr key={supplier.id} style={styles.tableRow}>
+                      <td style={styles.tableCell}>
+                        {supplier.supplier_sl_no || supplier.sl_no || "N/A"}
+                      </td>
+                      <td style={styles.tableCell}>
+                        <Link 
+                          to={`/suppliersCSR/${supplier.id}`} 
+                          style={styles.link}
+                        >
+                          {supplier.supplier_name || supplier.name || "Unnamed Supplier"}
+                        </Link>
+                      </td>
+                      <td style={styles.tableCell}>
+                        {supplier.location || "N/A"}
+                      </td>
+                      <td style={styles.tableCell}>
+                        {supplier.supplier_category || "N/A"}
+                      </td>
+                      <td style={styles.tableCell}>
+                        <span
+                          style={{
+                            ...styles.statusBadge,
+                            backgroundColor: getStatusColor(
+                              supplier.bsci_status || supplier.sedex_status
+                            ),
+                            color: getStatusTextColor(
+                              supplier.bsci_status || supplier.sedex_status
+                            ),
+                          }}
+                        >
+                          {(supplier.bsci_status || supplier.sedex_status || "Unknown")
+                            .charAt(0)
+                            .toUpperCase() +
+                            (supplier.bsci_status || supplier.sedex_status || "Unknown")
+                              .slice(1)}
+                        </span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        <div style={styles.actionButtons}>
+                          <Link
+                            to={`/edit-supplier/${supplier.id}`}
+                            style={styles.editButton}
+                          >
+                            Edit
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(supplier.id)}
+                            style={styles.deleteButton}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {!loading && filteredSuppliers.length > 0 && totalPages > 1 && (
+            <div style={styles.pagination}>
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === 1 ? styles.disabledButton : {}),
+                }}
+              >
+                Previous
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  style={{
+                    ...styles.pageButton,
+                    ...(currentPage === page ? styles.activePageButton : {}),
+                  }}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === totalPages ? styles.disabledButton : {}),
+                }}
+              >
+                Next
+              </button>
+            </div>
+          )}
+
+          {/* Summary */}
+          {!loading && filteredSuppliers.length > 0 && (
+            <div style={styles.summary}>
+              <p>
+                Showing {currentSuppliers.length} of {filteredSuppliers.length}{" "}
+                suppliers (Page {currentPage} of {totalPages})
+              </p>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
-
 const styles = {
   container: {
     padding: "2rem",

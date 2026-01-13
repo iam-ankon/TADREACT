@@ -1,5 +1,5 @@
 // AddSupplier.jsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -14,7 +14,7 @@ const AddSupplier = () => {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
+    watch,
   } = useForm();
 
   const styles = {
@@ -29,7 +29,7 @@ const AddSupplier = () => {
       padding: "1rem",
       marginLeft: "0",
       overflowY: "auto",
-      maxHeight: "100vh", // Adjust based on sidebar width
+      maxHeight: "100vh",
     },
     header: {
       fontSize: "1.875rem",
@@ -90,12 +90,15 @@ const AddSupplier = () => {
       borderRadius: "0.5rem",
       boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
       border: "1px solid #e5e7eb",
+      gridColumn: "1 / -1",
     },
     cardTitle: {
       fontWeight: "600",
       marginBottom: "1.25rem",
       fontSize: "1rem",
       color: "#111827",
+      borderBottom: "1px solid #e5e7eb",
+      paddingBottom: "0.5rem",
     },
     inputGroup: {
       marginBottom: "1rem",
@@ -128,7 +131,7 @@ const AddSupplier = () => {
       border: "1px solid #d1d5db",
       boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
       fontSize: "0.875rem",
-      minHeight: "100px",
+      minHeight: "80px",
       resize: "vertical",
       "&:focus": {
         outline: "none",
@@ -143,12 +146,6 @@ const AddSupplier = () => {
       border: "1px solid #d1d5db",
       boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
       fontSize: "0.875rem",
-      appearance: "none",
-      backgroundImage:
-        'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23999%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
-      backgroundRepeat: "no-repeat",
-      backgroundPosition: "right 0.5rem center",
-      backgroundSize: "0.65rem auto",
       "&:focus": {
         outline: "none",
         borderColor: "#2563eb",
@@ -224,28 +221,31 @@ const AddSupplier = () => {
       flexDirection: "column",
       gap: "0.5rem",
     },
-    loadingText: {
-      textAlign: "center",
-      padding: "2rem",
-      color: "#6b7280",
-    },
     sectionHeader: {
-      gridColumn: "1 / -1",
-      fontSize: "1rem",
+      fontSize: "0.875rem",
       fontWeight: "600",
-      color: "#111827",
+      color: "#4b5563",
       margin: "1rem 0 0.5rem 0",
-      paddingBottom: "0.5rem",
+      paddingBottom: "0.25rem",
       borderBottom: "1px solid #e5e7eb",
     },
+    checkboxGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+      gap: "0.5rem",
+      marginBottom: "1rem",
+    },
   };
+
   const onSubmit = async (data) => {
     const formData = new FormData();
+    
+    // Convert boolean fields properly
     Object.keys(data).forEach((key) => {
-      if (data[key] instanceof FileList && data[key].length > 0) {
-        formData.append(key, data[key][0]);
-      } else {
-        formData.append(key, data[key] || "");
+      if (typeof data[key] === 'boolean') {
+        formData.append(key, data[key] ? 'true' : 'false');
+      } else if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
+        formData.append(key, data[key]);
       }
     });
 
@@ -271,928 +271,378 @@ const AddSupplier = () => {
   };
 
   const tabs = [
-    { key: "basic", label: "Basic Info" },
-    { key: "address", label: "Address & Contact" },
-    { key: "Shipment_Terms", label: "Shipment Terms" },
-    { key: "agreements", label: "Agreements" },
-    { key: "classification", label: "Classification" },
-    { key: "Financial_Details", label: "Financial Details" },
+    { key: "basic", label: "Basic Information" },
+    { key: "building", label: "Building & Manpower" },
+    { key: "production", label: "Production & Financial" },
     { key: "certifications", label: "Certifications" },
-    { key: "factories", label: "Factories" },
-    { key: "qa", label: "QA Assessment" },
-    { key: "latest_audit_report", label: "Audit Report" },
-    { key: "images_attachments", label: "Images & Attachments" },
+    { key: "licenses", label: "Licenses" },
+    { key: "safety", label: "Safety & Compliance" },
+    { key: "csr", label: "CSR & Wages" },
   ];
-
-  useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      const firstErrorField = Object.keys(errors)[0];
-      const element = document.querySelector(`[name="${firstErrorField}"]`);
-      if (element && element.scrollIntoView) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        element.focus();
-      }
-    }
-  }, [errors]);
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "basic":
         return (
-          <div style={styles.gridContainer}>
-            {/* Vendor Information */}
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>Vendor Information</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Vendor ID</label>
-                  <input
-                    type="text"
-                    {...register("vendor_id")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Reference No</label>
-                  <input
-                    type="text"
-                    {...register("reference_no")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Short Name</label>
-                  <input
-                    type="text"
-                    {...register("short_name")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Local Name</label>
-                  <input
-                    type="text"
-                    {...register("local_name")}
-                    style={styles.input}
-                  />
-                </div>
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Basic Information</h3>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>SL No</label>
+                <input
+                  type="number"
+                  {...register("sl_no")}
+                  style={styles.input}
+                />
               </div>
-            </div>
-
-            {/* Company Names */}
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>Company Names</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Name</label>
-                  <input
-                    type="text"
-                    {...register("name", { required: "Name is required" })}
-                    style={styles.input}
-                  />
-                  {errors.name && (
-                    <p style={styles.errorText}>{errors.name.message}</p>
-                  )}
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Name 1</label>
-                  <input
-                    type="text"
-                    {...register("name_1")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Name 2</label>
-                  <input
-                    type="text"
-                    {...register("name_2")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Name 3</label>
-                  <input
-                    type="text"
-                    {...register("name_3")}
-                    style={styles.input}
-                  />
-                </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Supplier Name / Factory Name *</label>
+                <input
+                  type="text"
+                  {...register("supplier_name", { required: "Supplier name is required" })}
+                  style={styles.input}
+                />
+                {errors.supplier_name && (
+                  <p style={styles.errorText}>{errors.supplier_name.message}</p>
+                )}
               </div>
-            </div>
-
-            {/* Vendor Status */}
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>Vendor Status</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Vendor Type</label>
-                  <input
-                    type="text"
-                    {...register("vendor_type")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Holding Group</label>
-                  <input
-                    type="text"
-                    {...register("holding_group")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Business Registration No :</label>
-                  <input
-                    type="text"
-                    {...register("business_type")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Place of Incorporation:</label>
-                  <input
-                    type="text"
-                    {...register("place_of_incorporation")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.flexRow}>
-                  <input
-                    type="checkbox"
-                    {...register("vendor_access_creation")}
-                    style={styles.checkbox}
-                  />
-                  <label style={styles.checkboxLabel}>
-                    Vendor Access Creation
-                  </label>
-                </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Supplier ID *</label>
+                <input
+                  type="text"
+                  {...register("supplier_id", { required: "Supplier ID is required" })}
+                  style={styles.input}
+                />
+                {errors.supplier_id && (
+                  <p style={styles.errorText}>{errors.supplier_id.message}</p>
+                )}
               </div>
-            </div>
-
-            {/* General Contact */}
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>General Contact</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>About us:</label>
-                  <input
-                    type="text"
-                    {...register("about_us")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Company Tel. No</label>
-                  <input
-                    type="text"
-                    {...register("company_phone")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Company Email:</label>
-                  <input
-                    type="email"
-                    {...register("email")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Company Website:</label>
-                  <input
-                    type="url"
-                    {...register("website")}
-                    style={styles.input}
-                  />
-                </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Location</label>
+                <textarea
+                  {...register("location")}
+                  style={styles.textarea}
+                />
               </div>
-            </div>
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>General</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Preferred Language:</label>
-                  <input
-                    type="text"
-                    {...register("preferred_language")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Deactivation date:</label>
-                  <input
-                    type="date"
-                    {...register("deactivation_date")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Planned inactivation date:</label>
-                  <input
-                    type="date"
-                    {...register("planned_inactivation_date")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Vendor Rating:</label>
-                  <input
-                    type="text"
-                    {...register("vendor_rating")}
-                    style={styles.input}
-                  />
-                </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Supplier Category</label>
+                <input
+                  type="text"
+                  {...register("supplier_category")}
+                  style={styles.input}
+                />
               </div>
-            </div>
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>Group</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Purchasing Group:</label>
-                  <input
-                    type="text"
-                    {...register("purchasing_group")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Contract Sign Date:</label>
-                  <input
-                    type="date"
-                    {...register("contract_sign_date")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Deactivation Reason:</label>
-                  <input
-                    type="text"
-                    {...register("deactivation_reason")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Capability:</label>
-                  <input
-                    type="text"
-                    {...register("capability")}
-                    style={styles.input}
-                  />
-                </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Year of Establishment</label>
+                <input
+                  type="number"
+                  {...register("year_of_establishment")}
+                  style={styles.input}
+                  min="1900"
+                  max="2100"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Ownership Details</label>
+                <textarea
+                  {...register("ownership_details")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Weekly Holiday</label>
+                <input
+                  type="text"
+                  {...register("weekly_holiday")}
+                  style={styles.input}
+                  defaultValue="Friday"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>BGMEA Number</label>
+                <input
+                  type="text"
+                  {...register("bgmea_number")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>RSC</label>
+                <input
+                  type="text"
+                  {...register("rsc")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>TAD Group Order Status</label>
+                <input
+                  type="text"
+                  {...register("tad_group_order_status")}
+                  style={styles.input}
+                />
               </div>
             </div>
           </div>
         );
-      case "address":
+
+      case "building":
         return (
           <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>Address (Default)</h3>
-            <div style={styles.gridContainer}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Address Type</label>
-                <input
-                  type="text"
-                  {...register("address_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Country/Region</label>
-                <input
-                  type="text"
-                  {...register("address_country_region")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
-                <label style={styles.label}>Street</label>
-                <textarea
-                  {...register("address_street")}
-                  rows={2}
-                  style={styles.textarea}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Town/City</label>
-                <input
-                  type="text"
-                  {...register("address_town_city")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>GPS Longitude</label>
-                <input
-                  type="text"
-                  {...register("address_gps_lng")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>GPS Latitude</label>
-                <input
-                  type="text"
-                  {...register("address_gps_lat")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Postal Code</label>
-                <input
-                  type="text"
-                  {...register("address_postal_code")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Port of Loading/Discharge</label>
-                <input
-                  type="text"
-                  {...register("address_port_of_loading_discharge")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Language</label>
-                <input
-                  type="text"
-                  {...register("address_language")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>GPS Description</label>
-                <textarea
-                  {...register("address_gps_text")}
-                  rows={2}
-                  style={styles.textarea}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Inactive Address</label>
+            <h3 style={styles.cardTitle}>Building & Manpower Information</h3>
+            
+            <div style={styles.sectionHeader}>Building Type</div>
+            <div style={styles.checkboxGrid}>
+              <div style={styles.flexRow}>
                 <input
                   type="checkbox"
-                  {...register("address_inactive")}
+                  {...register("rented_building")}
                   style={styles.checkbox}
                 />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>EU Country</label>
-                <input
-                  type="checkbox"
-                  {...register("address_eu_country")}
-                  style={styles.checkbox}
-                />
-              </div>
-            </div>
-
-            <h3 style={{ ...styles.cardTitle, marginTop: "2rem" }}>
-              Contact 1 (Default)
-            </h3>
-            <div style={styles.gridContainer}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Contact Type</label>
-                <input
-                  type="text"
-                  {...register("contact1_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Texweave Access</label>
-                <input
-                  type="checkbox"
-                  {...register("contact1_texweave_access")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Title</label>
-                <input
-                  type="text"
-                  {...register("contact1_title")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>First Name</label>
-                <input
-                  type="text"
-                  {...register("contact1_first_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Last Name</label>
-                <input
-                  type="text"
-                  {...register("contact1_last_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Position</label>
-                <input
-                  type="text"
-                  {...register("contact1_position")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Telephone</label>
-                <input
-                  type="text"
-                  {...register("contact1_tel")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Mobile</label>
-                <input
-                  type="text"
-                  {...register("contact1_mobile")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Email</label>
-                <input
-                  type="email"
-                  {...register("contact1_email")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Department</label>
-                <input
-                  type="text"
-                  {...register("contact1_department")}
-                  style={styles.input}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      case "Shipment_Terms":
-        return (
-          <div style={styles.gridContainer}>
-            {/* Address */}
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>Shipment Terms</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Incoterm:</label>
-                  <input
-                    type="text"
-                    {...register("incoterm")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Avg. Lead Time (days):</label>
-                  <input
-                    type="number"
-                    {...register("avg_lead_time_days")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Payment Method:</label>
-                  <input
-                    type="text"
-                    {...register("payment_method")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Payment Term:</label>
-                  <input
-                    type="text"
-                    {...register("payment_term")}
-                    style={styles.input}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Default Contact Person */}
-            <div style={styles.cardContainer}>
-              <h3 style={styles.cardTitle}>Cash</h3>
-              <div style={styles.flexCol}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Currency:</label>
-                  <input
-                    type="text"
-                    {...register("currency")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Cash Discount:</label>
-                  <input
-                    type="text"
-                    {...register("cash_discount")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Liability Insurance:</label>
-                  <input
-                    type="text"
-                    {...register("liability_insurance")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Export License No.:</label>
-                  <input
-                    type="text"
-                    {...register("export_license_no")}
-                    style={styles.input}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case "agreements":
-        return (
-          <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>Agreements</h3>
-            <div style={styles.gridContainer}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Agreement Code</label>
-                <input
-                  type="text"
-                  {...register("agreement_code")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Agreement Name</label>
-                <input
-                  type="text"
-                  {...register("agreement_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Agreement Type</label>
-                <input
-                  type="text"
-                  {...register("agreement_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
-                <label style={styles.label}>Agreement Description</label>
-                <textarea
-                  {...register("agreement_description")}
-                  rows={3}
-                  style={styles.textarea}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Agreement Status</label>
-                <select {...register("agreement_status")} style={styles.select}>
-                  <option value="pending">Pending</option>
-                  <option value="active">Active</option>
-                  <option value="expired">Expired</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Document Status</label>
-                <select
-                  {...register("agreement_doc_status")}
-                  style={styles.select}
-                >
-                  <option value="draft">Draft</option>
-                  <option value="submitted">Submitted</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Signature Due Date</label>
-                <input
-                  type="date"
-                  {...register("agreement_signature_due_date")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Expiry Date</label>
-                <input
-                  type="date"
-                  {...register("agreement_expiry_date")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Accepted On</label>
-                <input
-                  type="date"
-                  {...register("agreement_accepted_on")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
-                <label style={styles.label}>Instruction to Vendor</label>
-                <textarea
-                  {...register("agreement_instruction_to_vendor")}
-                  rows={3}
-                  style={styles.textarea}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Vendor Action Required</label>
-                <input
-                  type="checkbox"
-                  {...register("agreement_vendor_action_required")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Contract File</label>
-                <input
-                  type="file"
-                  {...register("agreement_contract_file")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Vendor Signing Copy</label>
-                <input
-                  type="file"
-                  {...register("agreement_vendor_signing_copy")}
-                  style={styles.input}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      case "qa":
-        return (
-          <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>QA Assessment</h3>
-            <div style={styles.gridContainer}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>QA Rank</label>
-                <input
-                  type="text"
-                  {...register("qa_rank")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Assessment Level</label>
-                <input
-                  type="text"
-                  {...register("qa_assessment_level")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Risk Level</label>
-                <input
-                  type="text"
-                  {...register("qa_risk_level")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Performance Level</label>
-                <input
-                  type="text"
-                  {...register("qa_performance_level")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>QA Score</label>
-                <input
-                  type="text"
-                  {...register("qa_score")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Disposal Licensing</label>
-                <input
-                  type="text"
-                  {...register("qa_disposal_licensing")}
-                  style={styles.input}
-                />
+                <label style={styles.checkboxLabel}>Rented building</label>
               </div>
               <div style={styles.flexRow}>
                 <input
                   type="checkbox"
-                  {...register("qa_accredited")}
+                  {...register("share_building")}
                   style={styles.checkbox}
                 />
-                <label style={styles.checkboxLabel}>QA Accredited</label>
+                <label style={styles.checkboxLabel}>Share building</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("own_property")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Own Property</label>
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Building Details</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Area (sq ft)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register("total_area")}
+                  style={styles.input}
+                  min="0"
+                />
               </div>
               <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
-                <label style={styles.label}>QA Summary</label>
+                <label style={styles.label}>Building Details</label>
                 <textarea
-                  {...register("qa_summary")}
-                  rows={3}
+                  {...register("building_details")}
                   style={styles.textarea}
                 />
               </div>
             </div>
-          </div>
-        );
-      case "classification":
-        return (
-          <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>Classification</h3>
+
+            <div style={styles.sectionHeader}>Contact Persons</div>
+            <div style={styles.gridContainer}>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Factory Main Contact Person</label>
+                <textarea
+                  {...register("factory_main_contact")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Factory Merchandiser Department Contact</label>
+                <textarea
+                  {...register("factory_merchandiser_contact")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Factory HR/Compliance Contact Person</label>
+                <textarea
+                  {...register("factory_hr_compliance_contact")}
+                  style={styles.textarea}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Manpower</div>
             <div style={styles.gridContainer}>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Classification Code</label>
+                <label style={styles.label}>Workers (Male)</label>
                 <input
-                  type="text"
-                  {...register("classification_code")}
+                  type="number"
+                  {...register("manpower_workers_male")}
                   style={styles.input}
+                  min="0"
                 />
               </div>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Classification Name</label>
+                <label style={styles.label}>Workers (Female)</label>
                 <input
-                  type="text"
-                  {...register("classification_name")}
+                  type="number"
+                  {...register("manpower_workers_female")}
                   style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Staff (Male)</label>
+                <input
+                  type="number"
+                  {...register("manpower_staff_male")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Staff (Female)</label>
+                <input
+                  type="number"
+                  {...register("manpower_staff_female")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Manpower (auto-calculated)</label>
+                <input
+                  type="number"
+                  {...register("total_manpower")}
+                  style={styles.input}
+                  min="0"
+                  readOnly
+                  value={
+                    (parseInt(watch("manpower_workers_male") || 0) +
+                    parseInt(watch("manpower_workers_female") || 0) +
+                    parseInt(watch("manpower_staff_male") || 0) +
+                    parseInt(watch("manpower_staff_female") || 0))
+                  }
                 />
               </div>
             </div>
           </div>
         );
-      case "Financial_Details":
+
+      case "production":
         return (
           <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>Financial Details</h3>
+            <h3 style={styles.cardTitle}>Production & Financial Information</h3>
+            
+            <div style={styles.sectionHeader}>Production Details</div>
+            <div style={styles.gridContainer}>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Production Process</label>
+                <textarea
+                  {...register("production_process")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Manufacturing Item</label>
+                <textarea
+                  {...register("manufacturing_item")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Capacity per month</label>
+                <input
+                  type="text"
+                  {...register("capacity_per_month")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Business % by Market</label>
+                <input
+                  type="text"
+                  {...register("business_by_market")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Number of Sewing Line</label>
+                <input
+                  type="number"
+                  {...register("number_of_sewing_line")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Number of Machineries</label>
+                <input
+                  type="number"
+                  {...register("total_number_of_machineries")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Customer Information</div>
+            <div style={styles.gridContainer}>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Existing Customer (%)</label>
+                <textarea
+                  {...register("existing_customer")}
+                  style={styles.textarea}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Financial Information</div>
             <div style={styles.gridContainer}>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Account Name</label>
-                <input
-                  type="text"
-                  {...register("account_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Account No.</label>
-                <input
-                  type="text"
-                  {...register("account_no")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Account No. 2</label>
-                <input
-                  type="text"
-                  {...register("account_no_2")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Bank Key</label>
-                <input
-                  type="text"
-                  {...register("bank_key")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Bank Name</label>
-                <input
-                  type="text"
-                  {...register("bank_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Country of bank</label>
-                <input
-                  type="text"
-                  {...register("country_of_bank")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Bank Code / Swift Code</label>
-                <input
-                  type="text"
-                  {...register("bank_code_swift_code")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Discount Rate</label>
-                <input
-                  type="text"
-                  {...register("discount_rate")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Total Annual Turnover</label>
-                <input
-                  type="text"
-                  {...register("total_annual_turnover")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Export Annual Turnover</label>
-                <input
-                  type="text"
-                  {...register("export_annual_turnover")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Credit Report</label>
-                <input
-                  type="text"
-                  {...register("credit_report")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Credit Limit</label>
+                <label style={styles.label}>Yearly Turnover (in USD)</label>
                 <input
                   type="number"
-                  step="any"
-                  {...register("credit_limit", { valueAsNumber: true })}
+                  step="0.01"
+                  {...register("yearly_turnover_usd")}
                   style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Agent Payment</label>
-                <input
-                  type="number"
-                  step="any"
-                  {...register("agent_payment", { valueAsNumber: true })}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Super Bonus</label>
-                <input
-                  type="text"
-                  {...register("super_bonus")}
-                  style={styles.input}
+                  min="0"
                 />
               </div>
             </div>
           </div>
         );
+
       case "certifications":
         return (
           <div style={styles.cardContainer}>
             <h3 style={styles.cardTitle}>Certifications</h3>
+            
+            <div style={styles.sectionHeader}>BSCI</div>
             <div style={styles.gridContainer}>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Certification Type</label>
-                <input
-                  type="text"
-                  {...register("certification_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Certification Name</label>
-                <input
-                  type="text"
-                  {...register("certification_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Certification Number</label>
-                <input
-                  type="text"
-                  {...register("certification_number")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Issue Date</label>
+                <label style={styles.label}>Last Audit Date</label>
                 <input
                   type="date"
-                  {...register("issue_date")}
+                  {...register("bsci_last_audit_date")}
                   style={styles.input}
                 />
               </div>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Expiry Date</label>
+                <label style={styles.label}>Rating</label>
+                <input
+                  type="text"
+                  {...register("bsci_rating")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Validity</label>
                 <input
                   type="date"
-                  {...register("expiry_date")}
+                  {...register("bsci_validity")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Days Remaining</label>
+                <input
+                  type="number"
+                  {...register("bsci_validity_days_remaining")}
                   style={styles.input}
                 />
               </div>
@@ -1200,504 +650,468 @@ const AddSupplier = () => {
                 <label style={styles.label}>Status</label>
                 <input
                   type="text"
-                  {...register("status")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Institute Country</label>
-                <input
-                  type="text"
-                  {...register("institute_country")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Notes</label>
-                <textarea
-                  {...register("notes")}
-                  style={{ ...styles.input, height: "80px" }}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Attachment</label>
-                <input
-                  type="file"
-                  {...register("attachment")}
+                  {...register("bsci_status")}
                   style={styles.input}
                 />
               </div>
             </div>
-          </div>
-        );
-      case "factories":
-        return (
-          <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>Factory Details</h3>
+
+            <div style={styles.sectionHeader}>SEDEX</div>
             <div style={styles.gridContainer}>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Factory Name</label>
-                <input
-                  type="text"
-                  {...register("factory_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Factory ID</label>
-                <input
-                  type="text"
-                  {...register("factory_id")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Factory Type</label>
-                <input
-                  type="text"
-                  {...register("factory_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Factory Status</label>
-                <input
-                  type="text"
-                  {...register("factory_status")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Document Status</label>
-                <input
-                  type="text"
-                  {...register("factory_doc_status")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Vendor Ref</label>
-                <input
-                  type="text"
-                  {...register("factory_vendor_ref")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Vendor Reverse Ref</label>
-                <input
-                  type="text"
-                  {...register("factory_vendor_reverse_ref")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Factory Contact</label>
-                <input
-                  type="text"
-                  {...register("factory_contact")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Factory Phone</label>
-                <input
-                  type="text"
-                  {...register("factory_phone")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Factory Address</label>
-                <input
-                  type="text"
-                  {...register("factory_address")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Capacity</label>
-                <input
-                  type="text"
-                  {...register("factory_capacity")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Related Factory</label>
-                <input
-                  type="text"
-                  {...register("factory_related")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Related Since</label>
+                <label style={styles.label}>Last Audit Date</label>
                 <input
                   type="date"
-                  {...register("factory_related_since")}
+                  {...register("sedex_last_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Rating</label>
+                <input
+                  type="text"
+                  {...register("sedex_rating")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Validity</label>
+                <input
+                  type="date"
+                  {...register("sedex_validity")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Days Remaining</label>
+                <input
+                  type="number"
+                  {...register("sedex_validity_days_remaining")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Status</label>
+                <input
+                  type="text"
+                  {...register("sedex_status")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>WRAP</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Audit Date</label>
+                <input
+                  type="date"
+                  {...register("wrap_last_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Rating</label>
+                <input
+                  type="text"
+                  {...register("wrap_rating")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Validity</label>
+                <input
+                  type="date"
+                  {...register("wrap_validity")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Days Remaining</label>
+                <input
+                  type="number"
+                  {...register("wrap_validity_days_remaining")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Status</label>
+                <input
+                  type="text"
+                  {...register("wrap_status")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Other Certifications</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Security Audit Last Date</label>
+                <input
+                  type="date"
+                  {...register("security_audit_last_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>OEKO-TEX Validity</label>
+                <input
+                  type="date"
+                  {...register("oeko_tex_validity")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>GOTS Validity</label>
+                <input
+                  type="date"
+                  {...register("gots_validity")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>ISO 9001-2015 Validity</label>
+                <input
+                  type="date"
+                  {...register("iso_9001_validity")}
                   style={styles.input}
                 />
               </div>
               <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
-                <label style={styles.label}>Factory Note</label>
+                <label style={styles.label}>Certification Remarks</label>
                 <textarea
-                  {...register("factory_note")}
-                  rows={2}
+                  {...register("certification_remarks")}
                   style={styles.textarea}
                 />
               </div>
-
-              {/* Boolean Fields */}
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Default Factory</label>
-                <input
-                  type="checkbox"
-                  {...register("factory_default")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Sync</label>
-                <input
-                  type="checkbox"
-                  {...register("factory_sync")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit: Social</label>
-                <input
-                  type="checkbox"
-                  {...register("audit_social")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit: 1st Enlistment</label>
-                <input
-                  type="checkbox"
-                  {...register("audit_1st_enlistment")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit: 2nd Enlistment</label>
-                <input
-                  type="checkbox"
-                  {...register("audit_2nd_enlistment")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit: Qualification Visit</label>
-                <input
-                  type="checkbox"
-                  {...register("audit_qualification_visit")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit: KIK CSR</label>
-                <input
-                  type="checkbox"
-                  {...register("audit_kik_csr")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit: Environmental</label>
-                <input
-                  type="checkbox"
-                  {...register("audit_environmental")}
-                  style={styles.checkbox}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit: QC Visit</label>
-                <input
-                  type="checkbox"
-                  {...register("audit_qc_visit")}
-                  style={styles.checkbox}
-                />
-              </div>
             </div>
           </div>
         );
-      case "latest_audit_report":
+
+      case "licenses":
         return (
           <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>Latest Audit Report</h3>
+            <h3 style={styles.cardTitle}>License Information</h3>
+            
             <div style={styles.gridContainer}>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Report No</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_report_no")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Version</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_version")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Type</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_report_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Customer</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_customer")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Date</label>
+                <label style={styles.label}>Trade License Validity</label>
                 <input
                   type="date"
-                  {...register("latest_audit_date")}
+                  {...register("trade_license_validity")}
                   style={styles.input}
                 />
               </div>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Auditor</label>
-                <input
-                  type="text"
-                  {...register("latest_auditor")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Party</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_party")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Result</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_result")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Expiry Date</label>
+                <label style={styles.label}>Factory License Validity</label>
                 <input
                   type="date"
-                  {...register("latest_audit_expiry_date")}
+                  {...register("factory_license_validity")}
                   style={styles.input}
                 />
               </div>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Report Date</label>
+                <label style={styles.label}>Fire License Validity</label>
                 <input
                   type="date"
-                  {...register("latest_audit_report_date")}
+                  {...register("fire_license_validity")}
                   style={styles.input}
                 />
               </div>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Audit Status</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_status")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Editing Status</label>
-                <input
-                  type="text"
-                  {...register("latest_audit_editing_status")}
-                  style={styles.input}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      case "images_attachments":
-        return (
-          <div style={styles.cardContainer}>
-            <h3 style={styles.cardTitle}>Images & Attachments</h3>
-            <div style={styles.gridContainer}>
-              {/* Images Section */}
-              <div style={styles.sectionHeader}>Image Information</div>
-
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Image Type</label>
-                <input
-                  type="text"
-                  {...register("image_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Image Description</label>
-                <input
-                  type="text"
-                  {...register("image_description")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Image File</label>
-                <input
-                  type="file"
-                  {...register("image_file")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Last Modified By</label>
-                <input
-                  type="text"
-                  {...register("image_last_modified_by")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Last Modified On</label>
-                <input
-                  type="datetime-local"
-                  {...register("image_last_modified_on")}
-                  style={styles.input}
-                />
-              </div>
-
-              {/* Attachments Section */}
-              <div style={styles.sectionHeader}>Attachment Information</div>
-
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Attachment Type</label>
-                <input
-                  type="text"
-                  {...register("attachment_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Attachment Description</label>
-                <input
-                  type="text"
-                  {...register("attachment_description")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Attachment File</label>
-                <input
-                  type="file"
-                  {...register("attachment_file")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Last Modified By</label>
-                <input
-                  type="text"
-                  {...register("attachment_last_modified_by")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Last Modified On</label>
-                <input
-                  type="datetime-local"
-                  {...register("attachment_last_modified_on")}
-                  style={styles.input}
-                />
-              </div>
-
-              {/* Shared Files Section */}
-              <div style={styles.sectionHeader}>Shared File Information</div>
-
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Shared File Name</label>
-                <input
-                  type="text"
-                  {...register("shared_file_name")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Shared File Type</label>
-                <input
-                  type="text"
-                  {...register("shared_file_type")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Shared File Description</label>
-                <input
-                  type="text"
-                  {...register("shared_file_description")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Shared File</label>
-                <input
-                  type="file"
-                  {...register("shared_file")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Shared File Details</label>
-                <input
-                  type="text"
-                  {...register("shared_file_details")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Shared File Status</label>
-                <input
-                  type="text"
-                  {...register("shared_file_status")}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Effective From</label>
+                <label style={styles.label}>Membership Validity</label>
                 <input
                   type="date"
-                  {...register("shared_file_effective_from")}
+                  {...register("membership_validity")}
                   style={styles.input}
                 />
               </div>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Effective To</label>
+                <label style={styles.label}>Group Insurance Validity</label>
                 <input
                   type="date"
-                  {...register("shared_file_effective_to")}
+                  {...register("group_insurance_validity")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Boiler License Validity</label>
+                <input
+                  type="date"
+                  {...register("boiler_license_validity")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Boiler No</label>
+                <input
+                  type="text"
+                  {...register("boiler_no")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>BERC License Validity</label>
+                <input
+                  type="date"
+                  {...register("berc_license_validity")}
                   style={styles.input}
                 />
               </div>
               <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
-                <label style={styles.label}>Notes</label>
+                <label style={styles.label}>License Remarks</label>
                 <textarea
-                  {...register("shared_file_notes")}
-                  style={{ ...styles.input, height: "100px" }}
+                  {...register("license_remarks")}
+                  style={styles.textarea}
                 />
               </div>
             </div>
           </div>
         );
+
+      case "safety":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Safety & Compliance Information</h3>
+            
+            <div style={styles.sectionHeader}>Fire Safety</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Fire Training By FSCD</label>
+                <input
+                  type="date"
+                  {...register("last_fire_training_by_fscd")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>FSCD Next Fire Training Date</label>
+                <input
+                  type="date"
+                  {...register("fscd_next_fire_training_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Fire Drill Record By FSCD</label>
+                <input
+                  type="date"
+                  {...register("last_fire_drill_record_by_fscd")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>FSCD Next Drill Date</label>
+                <input
+                  type="date"
+                  {...register("fscd_next_drill_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Fire Fighter/Rescue/First Aider (FSCD)</label>
+                <input
+                  type="number"
+                  {...register("total_fire_fighter_rescue_first_aider_fscd")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Fire Safety Remarks</label>
+                <textarea
+                  {...register("fire_safety_remarks")}
+                  style={styles.textarea}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Accord RSC</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>RSC ID</label>
+                <input
+                  type="text"
+                  {...register("rsc_id")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Progress Rate (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register("progress_rate")}
+                  style={styles.input}
+                  min="0"
+                  max="100"
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Environmental</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Water Test Report DOE</label>
+                <input
+                  type="date"
+                  {...register("water_test_report_doe")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>ZDHC Water test Report</label>
+                <input
+                  type="date"
+                  {...register("zdhc_water_test_report")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Higg FEM Self Assessment Score</label>
+                <input
+                  type="number"
+                  {...register("higg_fem_self_assessment_score")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Behive Chemical Inventory</label>
+                <input
+                  type="checkbox"
+                  {...register("behive_chemical_inventory")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Enabled</label>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "csr":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>CSR & Wages Information</h3>
+            
+            <div style={styles.sectionHeader}>Wages & Benefits</div>
+            <div style={styles.checkboxGrid}>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("minimum_wages_paid")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Minimum Wages Paid</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("earn_leave_status")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Earn leave status</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("service_benefit")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Service Benefit</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("maternity_benefit")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Maternity Benefit</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("yearly_increment")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Yearly Increment</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("festival_bonus")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Festival Bonus</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("salary_due_status")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Salary Due Status</label>
+              </div>
+            </div>
+            
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Due Salary Month</label>
+                <input
+                  type="text"
+                  {...register("due_salary_month")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>CSR Activities</div>
+            <div style={styles.checkboxGrid}>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("donation_local_community")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Donation Local Community</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("tree_plantation_local_community")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Tree Plantation local community</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("sanitary_napkin_status")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Sanitary Napkin Status</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("fair_shop")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Fair Shop</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("any_gift_provided_during_festival")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Any Gift Provided During Festival</label>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }

@@ -623,7 +623,7 @@ const TeamLeaves = () => {
                   <div style={styles.actionButtons}>
                     {leave.status === "pending" && (
                       <>
-                        <button
+                        {/* <button
                           onClick={() =>
                             handleStatusChange(leave.id, "approved")
                           }
@@ -640,7 +640,7 @@ const TeamLeaves = () => {
                           disabled={updating}
                         >
                           ❌ Reject
-                        </button>
+                        </button> */}
                       </>
                     )}
                     <button
