@@ -11,6 +11,17 @@ const Supplier = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  // Status colors mapping
+  const statusStyles = {
+    active: { bg: "#d1fae5", text: "#065f46" },
+    valid: { bg: "#d1fae5", text: "#065f46" },
+    pending: { bg: "#fef3c7", text: "#92400e" },
+    "in progress": { bg: "#fef3c7", text: "#92400e" },
+    expired: { bg: "#fee2e2", text: "#b91c1c" },
+    invalid: { bg: "#fee2e2", text: "#b91c1c" },
+    cancelled: { bg: "#f3f4f6", text: "#374151" },
+  };
+
   useEffect(() => {
     const fetchSuppliers = async () => {
       setLoading(true);
@@ -18,9 +29,24 @@ const Supplier = () => {
         const response = await axios.get(
           "http://119.148.51.38:8000/api/merchandiser/api/supplier/"
         );
-        setSuppliers(response.data);
+        // Check if response.data is an array
+        if (Array.isArray(response.data)) {
+          setSuppliers(response.data);
+        } else if (response.data && Array.isArray(response.data.results)) {
+          // Handle paginated response
+          setSuppliers(response.data.results);
+        } else if (response.data && Array.isArray(response.data.data)) {
+          // Handle nested data array
+          setSuppliers(response.data.data);
+        } else {
+          console.error("Unexpected API response structure:", response.data);
+          toast.error("Unexpected data format from server");
+          setSuppliers([]);
+        }
       } catch (error) {
+        console.error("API Error:", error);
         toast.error("Failed to fetch suppliers");
+        setSuppliers([]);
       } finally {
         setLoading(false);
       }
@@ -37,17 +63,36 @@ const Supplier = () => {
         setSuppliers(suppliers.filter((supplier) => supplier.id !== id));
         toast.success("Supplier deleted successfully");
       } catch (error) {
+        console.error("Delete Error:", error);
         toast.error("Failed to delete supplier");
       }
     }
   };
 
-  const filteredSuppliers = suppliers.filter(
-    (supplier) =>
-      supplier.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.vendor_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get effective status (similar to SupplierListCSR)
+  const getEffectiveStatus = (supplier) => {
+    return (
+      supplier.bsci_status ||
+      supplier.sedex_status ||
+      supplier.agreement_status ||
+      "unknown"
+    ).toLowerCase();
+  };
+
+  const filteredSuppliers = suppliers.filter((supplier) => {
+    if (!supplier) return false;
+
+    const name = (supplier.supplier_name || supplier.name || "").toLowerCase();
+    const vendorId = (supplier.supplier_id || supplier.vendor_id || "").toLowerCase();
+    const email = (supplier.email || "").toLowerCase();
+    const search = searchTerm.toLowerCase().trim();
+
+    return (
+      name.includes(search) ||
+      vendorId.includes(search) ||
+      email.includes(search)
+    );
+  });
 
   return (
     <div
@@ -100,6 +145,7 @@ const Supplier = () => {
               borderRadius: "8px",
               border: "1px solid #d1d5db",
               boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              width: "300px",
             }}
           />
           <button
@@ -109,7 +155,7 @@ const Supplier = () => {
               color: "#fff",
               border: "none",
               borderRadius: "8px",
-              padding: "0.5rem",
+              padding: "0.5rem 1rem",
               cursor: "pointer",
               fontWeight: "bold",
               boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
@@ -134,8 +180,8 @@ const Supplier = () => {
                 {[
                   "Vendor ID",
                   "Name",
-                  "Type",
-                  "Email",
+                  "Location",
+                  "Category",
                   "Status",
                   "Actions",
                 ].map((head) => (
@@ -172,91 +218,90 @@ const Supplier = () => {
                     colSpan="6"
                     style={{ textAlign: "center", padding: "2rem" }}
                   >
-                    No suppliers found
+                    {suppliers.length === 0 
+                      ? "No suppliers found. The API might be returning empty data or wrong structure." 
+                      : "No suppliers match your search"}
                   </td>
                 </tr>
               ) : (
-                filteredSuppliers.map((supplier, idx) => (
-                  <tr
-                    key={supplier.id}
-                    style={{
-                      backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f9fafb",
-                    }}
-                  >
-                    <td style={{ padding: "1rem", color: "#374151" }}>
-                      {supplier.vendor_id}
-                    </td>
-                    <td
+                filteredSuppliers.map((supplier, idx) => {
+                  const status = getEffectiveStatus(supplier);
+                  const statusStyle = statusStyles[status] || { bg: "#f3f4f6", text: "#374151" };
+                  const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+
+                  return (
+                    <tr
+                      key={supplier.id}
                       style={{
-                        padding: "1rem",
-                        fontWeight: "500",
-                        color: "#2563eb",
+                        backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f9fafb",
                       }}
-                      onClick={() => navigate(`/suppliers/${supplier.id}`)}
                     >
-                      {supplier.name}
-                    </td>
-                    <td style={{ padding: "1rem", color: "#4b5563" }}>
-                      {supplier.vendor_type}
-                    </td>
-                    <td style={{ padding: "1rem", color: "#4b5563" }}>
-                      {supplier.email}
-                    </td>
-                    <td style={{ padding: "1rem" }}>
-                      <span
+                      <td style={{ padding: "1rem", color: "#374151" }}>
+                        {supplier.supplier_id || supplier.vendor_id || "N/A"}
+                      </td>
+                      <td
                         style={{
-                          padding: "0.3rem 0.6rem",
-                          borderRadius: "9999px",
-                          fontSize: "0.75rem",
-                          fontWeight: "600",
-                          backgroundColor:
-                            supplier.agreement_status === "active"
-                              ? "#d1fae5"
-                              : supplier.agreement_status === "pending"
-                              ? "#fef3c7"
-                              : "#fee2e2",
-                          color:
-                            supplier.agreement_status === "active"
-                              ? "#065f46"
-                              : supplier.agreement_status === "pending"
-                              ? "#92400e"
-                              : "#b91c1c",
-                        }}
-                      >
-                        {supplier.agreement_status || "N/A"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "0.1rem" }}>
-                      <button
-                        onClick={() =>
-                          navigate(`/edit/suppliers/${supplier.id}`)
-                        }
-                        style={{
-                          marginRight: "0.5rem",
+                          padding: "1rem",
+                          fontWeight: "500",
                           color: "#2563eb",
-                          background: "none",
-                          border: "none",
                           cursor: "pointer",
-                          fontWeight: "600",
                         }}
+                        onClick={() => navigate(`/suppliers/${supplier.id}`)}
                       >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(supplier.id)}
-                        style={{
-                          color: "#dc2626",
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          fontWeight: "600",
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                        {supplier.supplier_name || supplier.name || "Unnamed Supplier"}
+                      </td>
+                      <td style={{ padding: "1rem", color: "#4b5563" }}>
+                        {supplier.location || "—"}
+                      </td>
+                      <td style={{ padding: "1rem", color: "#4b5563" }}>
+                        {supplier.supplier_category || supplier.vendor_type || "—"}
+                      </td>
+                      <td style={{ padding: "1rem" }}>
+                        <span
+                          style={{
+                            padding: "0.3rem 0.6rem",
+                            borderRadius: "9999px",
+                            fontSize: "0.75rem",
+                            fontWeight: "600",
+                            backgroundColor: statusStyle.bg,
+                            color: statusStyle.text,
+                          }}
+                        >
+                          {statusLabel}
+                        </span>
+                      </td>
+                      <td style={{ padding: "1rem" }}>
+                        <button
+                          onClick={() =>
+                            navigate(`/edit/suppliers/${supplier.id}`)
+                          }
+                          style={{
+                            marginRight: "0.5rem",
+                            color: "#2563eb",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(supplier.id)}
+                          style={{
+                            color: "#dc2626",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

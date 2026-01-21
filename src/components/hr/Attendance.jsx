@@ -17,6 +17,12 @@ const Attendance = () => {
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Sorting states
+  const [sortConfig, setSortConfig] = useState({
+    key: "date",
+    direction: "descending", // Default: newest first
+  });
+
   // Delete functionality states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -93,6 +99,99 @@ const Attendance = () => {
     }
   }, [dateRangeStart, dateRangeEnd]);
 
+  // Sort function
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
+  // Sorting function
+  const sortAttendance = (records) => {
+    if (!records || !Array.isArray(records)) return [];
+    
+    const sortedRecords = [...records];
+    
+    sortedRecords.sort((a, b) => {
+      if (sortConfig.key === "date") {
+        const dateA = a.date ? new Date(a.date) : new Date(0);
+        const dateB = b.date ? new Date(b.date) : new Date(0);
+        if (sortConfig.direction === "ascending") {
+          return dateA - dateB;
+        } else {
+          return dateB - dateA;
+        }
+      } else if (sortConfig.key === "check_in") {
+        const timeA = a.check_in ? getTimeValue(a.check_in) : 0;
+        const timeB = b.check_in ? getTimeValue(b.check_in) : 0;
+        if (sortConfig.direction === "ascending") {
+          return timeA - timeB;
+        } else {
+          return timeB - timeA;
+        }
+      } else if (sortConfig.key === "check_out") {
+        const timeA = a.check_out ? getTimeValue(a.check_out) : 0;
+        const timeB = b.check_out ? getTimeValue(b.check_out) : 0;
+        if (sortConfig.direction === "ascending") {
+          return timeA - timeB;
+        } else {
+          return timeB - timeA;
+        }
+      } else if (sortConfig.key === "delay_time") {
+        const delayA = parseDelayTime(a.attendance_delay || a.delay_time);
+        const delayB = parseDelayTime(b.attendance_delay || b.delay_time);
+        if (sortConfig.direction === "ascending") {
+          return delayA - delayB;
+        } else {
+          return delayB - delayA;
+        }
+      } else if (sortConfig.key === "employee_name") {
+        const nameA = a.employee_name || "";
+        const nameB = b.employee_name || "";
+        if (sortConfig.direction === "ascending") {
+          return nameA.localeCompare(nameB);
+        } else {
+          return nameB.localeCompare(nameA);
+        }
+      }
+      return 0;
+    });
+    
+    return sortedRecords;
+  };
+
+  // Helper function to get time value for sorting
+  const getTimeValue = (timeStr) => {
+    try {
+      const timePart = timeStr.includes("T")
+        ? timeStr.split("T")[1].slice(0, 5)
+        : timeStr.slice(0, 5);
+      const [hours, minutes] = timePart.split(":").map(Number);
+      return hours * 60 + minutes;
+    } catch {
+      return 0;
+    }
+  };
+
+  // Helper function to parse delay time to minutes for sorting
+  const parseDelayTime = (delay) => {
+    if (!delay) return 0;
+    if (typeof delay === "number") {
+      return Math.floor(delay / 60); // Convert seconds to minutes
+    } else if (typeof delay === "string") {
+      const parts = delay.split(":");
+      if (parts.length >= 2) {
+        const hours = parseInt(parts[0]) || 0;
+        const minutes = parseInt(parts[1]) || 0;
+        return hours * 60 + minutes;
+      }
+    }
+    return 0;
+  };
+
   // Delete monthly attendance function
   const handleDeleteMonthlyAttendance = async () => {
     if (!monthFilter) {
@@ -159,6 +258,24 @@ const Attendance = () => {
         return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
     }
     return "00:00";
+  };
+
+  // Check if user punched before time (green) or after time (red)
+  const isEarlyPunch = (delayTime) => {
+    if (!delayTime) return true; // No delay means early/on time
+    
+    if (typeof delayTime === "number") {
+      return delayTime <= 0; // Negative or zero means early/on time
+    } else if (typeof delayTime === "string") {
+      const parts = delayTime.split(":");
+      if (parts.length >= 2) {
+        const hours = parseInt(parts[0]) || 0;
+        const minutes = parseInt(parts[1]) || 0;
+        // If both hours and minutes are 00:00 or negative, it's early/on time
+        return hours <= 0 && minutes <= 0;
+      }
+    }
+    return true;
   };
 
   const getEmployeeDetails = (employeeId) => {
@@ -284,6 +401,7 @@ const Attendance = () => {
     filtered = filterAttendanceByCompany(filtered);
     filtered = filterAttendanceByMonth(filtered);
     filtered = filterAttendanceByDate(filtered);
+    filtered = sortAttendance(filtered); // Apply sorting
     return filtered;
   };
 
@@ -513,6 +631,18 @@ const Attendance = () => {
     </tr>
   );
 
+  // Sort indicator component
+  const SortIndicator = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) {
+      return <span style={sortIndicatorStyle}>↕</span>;
+    }
+    return (
+      <span style={sortIndicatorStyle}>
+        {sortConfig.direction === "ascending" ? "↑" : "↓"}
+      </span>
+    );
+  };
+
   return (
     <div
       style={{
@@ -545,6 +675,14 @@ const Attendance = () => {
                 <span style={summaryLabelStyle}>Current Page</span>
                 <span style={summaryValueStyle}>
                   {currentPage} of {totalPages}
+                </span>
+              </div>
+              <div style={summaryItemStyle}>
+                <span style={summaryLabelStyle}>Sorting</span>
+                <span style={summaryValueStyle}>
+                  {sortConfig.key === "date" 
+                    ? "Date " + (sortConfig.direction === "ascending" ? "↑" : "↓")
+                    : sortConfig.key.replace("_", " ")}
                 </span>
               </div>
             </div>
@@ -865,6 +1003,7 @@ const Attendance = () => {
                     : dateFilter
                     ? "Daily Report"
                     : "Full Report"}
+                  {sortConfig.key && ` • Sorted by ${sortConfig.key.replace("_", " ")} ${sortConfig.direction === "ascending" ? "↑" : "↓"}`}
                 </div>
               </div>
             </div>
@@ -914,7 +1053,7 @@ const Attendance = () => {
                 {Array.isArray(filteredAttendance)
                   ? filteredAttendance.length
                   : 0}{" "}
-                records
+                records • Sorted by {sortConfig.key.replace("_", " ")} {sortConfig.direction === "ascending" ? "↑" : "↓"}
               </div>
             </div>
 
@@ -923,18 +1062,28 @@ const Attendance = () => {
                 <thead>
                   <tr>
                     {[
-                      "Employee ID",
-                      "Employee",
-                      "Company",
-                      "Department",
-                      "Date",
-                      "Check In",
-                      "Check Out",
-                      "Delay Time",
-                      "Office Start",
+                      { key: "employee_id", label: "Employee ID" },
+                      { key: "employee_name", label: "Employee" },
+                      { key: "company", label: "Company" },
+                      { key: "department", label: "Department" },
+                      { key: "date", label: "Date" },
+                      { key: "check_in", label: "Check In" },
+                      { key: "check_out", label: "Check Out" },
+                      { key: "delay_time", label: "Delay Time" },
+                      { key: "office_start_time", label: "Office Start" },
                     ].map((h) => (
-                      <th style={thStyle} key={h}>
-                        {h}
+                      <th 
+                        style={thStyle} 
+                        key={h.key}
+                        onClick={() => ["date", "check_in", "check_out", "delay_time", "employee_name"].includes(h.key) && requestSort(h.key)}
+                        className={["date", "check_in", "check_out", "delay_time", "employee_name"].includes(h.key) ? "sortable-header" : ""}
+                      >
+                        <div style={headerContentStyle}>
+                          {h.label}
+                          {["date", "check_in", "check_out", "delay_time", "employee_name"].includes(h.key) && (
+                            <SortIndicator columnKey={h.key} />
+                          )}
+                        </div>
                       </th>
                     ))}
                   </tr>
@@ -949,6 +1098,8 @@ const Attendance = () => {
                       if (!a) return null;
                       const emp = getEmployeeDetails(a.employee);
                       const delay = a.attendance_delay || a.delay_time;
+                      const isEarly = isEarlyPunch(delay);
+                      
                       return (
                         <tr key={a.id} style={tableRowStyle}>
                           <td style={tdStyle}>
@@ -975,7 +1126,7 @@ const Attendance = () => {
                             </span>
                           </td>
                           <td style={tdStyle}>
-                            <span style={delayStyle(delay)}>
+                            <span style={delayStyle(isEarly)}>
                               {formatDelayTime(delay)}
                             </span>
                           </td>
@@ -1588,7 +1739,6 @@ const tableSummaryStyle = {
 
 const tableContainerStyle = {
   overflowX: "auto",
-  
 };
 
 const tableStyle = {
@@ -1608,6 +1758,21 @@ const thStyle = {
   fontSize: "13px",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
+  cursor: "pointer",
+  userSelect: "none",
+};
+
+const headerContentStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const sortIndicatorStyle = {
+  fontSize: "12px",
+  color: "#4a5568",
+  opacity: 0.7,
 };
 
 const tdStyle = {
@@ -1642,8 +1807,8 @@ const timeStyle = {
   fontSize: "13px",
 };
 
-const delayStyle = (delay) => ({
-  color: delay && delay > 0 ? "#e53e3e" : "#38a169",
+const delayStyle = (isEarly) => ({
+  color: isEarly ? "#38a169" : "#e53e3e", // Green for early/on time, red for late
   fontWeight: "600",
   fontFamily: "monospace",
   fontSize: "13px",

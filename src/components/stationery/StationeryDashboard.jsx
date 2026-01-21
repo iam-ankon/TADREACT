@@ -1,2639 +1,844 @@
-// StationeryDashboard.jsx
+// src/components/stationery/StationeryDashboard.jsx
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { motion } from "framer-motion";
+import {
+  Package,
+  ClipboardList,
+  BarChart3,
+  AlertTriangle,
+  Clock,
+  Search,
+  Bell,
+  Settings,
+  Download,
+  Filter,
+  Plus,
+  MoreVertical,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  ShoppingCart,
+  CheckCircle,
+  RefreshCw,
+  ChevronRight,
+  X
+} from "lucide-react";
+import stationeryAPI from "../../api/stationery";
+import StationeryItems from "./StationeryItems";
+import StationeryUsage from "./StationeryUsage";
+import StockReport from "./StockReport";
 
 const StationeryDashboard = () => {
   const [activeTab, setActiveTab] = useState("items");
-  const [items, setItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
-  const [usage, setUsage] = useState([]);
-  const [filteredUsage, setFilteredUsage] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  // Search states
-  const [itemsSearch, setItemsSearch] = useState("");
-  const [usageSearch, setUsageSearch] = useState("");
-  const [transactionsSearch, setTransactionsSearch] = useState("");
-  const [employeeSearch, setEmployeeSearch] = useState("");
-  const [filteredEmployees, setFilteredEmployees] = useState([]);
-  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
-
-  // Form states
-  const initialItemForm = {
-    name: "",
-    description: "",
-    unit: "pcs",
-    reorder_level: 10,
-    current_stock: 0,
-  };
-  const [itemForm, setItemForm] = useState(initialItemForm);
-  const [editingItemId, setEditingItemId] = useState(null);
-
-  const [usageForm, setUsageForm] = useState({
-    employee: "",
-    employee_name: "",
-    stationery_item: "",
-    quantity: 1,
-    purpose: "",
-    remarks: "",
-    is_order_request: false,
-    order_quantity: 0,
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalItems: 0,
+    totalUsage: 0,
+    totalTransactions: 0,
+    lowStockItems: 0,
+    pendingRequests: 0,
   });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: "5 items below reorder level", type: "warning", time: "10 min ago" },
+    { id: 2, message: "New request from John Doe", type: "info", time: "25 min ago" },
+    { id: 3, message: "Monthly report ready", type: "success", time: "2 hours ago" },
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  const [transactionForm, setTransactionForm] = useState({
-    stationery_item: "",
-    transaction_type: "issue",
-    quantity: 1,
-    employee: "",
-    employee_name: "",
-    remarks: "",
-    reference_number: "",
-  });
-
-  const [employees, setEmployees] = useState([]);
-
-  // API Configuration
-  const API_BASE = "http://119.148.51.38:8000/api/hrms/api/";
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return {
-      Authorization: `Token ${token}`,
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCSRFToken(),
-    };
-  };
-
-  const getCSRFToken = () => {
-    return (
-      document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("csrftoken="))
-        ?.split("=")[1] || ""
-    );
-  };
-
-  // Fetch data functions
-  const fetchItems = async () => {
+  const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}stationery_items/`, {
-        headers: getAuthHeaders(),
+      
+      const [items, usage, transactions] = await Promise.all([
+        stationeryAPI.fetchItems(),
+        stationeryAPI.fetchUsage(),
+        stationeryAPI.fetchTransactions(),
+      ]);
+
+      const lowStockItems = items.filter(
+        (item) => item.current_stock <= item.reorder_level && item.current_stock > 0
+      ).length;
+
+      const pendingRequests = usage.filter(
+        (req) => req.status === "pending"
+      ).length;
+
+      setStats({
+        totalItems: items.length,
+        totalUsage: usage.length,
+        totalTransactions: transactions.length,
+        lowStockItems,
+        pendingRequests,
       });
-      setItems(response.data);
-      setFilteredItems(response.data);
-    } catch (err) {
-      setError("Failed to fetch stationery items");
-      console.error(err);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUsage = async () => {
-    try {
-      console.log("🔍 fetchUsage: STARTING");
-      setLoading(true);
-      const response = await axios.get(`${API_BASE}stationery_usage/`, {
-        headers: getAuthHeaders(),
-      });
-      console.log("✅ fetchUsage: SUCCESS");
-      console.log("📊 Response data:", response.data);
-      console.log("📊 Data length:", response.data.length);
-      console.log("📊 First item (if any):", response.data[0]);
-      setUsage(response.data);
-      setFilteredUsage(response.data);
-    } catch (err) {
-      const errorMsg =
-        err.response?.data?.error || "Failed to fetch usage records";
-      console.error("❌ fetchUsage: ERROR", err);
-      console.error("❌ Error response:", err.response);
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE}stationery_transactions/`, {
-        headers: getAuthHeaders(),
-      });
-      setTransactions(response.data);
-      setFilteredTransactions(response.data);
-    } catch (err) {
-      setError("Failed to fetch transactions");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEmployees = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}employees/`, {
-        headers: getAuthHeaders(),
-      });
-      setEmployees(response.data);
-      setFilteredEmployees(response.data);
-    } catch (err) {
-      console.error("Failed to fetch employees", err);
-    }
-  };
-
-  // Initial data fetch
   useEffect(() => {
-    fetchItems();
-    fetchEmployees();
+    fetchDashboardStats();
   }, []);
 
-  useEffect(() => {
-    if (activeTab === "usage") fetchUsage();
-    if (activeTab === "transactions") fetchTransactions();
-  }, [activeTab]);
+  const tabs = [
+    { id: "items", label: "Inventory", icon: <Package size={18} />, color: "#3B82F6" },
+    { id: "usage", label: "Usage", icon: <ClipboardList size={18} />, color: "#10B981" },
+    { id: "transactions", label: "Transactions", icon: <ShoppingCart size={18} />, color: "#8B5CF6" },
+    { id: "stock-report", label: "Reports", icon: <BarChart3 size={18} />, color: "#F59E0B" },
+    { id: "employee-report", label: "Employees", icon: <Users size={18} />, color: "#EC4899" },
+  ];
 
-  // Search functions
-  useEffect(() => {
-    if (itemsSearch.trim() === "") {
-      setFilteredItems(items);
-    } else {
-      const searchTerm = itemsSearch.toLowerCase();
-      const filtered = items.filter(
-        (item) =>
-          item.name.toLowerCase().includes(searchTerm) ||
-          item.description?.toLowerCase().includes(searchTerm) ||
-          item.unit.toLowerCase().includes(searchTerm)
-      );
-      setFilteredItems(filtered);
-    }
-  }, [itemsSearch, items]);
+  const quickActions = [
+    { 
+      label: "Add Item", 
+      icon: <Plus size={16} />, 
+      bg: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
+      hoverBg: "linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)"
+    },
+    { 
+      label: "Export Data", 
+      icon: <Download size={16} />, 
+      bg: "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
+      hoverBg: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)"
+    },
+    { 
+      label: "Process All", 
+      icon: <CheckCircle size={16} />, 
+      bg: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+      hoverBg: "linear-gradient(135deg, #059669 0%, #047857 100%)"
+    },
+  ];
 
-  useEffect(() => {
-    if (usageSearch.trim() === "") {
-      setFilteredUsage(usage);
-    } else {
-      const searchTerm = usageSearch.toLowerCase();
-      const filtered = usage.filter(
-        (record) =>
-          record.employee_name?.toLowerCase().includes(searchTerm) ||
-          record.stationery_name?.toLowerCase().includes(searchTerm) ||
-          record.purpose?.toLowerCase().includes(searchTerm) ||
-          record.status?.toLowerCase().includes(searchTerm) ||
-          record.employee_id?.toLowerCase().includes(searchTerm)
-      );
-      setFilteredUsage(filtered);
-    }
-  }, [usageSearch, usage]);
-
-  useEffect(() => {
-    if (transactionsSearch.trim() === "") {
-      setFilteredTransactions(transactions);
-    } else {
-      const searchTerm = transactionsSearch.toLowerCase();
-      const filtered = transactions.filter(
-        (transaction) =>
-          transaction.stationery_name?.toLowerCase().includes(searchTerm) ||
-          transaction.employee_name?.toLowerCase().includes(searchTerm) ||
-          transaction.transaction_type?.toLowerCase().includes(searchTerm) ||
-          transaction.reference_number?.toLowerCase().includes(searchTerm) ||
-          transaction.remarks?.toLowerCase().includes(searchTerm)
-      );
-      setFilteredTransactions(filtered);
-    }
-  }, [transactionsSearch, transactions]);
-
-  useEffect(() => {
-    if (employeeSearch.trim() === "") {
-      setFilteredEmployees(employees);
-    } else {
-      const searchTerm = employeeSearch.toLowerCase();
-      const filtered = employees.filter(
-        (emp) =>
-          emp.name?.toLowerCase().includes(searchTerm) ||
-          emp.employee_id?.toLowerCase().includes(searchTerm)
-      );
-      setFilteredEmployees(filtered);
-    }
-  }, [employeeSearch, employees]);
-
-  // Handle employee selection
-  const selectEmployee = (employeeId, employeeName) => {
-    setUsageForm({
-      ...usageForm,
-      employee: employeeId,
-      employee_name: employeeName,
-    });
-    setTransactionForm({
-      ...transactionForm,
-      employee: employeeId,
-      employee_name: employeeName,
-    });
-    setShowEmployeeDropdown(false);
-  };
-
-  // Handle edit item
-  const handleEditItem = (item) => {
-    setItemForm({
-      id: item.id,
-      name: item.name,
-      description: item.description || "",
-      unit: item.unit,
-      reorder_level: item.reorder_level,
-      current_stock: item.current_stock,
-    });
-    setEditingItemId(item.id);
-  };
-
-  const handleCancelEdit = () => {
-    setItemForm(initialItemForm);
-    setEditingItemId(null);
-  };
-
-  // Handle form submissions
-  const handleSubmitItem = async (e) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      let response;
-      if (editingItemId) {
-        // Update existing item
-        response = await axios.put(
-          `${API_BASE}stationery_items/${editingItemId}/`,
-          itemForm,
-          {
-            headers: getAuthHeaders(),
-          }
-        );
-        setSuccess("Stationery item updated successfully!");
-      } else {
-        // Add new item
-        response = await axios.post(`${API_BASE}stationery_items/`, itemForm, {
-          headers: getAuthHeaders(),
-        });
-        setSuccess("Stationery item added successfully!");
-      }
-      setItemForm(initialItemForm);
-      setEditingItemId(null);
-      fetchItems();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(
-        editingItemId
-          ? "Failed to update stationery item"
-          : "Failed to add stationery item"
-      );
-      console.error(err);
-    } finally {
-      setLoading(false);
+  const renderContent = () => {
+    switch (activeTab) {
+      case "items":
+        return <StationeryItems />;
+      case "usage":
+        return <StationeryUsage />;
+      case "transactions":
+        return <div style={{ padding: "32px", textAlign: "center", color: "#6B7280" }}>Transactions component coming soon</div>;
+      case "stock-report":
+        return <StockReport />;
+      case "employee-report":
+        return <div style={{ padding: "32px", textAlign: "center", color: "#6B7280" }}>Employee Report component coming soon</div>;
+      default:
+        return <StationeryItems />;
     }
   };
-
-  const handleAddUsage = async (e) => {
-    e.preventDefault();
-    console.log("🚀 handleAddUsage: STARTING");
-    console.log("📤 Form data:", usageForm);
-
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await axios.post(
-        `${API_BASE}stationery_usage/`,
-        usageForm,
-        {
-          headers: getAuthHeaders(),
-        }
-      );
-
-      console.log("✅ handleAddUsage: SUCCESS");
-      console.log("📥 Response:", response.data);
-
-      setSuccess("Usage request submitted successfully!");
-
-      // Reset form
-      setUsageForm({
-        employee: "",
-        employee_name: "",
-        stationery_item: "",
-        quantity: 1,
-        purpose: "",
-        remarks: "",
-        is_order_request: false,
-        order_quantity: 0,
-      });
-      setEmployeeSearch("");
-
-      // IMMEDIATELY REFRESH - wait for it to complete
-      console.log("🔄 Refreshing usage data...");
-      await fetchUsage();
-
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      console.error("❌ handleAddUsage: ERROR");
-      console.error("❌ Full error:", err);
-      console.error("❌ Error response:", err.response?.data);
-
-      const errorMsg =
-        err.response?.data?.error ||
-        err.response?.data?.detail ||
-        "Failed to submit usage request";
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddTransaction = async (e) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      await axios.post(`${API_BASE}stationery_transactions/`, transactionForm, {
-        headers: getAuthHeaders(),
-      });
-      setSuccess("Transaction recorded successfully!");
-      setTransactionForm({
-        stationery_item: "",
-        transaction_type: "issue",
-        quantity: 1,
-        employee: "",
-        employee_name: "",
-        remarks: "",
-        reference_number: "",
-      });
-      setEmployeeSearch("");
-      fetchTransactions();
-      fetchItems(); // Refresh items as stock changes
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError("Failed to record transaction");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle status updates
-  const handleApproveUsage = async (id) => {
-    try {
-      await axios.post(
-        `${API_BASE}stationery_usage/${id}/approve_request/`,
-        {},
-        {
-          headers: getAuthHeaders(),
-        }
-      );
-      setSuccess("Request approved successfully!");
-      fetchUsage();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError("Failed to approve request");
-      console.error(err);
-    }
-  };
-
-  const handleIssueUsage = async (id) => {
-    try {
-      await axios.post(
-        `${API_BASE}stationery_usage/${id}/issue_item/`,
-        {},
-        {
-          headers: getAuthHeaders(),
-        }
-      );
-      setSuccess("Item issued successfully!");
-      fetchUsage();
-      fetchItems(); // Refresh stock
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError("Failed to issue item");
-      console.error(err);
-    }
-  };
-
-  // Get stock status color
-  const getStockStatus = (item) => {
-    if (item.current_stock <= 0) {
-      return { color: "#ef4444", label: "Out of Stock", bg: "#fef2f2" };
-    } else if (item.current_stock <= item.reorder_level) {
-      return { color: "#f97316", label: "Low Stock", bg: "#fff7ed" };
-    } else {
-      return { color: "#10b981", label: "In Stock", bg: "#f0fdf4" };
-    }
-  };
-
-  // Get transaction type color
-  const getTransactionColor = (type) => {
-    const colors = {
-      issue: "#3b82f6",
-      order: "#10b981",
-      return: "#8b5cf6",
-      adjust: "#f59e0b",
-      damage: "#ef4444",
-    };
-    return colors[type] || "#6b7280";
-  };
-
-  // Render loading state
-  if (loading && items.length === 0) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          backgroundColor: "#f9fafb",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: "50px",
-              height: "50px",
-              border: "5px solid #e5e7eb",
-              borderTopColor: "#3b82f6",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-              margin: "0 auto 20px",
-            }}
-          ></div>
-          <p style={{ color: "#6b7280", fontSize: "16px" }}>
-            Loading stationery data...
-          </p>
-        </div>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#f9fafb",
-        fontFamily:
-          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      }}
-    >
-      {/* Header */}
-      <header
-        style={{
-          backgroundColor: "#1f2937",
-          color: "white",
-          padding: "20px 40px",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-        }}
-      >
-        <div
-          style={{
+    <div style={{
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
+      padding: "16px",
+    }}>
+      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+        
+        {/* Modern Header */}
+        <div style={{ marginBottom: "32px" }}>
+          <div style={{
             display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            maxWidth: "1400px",
-            margin: "0 auto",
-          }}
-        >
-          <div>
-            <h1 style={{ margin: "0", fontSize: "28px", fontWeight: "600" }}>
-              📦 Stationery Management
-            </h1>
-            <p
-              style={{ margin: "5px 0 0", color: "#d1d5db", fontSize: "14px" }}
-            >
-              Manage stationery items, usage, and transactions
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              onClick={() => {
-                fetchItems();
-                fetchUsage();
-                fetchTransactions();
-              }}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#374151",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "14px",
+            flexDirection: "column",
+            marginBottom: "32px",
+          }}>
+            {/* Top Row */}
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              marginBottom: "24px",
+            }}>
+              <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "6px",
-              }}
-            >
-              🔄 Refresh
-            </button>
+                gap: "12px",
+                marginBottom: "8px",
+              }}>
+                <div style={{
+                  width: "3px",
+                  height: "28px",
+                  background: "linear-gradient(to bottom, #3B82F6, #8B5CF6)",
+                  borderRadius: "2px",
+                }}></div>
+                <div>
+                  <h1 style={{
+                    fontSize: "28px",
+                    fontWeight: "700",
+                    background: "linear-gradient(135deg, #111827 0%, #374151 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    letterSpacing: "-0.025em",
+                    margin: 0,
+                  }}>
+                    Stationery Management
+                  </h1>
+                  <p style={{
+                    color: "#6B7280",
+                    fontSize: "14px",
+                    margin: "4px 0 0 0",
+                  }}>
+                    Real-time inventory tracking and analytics dashboard
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "12px",
+                marginTop: "20px",
+                marginLeft: "15px",
+              }}>
+                {quickActions.map((action, index) => (
+                  <motion.button
+                    key={index}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "10px 16px",
+                      background: action.bg,
+                      color: "white",
+                      border: "none",
+                      borderRadius: "12px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = action.hoverBg}
+                    onMouseLeave={(e) => e.target.style.background = action.bg}
+                  >
+                    {action.icon}
+                    {action.label}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Bar */}
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+            }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "16px",
+              }}>
+                {/* Search Bar */}
+                <div style={{
+                  position: "relative",
+                  flex: "1",
+                  minWidth: "280px",
+                  maxWidth: "400px",
+                }}>
+                  <Search style={{
+                    position: "absolute",
+                    left: "16px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#9CA3AF",
+                  }} size={20} />
+                  <input
+                    type="text"
+                    placeholder="Search items, requests, reports..."
+                    style={{
+                      width: "100%",
+                      padding: "14px 16px 14px 48px",
+                      background: "rgba(255, 255, 255, 0.9)",
+                      backdropFilter: "blur(10px)",
+                      border: "1px solid rgba(209, 213, 219, 0.5)",
+                      borderRadius: "14px",
+                      fontSize: "14px",
+                      outline: "none",
+                      transition: "all 0.2s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#3B82F6";
+                      e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
+                      e.target.style.boxShadow = "none";
+                    }}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                }}>
+                  {/* Notifications */}
+                  <div style={{ position: "relative" }}>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowNotifications(!showNotifications)}
+                      style={{
+                        position: "relative",
+                        padding: "12px",
+                        background: "white",
+                        border: "1px solid rgba(209, 213, 219, 0.5)",
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+                      }}
+                      onMouseEnter={(e) => e.target.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)"}
+                      onMouseLeave={(e) => e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.05)"}
+                    >
+                      <Bell size={20} style={{ color: "#374151" }} />
+                      {notifications.length > 0 && (
+                        <span style={{
+                          position: "absolute",
+                          top: "-4px",
+                          right: "-4px",
+                          width: "20px",
+                          height: "20px",
+                          background: "#EF4444",
+                          color: "white",
+                          fontSize: "11px",
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: "600",
+                        }}>
+                          {notifications.length}
+                        </span>
+                      )}
+                    </motion.button>
+
+                    {/* Notification Dropdown */}
+                    {showNotifications && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: "calc(100% + 8px)",
+                          width: "320px",
+                          background: "white",
+                          borderRadius: "16px",
+                          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+                          zIndex: 50,
+                          border: "1px solid rgba(209, 213, 219, 0.5)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div style={{
+                          padding: "16px",
+                          borderBottom: "1px solid #F3F4F6",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}>
+                          <h3 style={{
+                            fontSize: "16px",
+                            fontWeight: "600",
+                            color: "#111827",
+                            margin: 0,
+                          }}>
+                            Notifications
+                          </h3>
+                          <button
+                            onClick={() => setShowNotifications(false)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#9CA3AF",
+                              cursor: "pointer",
+                              padding: "4px",
+                            }}
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                        <div style={{ maxHeight: "320px", overflowY: "auto" }}>
+                          {notifications.map((notif) => (
+                            <div
+                              key={notif.id}
+                              style={{
+                                padding: "16px",
+                                borderBottom: "1px solid #F9FAFB",
+                                cursor: "pointer",
+                                transition: "background 0.2s ease",
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = "#F9FAFB"}
+                              onMouseLeave={(e) => e.currentTarget.style.background = "white"}
+                            >
+                              <div style={{ display: "flex", gap: "12px" }}>
+                                <div style={{
+                                  width: "8px",
+                                  height: "8px",
+                                  borderRadius: "50%",
+                                  marginTop: "6px",
+                                  background: notif.type === 'warning' ? '#F59E0B' : 
+                                            notif.type === 'success' ? '#10B981' : '#3B82F6',
+                                }}></div>
+                                <div style={{ flex: 1 }}>
+                                  <p style={{
+                                    fontSize: "14px",
+                                    fontWeight: "500",
+                                    color: "#111827",
+                                    margin: "0 0 4px 0",
+                                  }}>
+                                    {notif.message}
+                                  </p>
+                                  <p style={{
+                                    fontSize: "12px",
+                                    color: "#6B7280",
+                                    margin: 0,
+                                  }}>
+                                    {notif.time}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Refresh Button */}
+                  <motion.button
+                    whileHover={{ rotate: 180, scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={fetchDashboardStats}
+                    style={{
+                      padding: "12px",
+                      background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "12px",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 4px 14px rgba(59, 130, 246, 0.4)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)";
+                      e.target.style.boxShadow = "0 6px 20px rgba(59, 130, 246, 0.6)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)";
+                      e.target.style.boxShadow = "0 4px 14px rgba(59, 130, 246, 0.4)";
+                    }}
+                  >
+                    <RefreshCw size={20} />
+                  </motion.button>
+
+                  {/* Settings */}
+                  <button style={{
+                    padding: "12px",
+                    background: "white",
+                    border: "1px solid rgba(209, 213, 219, 0.5)",
+                    borderRadius: "12px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+                    e.target.style.borderColor = "#D1D5DB";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.05)";
+                    e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
+                  }}>
+                    <Settings size={20} style={{ color: "#374151" }} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "16px",
+            marginBottom: "32px",
+          }}>
+            <StatCard
+              title="Total Items"
+              value={stats.totalItems}
+              icon={<Package size={20} />}
+              color="#3B82F6"
+              loading={loading}
+              trend={12.5}
+              subtitle="Active items"
+            />
+            <StatCard
+              title="Usage Records"
+              value={stats.totalUsage}
+              icon={<ClipboardList size={20} />}
+              color="#10B981"
+              loading={loading}
+              trend={8.3}
+              subtitle="This month"
+            />
+            <StatCard
+              title="Transactions"
+              value={stats.totalTransactions}
+              icon={<ShoppingCart size={20} />}
+              color="#8B5CF6"
+              loading={loading}
+              trend={15.2}
+              subtitle="Processed"
+            />
+            <StatCard
+              title="Low Stock"
+              value={stats.lowStockItems}
+              icon={<AlertTriangle size={20} />}
+              color="#F59E0B"
+              loading={loading}
+              trend={-5.2}
+              subtitle="Need attention"
+            />
+            <StatCard
+              title="Pending Requests"
+              value={stats.pendingRequests}
+              icon={<Clock size={20} />}
+              color="#EC4899"
+              loading={loading}
+              trend={3.7}
+              subtitle="Awaiting approval"
+            />
           </div>
         </div>
-      </header>
 
-      {/* Tabs */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderBottom: "1px solid #e5e7eb",
-          maxWidth: "1400px",
-          margin: "0 auto",
-        }}
-      >
-        <div
-          style={{
+        {/* Tabs Navigation */}
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{
             display: "flex",
-            gap: "2px",
-            padding: "0 40px",
-            overflowX: "auto",
-          }}
-        >
-          {["items", "usage", "transactions", "reports"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: "15px 25px",
-                backgroundColor: activeTab === tab ? "#3b82f6" : "transparent",
-                color: activeTab === tab ? "white" : "#6b7280",
-                border: "none",
-                borderBottom:
-                  activeTab === tab
-                    ? "3px solid #2563eb"
-                    : "3px solid transparent",
-                cursor: "pointer",
-                fontSize: "15px",
-                fontWeight: "500",
-                whiteSpace: "nowrap",
-                transition: "all 0.2s",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "16px",
+          }}>
+            <div style={{
+              display: "flex",
+              background: "rgba(243, 244, 246, 0.8)",
+              borderRadius: "14px",
+              padding: "4px",
+              gap: "4px",
+            }}>
+              {tabs.map((tab) => (
+                <motion.button
+                  key={tab.id}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "12px 20px",
+                    background: activeTab === tab.id ? "white" : "transparent",
+                    color: activeTab === tab.id ? tab.color : "#6B7280",
+                    border: "none",
+                    borderRadius: "12px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    boxShadow: activeTab === tab.id ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none",
+                  }}
+                >
+                  {tab.icon}
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <ChevronRight size={16} style={{ marginLeft: "4px" }} />
+                  )}
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Tab Actions */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}>
+              <button style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-              }}
-            >
-              {tab === "items" && "📦"}
-              {tab === "usage" && "📝"}
-              {tab === "transactions" && "🔄"}
-              {tab === "reports" && "📊"}
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div
-        style={{ maxWidth: "1400px", margin: "20px auto 0", padding: "0 40px" }}
-      >
-        {error && (
-          <div
-            style={{
-              backgroundColor: "#fef2f2",
-              border: "1px solid #fecaca",
-              color: "#dc2626",
-              padding: "15px 20px",
-              borderRadius: "8px",
-              marginBottom: "20px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span>❌ {error}</span>
-            <button
-              onClick={() => setError("")}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#dc2626",
+                padding: "10px 16px",
+                background: "white",
+                border: "1px solid rgba(209, 213, 219, 0.5)",
+                borderRadius: "12px",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#374151",
                 cursor: "pointer",
-                fontSize: "18px",
+                transition: "all 0.2s ease",
               }}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {success && (
-          <div
-            style={{
-              backgroundColor: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              color: "#16a34a",
-              padding: "15px 20px",
-              borderRadius: "8px",
-              marginBottom: "20px",
-            }}
-          >
-            ✅ {success}
-          </div>
-        )}
-      </div>
-
-      {/* Main Content */}
-      <main
-        style={{
-          maxWidth: "1400px",
-          margin: "20px auto",
-          padding: "0 40px",
-        }}
-      >
-        {/* Stationery Items Tab */}
-        {activeTab === "items" && (
-          <div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 2fr",
-                gap: "30px",
+              onMouseEnter={(e) => {
+                e.target.style.background = "#F9FAFB";
+                e.target.style.borderColor = "#D1D5DB";
               }}
-            >
-              {/* Add/Edit Item Form */}
-              <div
-                style={{
-                  backgroundColor: "white",
-                  borderRadius: "12px",
-                  padding: "25px",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: "0 0 20px",
-                    color: "#1f2937",
-                    fontSize: "20px",
-                    fontWeight: "600",
-                  }}
-                >
-                  {editingItemId
-                    ? "✏️ Edit Stationery Item"
-                    : "➕ Add New Stationery Item"}
-                </h2>
-                <form onSubmit={handleSubmitItem}>
-                  {[
-                    "name",
-                    "description",
-                    "unit",
-                    "reorder_level",
-                    "current_stock",
-                  ].map((field) => (
-                    <div key={field} style={{ marginBottom: "15px" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "6px",
-                          color: "#4b5563",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        {field
-                          .split("_")
-                          .map(
-                            (word) =>
-                              word.charAt(0).toUpperCase() + word.slice(1)
-                          )
-                          .join(" ")}
-                      </label>
-                      {field === "description" ? (
-                        <textarea
-                          value={itemForm[field]}
-                          onChange={(e) =>
-                            setItemForm({
-                              ...itemForm,
-                              [field]: e.target.value,
-                            })
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "10px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "6px",
-                            fontSize: "14px",
-                            minHeight: "80px",
-                            resize: "vertical",
-                          }}
-                          required={field === "name"}
-                        />
-                      ) : field === "unit" ? (
-                        <select
-                          value={itemForm[field]}
-                          onChange={(e) =>
-                            setItemForm({
-                              ...itemForm,
-                              [field]: e.target.value,
-                            })
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "10px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "6px",
-                            fontSize: "14px",
-                            backgroundColor: "white",
-                          }}
-                        >
-                          {[
-                            "pcs",
-                            "box",
-                            "packet",
-                            "ream",
-                            "bottle",
-                            "set",
-                          ].map((unit) => (
-                            <option key={unit} value={unit}>
-                              {unit}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type={
-                            field === "current_stock" ||
-                            field === "reorder_level"
-                              ? "number"
-                              : "text"
-                          }
-                          value={itemForm[field]}
-                          onChange={(e) =>
-                            setItemForm({
-                              ...itemForm,
-                              [field]: e.target.value,
-                            })
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "10px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "6px",
-                            fontSize: "14px",
-                          }}
-                          required={field === "name"}
-                          min={0}
-                        />
-                      )}
-                    </div>
-                  ))}
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      marginTop: "20px",
-                    }}
-                  >
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      style={{
-                        flex: 1,
-                        padding: "12px",
-                        backgroundColor: "#3b82f6",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        fontSize: "15px",
-                        fontWeight: "500",
-                        cursor: loading ? "not-allowed" : "pointer",
-                        opacity: loading ? 0.7 : 1,
-                      }}
-                    >
-                      {loading
-                        ? "Processing..."
-                        : editingItemId
-                        ? "Update Stationery Item"
-                        : "Add Stationery Item"}
-                    </button>
-                    {editingItemId && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        style={{
-                          flex: 1,
-                          padding: "12px",
-                          backgroundColor: "#ef4444",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          fontSize: "15px",
-                          fontWeight: "500",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {/* Items List */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: "0",
-                      color: "#1f2937",
-                      fontSize: "20px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    📦 Stationery Items ({filteredItems.length})
-                  </h2>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="🔍 Search items..."
-                      value={itemsSearch}
-                      onChange={(e) => setItemsSearch(e.target.value)}
-                      style={{
-                        padding: "8px 12px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        width: "250px",
-                      }}
-                    />
-                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                      {
-                        filteredItems.filter(
-                          (i) => i.current_stock <= i.reorder_level
-                        ).length
-                      }{" "}
-                      items need reorder
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 0.5fr",
-                      padding: "15px 20px",
-                      backgroundColor: "#f9fafb",
-                      borderBottom: "1px solid #e5e7eb",
-                      color: "#4b5563",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    <div>Item Name</div>
-                    <div>Unit</div>
-                    <div>Current Stock</div>
-                    <div>Reorder Level</div>
-                    <div>Status</div>
-                    <div>Actions</div>
-                  </div>
-                  <div style={{ maxHeight: "500px", overflowY: "auto" }}>
-                    {filteredItems.map((item) => {
-                      const status = getStockStatus(item);
-                      return (
-                        <div
-                          key={item.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 0.5fr",
-                            padding: "15px 20px",
-                            borderBottom: "1px solid #f3f4f6",
-                            alignItems: "center",
-                          }}
-                        >
-                          <div>
-                            <div
-                              style={{ fontWeight: "500", color: "#1f2937" }}
-                            >
-                              {item.name}
-                            </div>
-                            {item.description && (
-                              <div
-                                style={{
-                                  fontSize: "13px",
-                                  color: "#6b7280",
-                                  marginTop: "4px",
-                                }}
-                              >
-                                {item.description.substring(0, 60)}...
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ color: "#4b5563" }}>{item.unit}</div>
-                          <div style={{ color: "#1f2937", fontWeight: "500" }}>
-                            {item.current_stock}
-                          </div>
-                          <div style={{ color: "#6b7280" }}>
-                            {item.reorder_level}
-                          </div>
-                          <div>
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "4px 10px",
-                                backgroundColor: status.bg,
-                                color: status.color,
-                                borderRadius: "20px",
-                                fontSize: "12px",
-                                fontWeight: "500",
-                              }}
-                            >
-                              {status.label}
-                            </span>
-                          </div>
-                          <div>
-                            <button
-                              onClick={() => handleEditItem(item)}
-                              style={{
-                                padding: "4px 8px",
-                                backgroundColor: "#3b82f6",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                              }}
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Low Stock Warning */}
-                {filteredItems.filter((i) => i.current_stock <= i.reorder_level)
-                  .length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "20px",
-                      backgroundColor: "#fffbeb",
-                      border: "1px solid #fde68a",
-                      borderRadius: "8px",
-                      padding: "15px 20px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        color: "#92400e",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      <span style={{ fontSize: "18px" }}>⚠️</span>
-                      <span style={{ fontWeight: "500" }}>Low Stock Alert</span>
-                    </div>
-                    <div style={{ color: "#92400e", fontSize: "14px" }}>
-                      The following items need to be reordered:
-                      <div
-                        style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: "10px",
-                          marginTop: "10px",
-                        }}
-                      >
-                        {filteredItems
-                          .filter((i) => i.current_stock <= i.reorder_level)
-                          .map((item) => (
-                            <span
-                              key={item.id}
-                              style={{
-                                backgroundColor: "#fef3c7",
-                                color: "#92400e",
-                                padding: "4px 12px",
-                                borderRadius: "20px",
-                                fontSize: "13px",
-                              }}
-                            >
-                              {item.name} ({item.current_stock} left)
-                            </span>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Usage Tab */}
-        {activeTab === "usage" && (
-          <div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 2fr",
-                gap: "30px",
-              }}
-            >
-              {/* Add Usage Form */}
-              <div
-                style={{
-                  backgroundColor: "white",
-                  borderRadius: "12px",
-                  padding: "25px",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: "0 0 20px",
-                    color: "#1f2937",
-                    fontSize: "20px",
-                    fontWeight: "600",
-                  }}
-                >
-                  📝 Request Stationery
-                </h2>
-                <form onSubmit={handleAddUsage}>
-                  <div style={{ marginBottom: "15px", position: "relative" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Employee
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="🔍 Search employee..."
-                      value={
-                        usageForm.employee
-                          ? `${usageForm.employee_name} (Selected)`
-                          : employeeSearch
-                      }
-                      onChange={(e) => setEmployeeSearch(e.target.value)}
-                      onFocus={() => setShowEmployeeDropdown(true)}
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                      }}
-                    />
-                    {showEmployeeDropdown && filteredEmployees.length > 0 && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          backgroundColor: "white",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "6px",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          maxHeight: "200px",
-                          overflowY: "auto",
-                          zIndex: 1000,
-                        }}
-                      >
-                        {filteredEmployees.map((emp) => (
-                          <div
-                            key={emp.id}
-                            onClick={() => selectEmployee(emp.id, emp.name)}
-                            style={{
-                              padding: "10px",
-                              cursor: "pointer",
-                              borderBottom: "1px solid #f3f4f6",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              transition: "background-color 0.2s",
-                            }}
-                            onMouseEnter={(e) =>
-                              (e.currentTarget.style.backgroundColor =
-                                "#f9fafb")
-                            }
-                            onMouseLeave={(e) =>
-                              (e.currentTarget.style.backgroundColor = "white")
-                            }
-                          >
-                            <div>
-                              <div style={{ fontWeight: "500" }}>
-                                {emp.name}
-                              </div>
-                              <div
-                                style={{ fontSize: "12px", color: "#6b7280" }}
-                              >
-                                ID: {emp.employee_id}
-                              </div>
-                            </div>
-                            {usageForm.employee === emp.id && (
-                              <span style={{ color: "#10b981" }}>✓</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Stationery Item
-                    </label>
-                    <select
-                      value={usageForm.stationery_item}
-                      onChange={(e) =>
-                        setUsageForm({
-                          ...usageForm,
-                          stationery_item: e.target.value,
-                        })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        backgroundColor: "white",
-                      }}
-                      required
-                    >
-                      <option value="">Select Item</option>
-                      {items.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} (Stock: {item.current_stock} {item.unit})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Quantity
-                    </label>
-                    <input
-                      type="number"
-                      value={usageForm.quantity}
-                      onChange={(e) =>
-                        setUsageForm({
-                          ...usageForm,
-                          quantity: parseInt(e.target.value),
-                        })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                      }}
-                      min="1"
-                      required
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Purpose
-                    </label>
-                    <textarea
-                      value={usageForm.purpose}
-                      onChange={(e) =>
-                        setUsageForm({ ...usageForm, purpose: e.target.value })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        minHeight: "80px",
-                        resize: "vertical",
-                      }}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={usageForm.is_order_request}
-                        onChange={(e) =>
-                          setUsageForm({
-                            ...usageForm,
-                            is_order_request: e.target.checked,
-                          })
-                        }
-                        style={{ width: "16px", height: "16px" }}
-                      />
-                      <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                        This is an order request (stock replenishment)
-                      </span>
-                    </label>
-                  </div>
-
-                  {usageForm.is_order_request && (
-                    <div style={{ marginBottom: "15px" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "6px",
-                          color: "#4b5563",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        Order Quantity
-                      </label>
-                      <input
-                        type="number"
-                        value={usageForm.order_quantity}
-                        onChange={(e) =>
-                          setUsageForm({
-                            ...usageForm,
-                            order_quantity: parseInt(e.target.value),
-                          })
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "10px",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "6px",
-                          fontSize: "14px",
-                        }}
-                        min="1"
-                      />
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      backgroundColor: "#3b82f6",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      fontSize: "15px",
-                      fontWeight: "500",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      opacity: loading ? 0.7 : 1,
-                    }}
-                  >
-                    {loading ? "Submitting..." : "Submit Request"}
-                  </button>
-                </form>
-              </div>
-
-              {/* Usage List */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: "0",
-                      color: "#1f2937",
-                      fontSize: "20px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    📝 Usage Requests ({filteredUsage.length})
-                  </h2>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="🔍 Search usage..."
-                      value={usageSearch}
-                      onChange={(e) => setUsageSearch(e.target.value)}
-                      style={{
-                        padding: "8px 12px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        width: "250px",
-                      }}
-                    />
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "10px",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <span style={{ color: "#3b82f6" }}>
-                        Pending:{" "}
-                        {
-                          filteredUsage.filter((u) => u.status === "pending")
-                            .length
-                        }
-                      </span>
-                      <span style={{ color: "#10b981" }}>
-                        Approved:{" "}
-                        {
-                          filteredUsage.filter((u) => u.status === "approved")
-                            .length
-                        }
-                      </span>
-                      <span style={{ color: "#6b7280" }}>
-                        Issued:{" "}
-                        {
-                          filteredUsage.filter((u) => u.status === "issued")
-                            .length
-                        }
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr",
-                      padding: "15px 20px",
-                      backgroundColor: "#f9fafb",
-                      borderBottom: "1px solid #e5e7eb",
-                      color: "#4b5563",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    <div>Employee</div>
-                    <div>Item</div>
-                    <div>Quantity</div>
-                    <div>Date</div>
-                    <div>Status</div>
-                    <div>Actions</div>
-                  </div>
-                  <div style={{ maxHeight: "500px", overflowY: "auto" }}>
-                    {filteredUsage.map((record) => {
-                      const statusColors = {
-                        pending: { bg: "#fef3c7", color: "#92400e" },
-                        approved: { bg: "#dbeafe", color: "#1e40af" },
-                        issued: { bg: "#d1fae5", color: "#065f46" },
-                        rejected: { bg: "#fee2e2", color: "#991b1b" },
-                      };
-                      const statusStyle = statusColors[record.status] || {
-                        bg: "#f3f4f6",
-                        color: "#6b7280",
-                      };
-
-                      return (
-                        <div
-                          key={record.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr",
-                            padding: "15px 20px",
-                            borderBottom: "1px solid #f3f4f6",
-                            alignItems: "center",
-                          }}
-                        >
-                          <div>
-                            <div
-                              style={{ fontWeight: "500", color: "#1f2937" }}
-                            >
-                              {record.employee_name}
-                            </div>
-                            <div style={{ fontSize: "13px", color: "#6b7280" }}>
-                              {record.employee_id}
-                            </div>
-                          </div>
-                          <div style={{ color: "#4b5563" }}>
-                            {record.stationery_name}
-                          </div>
-                          <div style={{ color: "#1f2937", fontWeight: "500" }}>
-                            {record.quantity}
-                          </div>
-                          <div style={{ color: "#6b7280", fontSize: "13px" }}>
-                            {new Date(
-                              record.date_requested
-                            ).toLocaleDateString()}
-                          </div>
-                          <div>
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "4px 10px",
-                                backgroundColor: statusStyle.bg,
-                                color: statusStyle.color,
-                                borderRadius: "20px",
-                                fontSize: "12px",
-                                fontWeight: "500",
-                              }}
-                            >
-                              {record.status.charAt(0).toUpperCase() +
-                                record.status.slice(1)}
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "8px",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            {record.status === "pending" && (
-                              <button
-                                onClick={() => handleApproveUsage(record.id)}
-                                style={{
-                                  padding: "6px 12px",
-                                  backgroundColor: "#10b981",
-                                  color: "white",
-                                  border: "none",
-                                  borderRadius: "4px",
-                                  fontSize: "12px",
-                                  cursor: "pointer",
-                                  fontWeight: "500",
-                                }}
-                              >
-                                Approve
-                              </button>
-                            )}
-                            {record.status === "approved" && (
-                              <button
-                                onClick={() => handleIssueUsage(record.id)}
-                                style={{
-                                  padding: "6px 12px",
-                                  backgroundColor: "#3b82f6",
-                                  color: "white",
-                                  border: "none",
-                                  borderRadius: "4px",
-                                  fontSize: "12px",
-                                  cursor: "pointer",
-                                  fontWeight: "500",
-                                }}
-                              >
-                                Issue
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Transactions Tab */}
-        {activeTab === "transactions" && (
-          <div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 2fr",
-                gap: "30px",
-              }}
-            >
-              {/* Add Transaction Form */}
-              <div
-                style={{
-                  backgroundColor: "white",
-                  borderRadius: "12px",
-                  padding: "25px",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: "0 0 20px",
-                    color: "#1f2937",
-                    fontSize: "20px",
-                    fontWeight: "600",
-                  }}
-                >
-                  🔄 Record Transaction
-                </h2>
-                <form onSubmit={handleAddTransaction}>
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Transaction Type
-                    </label>
-                    <select
-                      value={transactionForm.transaction_type}
-                      onChange={(e) =>
-                        setTransactionForm({
-                          ...transactionForm,
-                          transaction_type: e.target.value,
-                        })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        backgroundColor: "white",
-                      }}
-                      required
-                    >
-                      {[
-                        { value: "issue", label: "Issue to Employee" },
-                        { value: "order", label: "Order Received" },
-                        { value: "return", label: "Return from Employee" },
-                        { value: "adjust", label: "Stock Adjustment" },
-                        { value: "damage", label: "Damaged/Lost" },
-                      ].map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Stationery Item
-                    </label>
-                    <select
-                      value={transactionForm.stationery_item}
-                      onChange={(e) =>
-                        setTransactionForm({
-                          ...transactionForm,
-                          stationery_item: e.target.value,
-                        })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        backgroundColor: "white",
-                      }}
-                      required
-                    >
-                      <option value="">Select Item</option>
-                      {items.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} (Current: {item.current_stock} {item.unit}
-                          )
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Quantity
-                    </label>
-                    <input
-                      type="number"
-                      value={transactionForm.quantity}
-                      onChange={(e) =>
-                        setTransactionForm({
-                          ...transactionForm,
-                          quantity: parseInt(e.target.value),
-                        })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                      }}
-                      min="1"
-                      required
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: "15px", position: "relative" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Employee (if applicable)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="🔍 Search employee..."
-                      value={
-                        transactionForm.employee
-                          ? `${transactionForm.employee_name} (Selected)`
-                          : employeeSearch
-                      }
-                      onChange={(e) => {
-                        setEmployeeSearch(e.target.value);
-                        setShowEmployeeDropdown(true);
-                        if (!e.target.value) {
-                          setTransactionForm({
-                            ...transactionForm,
-                            employee: "",
-                            employee_name: "",
-                          });
-                        }
-                      }}
-                      onFocus={() => setShowEmployeeDropdown(true)}
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                      }}
-                    />
-                    {showEmployeeDropdown && filteredEmployees.length > 0 && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "100%",
-                          left: 0,
-                          right: 0,
-                          backgroundColor: "white",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "6px",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          maxHeight: "200px",
-                          overflowY: "auto",
-                          zIndex: 1000,
-                        }}
-                      >
-                        {filteredEmployees.map((emp) => (
-                          <div
-                            key={emp.id}
-                            onClick={() => selectEmployee(emp.id, emp.name)}
-                            style={{
-                              padding: "10px",
-                              cursor: "pointer",
-                              borderBottom: "1px solid #f3f4f6",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              transition: "background-color 0.2s",
-                            }}
-                            onMouseEnter={(e) =>
-                              (e.currentTarget.style.backgroundColor =
-                                "#f9fafb")
-                            }
-                            onMouseLeave={(e) =>
-                              (e.currentTarget.style.backgroundColor = "white")
-                            }
-                          >
-                            <div>
-                              <div style={{ fontWeight: "500" }}>
-                                {emp.name}
-                              </div>
-                              <div
-                                style={{ fontSize: "12px", color: "#6b7280" }}
-                              >
-                                ID: {emp.employee_id}
-                              </div>
-                            </div>
-                            {transactionForm.employee === emp.id && (
-                              <span style={{ color: "#10b981" }}>✓</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Reference Number
-                    </label>
-                    <input
-                      type="text"
-                      value={transactionForm.reference_number}
-                      onChange={(e) =>
-                        setTransactionForm({
-                          ...transactionForm,
-                          reference_number: e.target.value,
-                        })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                      }}
-                      placeholder="e.g., PO-12345"
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "6px",
-                        color: "#4b5563",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Remarks
-                    </label>
-                    <textarea
-                      value={transactionForm.remarks}
-                      onChange={(e) =>
-                        setTransactionForm({
-                          ...transactionForm,
-                          remarks: e.target.value,
-                        })
-                      }
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        minHeight: "80px",
-                        resize: "vertical",
-                      }}
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    style={{
-                      width: "100%",
-                      padding: "12px",
-                      backgroundColor: "#3b82f6",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      fontSize: "15px",
-                      fontWeight: "500",
-                      cursor: loading ? "not-allowed" : "pointer",
-                      opacity: loading ? 0.7 : 1,
-                    }}
-                  >
-                    {loading ? "Recording..." : "Record Transaction"}
-                  </button>
-                </form>
-              </div>
-
-              {/* Transactions List */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: "0",
-                      color: "#1f2937",
-                      fontSize: "20px",
-                      fontWeight: "600",
-                    }}
-                  >
-                    🔄 Transaction History ({filteredTransactions.length})
-                  </h2>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="🔍 Search transactions..."
-                      value={transactionsSearch}
-                      onChange={(e) => setTransactionsSearch(e.target.value)}
-                      style={{
-                        padding: "8px 12px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        width: "250px",
-                      }}
-                    />
-                    <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                      Last 30 days
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                    border: "1px solid #e5e7eb",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 2fr 1fr 1fr 2fr 1fr",
-                      padding: "15px 20px",
-                      backgroundColor: "#f9fafb",
-                      borderBottom: "1px solid #e5e7eb",
-                      color: "#4b5563",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    <div>Type</div>
-                    <div>Item</div>
-                    <div>Quantity</div>
-                    <div>Employee</div>
-                    <div>Date</div>
-                    <div>Reference</div>
-                  </div>
-                  <div style={{ maxHeight: "500px", overflowY: "auto" }}>
-                    {filteredTransactions.map((transaction) => {
-                      const color = getTransactionColor(
-                        transaction.transaction_type
-                      );
-                      const typeLabels = {
-                        issue: "Issue",
-                        order: "Order",
-                        return: "Return",
-                        adjust: "Adjust",
-                        damage: "Damage",
-                      };
-
-                      return (
-                        <div
-                          key={transaction.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 2fr 1fr 1fr 2fr 1fr",
-                            padding: "15px 20px",
-                            borderBottom: "1px solid #f3f4f6",
-                            alignItems: "center",
-                          }}
-                        >
-                          <div>
-                            <span
-                              style={{
-                                display: "inline-block",
-                                padding: "4px 10px",
-                                backgroundColor: color + "20",
-                                color: color,
-                                borderRadius: "20px",
-                                fontSize: "12px",
-                                fontWeight: "500",
-                              }}
-                            >
-                              {typeLabels[transaction.transaction_type] ||
-                                transaction.transaction_type}
-                            </span>
-                          </div>
-                          <div style={{ color: "#1f2937", fontWeight: "500" }}>
-                            {transaction.stationery_name}
-                          </div>
-                          <div
-                            style={{
-                              color:
-                                transaction.transaction_type === "issue" ||
-                                transaction.transaction_type === "damage"
-                                  ? "#ef4444"
-                                  : "#10b981",
-                              fontWeight: "500",
-                            }}
-                          >
-                            {transaction.transaction_type === "issue" ||
-                            transaction.transaction_type === "damage"
-                              ? "-"
-                              : "+"}
-                            {transaction.quantity}
-                          </div>
-                          <div style={{ color: "#4b5563", fontSize: "14px" }}>
-                            {transaction.employee_name || "N/A"}
-                          </div>
-                          <div style={{ color: "#6b7280", fontSize: "13px" }}>
-                            {new Date(
-                              transaction.transaction_date
-                            ).toLocaleString()}
-                          </div>
-                          <div style={{ color: "#6b7280", fontSize: "12px" }}>
-                            {transaction.reference_number || "-"}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Summary Stats */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    gap: "15px",
-                    marginTop: "20px",
-                  }}
-                >
-                  {["issue", "order", "return", "adjust"].map((type) => {
-                    const typeData = filteredTransactions.filter(
-                      (t) => t.transaction_type === type
-                    );
-                    const total = typeData.reduce(
-                      (sum, t) => sum + t.quantity,
-                      0
-                    );
-                    const color = getTransactionColor(type);
-
-                    return (
-                      <div
-                        key={type}
-                        style={{
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          padding: "15px",
-                          border: "1px solid #e5e7eb",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div
-                          style={{
-                            color: color,
-                            fontSize: "24px",
-                            fontWeight: "600",
-                            marginBottom: "5px",
-                          }}
-                        >
-                          {total}
-                        </div>
-                        <div
-                          style={{
-                            color: "#4b5563",
-                            fontSize: "13px",
-                            textTransform: "capitalize",
-                          }}
-                        >
-                          {type} Transactions
-                        </div>
-                        <div
-                          style={{
-                            color: "#9ca3af",
-                            fontSize: "11px",
-                            marginTop: "4px",
-                          }}
-                        >
-                          {typeData.length} records
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Reports Tab */}
-        {activeTab === "reports" && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: "30px",
-            }}
-          >
-            {/* Stock Report */}
-            <div
-              style={{
-                backgroundColor: "white",
+              onMouseLeave={(e) => {
+                e.target.style.background = "white";
+                e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
+              }}>
+                <Filter size={16} />
+                Filter
+              </button>
+              <button style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 16px",
+                background: "white",
+                border: "1px solid rgba(209, 213, 219, 0.5)",
                 borderRadius: "12px",
-                padding: "25px",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                border: "1px solid #e5e7eb",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#374151",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
               }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 20px",
-                  color: "#1f2937",
-                  fontSize: "20px",
-                  fontWeight: "600",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-              >
-                📊 Stock Report
-              </h2>
-
-              <div style={{ marginBottom: "25px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Total Items
-                  </span>
-                  <span style={{ color: "#1f2937", fontWeight: "500" }}>
-                    {items.length}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Items In Stock
-                  </span>
-                  <span style={{ color: "#10b981", fontWeight: "500" }}>
-                    {
-                      items.filter((i) => i.current_stock > i.reorder_level)
-                        .length
-                    }
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Items Low Stock
-                  </span>
-                  <span style={{ color: "#f97316", fontWeight: "500" }}>
-                    {
-                      items.filter(
-                        (i) =>
-                          i.current_stock <= i.reorder_level &&
-                          i.current_stock > 0
-                      ).length
-                    }
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Items Out of Stock
-                  </span>
-                  <span style={{ color: "#ef4444", fontWeight: "500" }}>
-                    {items.filter((i) => i.current_stock <= 0).length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Stock Chart (Simple) */}
-              <div
-                style={{
-                  height: "10px",
-                  backgroundColor: "#e5e7eb",
-                  borderRadius: "5px",
-                  overflow: "hidden",
-                  marginBottom: "20px",
-                }}
-              >
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${
-                      (items.filter((i) => i.current_stock > i.reorder_level)
-                        .length /
-                        items.length) *
-                      100
-                    }%`,
-                    backgroundColor: "#10b981",
-                    display: "inline-block",
-                  }}
-                ></div>
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${
-                      (items.filter(
-                        (i) =>
-                          i.current_stock <= i.reorder_level &&
-                          i.current_stock > 0
-                      ).length /
-                        items.length) *
-                      100
-                    }%`,
-                    backgroundColor: "#f97316",
-                    display: "inline-block",
-                  }}
-                ></div>
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${
-                      (items.filter((i) => i.current_stock <= 0).length /
-                        items.length) *
-                      100
-                    }%`,
-                    backgroundColor: "#ef4444",
-                    display: "inline-block",
-                  }}
-                ></div>
-              </div>
-
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "#9ca3af",
-                  textAlign: "center",
-                }}
-              >
-                Green: In Stock | Orange: Low Stock | Red: Out of Stock
-              </div>
-            </div>
-
-            {/* Usage Statistics */}
-            <div
-              style={{
-                backgroundColor: "white",
+              onMouseEnter={(e) => {
+                e.target.style.background = "#F9FAFB";
+                e.target.style.borderColor = "#D1D5DB";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "white";
+                e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
+              }}>
+                <Download size={16} />
+                Export
+              </button>
+              <button style={{
+                padding: "10px",
+                background: "white",
+                border: "1px solid rgba(209, 213, 219, 0.5)",
                 borderRadius: "12px",
-                padding: "25px",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                border: "1px solid #e5e7eb",
+                cursor: "pointer",
+                color: "#374151",
+                transition: "all 0.2s ease",
               }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 20px",
-                  color: "#1f2937",
-                  fontSize: "20px",
-                  fontWeight: "600",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-              >
-                📈 Usage Statistics
-              </h2>
-
-              <div style={{ marginBottom: "20px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Total Requests
-                  </span>
-                  <span style={{ color: "#1f2937", fontWeight: "500" }}>
-                    {usage.length}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Pending Requests
-                  </span>
-                  <span style={{ color: "#f59e0b", fontWeight: "500" }}>
-                    {usage.filter((u) => u.status === "pending").length}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Approved Requests
-                  </span>
-                  <span style={{ color: "#3b82f6", fontWeight: "500" }}>
-                    {usage.filter((u) => u.status === "approved").length}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span style={{ color: "#4b5563", fontSize: "14px" }}>
-                    Issued Items
-                  </span>
-                  <span style={{ color: "#10b981", fontWeight: "500" }}>
-                    {usage.filter((u) => u.status === "issued").length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Top Items */}
-              <h3
-                style={{
-                  margin: "25px 0 15px",
-                  color: "#374151",
-                  fontSize: "16px",
-                  fontWeight: "500",
-                }}
-              >
-                Most Requested Items
-              </h3>
-              {items
-                .map((item) => ({
-                  ...item,
-                  requestCount: usage.filter(
-                    (u) => u.stationery_item === item.id
-                  ).length,
-                }))
-                .sort((a, b) => b.requestCount - a.requestCount)
-                .slice(0, 5)
-                .map((item, index) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "10px",
-                      padding: "8px 0",
-                      borderBottom: index < 4 ? "1px solid #f3f4f6" : "none",
-                    }}
-                  >
-                    <div>
-                      <span
-                        style={{
-                          color: "#1f2937",
-                          fontSize: "14px",
-                        }}
-                      >
-                        {index + 1}. {item.name}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        backgroundColor: "#f3f4f6",
-                        padding: "2px 10px",
-                        borderRadius: "20px",
-                        fontSize: "12px",
-                        color: "#4b5563",
-                      }}
-                    >
-                      {item.requestCount} requests
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-            {/* Quick Actions */}
-            <div
-              style={{
-                backgroundColor: "white",
-                borderRadius: "12px",
-                padding: "25px",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-                border: "1px solid #e5e7eb",
-                gridColumn: "span 2",
+              onMouseEnter={(e) => {
+                e.target.style.background = "#F9FAFB";
+                e.target.style.borderColor = "#D1D5DB";
               }}
-            >
-              <h2
-                style={{
-                  margin: "0 0 20px",
-                  color: "#1f2937",
-                  fontSize: "20px",
-                  fontWeight: "600",
-                }}
-              >
-                ⚡ Quick Actions
-              </h2>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: "15px",
-                }}
-              >
-                <button
-                  onClick={() => window.print()}
-                  style={{
-                    padding: "15px",
-                    backgroundColor: "#f3f4f6",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "10px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#e5e7eb")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f3f4f6")
-                  }
-                >
-                  <span style={{ fontSize: "24px" }}>🖨️</span>
-                  <span
-                    style={{
-                      color: "#1f2937",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Print Report
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const csv = items
-                      .map(
-                        (item) =>
-                          `${item.name},${item.current_stock},${item.unit},${item.reorder_level}`
-                      )
-                      .join("\n");
-                    const blob = new Blob(
-                      [`Name,Stock,Unit,Reorder Level\n${csv}`],
-                      { type: "text/csv" }
-                    );
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "stationery-stock-report.csv";
-                    a.click();
-                  }}
-                  style={{
-                    padding: "15px",
-                    backgroundColor: "#f3f4f6",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "10px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#e5e7eb")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f3f4f6")
-                  }
-                >
-                  <span style={{ fontSize: "24px" }}>📥</span>
-                  <span
-                    style={{
-                      color: "#1f2937",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Export CSV
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const lowStockItems = items.filter(
-                      (i) => i.current_stock <= i.reorder_level
-                    );
-                    if (lowStockItems.length > 0) {
-                      const message = `Low stock items:\n${lowStockItems
-                        .map(
-                          (item) =>
-                            `• ${item.name}: ${item.current_stock} ${item.unit} (Reorder at ${item.reorder_level})`
-                        )
-                        .join("\n")}`;
-                      alert(message);
-                    } else {
-                      alert("All items are sufficiently stocked!");
-                    }
-                  }}
-                  style={{
-                    padding: "15px",
-                    backgroundColor: "#f3f4f6",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "10px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#e5e7eb")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f3f4f6")
-                  }
-                >
-                  <span style={{ fontSize: "24px" }}>⚠️</span>
-                  <span
-                    style={{
-                      color: "#1f2937",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Check Low Stock
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab("items")}
-                  style={{
-                    padding: "15px",
-                    backgroundColor: "#3b82f6",
-                    border: "none",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "10px",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#2563eb")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#3b82f6")
-                  }
-                >
-                  <span style={{ fontSize: "24px", color: "white" }}>➕</span>
-                  <span
-                    style={{
-                      color: "white",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Add New Item
-                  </span>
-                </button>
-              </div>
+              onMouseLeave={(e) => {
+                e.target.style.background = "white";
+                e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
+              }}>
+                <MoreVertical size={20} />
+              </button>
             </div>
           </div>
-        )}
-      </main>
+        </div>
 
-      {/* Footer */}
-      <footer
-        style={{
-          marginTop: "40px",
-          backgroundColor: "#f9fafb",
-          borderTop: "1px solid #e5e7eb",
-          padding: "20px 40px",
-          color: "#6b7280",
-          fontSize: "14px",
-        }}
-      >
-        <div
+        {/* Main Content */}
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
           style={{
-            maxWidth: "1400px",
-            margin: "0 auto",
-            textAlign: "center",
+            background: "white",
+            borderRadius: "20px",
+            boxShadow: "0 20px 40px -20px rgba(0, 0, 0, 0.1), 0 10px 20px -10px rgba(0, 0, 0, 0.04)",
+            border: "1px solid rgba(229, 231, 235, 0.5)",
+            overflow: "hidden",
+            minHeight: "500px",
           }}
         >
-          <p style={{ margin: "0" }}>
-            Stationery Management System • Last updated:{" "}
-            {new Date().toLocaleDateString()}
-          </p>
-          <p style={{ margin: "5px 0 0", fontSize: "12px" }}>
-            Total Items: {items.length} • Active Requests:{" "}
-            {usage.filter((u) => u.status === "pending").length}
-          </p>
+          {renderContent()}
+        </motion.div>
+
+        {/* Footer */}
+        <div style={{
+          marginTop: "32px",
+          padding: "16px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            fontSize: "14px",
+            color: "#6B7280",
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{
+                width: "8px",
+                height: "8px",
+                background: "#10B981",
+                borderRadius: "50%",
+                animation: "pulse 2s infinite",
+              }}></div>
+              <span>All systems operational</span>
+            </div>
+            <span style={{ color: "#D1D5DB" }}>•</span>
+            <span>Last updated: Just now</span>
+            <span style={{ color: "#D1D5DB" }}>•</span>
+            <span>Data refreshes every 5 minutes</span>
+          </div>
+          <div style={{
+            fontSize: "13px",
+            color: "#9CA3AF",
+            textAlign: "center",
+          }}>
+            © 2024 Stationery Management System • Version 2.1.0
+          </div>
         </div>
-      </footer>
+      </div>
     </div>
+  );
+};
+
+const StatCard = ({ title, value, icon, color, loading, trend, subtitle }) => {
+  return (
+    <motion.div
+      whileHover={{ 
+        y: -6,
+        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.04)",
+      }}
+      style={{
+        background: "white",
+        borderRadius: "18px",
+        padding: "24px",
+        border: `1px solid ${color}20`,
+        transition: "all 0.3s ease",
+        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.06)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Decorative Accent */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "3px",
+        background: `linear-gradient(90deg, ${color}, ${color}80)`,
+      }}></div>
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div>
+          <div style={{
+            fontSize: "13px",
+            fontWeight: "500",
+            color: "#6B7280",
+            marginBottom: "8px",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}>
+            {title}
+          </div>
+          
+          {loading ? (
+            <div style={{
+              width: "80px",
+              height: "32px",
+              background: "linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%)",
+              borderRadius: "8px",
+              animation: "shimmer 2s infinite",
+              backgroundSize: "200% 100%",
+            }}></div>
+          ) : (
+            <div style={{
+              fontSize: "32px",
+              fontWeight: "700",
+              background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              marginBottom: "4px",
+            }}>
+              {value.toLocaleString()}
+            </div>
+          )}
+          
+          {subtitle && (
+            <div style={{
+              fontSize: "13px",
+              color: "#9CA3AF",
+              marginTop: "4px",
+            }}>
+              {subtitle}
+            </div>
+          )}
+        </div>
+        
+        {/* Icon Container */}
+        <div style={{
+          padding: "12px",
+          background: `${color}10`,
+          borderRadius: "12px",
+          border: `1px solid ${color}20`,
+        }}>
+          {React.cloneElement(icon, { 
+            style: { 
+              color: color,
+              filter: `drop-shadow(0 2px 4px ${color}40)`,
+            }
+          })}
+        </div>
+      </div>
+      
+      {/* Trend Indicator */}
+      {trend && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: "20px",
+          paddingTop: "16px",
+          borderTop: `1px solid ${color}15`,
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}>
+            {trend > 0 ? (
+              <TrendingUp size={14} style={{ color: "#10B981" }} />
+            ) : (
+              <TrendingDown size={14} style={{ color: "#EF4444" }} />
+            )}
+            <span style={{
+              fontSize: "13px",
+              fontWeight: "600",
+              color: trend > 0 ? "#10B981" : "#EF4444",
+            }}>
+              {trend > 0 ? "+" : ""}{trend}%
+            </span>
+          </div>
+          <span style={{
+            fontSize: "12px",
+            color: "#9CA3AF",
+          }}>
+            vs last month
+          </span>
+        </div>
+      )}
+    </motion.div>
   );
 };
 

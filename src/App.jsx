@@ -92,14 +92,18 @@ import SupplierDetailsCSR from "./components/csr/SupplierDetailsCSR.jsx";
 
 
 // Tax Calculator
-import TaxCalculator from "./components/tax/TaxCalculator.jsx";
+// import TaxCalculator from "./components/tax/TaxCalculator.jsx";
 import TaxCalculators from "./components/tax/TaxCalculators.jsx";
 import SalaryFormat from "./components/tax/SalaryFormat.jsx";
 import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
 import SalaryRecords from "./components/tax/SalaryRecords.jsx";
 
+// Stationery Management
 import StationeryDashboard from "./components/stationery/StationeryDashboard.jsx";
 import RegularUserStationery from "./components/stationery/RegularUserStationery.jsx";
+import StationeryItems from "./components/stationery/StationeryItems.jsx";
+import StationeryUsage from "./components/stationery/StationeryUsage.jsx";
+import StockReport from "./components/stationery/StockReport.jsx";
 
 // chatbox 
 import ChatApp from "./components/chatbox/ChatApp.jsx";
@@ -158,6 +162,9 @@ const AppContent = () => {
           {/* StationaryDashboard */}
           <Route path="/StationeryDashboard" element={<ProtectedRouteForAll><StationeryDashboard /></ProtectedRouteForAll>} />
           <Route path="/RegularUserStationery" element={<ProtectedRouteForAll><RegularUserStationery /></ProtectedRouteForAll>} />
+          <Route path="/StationeryItems" element={<ProtectedRouteForAll><StationeryItems /></ProtectedRouteForAll>} />
+          <Route path="/StationeryUsage" element={<ProtectedRouteForAll><StationeryUsage /></ProtectedRouteForAll>} />
+          <Route path="/StockReport" element={<ProtectedRouteForAll><StockReport /></ProtectedRouteForAll>} />
 
           {/* Chat - Accessible to ALL */}
           <Route path="/chat" element={<ProtectedRouteForAll><ChatApp /></ProtectedRouteForAll>} />
@@ -201,7 +208,7 @@ const AppContent = () => {
           <Route path="/buyer-details/:id" element={<ProtectedRoute><BuyerDetails /></ProtectedRoute>} />
           <Route path="/customer-details/:id" element={<ProtectedRoute><CustomerDetailsPage /></ProtectedRoute>} />
           {/* Tax Calculator Section (protect based on your needs) */}
-          <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} />
+          {/* <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} /> */}
           <Route path="/tax-calculator/:employeeId" element={<ProtectedRoute><TaxCalculators /></ProtectedRoute>} />
           <Route path="/salary-format" element={<ProtectedRoute><SalaryFormat /></ProtectedRoute>} />
 

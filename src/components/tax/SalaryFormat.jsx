@@ -34,6 +34,17 @@ const formatNumber = (num) => {
   return num < 0 ? `-৳${formatted}` : `৳${formatted}`;
 };
 
+const calculateOTPay = (monthlySalary, otHours, totalDays = 31) => {
+  if (!monthlySalary || !otHours || otHours <= 0) return 0;
+
+  // OT Pay = (Gross Salary ÷ 31 ÷ 10) × Monthly OT Hours
+  const dailySalary = monthlySalary / totalDays;
+  const hourlyRate = dailySalary / 10; // Assuming 10-hour work day
+  const otPay = hourlyRate * otHours;
+
+  return Number(otPay.toFixed(2));
+};
+
 const SalaryFormat = () => {
   const [employees, setEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
@@ -166,7 +177,7 @@ const SalaryFormat = () => {
       });
 
       console.log(
-        `📁 Found ${Object.keys(initialResults).length} cached results`
+        `📁 Found ${Object.keys(initialResults).length} cached results`,
       );
 
       // Set tax results immediately from cache
@@ -196,7 +207,7 @@ const SalaryFormat = () => {
             console.log(
               `💾 Found ${
                 Object.keys(databaseResults).length
-              } tax calculations in database`
+              } tax calculations in database`,
             );
 
             // Update with database results
@@ -209,7 +220,7 @@ const SalaryFormat = () => {
             Object.keys(databaseResults).forEach((empId) => {
               financeAPI.storage.setTaxResultsByEmployee(
                 empId,
-                databaseResults[empId]
+                databaseResults[empId],
               );
             });
           }
@@ -220,11 +231,11 @@ const SalaryFormat = () => {
 
       // Calculate missing ones immediately (not in background)
       const missingIds = employeeIds.filter(
-        (id) => !initialResults[id] && !taxResults[id]
+        (id) => !initialResults[id] && !taxResults[id],
       );
       if (missingIds.length > 0) {
         console.log(
-          `🧮 Calculating taxes for ${missingIds.length} employees immediately...`
+          `🧮 Calculating taxes for ${missingIds.length} employees immediately...`,
         );
 
         // Get source and bonus data
@@ -236,7 +247,7 @@ const SalaryFormat = () => {
           employeeList,
           missingIds,
           sourceTaxOther,
-          bonusData
+          bonusData,
         );
       } else {
         // Clear all loading states if no calculations needed
@@ -258,7 +269,7 @@ const SalaryFormat = () => {
       if (!employeeIds.length) return;
 
       console.log(
-        `🧮 Calculating taxes for ${employeeIds.length} employees...`
+        `🧮 Calculating taxes for ${employeeIds.length} employees...`,
       );
       setCalculatingTaxes(true);
 
@@ -339,7 +350,7 @@ const SalaryFormat = () => {
               console.error(`Failed to calculate for ${empId}:`, err);
               setLoadingAit((prev) => ({ ...prev, [empId]: false }));
             }
-          })
+          }),
         );
 
         // Small delay between batches to prevent overwhelming the server
@@ -351,7 +362,7 @@ const SalaryFormat = () => {
       setCalculatingTaxes(false);
       console.log(`✅ Tax calculation completed`);
     },
-    [taxResults, selectedMonth, selectedYear]
+    [taxResults, selectedMonth, selectedYear],
   );
 
   // FIXED: Load approval status from backend
@@ -360,16 +371,15 @@ const SalaryFormat = () => {
       try {
         setLoadingStatus(true);
         console.log(
-          `📡 Loading approval status for company: ${companyName}...`
+          `📡 Loading approval status for company: ${companyName}...`,
         );
 
-        const response = await financeAPI.approval.getApprovalStatus(
-          companyName
-        );
+        const response =
+          await financeAPI.approval.getApprovalStatus(companyName);
 
         console.log(
           `✅ Approval status loaded for ${companyName}:`,
-          response.data
+          response.data,
         );
 
         // Update company-specific approval status
@@ -393,13 +403,13 @@ const SalaryFormat = () => {
       } catch (error) {
         console.error(
           `❌ Failed to load approval status for ${companyName}:`,
-          error
+          error,
         );
       } finally {
         setLoadingStatus(false);
       }
     },
-    []
+    [],
   );
 
   // USER DETECTION
@@ -464,7 +474,7 @@ const SalaryFormat = () => {
       const filtered = employees.filter(
         (emp) =>
           emp.name?.toLowerCase().includes(term) ||
-          emp.employee_id?.toLowerCase().includes(term)
+          emp.employee_id?.toLowerCase().includes(term),
       );
       setFilteredEmployees(filtered);
     }
@@ -568,20 +578,20 @@ const SalaryFormat = () => {
           (shouldDeduct
             ? `Salary above 41,000 (${formatNumber(monthlySalary)})`
             : monthlySalary <= 41000
-            ? `Salary at or below 41,000 threshold (${formatNumber(
-                monthlySalary
-              )})`
-            : "No tax calculated"),
+              ? `Salary at or below 41,000 threshold (${formatNumber(
+                  monthlySalary,
+                )})`
+              : "No tax calculated"),
       };
     },
-    [taxResults, loadingAit]
+    [taxResults, loadingAit],
   );
 
   // MANUAL TAX RECALCULATION BUTTON (similar to FinanceProvision)
   const handleRecalculateTaxes = async () => {
     if (
       window.confirm(
-        "Recalculate taxes for all employees? This may take a moment."
+        "Recalculate taxes for all employees? This may take a moment.",
       )
     ) {
       // Clear existing tax results
@@ -612,7 +622,7 @@ const SalaryFormat = () => {
         filteredEmployees,
         employeeIds,
         sourceTaxOther,
-        bonusData
+        bonusData,
       );
     }
   };
@@ -653,12 +663,12 @@ const SalaryFormat = () => {
           setLoadingAit((prev) => ({ ...prev, [empId]: false }));
         });
 
-        console.log(`✅ Synced ${Object.keys(databaseResults).length} records`);
-        alert(
-          `✅ Data synced! Found ${
-            Object.keys(databaseResults).length
-          } records.`
-        );
+        // console.log(`✅ Synced ${Object.keys(databaseResults).length} records`);
+        // alert(
+        //   `✅ Data synced! Found ${
+        //     Object.keys(databaseResults).length
+        //   } records.`
+        // );
       } else {
         alert("⚠️ No data found. Calculating taxes...");
 
@@ -670,7 +680,7 @@ const SalaryFormat = () => {
           filteredEmployees,
           employeeIds,
           sourceTaxOther,
-          bonusData
+          bonusData,
         );
       }
     } catch (error) {
@@ -681,7 +691,96 @@ const SalaryFormat = () => {
     }
   };
 
-  // FIXED: Save data function
+  // FIX THE parseDate function first
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+
+    // First try common formats
+    const formats = [
+      "DD/MM/YYYY",
+      "MM/DD/YYYY",
+      "YYYY-MM-DD",
+      "DD-MM-YYYY",
+      "MM-DD-YYYY",
+    ];
+
+    for (let format of formats) {
+      let date = parseWithFormat(dateStr, format);
+      if (date) return date;
+    }
+
+    // Try manual parsing as fallback
+    const parts = dateStr.split(/[/\-.]/);
+    if (parts.length === 3) {
+      let day, month, year;
+
+      // Try to determine format based on part lengths
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD or YYYY/MM/DD
+        year = parseInt(parts[0]);
+        month = parseInt(parts[1]) - 1;
+        day = parseInt(parts[2]);
+      } else {
+        // Assume DD/MM/YYYY or similar
+        day = parseInt(parts[0]);
+        month = parseInt(parts[1]) - 1;
+        year = parseInt(parts[2]);
+
+        // If year is 2 digits, assume 2000+
+        if (year < 100) year += 2000;
+      }
+
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        return new Date(year, month, day);
+      }
+    }
+
+    console.warn(`Could not parse date: ${dateStr}`);
+    return null;
+  };
+
+  // Helper function to parse with specific format
+  const parseWithFormat = (dateStr, format) => {
+    const formatMap = {
+      DD: "day",
+      MM: "month",
+      YYYY: "year",
+    };
+
+    const separators = ["/", "-", "."];
+    let separator = "";
+
+    for (let sep of separators) {
+      if (dateStr.includes(sep) && format.includes(sep)) {
+        separator = sep;
+        break;
+      }
+    }
+
+    if (!separator) return null;
+
+    const dateParts = dateStr.split(separator);
+    const formatParts = format.split(separator);
+
+    if (dateParts.length !== 3 || formatParts.length !== 3) return null;
+
+    let day, month, year;
+
+    formatParts.forEach((part, index) => {
+      const value = parseInt(dateParts[index]);
+      if (part === "DD") day = value;
+      else if (part === "MM") month = value - 1;
+      else if (part === "YYYY") year = value;
+    });
+
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return new Date(year, month, day);
+    }
+
+    return null;
+  };
+
+  // Then in the saveData function, fix the DOJ formatting:
   const saveData = async () => {
     const payload = filteredEmployees
       .map((emp, idx) => {
@@ -702,7 +801,10 @@ const SalaryFormat = () => {
 
         const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
         const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
-        const addition = Number(getManual(empId, "addition")) || 0;
+        const otHours = Number(getManual(empId, "otHours")) || 0; // Get OT hours
+        const otPay = calculateOTPay(monthlySalary, otHours, totalDaysInMonth); // Calculate OT pay
+        const additionManual = Number(getManual(empId, "addition")) || 0;
+        const addition = additionManual; // OT is already included in addition via updateManual
         const advance = Number(getManual(empId, "advance")) || 0;
         const remarks = getManual(empId, "remarks", "") || "";
 
@@ -721,7 +823,7 @@ const SalaryFormat = () => {
         const dailyBasic = Number((basicFull / 30).toFixed(2));
         const absentDeduction = Number((dailyBasic * absentDays).toFixed(2));
         const totalDeduction = Number(
-          (ait + advance + absentDeduction).toFixed(2)
+          (ait + advance + absentDeduction).toFixed(2),
         );
 
         const netPayBank = Number(
@@ -730,29 +832,71 @@ const SalaryFormat = () => {
             cashPayment -
             totalDeduction +
             addition
-          ).toFixed(2)
+          ).toFixed(2),
         );
         const totalPayable = Number(
-          (netPayBank + cashPayment + ait + salaryCash).toFixed(2)
+          (netPayBank + cashPayment + ait + salaryCash).toFixed(2),
         );
 
-        let dojStr = "";
-        if (emp.joining_date) {
-          const d = parseDate(emp.joining_date);
-          if (d) {
-            dojStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-              2,
-              "0"
-            )}-${String(d.getDate()).padStart(2, "0")}`;
+        // ------------------- FIXED: SIMPLIFIED DOJ FORMATTING -------------------
+        let dojStr = emp.joining_date || null;
+
+        if (dojStr) {
+          dojStr = dojStr.trim();
+
+          // Try to parse the date
+          const parseDate = (dateStr) => {
+            if (!dateStr) return null;
+
+            // Try common separators
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+              let day, month, year;
+
+              // If first part is 4 digits, assume YYYY-MM-DD
+              if (parts[0].length === 4) {
+                year = parseInt(parts[0]);
+                month = parseInt(parts[1]);
+                day = parseInt(parts[2]);
+              } else {
+                // Assume DD/MM/YYYY or similar
+                day = parseInt(parts[0]);
+                month = parseInt(parts[1]);
+                year = parseInt(parts[2]);
+
+                // If year is 2 digits, add 2000
+                if (year < 100) year += 2000;
+              }
+
+              // Validate and format as YYYY-MM-DD
+              if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                return `${year}-${String(month).padStart(2, "0")}-${String(
+                  day,
+                ).padStart(2, "0")}`;
+              }
+            }
+            return null;
+          };
+
+          const parsed = parseDate(dojStr);
+          if (parsed) {
+            dojStr = parsed;
+          } else {
+            // If parsing fails, send null
+            console.warn(
+              `Could not parse DOJ for ${emp.employee_id}: ${emp.joining_date}`,
+            );
+            dojStr = null;
           }
         }
+        // ------------------- END OF FIX -------------------
 
         return {
           sl: idx + 1,
           name: emp.name?.trim() || "Unknown",
           employee_id: empId,
           designation: emp.designation?.trim() || "",
-          doj: dojStr || null,
+          doj: dojStr, // Send the formatted string
           basic: basicFull,
           house_rent: houseRentFull,
           medical: medicalFull,
@@ -765,9 +909,10 @@ const SalaryFormat = () => {
           advance: advance,
           ait: ait, // This will be 0 for salary <= 41K
           total_ded: totalDeduction,
-          ot_hours: 0,
+          ot_hours: otHours,
           addition: addition,
           cash_payment: cashPayment,
+          cash_salary: salaryCash,
           net_pay_bank: netPayBank,
           total_payable: totalPayable,
           remarks: remarks,
@@ -778,7 +923,12 @@ const SalaryFormat = () => {
       })
       .filter(Boolean);
 
-    console.log("Saving payroll data:", payload.length, "rows");
+    console.log("Saving payroll data with DOJ:", payload);
+
+    // Debug: Show DOJ values
+    payload.forEach((item, index) => {
+      console.log(`Row ${index + 1}: ${item.employee_id} - DOJ: ${item.doj}`);
+    });
 
     try {
       const res = await financeAPI.salary.saveSalary(payload);
@@ -788,11 +938,11 @@ const SalaryFormat = () => {
       if (errors.length > 0) {
         console.warn("Save errors:", errors);
         alert(
-          `Warning: Saved ${saved}, but ${errors.length} failed. Check console.`
+          `Warning: Saved ${saved}, but ${errors.length} failed. Check console.`,
         );
       } else {
         alert(
-          `Success: All ${saved} rows saved! (${res.data.created} new, ${res.data.updated} updated)`
+          `Success: All ${saved} rows saved! (${res.data.created} new, ${res.data.updated} updated)`,
         );
       }
     } catch (e) {
@@ -826,6 +976,7 @@ const SalaryFormat = () => {
 
   const updateManual = (empId, field, value) => {
     const parsed = field === "remarks" ? value : parseFloat(value) || 0;
+
     const newData = {
       ...manualData,
       [empId]: {
@@ -833,6 +984,25 @@ const SalaryFormat = () => {
         [field]: parsed,
       },
     };
+
+    // If OT Hours is updated, automatically calculate and update addition
+    if (field === "otHours" && employees.length > 0) {
+      const emp = employees.find((e) => e.employee_id === empId);
+      if (emp) {
+        const monthlySalary = Number(emp.salary) || 0;
+        const otPay = calculateOTPay(monthlySalary, parsed);
+
+        // Get existing addition value (if any)
+        const existingAddition = newData[empId]?.addition || 0;
+
+        // Update addition with OT pay
+        newData[empId] = {
+          ...newData[empId],
+          addition: existingAddition + otPay,
+        };
+      }
+    }
+
     setManualData(newData);
     financeAPI.storage.setSalaryManualData(newData);
   };
@@ -869,7 +1039,7 @@ const SalaryFormat = () => {
         "download",
         `${companyName.replace(/\s+/g, "_")}_Bank_Salary_${
           monthNames[month - 1]
-        }_${year}.xlsx`
+        }_${year}.xlsx`,
       );
       document.body.appendChild(link);
       link.click();
@@ -878,22 +1048,22 @@ const SalaryFormat = () => {
 
       console.log(`✅ Bank transfer Excel file generated and downloaded!`);
       alert(
-        `Bank transfer Excel file generated successfully for ${companyName}!`
+        `Bank transfer Excel file generated successfully for ${companyName}!`,
       );
     } catch (error) {
       console.error("❌ Error generating bank Excel file:", error);
 
       if (error.response?.status === 404) {
         alert(
-          `❌ No salary records found for ${companyName}. Please save salary data first by clicking "Save Data" button.`
+          `❌ No salary records found for ${companyName}. Please save salary data first by clicking "Save Data" button.`,
         );
       } else if (error.response?.status === 500) {
         alert(
-          `❌ Server error while generating Excel. Please check backend logs.`
+          `❌ Server error while generating Excel. Please check backend logs.`,
         );
       } else {
         alert(
-          `❌ Failed to generate bank Excel file for ${companyName}. Error: ${error.message}`
+          `❌ Failed to generate bank Excel file for ${companyName}. Error: ${error.message}`,
         );
       }
     } finally {
@@ -907,7 +1077,7 @@ const SalaryFormat = () => {
       setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
 
       console.log(
-        `🔄 Requesting Excel generation from backend for ${companyName}...`
+        `🔄 Requesting Excel generation from backend for ${companyName}...`,
       );
 
       const response = await financeAPI.salaryRecordsAPI.generateExcelNow({
@@ -924,7 +1094,7 @@ const SalaryFormat = () => {
         "download",
         `${companyName}_SALARY_${
           monthNames[selectedMonth - 1]
-        }_${selectedYear}.xlsx`
+        }_${selectedYear}.xlsx`,
       );
       document.body.appendChild(link);
       link.click();
@@ -938,7 +1108,7 @@ const SalaryFormat = () => {
       alert(
         `❌ Failed to generate Excel: ${
           error.response?.data?.error || error.message
-        }`
+        }`,
       );
     } finally {
       setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
@@ -955,65 +1125,65 @@ const SalaryFormat = () => {
   const renderApprovalFooter = (companyName) => {
     const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
 
-    return (
-      <div className="footer">
-        <button
-          onClick={() => handleApprovalStep("hr_prepared", companyName)}
-          disabled={!isButtonEnabled("hr_prepared", companyName)}
-          className={`approval-btn ${
-            isButtonEnabled("hr_prepared", companyName) ? "enabled" : "disabled"
-          }`}
-        >
-          <span>Prepared by: HR</span>
-          {companyStatus.hr_prepared && <span className="status-badge">✓</span>}
-        </button>
+    // return (
+    //   <div className="footer">
+    //     <button
+    //       onClick={() => handleApprovalStep("hr_prepared", companyName)}
+    //       disabled={!isButtonEnabled("hr_prepared", companyName)}
+    //       className={`approval-btn ${
+    //         isButtonEnabled("hr_prepared", companyName) ? "enabled" : "disabled"
+    //       }`}
+    //     >
+    //       <span>Prepared by: HR</span>
+    //       {companyStatus.hr_prepared && <span className="status-badge">✓</span>}
+    //     </button>
 
-        <button
-          onClick={() => handleApprovalStep("finance_checked", companyName)}
-          disabled={!isButtonEnabled("finance_checked", companyName)}
-          className={`approval-btn ${
-            isButtonEnabled("finance_checked", companyName)
-              ? "enabled"
-              : "disabled"
-          }`}
-        >
-          <span>Checked by: Finance & Accounts</span>
-          {companyStatus.finance_checked && (
-            <span className="status-badge">✓</span>
-          )}
-        </button>
+    //     <button
+    //       onClick={() => handleApprovalStep("finance_checked", companyName)}
+    //       disabled={!isButtonEnabled("finance_checked", companyName)}
+    //       className={`approval-btn ${
+    //         isButtonEnabled("finance_checked", companyName)
+    //           ? "enabled"
+    //           : "disabled"
+    //       }`}
+    //     >
+    //       <span>Checked by: Finance & Accounts</span>
+    //       {companyStatus.finance_checked && (
+    //         <span className="status-badge">✓</span>
+    //       )}
+    //     </button>
 
-        <button
-          onClick={() => handleApprovalStep("director_checked", companyName)}
-          disabled={!isButtonEnabled("director_checked", companyName)}
-          className={`approval-btn ${
-            isButtonEnabled("director_checked", companyName)
-              ? "enabled"
-              : "disabled"
-          }`}
-        >
-          <span>Checked by: Director</span>
-          {companyStatus.director_checked && (
-            <span className="status-badge">✓</span>
-          )}
-        </button>
+    //     <button
+    //       onClick={() => handleApprovalStep("director_checked", companyName)}
+    //       disabled={!isButtonEnabled("director_checked", companyName)}
+    //       className={`approval-btn ${
+    //         isButtonEnabled("director_checked", companyName)
+    //           ? "enabled"
+    //           : "disabled"
+    //       }`}
+    //     >
+    //       <span>Checked by: Director</span>
+    //       {companyStatus.director_checked && (
+    //         <span className="status-badge">✓</span>
+    //       )}
+    //     </button>
 
-        <button
-          onClick={() => handleApprovalStep("proprietor_approved", companyName)}
-          disabled={!isButtonEnabled("proprietor_approved", companyName)}
-          className={`approval-btn ${
-            isButtonEnabled("proprietor_approved", companyName)
-              ? "enabled"
-              : "disabled"
-          }`}
-        >
-          <span>Approved by: Proprietor / MD</span>
-          {companyStatus.proprietor_approved && (
-            <span className="status-badge">✓</span>
-          )}
-        </button>
-      </div>
-    );
+    //     <button
+    //       onClick={() => handleApprovalStep("proprietor_approved", companyName)}
+    //       disabled={!isButtonEnabled("proprietor_approved", companyName)}
+    //       className={`approval-btn ${
+    //         isButtonEnabled("proprietor_approved", companyName)
+    //           ? "enabled"
+    //           : "disabled"
+    //       }`}
+    //     >
+    //       <span>Approved by: Proprietor / MD</span>
+    //       {companyStatus.proprietor_approved && (
+    //         <span className="status-badge">✓</span>
+    //       )}
+    //     </button>
+    //   </div>
+    // );
   };
 
   // FIXED: Button enabling logic
@@ -1156,12 +1326,12 @@ const SalaryFormat = () => {
                     {calculatingTaxes ? "Calculating..." : "Recalc Taxes"}
                   </button> */}
 
-                  <button
+                  {/* <button
                     onClick={exportAllCompanies}
                     className="btn btn-export-all"
                   >
                     <FaFileExport /> Export All
-                  </button>
+                  </button> */}
 
                   <button
                     onClick={() => navigate("/finance-provision")}
@@ -1227,10 +1397,10 @@ const SalaryFormat = () => {
                   filteredEmployees.reduce((sum, e) => {
                     const { ait } = getAitValue(
                       e.employee_id,
-                      Number(e.salary || 0)
+                      Number(e.salary || 0),
                     );
                     return sum + ait;
-                  }, 0)
+                  }, 0),
                 )}
               </span>
             </div>
@@ -1287,7 +1457,7 @@ const SalaryFormat = () => {
                       {selectedYear}
                     </h3>
                   </div>
-                  <div className="company-action-buttons">
+                  {/* <div className="company-action-buttons">
                     <button
                       onClick={() => generateExcelForCompany(comp)}
                       className="btn btn-generate-excel"
@@ -1304,7 +1474,7 @@ const SalaryFormat = () => {
                     >
                       <FaFileExport /> Export {comp} Data
                     </button>
-                  </div>
+                  </div> */}
                 </div>
 
                 <div className="table-scroll-container">
@@ -1358,7 +1528,7 @@ const SalaryFormat = () => {
 
                           const daysWorkedManual = getManual(
                             empId,
-                            "daysWorked"
+                            "daysWorked",
                           );
                           const cashPayment = getManual(empId, "cashPayment");
                           const addition = getManual(empId, "addition");
@@ -1379,13 +1549,13 @@ const SalaryFormat = () => {
                               : defaultDays;
                           const absentDays = Math.max(
                             0,
-                            totalDaysInMonth - daysWorked
+                            totalDaysInMonth - daysWorked,
                           );
 
                           const dailyRate = monthlySalary / totalDaysInMonth;
                           const dailyBasic = basicFull / BASE_MONTH;
                           const absentDeduction = dailyBasic * absentDays;
-                          
+
                           const totalDeduction =
                             ait + advance + absentDeduction;
 
@@ -1394,7 +1564,8 @@ const SalaryFormat = () => {
                             cashPayment -
                             totalDeduction +
                             addition;
-                          const totalPayable = netPayBank + cashPayment + ait + salaryCash;
+                          const totalPayable =
+                            netPayBank + cashPayment + ait + salaryCash;
 
                           return (
                             <tr key={empId} className="data-row">
@@ -1433,7 +1604,7 @@ const SalaryFormat = () => {
                                     updateManual(
                                       empId,
                                       "daysWorked",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   className="editable-input days-input"
@@ -1456,7 +1627,7 @@ const SalaryFormat = () => {
                                     updateManual(
                                       empId,
                                       "advance",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   className="editable-input advance-input"
@@ -1470,8 +1641,8 @@ const SalaryFormat = () => {
                                   calculatedAit > 0 && !shouldDeduct
                                     ? "calculated-no-deduct"
                                     : shouldDeduct
-                                    ? "tax-deducted"
-                                    : ""
+                                      ? "tax-deducted"
+                                      : ""
                                 }`}
                               >
                                 {loading ? (
@@ -1490,7 +1661,7 @@ const SalaryFormat = () => {
                                       <div
                                         className="tax-note"
                                         title={`Calculated: ${formatNumber(
-                                          calculatedAit
+                                          calculatedAit,
                                         )} (Not deducted - Salary ≤ 41,000)`}
                                       >
                                         (Calc: {formatNumber(calculatedAit)})
@@ -1521,7 +1692,23 @@ const SalaryFormat = () => {
                                 {formatNumber(totalDeduction)}
                               </td>
 
-                              <td className="ot-hours">0</td>
+                              <td className="ot-hours">
+                                <input
+                                  type="number"
+                                  value={getManual(empId, "otHours") || ""}
+                                  placeholder="0"
+                                  onChange={(e) =>
+                                    updateManual(
+                                      empId,
+                                      "otHours",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="editable-input ot-input"
+                                  min="0"
+                                  step="0.5"
+                                />
+                              </td>
 
                               <td>
                                 <input
@@ -1532,7 +1719,7 @@ const SalaryFormat = () => {
                                     updateManual(
                                       empId,
                                       "addition",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   className="editable-input addition-input"
@@ -1548,7 +1735,7 @@ const SalaryFormat = () => {
                                     updateManual(
                                       empId,
                                       "cashPayment",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   className="editable-input cash-input"
@@ -1584,7 +1771,7 @@ const SalaryFormat = () => {
                                     updateManual(
                                       empId,
                                       "remarks",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   className="editable-input remarks-input"
@@ -1641,7 +1828,7 @@ const SalaryFormat = () => {
                                 taxCalc.monthly_tds ||
                                 0)
                             );
-                          }, 0)
+                          }, 0),
                         )}
                       </span>
                     </div>
@@ -1653,7 +1840,7 @@ const SalaryFormat = () => {
                             const result = taxResults[e.employee_id] || {};
                             const taxCalc = result.tax_calculation || {};
                             return sum + (taxCalc.actual_deduction || 0);
-                          }, 0)
+                          }, 0),
                         )}
                       </span>
                     </div>
@@ -1700,8 +1887,8 @@ const SalaryFormat = () => {
                     {formatNumber(
                       filteredEmployees.reduce(
                         (s, e) => s + (Number(e.salary) || 0),
-                        0
-                      )
+                        0,
+                      ),
                     )}
                   </div>
                   <div className="stat-label">Total Gross Salary</div>
@@ -1713,7 +1900,7 @@ const SalaryFormat = () => {
                         const result = taxResults[e.employee_id] || {};
                         const taxCalc = result.tax_calculation || {};
                         return s + (taxCalc.actual_deduction || 0);
-                      }, 0)
+                      }, 0),
                     )}
                   </div>
                   <div className="stat-label">Total Deducted AIT</div>
@@ -1798,7 +1985,7 @@ const SalaryFormat = () => {
                             addition: 0,
                             netBank: 0,
                             totalPay: 0,
-                          }
+                          },
                         );
 
                         return (
@@ -1848,8 +2035,8 @@ const SalaryFormat = () => {
                           {formatNumber(
                             filteredEmployees.reduce(
                               (s, e) => s + (Number(e.salary) || 0),
-                              0
-                            )
+                              0,
+                            ),
                           )}
                         </td>
                         <td className="grand-total-tax">
@@ -1866,7 +2053,7 @@ const SalaryFormat = () => {
                                     ? taxCalc.monthly_tds || 0
                                     : 0;
                                   return s + ait;
-                                }, 0)
+                                }, 0),
                               )}
                             </div>
                             <div className="tax-note">
@@ -1877,7 +2064,7 @@ const SalaryFormat = () => {
                                     taxResults[e.employee_id] || {};
                                   const taxCalc = result.tax_calculation || {};
                                   return s + (taxCalc.monthly_tds || 0);
-                                }, 0)
+                                }, 0),
                               )}
                               )
                             </div>
@@ -1957,7 +2144,7 @@ const SalaryFormat = () => {
                                 totalDed +
                                 addition;
                               return s + netBank;
-                            }, 0)
+                            }, 0),
                           )}
                         </td>
                         <td className="grand-total-payable">
@@ -1996,7 +2183,7 @@ const SalaryFormat = () => {
                                 addition;
                               const totalPay = netBank + cash + ait;
                               return s + totalPay;
-                            }, 0)
+                            }, 0),
                           )}
                         </td>
                       </tr>

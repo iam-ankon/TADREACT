@@ -1093,12 +1093,13 @@ const EditInquiry = () => {
     </div>
   );
 
-  // Also update the renderCombobox function to handle backspace properly:
+  // FIXED renderCombobox function
   const renderCombobox = (label, field, options, displayField) => {
     const currentOption = options.find(
       (opt) => opt.id.toString() === formData[field]?.toString()
     );
-    const inputValue = inputValues[field] || "";
+    const inputValue =
+      inputValues[field] || (currentOption ? currentOption[displayField] : "");
 
     return (
       <div style={inputGroupStyle}>
@@ -1106,7 +1107,7 @@ const EditInquiry = () => {
         <div style={{ position: "relative" }}>
           <input
             type="text"
-            value={inputValue}
+            value={inputValue || ""}
             onChange={(e) => handleComboboxChange(field, e.target.value)}
             onFocus={() =>
               setShowDropdown((prev) => ({ ...prev, [field]: true }))
@@ -1117,20 +1118,6 @@ const EditInquiry = () => {
                 200
               )
             }
-            onKeyDown={(e) => {
-              // Handle backspace and delete keys properly
-              if (e.key === "Backspace" || e.key === "Delete") {
-                // Clear both input value and form data immediately
-                setInputValues((prev) => ({
-                  ...prev,
-                  [field]: "",
-                }));
-                setFormData((prev) => ({
-                  ...prev,
-                  [field]: "",
-                }));
-              }
-            }}
             style={inputStyle}
             placeholder={`Select or type to create ${label}`}
           />

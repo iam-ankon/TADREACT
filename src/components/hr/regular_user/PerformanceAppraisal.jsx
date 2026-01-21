@@ -1159,10 +1159,10 @@ const PerformanceAppraisal = () => {
 
   // Styles
   const containerStyle = {
-    padding: "20px",
-    maxWidth: "1400px",
+    padding: "70px",
+   
     margin: "0 auto",
-    backgroundColor: "#f5f7fa",
+    backgroundColor: "#f3f4f6",
     minHeight: "100vh",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };

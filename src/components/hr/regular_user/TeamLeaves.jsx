@@ -1,3 +1,4 @@
+
 // src/components/hr/regular_user/TeamLeaves.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +9,8 @@ import {
   getTeamLeaves, // ADD THIS IMPORT
   addTeamLeaderComment
 } from "../../../api/employeeApi";
-import Sidebar from "../../hr/Sidebar"; // Fixed import path
+// Remove Sidebar import since it's already in the main layout
+// import Sidebar from "../Sidebar";
 
 const TeamLeaves = () => {
   const [teamLeaves, setTeamLeaves] = useState([]);
@@ -287,11 +289,14 @@ const TeamLeaves = () => {
       minHeight: "100vh",
       backgroundColor: "#f8f9fa",
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      padding: "50px",
     },
     mainContent: {
       flex: 1,
       padding: "24px",
       overflow: "auto",
+      marginLeft: "0", // Remove sidebar margin since Sidebar is in main layout
+      transition: "margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     },
     header: {
       backgroundColor: "white",
@@ -469,22 +474,23 @@ const TeamLeaves = () => {
     },
   };
 
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <Sidebar />
-        <div style={styles.mainContent}>
-          <div style={styles.loadingSpinner}>
-            <div>Loading team leave requests...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Remove loading state to avoid double sidebar issue
+  // if (loading) {
+  //   return (
+  //     <div style={styles.container}>
+  //       <Sidebar />
+  //       <div style={styles.mainContent}>
+  //         <div style={styles.loadingSpinner}>
+  //           <div>Loading team leave requests...</div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div style={styles.container}>
-      <Sidebar />
+      {/* REMOVED Sidebar component from here - it should be in the main layout */}
       <div style={styles.mainContent}>
         {/* Header */}
         <div style={styles.header}>

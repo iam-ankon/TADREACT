@@ -1,5 +1,5 @@
-// src/pages/finance/SalaryRecords.jsx
-import React, { useState, useEffect, useMemo } from "react";
+// src/pages/finance/SalaryRecords.jsx - UPDATED WITH FORMULAS AND EDITABLE FIELDS (FIXED VERSION)
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaArrowLeft,
@@ -10,34 +10,80 @@ import {
   FaUsers,
   FaMoneyBillWave,
   FaEye,
-  FaDownload,
   FaExclamationTriangle,
   FaChartBar,
   FaSave,
-  FaCheckCircle,
+  FaDatabase,
+  FaColumns,
+  FaInfoCircle,
+  FaSync,
+  FaFileExcel,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-// Import API services
-import {
-  salaryRecordsAPI,
-  salaryAPI,
-  storageAPI,
-  employeeAPI,
-} from "../../api/finance";
+// Import API services - updated to use financeAPI
+import { financeAPI } from "../../api/finance";
 
+// Helper function to safely convert to number
+const toNumber = (value, defaultValue = 0) => {
+  if (value === null || value === undefined || value === '') return defaultValue;
+  if (typeof value === 'string' && value.trim() === '') return defaultValue;
+  const num = Number(value);
+  return isNaN(num) ? defaultValue : num;
+};
+
+// OT Pay calculation function from SalaryFormat
+const calculateOTPay = (monthlySalary, otHours, totalDays = 31) => {
+  if (!monthlySalary || !otHours || otHours <= 0) return 0;
+
+  // OT Pay = (Gross Salary ÷ 31 ÷ 10) × Monthly OT Hours
+  const dailySalary = monthlySalary / totalDays;
+  const hourlyRate = dailySalary / 10; // Assuming 10-hour work day
+  const otPay = hourlyRate * otHours;
+
+  return Number(otPay.toFixed(2));
+};
+
+// parseDate function
 const parseDate = (dateStr) => {
   if (!dateStr) return null;
-  const [day, month, year] = dateStr.split("/").map(Number);
-  return new Date(year, month - 1, day);
+
+  // Try manual parsing
+  const parts = dateStr.split(/[/\-.]/);
+  if (parts.length === 3) {
+    let day, month, year;
+
+    // Try to determine format based on part lengths
+    if (parts[0].length === 4) {
+      // YYYY-MM-DD or YYYY/MM/DD
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]) - 1;
+      day = parseInt(parts[2]);
+    } else {
+      // Assume DD/MM/YYYY or similar
+      day = parseInt(parts[0]);
+      month = parseInt(parts[1]) - 1;
+      year = parseInt(parts[2]);
+
+      // If year is 2 digits, assume 2000+
+      if (year < 100) year += 2000;
+    }
+
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return new Date(year, month, day);
+    }
+  }
+
+  console.warn(`Could not parse date: ${dateStr}`);
+  return null;
 };
 
 const formatNumber = (num) => {
-  if (num === null || num === undefined) return "৳0";
-  const abs = Math.abs(num);
+  const safeNum = toNumber(num);
+  const abs = Math.abs(safeNum);
   const formatted = abs.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return num < 0 ? `-৳${formatted}` : `৳${formatted}`;
+  return safeNum < 0 ? `-৳${formatted}` : `৳${formatted}`;
 };
 
 const SalaryRecords = () => {
@@ -53,21 +99,26 @@ const SalaryRecords = () => {
   const [showSummary, setShowSummary] = useState(true);
   const [debugInfo, setDebugInfo] = useState(null);
   const [error, setError] = useState(null);
+  const [showAllColumns, setShowAllColumns] = useState(false);
+  const [recordDetails, setRecordDetails] = useState(null);
+  const [fieldStats, setFieldStats] = useState({});
+  const [generatingExcel, setGeneratingExcel] = useState({});
   const navigate = useNavigate();
 
+  // Approval status states
+  const [approvalStatus, setApprovalStatus] = useState({
+    hr_prepared: false,
+    finance_checked: false,
+    director_checked: false,
+    proprietor_approved: false,
+  });
+  const [companyApprovalStatus, setCompanyApprovalStatus] = useState({});
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [currentUser, setCurrentUser] = useState("");
+
   const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ];
 
   const years = Array.from(
@@ -79,20 +130,84 @@ const SalaryRecords = () => {
   const totalDaysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
   const BASE_MONTH = 30;
 
+  // Enhanced grouping with company mapping
+  const grouped = useMemo(() => {
+    const groups = filteredRecords.reduce((acc, record) => {
+      const companyName = record.company_name || "Unknown Company";
+      if (!acc[companyName]) acc[companyName] = [];
+      acc[companyName].push(record);
+      return acc;
+    }, {});
+
+    return groups;
+  }, [filteredRecords]);
+
+  // USER DETECTION
+  useEffect(() => {
+    const detectUser = () => {
+      try {
+        let detectedUser = "";
+
+        // Method 1: Check for individual username key
+        const username = localStorage.getItem("username");
+        if (username) {
+          detectedUser = username.toLowerCase().trim();
+        } else {
+          // Method 2: Check for userData object
+          const userData = localStorage.getItem("userData");
+          if (userData) {
+            try {
+              const parsedData = JSON.parse(userData);
+              detectedUser = (parsedData.username || parsedData.user_name || "")
+                .toLowerCase()
+                .trim();
+            } catch (e) {
+              console.error("Error parsing userData:", e);
+            }
+          }
+        }
+
+        if (!detectedUser) {
+          const possibleKeys = [
+            "user",
+            "user_name",
+            "employee_name",
+            "name",
+            "email",
+          ];
+          for (let key of possibleKeys) {
+            const value = localStorage.getItem(key);
+            if (value && typeof value === "string" && value.length > 0) {
+              detectedUser = value.toLowerCase().trim();
+              break;
+            }
+          }
+        }
+
+        setCurrentUser(detectedUser);
+        console.log("🎯 CURRENT USER:", detectedUser);
+      } catch (error) {
+        console.error("❌ ERROR detecting user:", error);
+        setCurrentUser("");
+      }
+    };
+
+    detectUser();
+  }, []);
+
+  // Load saved manual data
+  useEffect(() => {
+    const saved = financeAPI.storage.getSalaryManualData();
+    if (saved) setManualData(saved);
+  }, []);
+
   // Fetch employees to get company information
   const fetchEmployees = async () => {
     try {
-      const res = await employeeAPI.getAll();
+      const res = await financeAPI.employee.getAll();
       const filtered = res.data.filter((e) => e.salary && e.employee_id);
       setEmployees(filtered);
       console.log("✅ Loaded employees:", filtered.length);
-
-      // Log company information from employees
-      const employeeCompanies = [
-        ...new Set(filtered.map((e) => e.company_name)),
-      ];
-      console.log("🏢 Companies from employees:", employeeCompanies);
-
       return filtered;
     } catch (e) {
       console.error("Failed to fetch employees:", e);
@@ -100,78 +215,18 @@ const SalaryRecords = () => {
     }
   };
 
-  // Enhanced grouping with company mapping
-  const grouped = useMemo(() => {
-    console.log("📊 Grouping records by company...");
-    console.log("📊 Total records to group:", filteredRecords.length);
-    console.log("📊 Total employees available:", employees.length);
-
-    // Create a mapping of employee_id to company_name from employees data
-    const employeeCompanyMap = {};
-    employees.forEach((emp) => {
-      if (emp.employee_id && emp.company_name) {
-        employeeCompanyMap[emp.employee_id] = emp.company_name;
-      }
-    });
-
-    console.log("📊 Employee-Company mapping:", employeeCompanyMap);
-
-    const groups = filteredRecords.reduce((acc, record) => {
-      // Try multiple ways to get company name
-      let companyName = "Unknown Company";
-
-      // 1. First try from the record itself
-      if (record.company_name && record.company_name !== "Unknown Company") {
-        companyName = record.company_name;
-      }
-      // 2. Then try from employee mapping
-      else if (employeeCompanyMap[record.employee_id]) {
-        companyName = employeeCompanyMap[record.employee_id];
-      }
-      // 3. Finally, use whatever is in the record
-      else if (record.company_name) {
-        companyName = record.company_name;
-      }
-
-      // Clean up company name
-      companyName = companyName.trim() || "Unknown Company";
-
-      if (!acc[companyName]) acc[companyName] = [];
-      acc[companyName].push({
-        ...record,
-        company_name: companyName, // Ensure consistent company name
-      });
-      return acc;
-    }, {});
-
-    console.log("📊 Final grouped companies:", Object.keys(groups));
-    Object.keys(groups).forEach((comp) => {
-      console.log(`📊 ${comp}: ${groups[comp].length} employees`);
-    });
-
-    return groups;
-  }, [filteredRecords, employees]);
-
-  // Load saved manual data
-  useEffect(() => {
-    const saved = storageAPI.getSalaryManualData();
-    if (saved) setManualData(saved);
-  }, []);
-
   // Fetch salary records for selected month/year
   const fetchSalaryRecords = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log(
-        `🔄 Fetching salary records for ${selectedMonth}/${selectedYear}...`
-      );
+      console.log(`🔄 Fetching salary records for ${selectedMonth}/${selectedYear}...`);
 
       // Fetch employees first to get company data
       const employeesData = await fetchEmployees();
 
-      const response = await salaryRecordsAPI.getAllRecords({
+      const response = await financeAPI.salaryRecordsAPI.getAllRecords({
         year: selectedYear,
         month: selectedMonth,
       });
@@ -183,13 +238,10 @@ const SalaryRecords = () => {
       if (response.data && response.data.success) {
         records = response.data.data || [];
       } else {
-        // Handle case where API returns data directly
         records = response.data || [];
       }
 
-      console.log(
-        `✅ Loaded ${records.length} records for ${selectedMonth}/${selectedYear}`
-      );
+      console.log(`✅ Loaded ${records.length} records for ${selectedMonth}/${selectedYear}`);
 
       // Enhance records with company information from employees
       const enhancedRecords = records.map((record) => {
@@ -198,16 +250,9 @@ const SalaryRecords = () => {
         );
         return {
           ...record,
-          company_name:
-            employee?.company_name || record.company_name || "Unknown Company",
+          company_name: employee?.company_name || record.company_name || "Unknown Company",
         };
       });
-
-      // Log company information
-      const companies = [
-        ...new Set(enhancedRecords.map((r) => r.company_name)),
-      ];
-      console.log("🏢 Final companies in records:", companies);
 
       setSalaryRecords(enhancedRecords);
       setFilteredRecords(enhancedRecords);
@@ -235,6 +280,68 @@ const SalaryRecords = () => {
     }
   };
 
+  // Load approval status from backend
+  const loadApprovalStatus = useCallback(
+    async (companyName = "All Companies") => {
+      try {
+        setLoadingStatus(true);
+        console.log(
+          `📡 Loading approval status for company: ${companyName}...`
+        );
+
+        const response = await financeAPI.approval.getApprovalStatus(
+          companyName
+        );
+
+        console.log(
+          `✅ Approval status loaded for ${companyName}:`,
+          response.data
+        );
+
+        // Update company-specific approval status
+        setCompanyApprovalStatus((prev) => ({
+          ...prev,
+          [companyName]: {
+            hr_prepared: response.data.hr_prepared || false,
+            finance_checked: response.data.finance_checked || false,
+            director_checked: response.data.director_checked || false,
+            proprietor_approved: response.data.proprietor_approved || false,
+          },
+        }));
+
+        // Also update global approval status for backward compatibility
+        setApprovalStatus({
+          hr_prepared: response.data.hr_prepared || false,
+          finance_checked: response.data.finance_checked || false,
+          director_checked: response.data.director_checked || false,
+          proprietor_approved: response.data.proprietor_approved || false,
+        });
+      } catch (error) {
+        console.error(
+          `❌ Failed to load approval status for ${companyName}:`,
+          error
+        );
+      } finally {
+        setLoadingStatus(false);
+      }
+    },
+    []
+  );
+
+  // Load approval status for all companies
+  useEffect(() => {
+    if (currentUser && filteredRecords.length > 0) {
+      console.log("🔄 Loading approval status for all companies...");
+      const uniqueCompanies = [
+        ...new Set(filteredRecords.map((record) => record.company_name || "Unknown")),
+      ];
+      uniqueCompanies.forEach((companyName) => {
+        loadApprovalStatus(companyName);
+      });
+      loadApprovalStatus("All Companies");
+    }
+  }, [currentUser, filteredRecords.length, loadApprovalStatus]);
+
   useEffect(() => {
     fetchSalaryRecords();
     fetchDebugInfo();
@@ -251,11 +358,132 @@ const SalaryRecords = () => {
           record.name?.toLowerCase().includes(term) ||
           record.employee_id?.toLowerCase().includes(term) ||
           record.company_name?.toLowerCase().includes(term) ||
-          record.designation?.toLowerCase().includes(term)
+          record.designation?.toLowerCase().includes(term) ||
+          record.bank_account?.toLowerCase().includes(term) ||
+          record.branch_name?.toLowerCase().includes(term)
       );
       setFilteredRecords(filtered);
     }
   }, [searchTerm, salaryRecords]);
+
+  // Update manual data (same as SalaryFormat)
+  const updateManual = (empId, field, value) => {
+    const parsed = field === "remarks" ? value : toNumber(value, 0);
+
+    const newData = {
+      ...manualData,
+      [empId]: {
+        ...manualData[empId],
+        [field]: parsed,
+      },
+    };
+
+    // If OT Hours is updated, automatically calculate and update addition
+    if (field === "otHours" && employees.length > 0) {
+      const emp = employees.find((e) => e.employee_id === empId);
+      if (emp) {
+        const monthlySalary = toNumber(emp.salary);
+        const otPay = calculateOTPay(monthlySalary, parsed, totalDaysInMonth);
+
+        // Get existing addition value (if any)
+        const existingAddition = toNumber(newData[empId]?.addition);
+
+        // Update addition with OT pay
+        newData[empId] = {
+          ...newData[empId],
+          addition: existingAddition + otPay,
+        };
+      }
+    }
+
+    setManualData(newData);
+    financeAPI.storage.setSalaryManualData(newData);
+  };
+
+  // Get manual value (same as SalaryFormat)
+  const getManual = (empId, field, defaultVal = 0) => {
+    return manualData[empId]?.[field] ?? defaultVal;
+  };
+
+  // Button enabling logic
+  const isButtonEnabled = (buttonStep, companyName) => {
+    const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
+    const user = currentUser ? currentUser.toLowerCase().trim() : "";
+
+    let enabled = false;
+
+    switch (buttonStep) {
+      case "hr_prepared":
+        enabled = user === "lisa" && !companyStatus.hr_prepared;
+        break;
+      case "finance_checked":
+        enabled =
+          user === "morshed" &&
+          companyStatus.hr_prepared &&
+          !companyStatus.finance_checked;
+        break;
+      case "director_checked":
+        enabled =
+          user === "ankon" &&
+          companyStatus.finance_checked &&
+          !companyStatus.director_checked;
+        break;
+      case "proprietor_approved":
+        enabled =
+          (user === "tuhin" || user === "proprietor" || user === "md") &&
+          companyStatus.director_checked &&
+          !companyStatus.proprietor_approved;
+        break;
+      default:
+        enabled = false;
+    }
+
+    return enabled;
+  };
+
+  // Approval handler
+  const handleApprovalStep = async (step, companyName) => {
+    console.log(`📧 Processing ${step} for ${companyName} by ${currentUser}`);
+
+    try {
+      const response = await financeAPI.approval.sendApproval({
+        step: step,
+        company_name: companyName,
+        user_name: currentUser,
+        username: currentUser,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      if (response.data.success) {
+        // Update company-specific approval status
+        if (response.data.approval_status) {
+          setCompanyApprovalStatus((prev) => ({
+            ...prev,
+            [companyName]: {
+              hr_prepared: response.data.approval_status.hr_prepared,
+              finance_checked: response.data.approval_status.finance_checked,
+              director_checked: response.data.approval_status.director_checked,
+              proprietor_approved:
+                response.data.approval_status.proprietor_approved,
+            },
+          }));
+        }
+
+        alert(`✅ Email sent successfully! ${response.data.message}`);
+
+        // Reload approval status
+        setTimeout(() => {
+          loadApprovalStatus(companyName);
+        }, 500);
+      } else {
+        alert(`❌ Failed: ${response.data.message}`);
+      }
+    } catch (error) {
+      console.error("Approval step failed:", error);
+      alert("❌ Connection error. Please try again.");
+    }
+  };
 
   // Toggle company sections
   const toggleCompany = (comp) => {
@@ -281,24 +509,6 @@ const SalaryRecords = () => {
     setShowSummary(true);
   };
 
-  // Update manual data
-  const updateManual = (empId, field, value) => {
-    const parsed = field === "remarks" ? value : parseFloat(value) || 0;
-    const newData = {
-      ...manualData,
-      [empId]: {
-        ...manualData[empId],
-        [field]: parsed,
-      },
-    };
-    setManualData(newData);
-    storageAPI.setSalaryManualData(newData);
-  };
-
-  const getManual = (empId, field, defaultVal = 0) => {
-    return manualData[empId]?.[field] ?? defaultVal;
-  };
-
   // Save updated data
   const saveData = async () => {
     const payload = filteredRecords
@@ -306,75 +516,98 @@ const SalaryRecords = () => {
         const empId = record.employee_id?.trim();
         if (!empId) return null;
 
-        // Get updated values from manual inputs
-        const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
-        const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
-        const addition = Number(getManual(empId, "addition")) || 0;
-        const advance = Number(getManual(empId, "advance")) || 0;
+        // Get calculated values using formulas
+        const monthlySalary = toNumber(record.gross_salary);
+        
+        // Get manual values
+        const daysWorkedManual = toNumber(getManual(empId, "daysWorked"));
+        const cashPayment = toNumber(getManual(empId, "cashPayment"));
+        const otHours = toNumber(getManual(empId, "otHours"));
+        const addition = toNumber(getManual(empId, "addition"));
+        const advance = toNumber(getManual(empId, "advance"));
         const remarks = getManual(empId, "remarks", "") || "";
 
-        // Use manual values if provided, otherwise use original values
+        // Calculate using SalaryFormat formulas
+        const doj = parseDate(record.doj);
+        const isNewJoiner =
+          doj &&
+          doj.getMonth() + 1 === selectedMonth &&
+          doj.getFullYear() === selectedYear;
+        const defaultDays = isNewJoiner
+          ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+          : totalDaysInMonth;
         const daysWorked =
-          daysWorkedManual > 0
-            ? daysWorkedManual
-            : record.days_worked || totalDaysInMonth;
+          daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
         const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
 
-        const dailyBasic = Number(
-          ((record.basic || 0) / BASE_MONTH).toFixed(2)
-        );
-        const absentDeduction = Number((dailyBasic * absentDays).toFixed(2));
-        const totalDeduction = Number(
-          ((record.ait || 0) + advance + absentDeduction).toFixed(2)
-        );
+        // Salary breakdown
+        const basicFull = toNumber((monthlySalary * 0.6).toFixed(2));
+        const houseRentFull = toNumber((monthlySalary * 0.3).toFixed(2));
+        const medicalFull = toNumber((monthlySalary * 0.05).toFixed(2));
+        const conveyanceFull = toNumber((monthlySalary * 0.05).toFixed(2));
+        
+        // Deductions
+        const dailyBasic = toNumber((basicFull / BASE_MONTH).toFixed(2));
+        const absentDeduction = toNumber((dailyBasic * absentDays).toFixed(2));
+        const ait = toNumber(record.ait);
+        const totalDeduction = toNumber((ait + advance + absentDeduction).toFixed(2));
 
-        const netPayBank = Number(
+        // Net pay calculations
+        const netPayBank = toNumber(
           (
-            (record.gross_salary || 0) -
+            (monthlySalary / totalDaysInMonth) * daysWorked -
             cashPayment -
             totalDeduction +
             addition
           ).toFixed(2)
         );
-        const totalPayable = Number(
-          (netPayBank + cashPayment + (record.ait || 0)).toFixed(2)
+        
+        const cashSalaryValue = toNumber(record.cash_salary);
+        const totalPayable = toNumber(
+          (netPayBank + cashPayment + ait + cashSalaryValue).toFixed(2)
         );
 
-        return {
+        // Create updated record with both saved and calculated values
+        const savedRecord = {
           sl: idx + 1,
           name: record.name?.trim() || "Unknown",
           employee_id: empId,
           designation: record.designation?.trim() || "",
           doj: record.doj,
-          basic: record.basic || 0,
-          house_rent: record.house_rent || 0,
-          medical: record.medical || 0,
-          conveyance: record.conveyance || 0,
-          gross_salary: record.gross_salary || 0,
+          bank_account: record.bank_account || "",
+          branch_name: record.branch_name || "",
+          basic: basicFull,
+          house_rent: houseRentFull,
+          medical: medicalFull,
+          conveyance: conveyanceFull,
+          gross_salary: monthlySalary,
           total_days: totalDaysInMonth,
           days_worked: daysWorked,
           absent_days: absentDays,
           absent_ded: absentDeduction,
           advance: advance,
-          ait: record.ait || 0,
+          ait: ait,
           total_ded: totalDeduction,
-          ot_hours: record.ot_hours || 0,
+          ot_hours: otHours,
           addition: addition,
           cash_payment: cashPayment,
+          cash_salary: cashSalaryValue,
           net_pay_bank: netPayBank,
           total_payable: totalPayable,
           remarks: remarks,
           month: selectedMonth,
           year: selectedYear,
-          company_name: record.company_name, // Include proper company name
+          company_name: record.company_name,
         };
+
+        return savedRecord;
       })
       .filter(Boolean);
 
-    console.log("Saving updated records:", payload.length, "rows");
+    console.log("Saving ALL records with formulas:", payload.length, "rows");
 
     try {
-      const res = await salaryAPI.saveSalary(payload);
+      const res = await financeAPI.salary.saveSalary(payload);
       const saved = res.data.saved || 0;
       const errors = res.data.errors || [];
 
@@ -404,72 +637,43 @@ const SalaryRecords = () => {
       return;
     }
 
+    // Simplified headers matching SalaryFormat
     const headers = [
-      "SL",
-      "Name",
-      "ID",
-      "Company",
-      "Designation",
-      "DOJ",
-      "Basic",
-      "House Rent",
-      "Medical",
-      "Conveyance",
-      "Gross Salary",
-      "Total Days",
-      "Days Worked",
-      "Absent Days",
-      "Absent Deduction",
-      "Advance",
-      "AIT",
-      "Total Deduction",
-      "OT Hours",
-      "Addition",
-      "Cash Payment",
-      "Net Pay (Bank)",
-      "Total Payable",
-      "Remarks",
+      'SL', 'Name', 'ID', 'Designation', 'DOJ', 'Basic', 'House Rent', 'Medical', 
+      'Conveyance', 'Gross Salary', 'Total Days', 'Days Worked', 'Absent Days',
+      'Absent Ded.', 'Advance', 'AIT', 'Total Ded.', 'OT Hours', 'Addition',
+      'Cash Payment','Cash Salary', 'Net Pay (Bank)', 'Total Payable', 'Bank Account', 'Branch Name', 'Remarks', 'Company'
     ];
 
-    const rows = records.map((record, idx) => {
-      const empId = record.employee_id;
-      const daysWorkedManual = getManual(empId, "daysWorked");
-      const daysWorked =
-        daysWorkedManual > 0
-          ? daysWorkedManual
-          : record.days_worked || totalDaysInMonth;
-      const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
-      const absentDeduction = ((record.basic || 0) / BASE_MONTH) * absentDays;
-
-      return [
-        idx + 1,
-        record.name,
-        record.employee_id,
-        record.company_name,
-        record.designation,
-        record.doj,
-        record.basic || 0,
-        record.house_rent || 0,
-        record.medical || 0,
-        record.conveyance || 0,
-        record.gross_salary || 0,
-        totalDaysInMonth,
-        daysWorked,
-        absentDays,
-        absentDeduction,
-        getManual(empId, "advance") || record.advance || 0,
-        record.ait || 0,
-        (record.ait || 0) +
-          (getManual(empId, "advance") || 0) +
-          absentDeduction,
-        record.ot_hours || 0,
-        getManual(empId, "addition") || record.addition || 0,
-        getManual(empId, "cashPayment") || record.cash_payment || 0,
-        getManual(empId, "netPayBank") || record.net_pay_bank || 0,
-        getManual(empId, "totalPayable") || record.total_payable || 0,
-        getManual(empId, "remarks") || record.remarks || "",
-      ];
-    });
+    const rows = records.map((record, idx) => [
+      idx + 1,
+      record.name || '',
+      record.employee_id || '',
+      record.designation || '',
+      record.doj || '',
+      toNumber(record.basic),
+      toNumber(record.house_rent),
+      toNumber(record.medical),
+      toNumber(record.conveyance),
+      toNumber(record.gross_salary),
+      toNumber(record.total_days) || totalDaysInMonth,
+      toNumber(record.days_worked) || totalDaysInMonth,
+      toNumber(record.absent_days) || 0,
+      toNumber(record.absent_ded) || 0,
+      toNumber(record.advance) || 0,
+      toNumber(record.ait) || 0,
+      toNumber(record.total_ded) || 0,
+      toNumber(record.ot_hours) || 0,
+      toNumber(record.addition) || 0,
+      toNumber(record.cash_payment) || 0,
+      toNumber(record.cash_salary) || 0,
+      toNumber(record.net_pay_bank) || 0,
+      toNumber(record.total_payable) || 0,
+      record.bank_account || '',
+      record.branch_name || '',
+      record.remarks || '',
+      record.company_name || ''
+    ]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -489,9 +693,7 @@ const SalaryRecords = () => {
     const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(
       blob,
-      `${companyName}_Salary_Records_${
-        monthNames[selectedMonth - 1]
-      }_${selectedYear}.xlsx`
+      `${companyName}_Salary_Records_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`
     );
   };
 
@@ -506,9 +708,105 @@ const SalaryRecords = () => {
     });
   };
 
-  // View detailed report in SalaryFormat
-  const viewDetailedReport = (month, year) => {
-    navigate(`/salary-format?month=${month}&year=${year}`);
+  // Generate Excel from backend
+  const generateExcelForCompany = async (companyName) => {
+    try {
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
+      console.log(`📊 Generating Excel file for ${companyName}...`);
+
+      const response = await financeAPI.salaryRecordsAPI.generateExcelNow({
+        company_name: companyName,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `${companyName.replace(/\s+/g, "_")}_Salary_Records_${
+          monthNames[selectedMonth - 1]
+        }_${selectedYear}.xlsx`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log(`✅ Excel file generated and downloaded!`);
+      alert(`Excel file generated successfully for ${companyName}!`);
+    } catch (error) {
+      console.error("❌ Error generating Excel file:", error);
+      alert(`❌ Failed to generate Excel file for ${companyName}. Error: ${error.message}`);
+    } finally {
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
+    }
+  };
+
+  // Render approval footer
+  const renderApprovalFooter = (companyName) => {
+    const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
+
+    return (
+      <div className="footer">
+        <button
+          onClick={() => handleApprovalStep("hr_prepared", companyName)}
+          disabled={!isButtonEnabled("hr_prepared", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("hr_prepared", companyName) ? "enabled" : "disabled"
+          }`}
+        >
+          <span>Prepared by: HR</span>
+          {companyStatus.hr_prepared && <span className="status-badge">✓</span>}
+        </button>
+
+        <button
+          onClick={() => handleApprovalStep("finance_checked", companyName)}
+          disabled={!isButtonEnabled("finance_checked", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("finance_checked", companyName)
+              ? "enabled"
+              : "disabled"
+          }`}
+        >
+          <span>Checked by: Finance & Accounts</span>
+          {companyStatus.finance_checked && (
+            <span className="status-badge">✓</span>
+          )}
+        </button>
+
+        <button
+          onClick={() => handleApprovalStep("director_checked", companyName)}
+          disabled={!isButtonEnabled("director_checked", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("director_checked", companyName)
+              ? "enabled"
+              : "disabled"
+          }`}
+        >
+          <span>Checked by: Director</span>
+          {companyStatus.director_checked && (
+            <span className="status-badge">✓</span>
+          )}
+        </button>
+
+        <button
+          onClick={() => handleApprovalStep("proprietor_approved", companyName)}
+          disabled={!isButtonEnabled("proprietor_approved", companyName)}
+          className={`approval-btn ${
+            isButtonEnabled("proprietor_approved", companyName)
+              ? "enabled"
+              : "disabled"
+          }`}
+        >
+          <span>Approved by: Proprietor / MD</span>
+          {companyStatus.proprietor_approved && (
+            <span className="status-badge">✓</span>
+          )}
+        </button>
+      </div>
+    );
   };
 
   if (loading) {
@@ -526,39 +824,7 @@ const SalaryRecords = () => {
     <div className="salary-records-container">
       <div className="dashboard">
         <div className="card">
-          {/* DEBUG INFO */}
-          {debugInfo && (
-            <div className="debug-section">
-              <h4>
-                <FaExclamationTriangle /> Debug Information
-              </h4>
-              <p>
-                <strong>Total records in database:</strong>{" "}
-                {debugInfo.total_records}
-              </p>
-              <p>
-                <strong>Available years:</strong>{" "}
-                {debugInfo.available_years?.join(", ") || "None"}
-              </p>
-              <p>
-                <strong>Available months:</strong>{" "}
-                {debugInfo.available_months?.join(", ") || "None"}
-              </p>
-              <p>
-                <strong>Current selection:</strong> {selectedMonth}/
-                {selectedYear} - {filteredRecords.length} records
-              </p>
-              <p>
-                <strong>Companies found:</strong>{" "}
-                {Object.keys(grouped).join(", ") || "None"}
-              </p>
-              <p>
-                <strong>Total employees data:</strong> {employees.length}{" "}
-                employees loaded
-              </p>
-            </div>
-          )}
-          {/* HEADER SECTION */}
+          {/* HEADER SECTION - Matching SalaryFormat */}
           <div className="header-section">
             <div className="header-main">
               <div className="title-section">
@@ -568,12 +834,6 @@ const SalaryRecords = () => {
                 </h1>
                 <div className="date-badge">
                   {monthNames[selectedMonth - 1]} {selectedYear}
-                  <br />
-                  Total Records: {salaryRecords.length}
-                  {filteredRecords.length !== salaryRecords.length &&
-                    ` (Filtered: ${filteredRecords.length})`}
-                  <br />
-                  Companies: {Object.keys(grouped).length}
                 </div>
               </div>
 
@@ -582,7 +842,7 @@ const SalaryRecords = () => {
                   <FaSearch className="search-icon" />
                   <input
                     type="text"
-                    placeholder="Search employees by name, ID, or company..."
+                    placeholder="Search employees by name or ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="search-input"
@@ -591,7 +851,6 @@ const SalaryRecords = () => {
 
                 <div className="filter-controls">
                   <div className="filter-group">
-                    <label>Year:</label>
                     <select
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -606,7 +865,6 @@ const SalaryRecords = () => {
                   </div>
 
                   <div className="filter-group">
-                    <label>Month:</label>
                     <select
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(Number(e.target.value))}
@@ -623,6 +881,13 @@ const SalaryRecords = () => {
 
                 <div className="action-buttons">
                   <button
+                    onClick={() => setShowAllColumns(!showAllColumns)}
+                    className={`btn ${showAllColumns ? 'btn-active' : ''}`}
+                  >
+                    <FaColumns /> {showAllColumns ? 'Essential Columns' : 'All Columns'}
+                  </button>
+
+                  <button
                     onClick={exportAllCompanies}
                     className="btn btn-export-all"
                     disabled={Object.keys(grouped).length === 0}
@@ -637,13 +902,13 @@ const SalaryRecords = () => {
                     <FaArrowLeft /> Back to Current Month
                   </button>
 
-                  {/* <button
+                  <button
                     className="btn btn-save"
                     onClick={saveData}
                     disabled={filteredRecords.length === 0}
                   >
                     <FaSave /> Save Updates
-                  </button> */}
+                  </button>
 
                   <button
                     onClick={showAllCompanies}
@@ -663,6 +928,41 @@ const SalaryRecords = () => {
               </div>
             </div>
           </div>
+
+          {/* TAX STATUS SUMMARY - Matching SalaryFormat */}
+          <div className="tax-status-summary">
+            <div className="status-item">
+              <span className="status-label">Total Employees:</span>
+              <span className="status-value">{filteredRecords.length}</span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">Companies:</span>
+              <span className="status-value">{Object.keys(grouped).length}</span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">Total Gross Salary:</span>
+              <span className="status-value">
+                {formatNumber(
+                  filteredRecords.reduce(
+                    (sum, record) => sum + toNumber(record.gross_salary),
+                    0
+                  )
+                )}
+              </span>
+            </div>
+            <div className="status-item">
+              <span className="status-label">Total AIT:</span>
+              <span className="status-value">
+                {formatNumber(
+                  filteredRecords.reduce(
+                    (sum, record) => sum + toNumber(record.ait),
+                    0
+                  )
+                )}
+              </span>
+            </div>
+          </div>
+
           {/* ERROR MESSAGE */}
           {error && (
             <div className="error-section">
@@ -675,7 +975,8 @@ const SalaryRecords = () => {
               </button>
             </div>
           )}
-          {/* COMPANY QUICK ACCESS */}
+
+          {/* COMPANY QUICK ACCESS - Matching SalaryFormat */}
           {Object.keys(grouped).length > 0 && (
             <div className="company-quick-access">
               <div className="section-label">
@@ -686,9 +987,7 @@ const SalaryRecords = () => {
                 {Object.keys(grouped).map((comp) => (
                   <div key={comp} className="company-card">
                     <button
-                      className={`company-toggle-btn ${
-                        openCompanies[comp] ? "active" : ""
-                      }`}
+                      className={`company-toggle-btn ${openCompanies[comp] ? "active" : ""}`}
                       onClick={() => toggleCompany(comp)}
                     >
                       <span className="company-name">{comp}</span>
@@ -704,7 +1003,8 @@ const SalaryRecords = () => {
               </div>
             </div>
           )}
-          {/* COMPANY SECTIONS - INDIVIDUAL COMPANY VIEWS */}
+
+          {/* COMPANY SECTIONS - Matching SalaryFormat */}
           {Object.keys(grouped).map((comp) => {
             const records = grouped[comp];
             if (!openCompanies[comp]) return null;
@@ -715,16 +1015,28 @@ const SalaryRecords = () => {
                   <div className="company-title">
                     <h2>{comp}</h2>
                     <h3>
-                      Salary Records for {monthNames[selectedMonth - 1]}{" "}
-                      {selectedYear}
+                      Salary Records for {monthNames[selectedMonth - 1]} {selectedYear}
+                      <span className="record-count"> ({records.length} employees)</span>
                     </h3>
                   </div>
-                  <button
-                    onClick={() => exportCompanyData(comp)}
-                    className="btn btn-export-section"
-                  >
-                    <FaFileExport /> Export {comp} Data
-                  </button>
+                  <div className="company-action-buttons">
+                    <button
+                      onClick={() => generateExcelForCompany(comp)}
+                      className="btn btn-generate-excel"
+                      disabled={generatingExcel[comp]}
+                    >
+                      <FaFileExcel />
+                      {generatingExcel[comp]
+                        ? "Generating..."
+                        : "Generate Excel"}
+                    </button>
+                    <button
+                      onClick={() => exportCompanyData(comp)}
+                      className="btn btn-export-section"
+                    >
+                      <FaFileExport /> Export {comp} Data
+                    </button>
+                  </div>
                 </div>
 
                 <div className="table-scroll-container">
@@ -752,85 +1064,92 @@ const SalaryRecords = () => {
                           <th>OT Hours</th>
                           <th>Addition</th>
                           <th>Cash Payment</th>
+                          <th>Cash Salary</th>
                           <th>Net Pay (Bank)</th>
                           <th>Total Payable</th>
+                          <th>Bank Account</th>
+                          <th>Branch Name</th>
                           <th>Remarks</th>
                         </tr>
                       </thead>
                       <tbody>
                         {records.map((record, idx) => {
                           const empId = record.employee_id;
+                          const monthlySalary = toNumber(record.gross_salary);
+                          
+                          // Get manual values (if any)
+                          const daysWorkedManual = toNumber(getManual(empId, "daysWorked"));
+                          const cashPayment = toNumber(getManual(empId, "cashPayment"));
+                          const otHours = toNumber(getManual(empId, "otHours"));
+                          const addition = toNumber(getManual(empId, "addition"));
+                          const advance = toNumber(getManual(empId, "advance"));
+                          const remarks = getManual(empId, "remarks", "");
 
-                          // Get manual overrides or use original values
-                          const daysWorkedManual = getManual(
-                            empId,
-                            "daysWorked"
-                          );
-                          const cashPayment =
-                            getManual(empId, "cashPayment") || 0;
-                          const addition = getManual(empId, "addition") || 0;
-                          const advance = getManual(empId, "advance") || 0;
-                          const remarks = getManual(empId, "remarks", "") || "";
-
+                          // Calculate using formulas (same as SalaryFormat)
+                          const doj = parseDate(record.doj);
+                          const isNewJoiner =
+                            doj &&
+                            doj.getMonth() + 1 === selectedMonth &&
+                            doj.getFullYear() === selectedYear;
+                          const defaultDays = isNewJoiner
+                            ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+                            : totalDaysInMonth;
                           const daysWorked =
                             daysWorkedManual > 0
                               ? daysWorkedManual
-                              : record.days_worked || totalDaysInMonth;
+                              : defaultDays;
                           const absentDays = Math.max(
                             0,
                             totalDaysInMonth - daysWorked
                           );
 
-                          const dailyBasic = (record.basic || 0) / BASE_MONTH;
-                          const absentDeduction = dailyBasic * absentDays;
-                          const totalDeduction =
-                            (record.ait || 0) + advance + absentDeduction;
+                          // Salary breakdown formulas
+                          const basicFull = toNumber((monthlySalary * 0.6).toFixed(2));
+                          const houseRentFull = toNumber((monthlySalary * 0.3).toFixed(2));
+                          const medicalFull = toNumber((monthlySalary * 0.05).toFixed(2));
+                          const conveyanceFull = toNumber((monthlySalary * 0.05).toFixed(2));
 
-                          const netPayBank =
-                            (record.gross_salary || 0) -
-                            cashPayment -
-                            totalDeduction +
-                            addition;
-                          const totalPayable =
-                            netPayBank + cashPayment + (record.ait || 0);
+                          // Deductions
+                          const dailyBasic = toNumber((basicFull / BASE_MONTH).toFixed(2));
+                          const absentDeduction = toNumber((dailyBasic * absentDays).toFixed(2));
+                          const ait = toNumber(record.ait);
+                          const totalDeduction = toNumber((ait + advance + absentDeduction).toFixed(2));
+
+                          // Net pay calculations
+                          const netPayBank = toNumber(
+                            (
+                              (monthlySalary / totalDaysInMonth) * daysWorked -
+                              cashPayment -
+                              totalDeduction +
+                              addition
+                            ).toFixed(2)
+                          );
+                          
+                          const cashSalaryValue = toNumber(record.cash_salary);
+                          const totalPayable = toNumber(
+                            (netPayBank + cashPayment + ait + cashSalaryValue).toFixed(2)
+                          );
 
                           return (
                             <tr key={`${empId}-${idx}`} className="data-row">
                               <td className="sl-number">{idx + 1}</td>
                               <td className="emp-name">{record.name}</td>
                               <td className="emp-id">{empId}</td>
-                              <td className="emp-designation">
-                                {record.designation}
-                              </td>
+                              <td className="emp-designation">{record.designation}</td>
                               <td className="emp-doj">{record.doj}</td>
-                              <td className="salary-amount">
-                                {formatNumber(record.basic || 0)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(record.house_rent || 0)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(record.medical || 0)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(record.conveyance || 0)}
-                              </td>
-                              <td className="gross-salary">
-                                {formatNumber(record.gross_salary || 0)}
-                              </td>
+                              <td className="salary-amount">{formatNumber(basicFull)}</td>
+                              <td className="salary-amount">{formatNumber(houseRentFull)}</td>
+                              <td className="salary-amount">{formatNumber(medicalFull)}</td>
+                              <td className="salary-amount">{formatNumber(conveyanceFull)}</td>
+                              <td className="gross-salary">{formatNumber(monthlySalary)}</td>
                               <td className="days-count">{totalDaysInMonth}</td>
-
+                              
+                              {/* EDITABLE: Days Worked */}
                               <td>
                                 <input
                                   type="number"
-                                  value={
-                                    daysWorkedManual > 0
-                                      ? daysWorkedManual
-                                      : record.days_worked || ""
-                                  }
-                                  placeholder={
-                                    record.days_worked || totalDaysInMonth
-                                  }
+                                  value={daysWorkedManual > 0 ? daysWorkedManual : ""}
+                                  placeholder={defaultDays}
                                   onChange={(e) =>
                                     updateManual(
                                       empId,
@@ -845,19 +1164,14 @@ const SalaryRecords = () => {
                               </td>
 
                               <td className="absent-days">{absentDays}</td>
-                              <td className="deduction-amount">
-                                {formatNumber(absentDeduction)}
-                              </td>
+                              <td className="deduction-amount">{formatNumber(absentDeduction)}</td>
 
+                              {/* EDITABLE: Advance */}
                               <td>
                                 <input
                                   type="number"
-                                  value={
-                                    advance !== 0
-                                      ? advance
-                                      : record.advance || ""
-                                  }
-                                  placeholder={record.advance || "0"}
+                                  value={advance !== 0 ? advance : ""}
+                                  placeholder="0"
                                   onChange={(e) =>
                                     updateManual(
                                       empId,
@@ -869,26 +1183,40 @@ const SalaryRecords = () => {
                                 />
                               </td>
 
+                              {/* AIT (from saved record) */}
                               <td className="tax-amount">
-                                {formatNumber(record.ait || 0)}
+                                {formatNumber(ait)}
                               </td>
+
                               <td className="deduction-amount total-deduction">
                                 {formatNumber(totalDeduction)}
                               </td>
 
-                              <td className="ot-hours">
-                                {record.ot_hours || 0}
-                              </td>
-
+                              {/* EDITABLE: OT Hours */}
                               <td>
                                 <input
                                   type="number"
-                                  value={
-                                    addition !== 0
-                                      ? addition
-                                      : record.addition || ""
+                                  value={otHours || ""}
+                                  placeholder="0"
+                                  onChange={(e) =>
+                                    updateManual(
+                                      empId,
+                                      "otHours",
+                                      e.target.value
+                                    )
                                   }
-                                  placeholder={record.addition || "0"}
+                                  className="editable-input ot-input"
+                                  min="0"
+                                  step="0.5"
+                                />
+                              </td>
+
+                              {/* EDITABLE: Addition */}
+                              <td>
+                                <input
+                                  type="number"
+                                  value={addition !== 0 ? addition : ""}
+                                  placeholder="0"
                                   onChange={(e) =>
                                     updateManual(
                                       empId,
@@ -900,15 +1228,12 @@ const SalaryRecords = () => {
                                 />
                               </td>
 
+                              {/* EDITABLE: Cash Payment */}
                               <td>
                                 <input
                                   type="number"
-                                  value={
-                                    cashPayment !== 0
-                                      ? cashPayment
-                                      : record.cash_payment || ""
-                                  }
-                                  placeholder={record.cash_payment || "0"}
+                                  value={cashPayment !== 0 ? cashPayment : ""}
+                                  placeholder="0"
                                   onChange={(e) =>
                                     updateManual(
                                       empId,
@@ -920,21 +1245,31 @@ const SalaryRecords = () => {
                                 />
                               </td>
 
-                              <td
-                                className={`net-pay ${
-                                  netPayBank < 0 ? "negative" : "positive"
-                                }`}
-                              >
+                              <td className="total-payable">
+                                {formatNumber(cashSalaryValue)}
+                              </td>
+
+                              <td className={`net-pay ${netPayBank < 0 ? "negative" : "positive"}`}>
                                 {formatNumber(netPayBank)}
                               </td>
+
                               <td className="total-payable">
                                 {formatNumber(totalPayable)}
                               </td>
 
+                              <td className="bank-account">
+                                {record.bank_account || "N/A"}
+                              </td>
+
+                              <td className="branch-code">
+                                {record.branch_name || "N/A"}
+                              </td>
+
+                              {/* EDITABLE: Remarks */}
                               <td>
                                 <input
                                   type="text"
-                                  value={remarks || record.remarks || ""}
+                                  value={remarks}
                                   placeholder="Remarks"
                                   onChange={(e) =>
                                     updateManual(
@@ -953,25 +1288,151 @@ const SalaryRecords = () => {
                     </table>
                   </div>
                 </div>
+
+                {/* SUMMARY SECTION */}
+                <div className="tax-summary-note">
+                  <h4>📊 Records Summary for {comp}</h4>
+                  <div className="summary-stats">
+                    <div className="summary-stat">
+                      <span className="stat-label">Total Employees:</span>
+                      <span className="stat-value">{records.length}</span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Total Gross Salary:</span>
+                      <span className="stat-value">
+                        {formatNumber(
+                          records.reduce(
+                            (sum, record) => sum + toNumber(record.gross_salary),
+                            0
+                          )
+                        )}
+                      </span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Total AIT:</span>
+                      <span className="stat-value">
+                        {formatNumber(
+                          records.reduce(
+                            (sum, record) => sum + toNumber(record.ait),
+                            0
+                          )
+                        )}
+                      </span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Total Net Pay:</span>
+                      <span className="stat-value">
+                        {formatNumber(
+                          records.reduce((sum, record) => {
+                            const empId = record.employee_id;
+                            const monthlySalary = toNumber(record.gross_salary);
+                            const daysWorkedManual = toNumber(getManual(empId, "daysWorked"));
+                            const cashPayment = toNumber(getManual(empId, "cashPayment"));
+                            const addition = toNumber(getManual(empId, "addition"));
+                            const advance = toNumber(getManual(empId, "advance"));
+                            const ait = toNumber(record.ait);
+                            
+                            const doj = parseDate(record.doj);
+                            const isNewJoiner =
+                              doj &&
+                              doj.getMonth() + 1 === selectedMonth &&
+                              doj.getFullYear() === selectedYear;
+                            const defaultDays = isNewJoiner
+                              ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+                              : totalDaysInMonth;
+                            const daysWorked =
+                              daysWorkedManual > 0
+                                ? daysWorkedManual
+                                : defaultDays;
+                            const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
+                            
+                            const basicFull = monthlySalary * 0.6;
+                            const dailyBasic = basicFull / BASE_MONTH;
+                            const absentDeduction = dailyBasic * absentDays;
+                            const totalDeduction = ait + advance + absentDeduction;
+                            
+                            const netPayBank = toNumber(
+                              (
+                                (monthlySalary / totalDaysInMonth) * daysWorked -
+                                cashPayment -
+                                totalDeduction +
+                                addition
+                              ).toFixed(2)
+                            );
+                            
+                            return sum + netPayBank;
+                          }, 0)
+                        )}
+                      </span>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="stat-label">Total Payable:</span>
+                      <span className="stat-value">
+                        {formatNumber(
+                          records.reduce((sum, record) => {
+                            const empId = record.employee_id;
+                            const monthlySalary = toNumber(record.gross_salary);
+                            const daysWorkedManual = toNumber(getManual(empId, "daysWorked"));
+                            const cashPayment = toNumber(getManual(empId, "cashPayment"));
+                            const addition = toNumber(getManual(empId, "addition"));
+                            const advance = toNumber(getManual(empId, "advance"));
+                            const ait = toNumber(record.ait);
+                            
+                            const doj = parseDate(record.doj);
+                            const isNewJoiner =
+                              doj &&
+                              doj.getMonth() + 1 === selectedMonth &&
+                              doj.getFullYear() === selectedYear;
+                            const defaultDays = isNewJoiner
+                              ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+                              : totalDaysInMonth;
+                            const daysWorked =
+                              daysWorkedManual > 0
+                                ? daysWorkedManual
+                                : defaultDays;
+                            const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
+                            
+                            const basicFull = monthlySalary * 0.6;
+                            const dailyBasic = basicFull / BASE_MONTH;
+                            const absentDeduction = dailyBasic * absentDays;
+                            const totalDeduction = ait + advance + absentDeduction;
+                            
+                            const netPayBank = toNumber(
+                              (
+                                (monthlySalary / totalDaysInMonth) * daysWorked -
+                                cashPayment -
+                                totalDeduction +
+                                addition
+                              ).toFixed(2)
+                            );
+                            
+                            const cashSalaryValue = toNumber(record.cash_salary);
+                            const totalPayable = toNumber(
+                              (netPayBank + cashPayment + ait + cashSalaryValue).toFixed(2)
+                            );
+                            
+                            return sum + totalPayable;
+                          }, 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* APPROVAL FOOTER */}
+                {renderApprovalFooter(comp)}
               </div>
             );
           })}
+
+          {/* SUMMARY SECTION - Only show when no companies are open */}
           {showSummary && filteredRecords.length > 0 && (
             <div className="summary-section">
               <div className="summary-header">
                 <h2>
                   <FaUsers className="section-icon" />
-                  Summary Overview - {monthNames[selectedMonth - 1]}{" "}
-                  {selectedYear}
+                  Summary Overview
                 </h2>
-                <div className="summary-actions">
-                  <button
-                    onClick={exportAllCompanies}
-                    className="btn btn-export-all"
-                  >
-                    <FaFileExport /> Export All
-                  </button>
-                </div>
               </div>
 
               <div className="summary-stats">
@@ -989,8 +1450,7 @@ const SalaryRecords = () => {
                   <div className="stat-number">
                     {formatNumber(
                       filteredRecords.reduce(
-                        (sum, record) =>
-                          sum + (Number(record.gross_salary) || 0),
+                        (sum, record) => sum + toNumber(record.gross_salary),
                         0
                       )
                     )}
@@ -1001,16 +1461,15 @@ const SalaryRecords = () => {
                   <div className="stat-number">
                     {formatNumber(
                       filteredRecords.reduce(
-                        (sum, record) => sum + (Number(record.ait) || 0),
+                        (sum, record) => sum + toNumber(record.ait),
                         0
                       )
                     )}
                   </div>
-                  <div className="stat-label">Total AIT</div>
+                  <div className="stat-label">Total Deducted AIT</div>
                 </div>
               </div>
 
-              {/* Fixed Summary table */}
               <div className="table-scroll-container">
                 <div className="table-wrapper">
                   <table className="salary-table summary-table">
@@ -1021,275 +1480,207 @@ const SalaryRecords = () => {
                         <th>Employees</th>
                         <th>Gross Salary</th>
                         <th>AIT</th>
-                        <th>Absent Ded.</th>
-                        <th>Advance</th>
-                        <th>Cash</th>
-                        <th>Addition</th>
                         <th>Net Pay (Bank)</th>
                         <th>Total Payable</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.keys(grouped).map((companyName, index) => {
-                        const records = grouped[companyName];
-
-                        // Debug log to see what data we're working with
-                        console.log(`Summary for ${companyName}:`, records);
-
-                        // Calculate summary for this company
+                      {Object.keys(grouped).map((comp, i) => {
+                        const records = grouped[comp];
                         const summary = records.reduce(
                           (acc, record) => {
                             const empId = record.employee_id;
-
-                            // Get values with proper fallbacks
-                            const grossSalary =
-                              Number(record.gross_salary) || 0;
-                            const ait = Number(record.ait) || 0;
-                            const advance = Number(
-                              getManual(empId, "advance") || record.advance || 0
-                            );
-                            const cashPayment = Number(
-                              getManual(empId, "cashPayment") ||
-                                record.cash_payment ||
-                                0
-                            );
-                            const addition = Number(
-                              getManual(empId, "addition") ||
-                                record.addition ||
-                                0
-                            );
-                            const netPayBank = Number(record.net_pay_bank) || 0;
-                            const totalPayable =
-                              Number(record.total_payable) || 0;
-
-                            // Calculate absent deduction
-                            const daysWorkedManual = getManual(
-                              empId,
-                              "daysWorked"
-                            );
+                            const monthlySalary = toNumber(record.gross_salary);
+                            const daysWorkedManual = toNumber(getManual(empId, "daysWorked"));
+                            const cashPayment = toNumber(getManual(empId, "cashPayment"));
+                            const addition = toNumber(getManual(empId, "addition"));
+                            const advance = toNumber(getManual(empId, "advance"));
+                            const ait = toNumber(record.ait);
+                            
+                            const doj = parseDate(record.doj);
+                            const isNewJoiner =
+                              doj &&
+                              doj.getMonth() + 1 === selectedMonth &&
+                              doj.getFullYear() === selectedYear;
+                            const defaultDays = isNewJoiner
+                              ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+                              : totalDaysInMonth;
                             const daysWorked =
                               daysWorkedManual > 0
                                 ? daysWorkedManual
-                                : record.days_worked || totalDaysInMonth;
-                            const absentDays = Math.max(
-                              0,
-                              totalDaysInMonth - daysWorked
-                            );
-                            const dailyBasic =
-                              (Number(record.basic) || 0) / BASE_MONTH;
+                                : defaultDays;
+                            const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
+                            
+                            const basicFull = monthlySalary * 0.6;
+                            const dailyBasic = basicFull / BASE_MONTH;
                             const absentDeduction = dailyBasic * absentDays;
-
+                            const totalDeduction = ait + advance + absentDeduction;
+                            
+                            const netPayBank = toNumber(
+                              (
+                                (monthlySalary / totalDaysInMonth) * daysWorked -
+                                cashPayment -
+                                totalDeduction +
+                                addition
+                              ).toFixed(2)
+                            );
+                            
+                            const cashSalaryValue = toNumber(record.cash_salary);
+                            const totalPayable = toNumber(
+                              (netPayBank + cashPayment + ait + cashSalaryValue).toFixed(2)
+                            );
+                            
                             return {
-                              gross: acc.gross + grossSalary,
+                              gross: acc.gross + monthlySalary,
                               ait: acc.ait + ait,
-                              absentDed: acc.absentDed + absentDeduction,
-                              advance: acc.advance + advance,
-                              cash: acc.cash + cashPayment,
-                              addition: acc.addition + addition,
                               netBank: acc.netBank + netPayBank,
                               totalPay: acc.totalPay + totalPayable,
                             };
                           },
-                          {
-                            gross: 0,
-                            ait: 0,
-                            absentDed: 0,
-                            advance: 0,
-                            cash: 0,
-                            addition: 0,
-                            netBank: 0,
-                            totalPay: 0,
-                          }
-                        );
-
-                        // Debug the calculated summary
-                        console.log(
-                          `Calculated summary for ${companyName}:`,
-                          summary
+                          { gross: 0, ait: 0, netBank: 0, totalPay: 0 }
                         );
 
                         return (
-                          <tr
-                            key={companyName}
-                            className="data-row summary-row"
-                          >
-                            <td className="sl-number">{index + 1}</td>
-                            <td className="company-name">{companyName}</td>
+                          <tr key={i} className="data-row summary-row">
+                            <td className="sl-number">{i + 1}</td>
+                            <td className="company-name">{comp}</td>
                             <td className="employee-count">{records.length}</td>
-                            <td className="gross-salary">
-                              {formatNumber(summary.gross)}
-                            </td>
-                            <td className="tax-amount">
-                              {formatNumber(summary.ait)}
-                            </td>
-                            <td className="deduction-amount">
-                              {formatNumber(summary.absentDed)}
-                            </td>
-                            <td className="deduction-amount">
-                              {formatNumber(summary.advance)}
-                            </td>
-                            <td className="cash-amount">
-                              {formatNumber(summary.cash)}
-                            </td>
-                            <td
-                              className={`addition-amount ${
-                                summary.addition < 0 ? "negative" : "positive"
-                              }`}
-                            >
-                              {formatNumber(summary.addition)}
-                            </td>
-                            <td
-                              className={`net-pay ${
-                                summary.netBank < 0 ? "negative" : "positive"
-                              }`}
-                            >
+                            <td className="gross-salary">{formatNumber(summary.gross)}</td>
+                            <td className="tax-amount">{formatNumber(summary.ait)}</td>
+                            <td className={`net-pay ${summary.netBank < 0 ? "negative" : "positive"}`}>
                               {formatNumber(summary.netBank)}
                             </td>
-                            <td className="total-payable">
-                              {formatNumber(summary.totalPay)}
-                            </td>
+                            <td className="total-payable">{formatNumber(summary.totalPay)}</td>
                           </tr>
                         );
                       })}
 
-                      {/* Add a total row */}
-                      {Object.keys(grouped).length > 0 && (
-                        <tr
-                          className="data-row total-row"
-                          style={{
-                            backgroundColor: "#f8fafc",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          <td colSpan="2" style={{ textAlign: "center" }}>
-                            TOTAL
-                          </td>
-                          <td className="employee-count">
-                            {filteredRecords.length}
-                          </td>
-                          <td className="gross-salary">
-                            {formatNumber(
-                              filteredRecords.reduce(
-                                (sum, record) =>
-                                  sum + (Number(record.gross_salary) || 0),
-                                0
-                              )
-                            )}
-                          </td>
-                          <td className="tax-amount">
-                            {formatNumber(
-                              filteredRecords.reduce(
-                                (sum, record) =>
-                                  sum + (Number(record.ait) || 0),
-                                0
-                              )
-                            )}
-                          </td>
-                          <td className="deduction-amount">
-                            {formatNumber(
-                              Object.keys(grouped).reduce(
-                                (total, companyName) => {
-                                  const records = grouped[companyName];
-                                  const companyAbsentDed = records.reduce(
-                                    (sum, record) => {
-                                      const empId = record.employee_id;
-                                      const daysWorkedManual = getManual(
-                                        empId,
-                                        "daysWorked"
-                                      );
-                                      const daysWorked =
-                                        daysWorkedManual > 0
-                                          ? daysWorkedManual
-                                          : record.days_worked ||
-                                            totalDaysInMonth;
-                                      const absentDays = Math.max(
-                                        0,
-                                        totalDaysInMonth - daysWorked
-                                      );
-                                      const dailyBasic =
-                                        (Number(record.basic) || 0) /
-                                        BASE_MONTH;
-                                      return sum + dailyBasic * absentDays;
-                                    },
-                                    0
-                                  );
-                                  return total + companyAbsentDed;
-                                },
-                                0
-                              )
-                            )}
-                          </td>
-                          <td className="deduction-amount">
-                            {formatNumber(
-                              filteredRecords.reduce((sum, record) => {
-                                const empId = record.employee_id;
-                                return (
-                                  sum +
-                                  Number(
-                                    getManual(empId, "advance") ||
-                                      record.advance ||
-                                      0
-                                  )
-                                );
-                              }, 0)
-                            )}
-                          </td>
-                          <td className="cash-amount">
-                            {formatNumber(
-                              filteredRecords.reduce((sum, record) => {
-                                const empId = record.employee_id;
-                                return (
-                                  sum +
-                                  Number(
-                                    getManual(empId, "cashPayment") ||
-                                      record.cash_payment ||
-                                      0
-                                  )
-                                );
-                              }, 0)
-                            )}
-                          </td>
-                          <td className="addition-amount">
-                            {formatNumber(
-                              filteredRecords.reduce((sum, record) => {
-                                const empId = record.employee_id;
-                                return (
-                                  sum +
-                                  Number(
-                                    getManual(empId, "addition") ||
-                                      record.addition ||
-                                      0
-                                  )
-                                );
-                              }, 0)
-                            )}
-                          </td>
-                          <td className="net-pay">
-                            {formatNumber(
-                              filteredRecords.reduce(
-                                (sum, record) =>
-                                  sum + (Number(record.net_pay_bank) || 0),
-                                0
-                              )
-                            )}
-                          </td>
-                          <td className="total-payable">
-                            {formatNumber(
-                              filteredRecords.reduce(
-                                (sum, record) =>
-                                  sum + (Number(record.total_payable) || 0),
-                                0
-                              )
-                            )}
-                          </td>
-                        </tr>
-                      )}
+                      {/* GRAND TOTAL ROW */}
+                      <tr className="grand-total">
+                        <td colSpan="2" className="grand-total-label">
+                          Grand Total
+                        </td>
+                        <td className="grand-total-count">
+                          {filteredRecords.length}
+                        </td>
+                        <td className="grand-total-gross">
+                          {formatNumber(
+                            filteredRecords.reduce(
+                              (sum, record) => sum + toNumber(record.gross_salary),
+                              0
+                            )
+                          )}
+                        </td>
+                        <td className="grand-total-tax">
+                          {formatNumber(
+                            filteredRecords.reduce(
+                              (sum, record) => sum + toNumber(record.ait),
+                              0
+                            )
+                          )}
+                        </td>
+                        <td className="grand-total-net positive">
+                          {formatNumber(
+                            filteredRecords.reduce((sum, record) => {
+                              const empId = record.employee_id;
+                              const monthlySalary = toNumber(record.gross_salary);
+                              const daysWorkedManual = toNumber(getManual(empId, "daysWorked"));
+                              const cashPayment = toNumber(getManual(empId, "cashPayment"));
+                              const addition = toNumber(getManual(empId, "addition"));
+                              const advance = toNumber(getManual(empId, "advance"));
+                              const ait = toNumber(record.ait);
+                              
+                              const doj = parseDate(record.doj);
+                              const isNewJoiner =
+                                doj &&
+                                doj.getMonth() + 1 === selectedMonth &&
+                                doj.getFullYear() === selectedYear;
+                              const defaultDays = isNewJoiner
+                                ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+                                : totalDaysInMonth;
+                              const daysWorked =
+                                daysWorkedManual > 0
+                                  ? daysWorkedManual
+                                  : defaultDays;
+                              const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
+                              
+                              const basicFull = monthlySalary * 0.6;
+                              const dailyBasic = basicFull / BASE_MONTH;
+                              const absentDeduction = dailyBasic * absentDays;
+                              const totalDeduction = ait + advance + absentDeduction;
+                              
+                              const netPayBank = toNumber(
+                                (
+                                  (monthlySalary / totalDaysInMonth) * daysWorked -
+                                  cashPayment -
+                                  totalDeduction +
+                                  addition
+                                ).toFixed(2)
+                              );
+                              
+                              return sum + netPayBank;
+                            }, 0)
+                          )}
+                        </td>
+                        <td className="grand-total-payable">
+                          {formatNumber(
+                            filteredRecords.reduce((sum, record) => {
+                              const empId = record.employee_id;
+                              const monthlySalary = toNumber(record.gross_salary);
+                              const daysWorkedManual = toNumber(getManual(empId, "daysWorked"));
+                              const cashPayment = toNumber(getManual(empId, "cashPayment"));
+                              const addition = toNumber(getManual(empId, "addition"));
+                              const advance = toNumber(getManual(empId, "advance"));
+                              const ait = toNumber(record.ait);
+                              
+                              const doj = parseDate(record.doj);
+                              const isNewJoiner =
+                                doj &&
+                                doj.getMonth() + 1 === selectedMonth &&
+                                doj.getFullYear() === selectedYear;
+                              const defaultDays = isNewJoiner
+                                ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+                                : totalDaysInMonth;
+                              const daysWorked =
+                                daysWorkedManual > 0
+                                  ? daysWorkedManual
+                                  : defaultDays;
+                              const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
+                              
+                              const basicFull = monthlySalary * 0.6;
+                              const dailyBasic = basicFull / BASE_MONTH;
+                              const absentDeduction = dailyBasic * absentDays;
+                              const totalDeduction = ait + advance + absentDeduction;
+                              
+                              const netPayBank = toNumber(
+                                (
+                                  (monthlySalary / totalDaysInMonth) * daysWorked -
+                                  cashPayment -
+                                  totalDeduction +
+                                  addition
+                                ).toFixed(2)
+                              );
+                              
+                              const cashSalaryValue = toNumber(record.cash_salary);
+                              const totalPayable = toNumber(
+                                (netPayBank + cashPayment + ait + cashSalaryValue).toFixed(2)
+                              );
+                              
+                              return sum + totalPayable;
+                            }, 0)
+                          )}
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
+
+              {/* APPROVAL FOOTER FOR ALL COMPANIES */}
+              {/* {filteredRecords.length > 0 && renderApprovalFooter("All Companies")} */}
             </div>
           )}
+
           {/* NO DATA MESSAGE */}
           {filteredRecords.length === 0 && !loading && (
             <div className="no-data-section">
@@ -1297,8 +1688,7 @@ const SalaryRecords = () => {
                 <FaExclamationTriangle className="no-data-icon" />
                 <h3>No Salary Records Found</h3>
                 <p>
-                  No salary records found for {monthNames[selectedMonth - 1]}{" "}
-                  {selectedYear}.
+                  No salary records found for {monthNames[selectedMonth - 1]} {selectedYear}.
                   {selectedMonth === new Date().getMonth() + 1 &&
                   selectedYear === new Date().getFullYear() ? (
                     <span>
@@ -1321,8 +1711,8 @@ const SalaryRecords = () => {
           )}
         </div>
       </div>
-
       <style>{`
+        /* REUSE ALL CSS FROM SALARY FORMAT */
         .salary-records-container {
           min-height: 100vh;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -1345,7 +1735,7 @@ const SalaryRecords = () => {
           backdrop-filter: blur(10px);
         }
 
-        /* IMPROVED HEADER SECTION */
+        /* HEADER SECTION */
         .header-section {
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           padding: 2.5rem;
@@ -1394,7 +1784,6 @@ const SalaryRecords = () => {
           border: 1px solid rgba(255, 255, 255, 0.3);
           align-self: flex-start;
           box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-          text-align: center;
         }
 
         .controls-section {
@@ -1447,13 +1836,6 @@ const SalaryRecords = () => {
         .filter-group {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .filter-group label {
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: white;
         }
 
         .filter-select {
@@ -1497,6 +1879,12 @@ const SalaryRecords = () => {
           opacity: 0.6;
           cursor: not-allowed;
           transform: none;
+        }
+
+        .btn-active {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          border: 2px solid #8b5cf6;
         }
 
         .btn-back {
@@ -1547,6 +1935,42 @@ const SalaryRecords = () => {
 
         .btn-primary:hover {
           background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        }
+
+        /* TAX STATUS SUMMARY */
+        .tax-status-summary {
+          display: flex;
+          gap: 1rem;
+          margin-top: 1rem;
+          padding: 1rem 2.5rem;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          flex-wrap: wrap;
+        }
+
+        .status-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 0.5rem 1rem;
+          background: white;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          min-width: 120px;
+        }
+
+        .status-label {
+          font-size: 0.8rem;
+          color: #6b7280;
+          font-weight: 600;
+          margin-bottom: 0.25rem;
+        }
+
+        .status-value {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #1f2937;
         }
 
         /* COMPANY QUICK ACCESS */
@@ -1627,23 +2051,6 @@ const SalaryRecords = () => {
           font-size: 1.1rem;
         }
 
-        .btn-export-company {
-          padding: 1rem;
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-export-company:hover {
-          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(217, 119, 6, 0.3);
-        }
-
         /* COMPANY SECTIONS */
         .company-section {
           padding: 2.5rem;
@@ -1679,6 +2086,44 @@ const SalaryRecords = () => {
           color: #6b7280;
           font-size: 1.2rem;
           font-weight: 500;
+        }
+
+        .record-count {
+          color: #8b5cf6;
+          font-weight: 600;
+        }
+
+        .company-action-buttons {
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .btn-generate-excel {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          padding: 1rem 1.8rem;
+          border: none;
+          border-radius: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-generate-excel:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-generate-excel:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
         }
 
         /* TABLE STYLING */
@@ -1789,7 +2234,7 @@ const SalaryRecords = () => {
           width: 130px;
         }
 
-        /* CELL STYLING */
+        /* BEAUTIFUL COLOR CODING - Matching SalaryFormat */
         .sl-number {
           color: #7c3aed;
           font-weight: 700;
@@ -1903,11 +2348,142 @@ const SalaryRecords = () => {
           border-radius: 12px;
           border: 2px solid #a5b4fc;
         }
-        .ot-hours {
-          color: #64748b;
-          background: #f1f5f9;
+        .bank-account {
+          color: #7c3aed;
+          background: #f3e8ff;
           padding: 0.5rem;
           border-radius: 8px;
+        }
+        .branch-code {
+          color: #1e40af;
+          background: #dbeafe;
+          padding: 0.5rem;
+          border-radius: 8px;
+        }
+
+        /* APPROVAL BUTTONS STYLES */
+        .approval-btn {
+          padding: 1rem 1.5rem;
+          border: 2px solid #e2e8f0;
+          border-radius: 10px;
+          background: white;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-weight: 600;
+          min-width: 200px;
+          justify-content: center;
+        }
+
+        .approval-btn.enabled {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border-color: #059669;
+          cursor: pointer;
+        }
+
+        .approval-btn.enabled:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+        }
+
+        .approval-btn.disabled {
+          background: #f3f4f6;
+          color: #9ca3af;
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .status-badge {
+          background: white;
+          color: #10b981;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 12px;
+        }
+
+        .footer {
+          display: flex;
+          justify-content: space-between;
+          padding: 2rem 0;
+          color: #64748b;
+          font-size: 0.95rem;
+          border-top: 2px solid #e2e8f0;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        /* TAX SUMMARY SECTION */
+        .tax-summary-note {
+          margin-top: 1rem;
+          padding: 1.5rem;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .tax-summary-note h4 {
+          margin-top: 0;
+          color: #1e293b;
+          margin-bottom: 1rem;
+          font-size: 1.2rem;
+        }
+
+        .summary-stats {
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .summary-stat {
+          display: flex;
+          flex-direction: column;
+          padding: 0.5rem 1rem;
+          background: white;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          min-width: 150px;
+        }
+
+        .stat-label {
+          font-size: 0.8rem;
+          color: #6b7280;
+          font-weight: 600;
+        }
+
+        .stat-value {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #1f2937;
+        }
+
+        /* ERROR SECTION */
+        .error-section {
+          padding: 1rem 2.5rem;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 10px;
+          margin: 1rem 2.5rem;
+          color: #dc2626;
+        }
+
+        .error-section h4 {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin: 0 0 0.5rem 0;
+        }
+
+        .error-section p {
+          margin: 0 0 1rem 0;
         }
 
         /* SUMMARY SECTION */
@@ -1936,11 +2512,6 @@ const SalaryRecords = () => {
           background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-        }
-
-        .summary-actions {
-          display: flex;
-          gap: 1rem;
         }
 
         /* SUMMARY STATS CARDS */
@@ -1999,19 +2570,11 @@ const SalaryRecords = () => {
         }
 
         .summary-row {
-          background: linear-gradient(
-            135deg,
-            #f8fafc 0%,
-            #f1f5f9 100%
-          ) !important;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
         }
 
         .summary-row:hover {
-          background: linear-gradient(
-            135deg,
-            #e0e7ff 0%,
-            #c7d2fe 100%
-          ) !important;
+          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%) !important;
           transform: scale(1.01);
         }
 
@@ -2032,38 +2595,37 @@ const SalaryRecords = () => {
           border-radius: 10px;
         }
 
-        /* DEBUG AND ERROR SECTIONS */
-        .debug-section {
-          background: #fff3cd;
-          border: 1px solid #ffeaa7;
-          border-radius: 10px;
-          padding: 15px;
-          margin: 15px;
-          font-size: 14px;
+        /* GRAND TOTAL STYLES */
+        .grand-total {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+          color: white !important;
+          font-weight: 800;
         }
 
-        .debug-section h4 {
-          margin: 0 0 10px 0;
-          color: #856404;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
+        .grand-total td {
+          color: white !important;
+          border-bottom: none !important;
+          font-size: 1.1rem;
+          text-align: center;
+          padding: 1.2rem 0.8rem;
         }
 
-        .error-section {
-          background: #f8d7da;
-          border: 1px solid #f5c6cb;
-          border-radius: 10px;
-          padding: 15px;
-          margin: 15px;
-          color: #721c24;
+        .grand-total-label {
+          font-size: 1.3rem !important;
+          text-align: left !important;
+          padding-left: 1.5rem !important;
+          background: transparent !important;
         }
 
-        .error-section h4 {
-          margin: 0 0 10px 0;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
+        .grand-total-count,
+        .grand-total-gross,
+        .grand-total-tax,
+        .grand-total-net,
+        .grand-total-payable {
+          text-align: center !important;
+          font-weight: 800;
+          background: transparent !important;
+          border: none !important;
         }
 
         /* NO DATA SECTION */
@@ -2141,10 +2703,6 @@ const SalaryRecords = () => {
             width: 100%;
           }
 
-          .filter-controls {
-            flex-direction: column;
-          }
-
           .action-buttons {
             justify-content: space-between;
           }
@@ -2161,6 +2719,17 @@ const SalaryRecords = () => {
 
           .company-header {
             flex-direction: column;
+          }
+
+          .company-action-buttons {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .btn-generate-excel,
+          .btn-export-section {
+            flex: 1;
+            justify-content: center;
           }
 
           .table-scroll-container {
@@ -2193,6 +2762,24 @@ const SalaryRecords = () => {
           .stat-number {
             font-size: 2rem;
           }
+
+          .tax-status-summary {
+            padding: 1rem;
+          }
+
+          .status-item {
+            min-width: 90px;
+            padding: 0.5rem;
+          }
+
+          .footer {
+            flex-direction: column;
+            text-align: center;
+          }
+
+          .approval-btn {
+            min-width: 100%;
+          }
         }
 
         @media (max-width: 480px) {
@@ -2216,112 +2803,34 @@ const SalaryRecords = () => {
             width: 100%;
           }
 
+          .company-action-buttons {
+            flex-direction: column;
+          }
+
+          .btn-generate-excel,
+          .btn-export-section {
+            width: 100%;
+          }
+
           .summary-stats {
             grid-template-columns: 1fr;
           }
-        }
-        /* TOTAL ROW STYLING */
-        .total-row {
-          background: linear-gradient(
-            135deg,
-            #1f2937 0%,
-            #374151 100%
-          ) !important;
-          color: white !important;
-          font-weight: 800 !important;
-          border: 3px solid #8b5cf6 !important;
-        }
 
-        .total-row:hover {
-          background: linear-gradient(
-            135deg,
-            #374151 0%,
-            #4b5563 100%
-          ) !important;
-          transform: scale(1.02) !important;
-        }
+          .tax-status-summary {
+            flex-direction: column;
+          }
 
-        .total-cell {
-          background: rgba(255, 255, 255, 0.1) !important;
-          color: white !important;
-          font-weight: 800 !important;
-          border: 2px solid rgba(255, 255, 255, 0.2) !important;
-          padding: 1rem 0.5rem !important;
-          border-radius: 12px !important;
-        }
+          .status-item {
+            width: 100%;
+          }
 
-        /* Specific styling for total row cells */
-        .total-row .employee-count {
-          background: linear-gradient(
-            135deg,
-            #8b5cf6 0%,
-            #7c3aed 100%
-          ) !important;
-          color: white !important;
-        }
+          .footer {
+            flex-direction: column;
+          }
 
-        .total-row .gross-salary {
-          background: linear-gradient(
-            135deg,
-            #1e40af 0%,
-            #1e3a8a 100%
-          ) !important;
-          color: white !important;
-        }
-
-        .total-row .tax-amount {
-          background: linear-gradient(
-            135deg,
-            #c2410c 0%,
-            #9a3412 100%
-          ) !important;
-          color: white !important;
-        }
-
-        .total-row .deduction-amount {
-          background: linear-gradient(
-            135deg,
-            #dc2626 0%,
-            #b91c1c 100%
-          ) !important;
-          color: white !important;
-        }
-
-        .total-row .cash-amount {
-          background: linear-gradient(
-            135deg,
-            #3b82f6 0%,
-            #1d4ed8 100%
-          ) !important;
-          color: white !important;
-        }
-
-        .total-row .addition-amount {
-          background: linear-gradient(
-            135deg,
-            #10b981 0%,
-            #059669 100%
-          ) !important;
-          color: white !important;
-        }
-
-        .total-row .net-pay {
-          background: linear-gradient(
-            135deg,
-            #059669 0%,
-            #047857 100%
-          ) !important;
-          color: white !important;
-        }
-
-        .total-row .total-payable {
-          background: linear-gradient(
-            135deg,
-            #7c3aed 0%,
-            #6d28d9 100%
-          ) !important;
-          color: white !important;
-          border: 3px solid #a78bfa !important;
+          .approval-btn {
+            width: 100%;
+          }
         }
       `}</style>
     </div>

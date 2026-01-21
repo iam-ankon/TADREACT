@@ -1,11 +1,10 @@
-// src/pages/finance/TaxCalculators.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Form, Button, Table, Alert, Card } from "react-bootstrap";
 import { FaArrowLeft, FaEdit, FaSave } from "react-icons/fa";
 
 // Import API services
-import { employeeAPI, taxAPI, storageAPI } from "../../api/finance";
+import { financeAPI } from "../../api/finance";
 
 const TaxCalculators = () => {
   const { employeeId } = useParams();
@@ -26,65 +25,107 @@ const TaxCalculators = () => {
   const n = (val) =>
     (val ?? 0).toLocaleString("en-BD", { maximumFractionDigits: 0 });
 
-  // Function to update cached results
-  const updateCachedTaxResults = async (newResult) => {
+  // Function to fetch CalculatedTax data
+  const fetchCalculatedTaxData = async () => {
     try {
-      const cached = await storageAPI.getCachedTaxResults() || {};
-      cached[employeeId] = newResult;
-      await storageAPI.setCachedTaxResults(cached);
+      // Get current month and year for the query
+      const currentDate = new Date();
+      const month = currentDate.getMonth() + 1; // January is 0
+      const year = currentDate.getFullYear();
       
-      // Broadcast to other tabs
-      if (typeof window !== 'undefined' && window.broadcastUpdate) {
-        window.broadcastUpdate("taxResults", cached);
+      // Fetch saved calculations from CalculatedTax model
+      const response = await financeAPI.tax.getCalculatedTaxes({
+        employee_ids: [employeeId],
+        month: month,
+        year: year
+      });
+      
+      if (response.data.success && response.data.results[employeeId]) {
+        const taxData = response.data.results[employeeId];
+        
+        // Extract source_other and bonus from the taxData object
+        const backendSourceOther = taxData.source_other || 0;
+        const backendBonus = taxData.bonus || 0;
+        
+        console.log(`Loaded from CalculatedTax: Source Other: ${backendSourceOther}, Bonus: ${backendBonus}`);
+        
+        return {
+          source_other: backendSourceOther,
+          bonus: backendBonus,
+          calculation_data: taxData.calculation_data
+        };
       }
       
-      console.log("Updated cached tax results for employee:", employeeId);
-    } catch (err) {
-      console.error("Failed to update cache:", err);
+      return null;
+    } catch (error) {
+      console.error("Error fetching CalculatedTax data:", error);
+      return null;
     }
+  };
+
+  // Function to save CalculatedTax data
+  const saveCalculatedTaxData = async (sourceOtherVal, bonusVal) => {
+    try {
+      // First, calculate the tax with current inputs
+      const response = await financeAPI.tax.calculate({
+        employee_id: employeeId,
+        gender,
+        source_other: sourceOtherVal,
+        bonus: bonusVal,
+      });
+      
+      if (response.data) {
+        // Save the calculation to CalculatedTax model
+        const saveResponse = await financeAPI.tax.saveCalculatedTax({
+          employee_id: employeeId,
+          calculation_data: response.data,
+          calculated_by: "user",
+          source_other: sourceOtherVal,
+          bonus: bonusVal
+        });
+        
+        if (saveResponse.data.success) {
+          console.log("Successfully saved to CalculatedTax model");
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error("Error saving to CalculatedTax:", error);
+    }
+    return false;
   };
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const emp = await employeeAPI.getById(employeeId);
+        // Fetch employee data
+        const emp = await financeAPI.employee.getById(employeeId);
         if (!emp) throw new Error("Employee not found");
 
         setEmployee(emp);
         setGender(emp.gender === "M" ? "Male" : "Female");
 
-        // ALWAYS try to load from backend first with enhanced error handling
-        try {
-          const taxExtraRes = await taxAPI.getTaxExtra(employeeId);
-          const backendSourceOther = taxExtraRes.data.source_other || 0;
-          const backendBonus = taxExtraRes.data.bonus || 0;
-
-          console.log(`Loaded from backend: Source Other: ${backendSourceOther}, Bonus: ${backendBonus}`);
-
-          setSourceOther(backendSourceOther);
-          setEditValue(backendSourceOther.toString());
-          setBonus(backendBonus);
-          setEditBonusValue(backendBonus.toString());
-
-          // Always sync with localStorage
-          const savedSource = await storageAPI.getSourceTaxOther(employeeId);
-          savedSource[employeeId] = backendSourceOther;
-          await storageAPI.setSourceTaxOther(savedSource);
-
-          const savedBonus = await storageAPI.getBonusOverride(employeeId);
-          savedBonus[employeeId] = backendBonus;
-          await storageAPI.setBonusOverride(savedBonus);
-
-          await calculate(backendSourceOther, backendBonus);
-        } catch (backendError) {
-          console.log("Backend load failed, trying localStorage fallback");
+        // Try to load from CalculatedTax model first
+        const taxData = await fetchCalculatedTaxData();
+        
+        if (taxData) {
+          // Use values from CalculatedTax model
+          setSourceOther(taxData.source_other);
+          setEditValue(taxData.source_other.toString());
+          setBonus(taxData.bonus);
+          setEditBonusValue(taxData.bonus.toString());
           
-          // Enhanced fallback: try to get from localStorage with sync
-          const savedSource = await storageAPI.getSourceTaxOther(employeeId);
+          // Calculate with the fetched values
+          await calculate(taxData.source_other, taxData.bonus);
+        } else {
+          // If no CalculatedTax data exists, try localStorage as fallback
+          console.log("No CalculatedTax data found, trying localStorage fallback");
+          
+          const savedSource = await financeAPI.storage.getSourceTaxOther();
           const savedVal = savedSource[employeeId] || 0;
           
-          const savedBonus = await storageAPI.getBonusOverride(employeeId);
+          const savedBonus = await financeAPI.storage.getBonusOverride();
           const savedBonusVal = savedBonus[employeeId] || 0;
 
           console.log(`Loaded from localStorage: Source Other: ${savedVal}, Bonus: ${savedBonusVal}`);
@@ -109,7 +150,7 @@ const TaxCalculators = () => {
 
   const calculate = async (sourceVal, bonusVal) => {
     try {
-      const response = await taxAPI.calculate({
+      const response = await financeAPI.tax.calculate({
         employee_id: employeeId,
         gender,
         source_other: sourceVal,
@@ -118,9 +159,6 @@ const TaxCalculators = () => {
       
       const newResult = response.data;
       setResult(newResult);
-      
-      // Update cache with new result
-      await updateCachedTaxResults(newResult);
       
     } catch (err) {
       setError(err.response?.data?.error || "Calculation failed");
@@ -140,32 +178,25 @@ const TaxCalculators = () => {
     const val = parseFloat(editValue) || 0;
 
     try {
-      // Save to backend
-      const response = await taxAPI.saveTaxExtra({
-        employee_id: employeeId,
-        source_other: val,
-        bonus: bonus,
-      });
-
-      if (response.data.success) {
-        // Update state only after successful backend save
+      // Save to CalculatedTax model
+      const saved = await saveCalculatedTaxData(val, bonus);
+      
+      if (saved) {
+        // Update state
         setSourceOther(val);
         setEditing(false);
         
-        // Update localStorage
-        const saved = await storageAPI.getSourceTaxOther(employeeId);
-        saved[employeeId] = val;
-        await storageAPI.setSourceTaxOther(saved);
+        // Update localStorage as backup
+        const savedLocal = await financeAPI.storage.getSourceTaxOther();
+        savedLocal[employeeId] = val;
+        financeAPI.storage.setSourceTaxOther(savedLocal);
         
-        // Broadcast sourceOther update
-        if (typeof window !== 'undefined' && window.broadcastUpdate) {
-          window.broadcastUpdate("sourceTaxOther", saved);
-        }
-        
-        // Trigger calculation which will update cache
+        // Trigger calculation
         await calculate(val, bonus);
         
-        console.log("Successfully saved source tax other to backend and localStorage");
+        console.log("Successfully saved source tax other to CalculatedTax model");
+      } else {
+        throw new Error("Failed to save to CalculatedTax model");
       }
     } catch (err) {
       console.error("Save source failed:", err);
@@ -174,14 +205,9 @@ const TaxCalculators = () => {
       // Fallback to localStorage only
       setSourceOther(val);
       setEditing(false);
-      const saved = await storageAPI.getSourceTaxOther(employeeId);
+      const saved = await financeAPI.storage.getSourceTaxOther();
       saved[employeeId] = val;
-      await storageAPI.setSourceTaxOther(saved);
-      
-      // Broadcast update
-      if (typeof window !== 'undefined' && window.broadcastUpdate) {
-        window.broadcastUpdate("sourceTaxOther", saved);
-      }
+      financeAPI.storage.setSourceTaxOther(saved);
       
       // Trigger calculation with local data
       await calculate(val, bonus);
@@ -192,27 +218,25 @@ const TaxCalculators = () => {
     const val = parseFloat(editBonusValue) || 0;
 
     try {
-      // Save to backend
-      const response = await taxAPI.saveTaxExtra({
-        employee_id: employeeId,
-        bonus: val,
-        source_other: sourceOther,
-      });
-
-      if (response.data.success) {
-        // Update state only after successful backend save
+      // Save to CalculatedTax model
+      const saved = await saveCalculatedTaxData(sourceOther, val);
+      
+      if (saved) {
+        // Update state
         setBonus(val);
         setEditingBonus(false);
         
-        // Update localStorage
-        const saved = await storageAPI.getBonusOverride(employeeId);
-        saved[employeeId] = val;
-        await storageAPI.setBonusOverride(saved);
+        // Update localStorage as backup
+        const savedLocal = await financeAPI.storage.getBonusOverride();
+        savedLocal[employeeId] = val;
+        financeAPI.storage.setBonusOverride(savedLocal);
         
-        // Trigger calculation which will update cache
+        // Trigger calculation
         await calculate(sourceOther, val);
         
-        console.log("Successfully saved bonus to backend and localStorage");
+        console.log("Successfully saved bonus to CalculatedTax model");
+      } else {
+        throw new Error("Failed to save to CalculatedTax model");
       }
     } catch (err) {
       console.error("Save bonus failed:", err);
@@ -221,24 +245,20 @@ const TaxCalculators = () => {
       // Fallback to localStorage only
       setBonus(val);
       setEditingBonus(false);
-      const saved = await storageAPI.getBonusOverride(employeeId);
+      const saved = await financeAPI.storage.getBonusOverride();
       saved[employeeId] = val;
-      await storageAPI.setBonusOverride(saved);
+      financeAPI.storage.setBonusOverride(saved);
       
       await calculate(sourceOther, val);
     }
   };
 
-  // Function to navigate back with updated data
+  // Function to navigate back
   const handleBackToDashboard = () => {
-    // Update the cache before navigating back
-    if (result) {
-      updateCachedTaxResults(result);
-    }
     navigate('/finance-provision');
   };
 
-  // Styles (unchanged)
+  // Styles
   const containerStyle = {
     padding: "20px",
     maxWidth: "1200px",

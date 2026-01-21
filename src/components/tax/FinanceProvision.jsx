@@ -1,4 +1,3 @@
-// src/pages/finance/FinanceProvision.jsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -32,7 +31,6 @@ const FinanceProvision = () => {
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [editingSourceId, setEditingSourceId] = useState(null);
   const [editingBonusId, setEditingBonusId] = useState(null);
   const [editSourceValue, setEditSourceValue] = useState("");
@@ -48,7 +46,6 @@ const FinanceProvision = () => {
   const [errorLog, setErrorLog] = useState([]);
   const [showErrors, setShowErrors] = useState(false);
 
-  const employeesPerPage = 15;
   const navigate = useNavigate();
   const calculationInProgress = useRef(false);
   const isInitialMount = useRef(true);
@@ -72,18 +69,11 @@ const FinanceProvision = () => {
         await financeAPI.employee.getEmployeesWithCache();
       setEmployees(employeeData);
 
-      // 2. Load source other and bonus
-      const localSourceData = await financeAPI.storage.getSourceTaxOther();
-      const localBonusData = await financeAPI.storage.getBonusOverride();
-
-      setSourceOther(localSourceData);
-      setBonusOverride(localBonusData);
-
       const employeeIds = employeeData.map((emp) => emp.employee_id);
       console.log(`✅ Loaded ${employeeData.length} employees`);
 
-      // 3. FIRST: Try to load saved calculations from BACKEND
-      console.log("💾 Loading saved calculations from database...");
+      // 2. Load source other and bonus from CalculatedTax model
+      console.log("💾 Loading source_other and bonus from database...");
       try {
         const savedResponse = await financeAPI.tax.getCalculatedTaxes({
           employee_ids: employeeIds,
@@ -94,11 +84,23 @@ const FinanceProvision = () => {
         if (savedResponse.data.success && savedResponse.data.results) {
           const savedResults = savedResponse.data.results;
           const databaseResults = {};
+          const newSourceOther = {};
+          const newBonusOverride = {};
           let dbCount = 0;
 
           // Process database results
           Object.keys(savedResults).forEach((empId) => {
             const savedData = savedResults[empId];
+            
+            // Extract source_other and bonus directly from CalculatedTax model
+            if (savedData.source_other !== undefined) {
+              newSourceOther[empId] = savedData.source_other || 0;
+            }
+            if (savedData.bonus !== undefined) {
+              newBonusOverride[empId] = savedData.bonus || 0;
+            }
+            
+            // Extract calculation data if available
             if (savedData.calculation_data) {
               databaseResults[empId] = savedData.calculation_data;
               dbCount++;
@@ -112,7 +114,15 @@ const FinanceProvision = () => {
           });
 
           console.log(`💾 Loaded ${dbCount} calculations from database`);
+          
+          // Update state with values from CalculatedTax model
+          setSourceOther(newSourceOther);
+          setBonusOverride(newBonusOverride);
           setTaxResults(databaseResults);
+
+          // Sync with localStorage for fallback
+          financeAPI.storage.setSourceTaxOther(newSourceOther);
+          financeAPI.storage.setBonusOverride(newBonusOverride);
 
           // Update cache stats
           setCacheStats({
@@ -126,7 +136,7 @@ const FinanceProvision = () => {
             `Loaded from database (${new Date().toLocaleTimeString()})`
           );
 
-          // 4. Calculate only missing ones
+          // 3. Calculate only missing ones
           const missingEmployeeIds = employeeIds.filter(
             (id) => !databaseResults[id]
           );
@@ -138,8 +148,8 @@ const FinanceProvision = () => {
             calculateMissingTaxes(
               employeeData,
               missingEmployeeIds,
-              localSourceData,
-              localBonusData
+              newSourceOther,
+              newBonusOverride
             );
           }
 
@@ -152,9 +162,16 @@ const FinanceProvision = () => {
         );
       }
 
-      // 5. FALLBACK: Check localStorage cache
+      // 4. FALLBACK: Check localStorage cache
       console.log("📁 Checking localStorage cache...");
       const allResults = financeAPI.storage.getTaxResultsByEmployee();
+      
+      // Also get source other and bonus from localStorage
+      const localSourceData = await financeAPI.storage.getSourceTaxOther();
+      const localBonusData = await financeAPI.storage.getBonusOverride();
+      
+      setSourceOther(localSourceData);
+      setBonusOverride(localBonusData);
 
       const cachedResults = {};
       let cacheCount = 0;
@@ -185,7 +202,7 @@ const FinanceProvision = () => {
 
       console.log(`📁 Found ${cacheCount} cached results`);
 
-      // 6. Calculate missing ones
+      // 5. Calculate missing ones
       const missingEmployeeIds = employeeIds.filter((id) => !cachedResults[id]);
 
       if (missingEmployeeIds.length > 0 && !calculationInProgress.current) {
@@ -259,13 +276,15 @@ const FinanceProvision = () => {
                   response.data
                 );
 
-                // Save to BACKEND database
+                // Save to BACKEND database with source_other and bonus values
                 try {
                   await financeAPI.tax.saveCalculatedTax({
                     employee_id: empId,
                     month: currentMonth,
                     year: currentYear,
                     calculation_data: response.data,
+                    source_other: sourceData[empId] || 0,
+                    bonus: bonusData[empId] || 0,
                     calculated_by: "system",
                   });
                 } catch (saveError) {
@@ -350,12 +369,11 @@ const FinanceProvision = () => {
     }
   }, [loadData]);
 
-  // Cross-tab sync - FIXED: Use ref to prevent infinite loops
-  // In FinanceProvision.jsx - Replace the cross-tab sync effect
+  // Cross-tab sync
   useEffect(() => {
     let mounted = true;
     let lastUpdateTime = 0;
-    const UPDATE_COOLDOWN = 2000; // 2 seconds between updates
+    const UPDATE_COOLDOWN = 2000;
 
     const handleDataUpdate = (event) => {
       if (!mounted) return;
@@ -368,11 +386,9 @@ const FinanceProvision = () => {
 
       lastUpdateTime = now;
 
-      // Only reload if the update came from another tab/page
       if (event && event.detail && event.detail.type === "taxResults") {
         console.log("🔄 Cross-tab update detected, refreshing data");
 
-        // Use a timeout to avoid immediate re-renders
         setTimeout(() => {
           if (mounted) {
             loadData();
@@ -406,32 +422,50 @@ const FinanceProvision = () => {
     const val = parseFloat(editSourceValue) || 0;
     const updatedSourceOther = { ...sourceOther, [employeeId]: val };
 
-    try {
-      // Save to backend
-      await financeAPI.tax.saveTaxExtra({
-        employee_id: employeeId,
-        source_other: val,
-        bonus: bonusOverride[employeeId] || 0,
-      });
-    } catch (err) {
-      console.warn("Save source failed:", err);
-    }
-
-    // Update state
+    // Update state immediately
     setSourceOther(updatedSourceOther);
     setEditingSourceId(null);
     financeAPI.storage.setSourceTaxOther(updatedSourceOther);
     broadcastUpdate("sourceTaxOther", updatedSourceOther);
 
-    // Recalculate for this employee
-    const employee = employees.find((e) => e.employee_id === employeeId);
-    if (employee) {
-      calculateMissingTaxes(
-        employees,
-        [employeeId],
-        updatedSourceOther,
-        bonusOverride
-      );
+    // Save to CalculatedTax model
+    try {
+      const employee = employees.find((e) => e.employee_id === employeeId);
+      if (employee) {
+        // First calculate tax with new value
+        const response = await financeAPI.tax.calculate({
+          employee_id: employeeId,
+          gender: employee.gender === "M" ? "Male" : "Female",
+          source_other: val,
+          bonus: bonusOverride[employeeId] || 0,
+        });
+
+        if (response.data) {
+          // Save to CalculatedTax model
+          await financeAPI.tax.saveCalculatedTax({
+            employee_id: employeeId,
+            month: currentMonth,
+            year: currentYear,
+            calculation_data: response.data,
+            source_other: val,
+            bonus: bonusOverride[employeeId] || 0,
+            calculated_by: "user",
+          });
+
+          // Update tax results
+          setTaxResults(prev => ({
+            ...prev,
+            [employeeId]: response.data
+          }));
+          financeAPI.storage.setTaxResultsByEmployee(employeeId, response.data);
+          
+          console.log("✅ Source Other saved to CalculatedTax model");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save source other:", err);
+      // Still update local storage
+      setErrorLog(prev => [...prev, { empId: employeeId, error: err.message }]);
     }
   };
 
@@ -440,32 +474,49 @@ const FinanceProvision = () => {
     const val = parseFloat(editBonusValue) || 0;
     const updatedBonusOverride = { ...bonusOverride, [employeeId]: val };
 
-    try {
-      // Save to backend
-      await financeAPI.tax.saveTaxExtra({
-        employee_id: employeeId,
-        source_other: sourceOther[employeeId] || 0,
-        bonus: val,
-      });
-    } catch (err) {
-      console.warn("Save bonus failed:", err);
-    }
-
-    // Update state
+    // Update state immediately
     setBonusOverride(updatedBonusOverride);
     setEditingBonusId(null);
     financeAPI.storage.setBonusOverride(updatedBonusOverride);
     broadcastUpdate("bonusOverride", updatedBonusOverride);
 
-    // Recalculate for this employee
-    const employee = employees.find((e) => e.employee_id === employeeId);
-    if (employee) {
-      calculateMissingTaxes(
-        employees,
-        [employeeId],
-        sourceOther,
-        updatedBonusOverride
-      );
+    // Save to CalculatedTax model
+    try {
+      const employee = employees.find((e) => e.employee_id === employeeId);
+      if (employee) {
+        // First calculate tax with new value
+        const response = await financeAPI.tax.calculate({
+          employee_id: employeeId,
+          gender: employee.gender === "M" ? "Male" : "Female",
+          source_other: sourceOther[employeeId] || 0,
+          bonus: val,
+        });
+
+        if (response.data) {
+          // Save to CalculatedTax model
+          await financeAPI.tax.saveCalculatedTax({
+            employee_id: employeeId,
+            month: currentMonth,
+            year: currentYear,
+            calculation_data: response.data,
+            source_other: sourceOther[employeeId] || 0,
+            bonus: val,
+            calculated_by: "user",
+          });
+
+          // Update tax results
+          setTaxResults(prev => ({
+            ...prev,
+            [employeeId]: response.data
+          }));
+          financeAPI.storage.setTaxResultsByEmployee(employeeId, response.data);
+          
+          console.log("✅ Bonus saved to CalculatedTax model");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save bonus:", err);
+      setErrorLog(prev => [...prev, { empId: employeeId, error: err.message }]);
     }
   };
 
@@ -545,7 +596,7 @@ const FinanceProvision = () => {
     try {
       const employeeIds = employees.map((emp) => emp.employee_id);
 
-      // Load fresh from backend
+      // Load fresh from CalculatedTax model
       const savedResponse = await financeAPI.tax.getCalculatedTaxes({
         employee_ids: employeeIds,
         month: currentMonth,
@@ -555,10 +606,21 @@ const FinanceProvision = () => {
       if (savedResponse.data.success && savedResponse.data.results) {
         const savedResults = savedResponse.data.results;
         const databaseResults = {};
+        const newSourceOther = {};
+        const newBonusOverride = {};
         let dbCount = 0;
 
         Object.keys(savedResults).forEach((empId) => {
           const savedData = savedResults[empId];
+          
+          // Get source_other and bonus from CalculatedTax model
+          if (savedData.source_other !== undefined) {
+            newSourceOther[empId] = savedData.source_other || 0;
+          }
+          if (savedData.bonus !== undefined) {
+            newBonusOverride[empId] = savedData.bonus || 0;
+          }
+          
           if (savedData.calculation_data) {
             databaseResults[empId] = savedData.calculation_data;
             dbCount++;
@@ -569,6 +631,8 @@ const FinanceProvision = () => {
           }
         });
 
+        setSourceOther(newSourceOther);
+        setBonusOverride(newBonusOverride);
         setTaxResults(databaseResults);
         setCacheStats((prev) => ({
           ...prev,
@@ -587,37 +651,12 @@ const FinanceProvision = () => {
     }
   };
 
-  // Calculate selected employees (current page)
-  const handleCalculateSelected = async () => {
-    const selectedEmployeeIds = filtered
-      .slice(start, start + employeesPerPage)
-      .map((emp) => emp.employee_id);
-
-    if (selectedEmployeeIds.length > 0) {
-      calculateMissingTaxes(
-        employees,
-        selectedEmployeeIds,
-        sourceOther,
-        bonusOverride
-      );
-    }
-  };
-
-  // Filter and pagination
+  // Filter employees based on search query
   const filtered = employees.filter(
     (emp) =>
       emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.employee_id?.toString().includes(searchQuery)
   );
-
-  const totalPages = Math.ceil(filtered.length / employeesPerPage);
-  const start = (currentPage - 1) * employeesPerPage;
-  const currentEmployees = filtered.slice(start, start + employeesPerPage);
-
-  // Auto reset page on search
-  useEffect(() => {
-    if (!isInitialMount.current) setCurrentPage(1);
-  }, [searchQuery]);
 
   const handleNavigate = (empId) => {
     navigate(`/tax-calculator/${empId}`);
@@ -835,13 +874,16 @@ const FinanceProvision = () => {
                 {filtered.length} employees found
               </div>
             </div>
-            <div className="action-buttons">
+            {/* <div className="action-buttons">
               <button
-                className="btn calculate-selected"
-                onClick={handleCalculateSelected}
-                disabled={calculating || currentEmployees.length === 0}
+                className="btn calculate-all"
+                onClick={() => {
+                  const employeeIds = filtered.map((emp) => emp.employee_id);
+                  calculateMissingTaxes(employees, employeeIds, sourceOther, bonusOverride);
+                }}
+                disabled={calculating || filtered.length === 0}
               >
-                <FaCalculator /> Calculate Page ({currentEmployees.length})
+                <FaCalculator /> Calculate All ({filtered.length})
               </button>
               {errorLog.length > 0 && (
                 <button
@@ -852,10 +894,10 @@ const FinanceProvision = () => {
                   Errors
                 </button>
               )}
-            </div>
+            </div> */}
           </div>
 
-          {/* Main Table */}
+          {/* Main Table - No Pagination */}
           <div className="table-container">
             <table className="data-table">
               <thead>
@@ -872,7 +914,7 @@ const FinanceProvision = () => {
                 </tr>
               </thead>
               <tbody>
-                {currentEmployees.map((emp) => {
+                {filtered.map((emp) => {
                   const res = taxResults[emp.employee_id] || {};
                   const calc = res.tax_calculation || {};
                   const hasCache = !!res.tax_calculation;
@@ -895,7 +937,7 @@ const FinanceProvision = () => {
                         {financeAPI.utils.formatCurrency(emp.salary || 0)}
                       </td>
 
-                      {/* Source Other Cell */}
+                      {/* Source Other Cell - From CalculatedTax model */}
                       <td className="source-cell">
                         {editingSourceId === emp.employee_id ? (
                           <div className="edit-input">
@@ -933,7 +975,7 @@ const FinanceProvision = () => {
                         )}
                       </td>
 
-                      {/* Bonus Cell */}
+                      {/* Bonus Cell - From CalculatedTax model */}
                       <td className="bonus-cell">
                         {editingBonusId === emp.employee_id ? (
                           <div className="edit-input">
@@ -1031,7 +1073,7 @@ const FinanceProvision = () => {
               </tbody>
             </table>
 
-            {currentEmployees.length === 0 && (
+            {filtered.length === 0 && (
               <div className="empty-state">
                 <div className="empty-icon">📊</div>
                 <div className="empty-text">No employees found</div>
@@ -1046,33 +1088,6 @@ const FinanceProvision = () => {
               </div>
             )}
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                className="pagination-btn"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => p - 1)}
-              >
-                Previous
-              </button>
-              <div className="pagination-info">
-                Page <span className="current-page">{currentPage}</span> of{" "}
-                <span className="total-pages">{totalPages}</span>
-                <span className="total-items">
-                  ({filtered.length} employees)
-                </span>
-              </div>
-              <button
-                className="pagination-btn"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1090,7 +1105,7 @@ const FinanceProvision = () => {
 
         .dashboard {
           width: 100%;
-          max-width: 1600px;
+          max-width: 95%;
           background: white;
           border-radius: 20px;
           box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
@@ -1099,7 +1114,7 @@ const FinanceProvision = () => {
         }
 
         .card {
-          padding: 2rem;
+          padding: 1rem;
         }
 
         /* Header Styles */
@@ -1244,7 +1259,7 @@ const FinanceProvision = () => {
           background: #ef4444;
           color: white;
         }
-        .calculate-selected {
+        .calculate-all {
           background: #f59e0b;
           color: white;
         }
@@ -1435,6 +1450,8 @@ const FinanceProvision = () => {
           box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
           margin: 2rem 0;
           border: 1px solid #e5e7eb;
+          max-height: 600px;
+          overflow-y: auto;
         }
 
         .data-table {
@@ -1469,7 +1486,6 @@ const FinanceProvision = () => {
 
         .data-row:hover {
           background: #f8faff;
-          transform: scale(1.002);
         }
 
         .row-error {
@@ -1485,7 +1501,7 @@ const FinanceProvision = () => {
         }
 
         .row-database {
-          
+          background: #f0fdf4;
         }
 
         .row-database:hover {
@@ -1651,59 +1667,6 @@ const FinanceProvision = () => {
           margin-bottom: 1rem;
         }
 
-        /* Pagination */
-        .pagination {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 2rem;
-          margin-top: 3rem;
-          padding: 1.5rem;
-          background: #f8fafc;
-          border-radius: 12px;
-        }
-
-        .pagination-btn {
-          padding: 0.8rem 1.5rem;
-          border: 2px solid #7c3aed;
-          background: white;
-          color: #7c3aed;
-          border-radius: 10px;
-          cursor: pointer;
-          font-weight: 600;
-          transition: all 0.3s;
-        }
-
-        .pagination-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .pagination-btn:hover:not(:disabled) {
-          background: #7c3aed;
-          color: white;
-        }
-
-        .pagination-info {
-          font-size: 1rem;
-          color: #4b5563;
-        }
-
-        .current-page {
-          font-weight: 700;
-          color: #7c3aed;
-        }
-
-        .total-pages {
-          font-weight: 600;
-        }
-
-        .total-items {
-          font-size: 0.9rem;
-          color: #6b7280;
-          margin-left: 0.5rem;
-        }
-
         /* Responsive */
         @media (max-width: 1200px) {
           .header {
@@ -1757,12 +1720,6 @@ const FinanceProvision = () => {
           .data-table td {
             padding: 0.8rem 0.5rem;
             font-size: 0.85rem;
-          }
-
-          .pagination {
-            flex-direction: column;
-            gap: 1rem;
-            padding: 1rem;
           }
         }
 

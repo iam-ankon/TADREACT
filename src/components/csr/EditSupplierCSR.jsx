@@ -2,1467 +2,1517 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getSupplierById, updateSupplier } from "../../api/supplierApi";
 
+const colors = {
+  primary: "#0066cc",
+  primaryDark: "#0052a3",
+  success: "#059669",
+  danger: "#dc2626",
+  warning: "#d97706",
+  info: "#0891b2",
+  light: "#f9fafb",
+  dark: "#111827",
+  gray: "#6b7280",
+  muted: "#9ca3af",
+  border: "#d1d5db",
+  error: "#ef4444",
+};
+
+const statusOptions = [
+  { value: "active", label: "Active" },
+  { value: "valid", label: "Valid" },
+  { value: "pending", label: "Pending" },
+  { value: "in progress", label: "In Progress" },
+  { value: "expired", label: "Expired" },
+  { value: "invalid", label: "Invalid" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "", label: "Unknown" },
+];
+
+const categoryOptions = [
+  { value: "Woven", label: "Woven" },
+  { value: "Sweater", label: "Sweater" },
+  { value: "Knit & Lingerie", label: "Knit & Lingerie" },
+  { value: "Knit", label: "Knit" },
+  { value: "Lingerie", label: "Lingerie" },
+];
+
+const holidayOptions = [
+  { value: "Friday", label: "Friday" },
+  { value: "Saturday", label: "Saturday" },
+  { value: "Sunday", label: "Sunday" },
+];
+
 const EditSupplierCSR = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [formData, setFormData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+
+  const [formData, setFormData] = useState({
+    sl_no: "",
+    supplier_name: "",
+    supplier_id: "",
+    location: "",
+    supplier_category: "",
+    year_of_establishment: "",
+    rented_building: false,
+    share_building: false,
+    own_property: false,
+    ownership_details: "",
+    factory_main_contact: "",
+    factory_merchandiser_contact: "",
+    factory_hr_compliance_contact: "",
+    building_details: "",
+    total_area: "",
+    manpower_workers_male: "",
+    manpower_workers_female: "",
+    manpower_staff_male: "",
+    manpower_staff_female: "",
+    total_manpower: "",
+    production_process: "",
+    manufacturing_item: "",
+    capacity_per_month: "",
+    business_by_market: "",
+    existing_customer: "",
+    number_of_sewing_line: "",
+    total_number_of_machineries: "",
+    yearly_turnover_usd: "",
+    weekly_holiday: "Friday",
+    bgmea_number: "",
+    rsc: "",
+    tad_group_order_status: "",
+    bsci_last_audit_date: "",
+    bsci_rating: "",
+    bsci_validity: "",
+    bsci_validity_days_remaining: "",
+    bsci_status: "",
+    sedex_last_audit_date: "",
+    sedex_rating: "",
+    sedex_validity: "",
+    sedex_validity_days_remaining: "",
+    sedex_status: "",
+    wrap_last_audit_date: "",
+    wrap_rating: "",
+    wrap_validity: "",
+    wrap_validity_days_remaining: "",
+    wrap_status: "",
+    security_audit_last_date: "",
+    security_audit_rating: "",
+    security_audit_validity: "",
+    security_audit_validity_days_remaining: "",
+    security_audit_status: "",
+    oeko_tex_validity: "",
+    oeko_tex_validity_days_remaining: "",
+    oeko_tex_status: "",
+    gots_validity: "",
+    gots_validity_days_remaining: "",
+    gots_status: "",
+    ocs_validity: "",
+    ocs_validity_days_remaining: "",
+    ocs_status: "",
+    grs_validity: "",
+    grs_validity_days_remaining: "",
+    grs_status: "",
+    rcs_validity: "",
+    rcs_validity_days_remaining: "",
+    rcs_status: "",
+    iso_9001_validity: "",
+    iso_9001_validity_days_remaining: "",
+    iso_9001_status: "",
+    iso_14001_validity: "",
+    iso_14001_validity_days_remaining: "",
+    iso_14001_status: "",
+    certification_remarks: "",
+    trade_license_validity: "",
+    trade_license_days_remaining: "",
+    factory_license_validity: "",
+    factory_license_days_remaining: "",
+    fire_license_validity: "",
+    fire_license_days_remaining: "",
+    membership_validity: "",
+    membership_days_remaining: "",
+    group_insurance_validity: "",
+    group_insurance_days_remaining: "",
+    boiler_no: "",
+    boiler_license_validity: "",
+    boiler_license_days_remaining: "",
+    berc_license_validity: "",
+    berc_days_remaining: "",
+    license_remarks: "",
+    last_fire_training_by_fscd: "",
+    fscd_next_fire_training_date: "",
+    last_fire_drill_record_by_fscd: "",
+    fscd_next_drill_date: "",
+    total_fire_fighter_rescue_first_aider_fscd: "",
+    fire_safety_remarks: "",
+    minimum_wages_paid: false,
+    earn_leave_status: false,
+    service_benefit: false,
+    maternity_benefit: false,
+    yearly_increment: false,
+    festival_bonus: false,
+    salary_due_status: false,
+    due_salary_month: "",
+    water_test_report_doe: "",
+    zdhc_water_test_report: "",
+    higg_fem_self_assessment_score: "",
+    higg_fem_verification_assessment_score: "",
+    behive_chemical_inventory: false,
+    rsc_id: "",
+    progress_rate: "",
+    structural_initial_audit_date: "",
+    structural_initial_findings: "",
+    structural_last_follow_up_audit_date: "",
+    structural_total_findings: "",
+    structural_total_corrected: "",
+    structural_total_in_progress: "",
+    structural_total_pending_verification: "",
+    fire_initial_audit_date: "",
+    fire_initial_findings: "",
+    fire_last_follow_up_audit_date: "",
+    fire_total_findings: "",
+    fire_total_corrected: "",
+    fire_total_in_progress: "",
+    fire_total_pending_verification: "",
+    electrical_initial_audit_date: "",
+    electrical_initial_findings: "",
+    electrical_last_follow_up_audit_date: "",
+    electrical_total_findings: "",
+    electrical_total_corrected: "",
+    electrical_total_in_progress: "",
+    electrical_total_pending_verification: "",
+    last_pc_election_date: "",
+    last_pc_meeting_date: "",
+    last_safety_committee_formation_date: "",
+    last_safety_committee_meeting_date: "",
+    donation_local_community: false,
+    tree_plantation_local_community: false,
+    sanitary_napkin_status: false,
+    fair_shop: false,
+    any_gift_provided_during_festival: false,
+    email: "",
+    phone: "",
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('basic');
+  const [activeTab, setActiveTab] = useState("basic");
   const [touchedFields, setTouchedFields] = useState({});
 
-  // Initialize form data structure
-  const initialFormData = {
-    // Basic Information
-    name: '',
-    short_name: '',
-    local_name: '',
-    email: '',
-    website: '',
-    name_1: '',
-    name_2: '',
-    name_3: '',
-    about_us: '',
-    company_phone: '',
-    preferred_language: '',
-    deactivation_date: '',
-    planned_inactivation_date: '',
-    vendor_rating: '',
-    capability: '',
-    
-    // Vendor Information
-    vendor_id: '',
-    reference_no: '',
-    vendor_type: '',
-    business_type: '',
-    holding_group: '',
-    place_of_incorporation: '',
-    vendor_access_creation: false,
-    purchasing_group: '',
-    contract_sign_date: '',
-    deactivation_reason: '',
-    year_established: '',
-    
-    // Address
-    address_type: '',
-    address_country_region: '',
-    address_street: '',
-    address_town_city: '',
-    address_gps_lng: '',
-    address_gps_lat: '',
-    address_postal_code: '',
-    address_port_of_loading_discharge: '',
-    address_language: '',
-    address_gps_text: '',
-    address_inactive: false,
-    address_eu_country: false,
-    
-    // Contact
-    contact1_type: '',
-    contact1_texweave_access: false,
-    contact1_title: '',
-    contact1_first_name: '',
-    contact1_last_name: '',
-    contact1_position: '',
-    contact1_tel: '',
-    contact1_mobile: '',
-    contact1_email: '',
-    contact1_department: '',
-    
-    // Shipment Terms
-    incoterm: '',
-    avg_lead_time_days: '',
-    payment_method: '',
-    payment_term: '',
-    currency: '',
-    cash_discount: '',
-    liability_insurance: '',
-    export_license_no: '',
-    
-    // Agreements
-    agreement_code: '',
-    agreement_name: '',
-    agreement_type: '',
-    agreement_description: '',
-    agreement_status: 'pending',
-    agreement_doc_status: 'draft',
-    agreement_signature_due_date: '',
-    agreement_expiry_date: '',
-    agreement_accepted_on: '',
-    agreement_instruction_to_vendor: '',
-    agreement_vendor_action_required: false,
-    agreement_contract_file: null,
-    agreement_vendor_signing_copy: null,
-    
-    // Classification
-    classification_code: '',
-    classification_name: '',
-    
-    // Financial Details
-    account_name: '',
-    account_no: '',
-    account_no_2: '',
-    bank_key: '',
-    bank_name: '',
-    country_of_bank: '',
-    bank_code_swift_code: '',
-    discount_rate: '',
-    total_annual_turnover: '',
-    export_annual_turnover: '',
-    credit_report: '',
-    credit_limit: '',
-    agent_payment: '',
-    super_bonus: '',
-    
-    // Certifications
-    certification_type: '',
-    certification_name: '',
-    certification_number: '',
-    certification_issue_date: '',
-    certification_expiry_date: '',
-    certification_status: '',
-    certification_institute_country: '',
-    certification_notes: '',
-    certification_attachment: null,
-    
-    // Factories
-    factory_name: '',
-    factory_id: '',
-    factory_type: '',
-    factory_status: '',
-    factory_doc_status: '',
-    factory_vendor_ref: '',
-    factory_vendor_reverse_ref: '',
-    factory_contact: '',
-    factory_phone: '',
-    factory_address: '',
-    factory_capacity: '',
-    factory_related: '',
-    factory_related_since: '',
-    factory_note: '',
-    factory_default: false,
-    factory_sync: false,
-    audit_social: false,
-    audit_1st_enlistment: false,
-    audit_2nd_enlistment: false,
-    audit_qualification_visit: false,
-    audit_kik_csr: false,
-    audit_environmental: false,
-    audit_qc_visit: false,
-    
-    // QA Assessment
-    qa_rank: '',
-    qa_assessment_level: '',
-    qa_risk_level: '',
-    qa_performance_level: '',
-    qa_score: '',
-    qa_disposal_licensing: '',
-    qa_accredited: false,
-    qa_summary: '',
-    
-    // Latest Audit Report
-    latest_audit_report_no: '',
-    latest_audit_version: '',
-    latest_audit_report_type: '',
-    latest_audit_customer: '',
-    latest_audit_date: '',
-    latest_auditor: '',
-    latest_audit_party: '',
-    latest_audit_result: '',
-    latest_audit_expiry_date: '',
-    latest_audit_report_date: '',
-    latest_audit_status: '',
-    latest_audit_editing_status: '',
-    
-    // Images & Attachments
-    image_type: '',
-    image_description: '',
-    image_file: null,
-    image_last_modified_by: '',
-    image_last_modified_on: '',
-    attachment_type: '',
-    attachment_description: '',
-    attachment_file: null,
-    attachment_last_modified_by: '',
-    attachment_last_modified_on: '',
-    shared_file_name: '',
-    shared_file_type: '',
-    shared_file_description: '',
-    shared_file: null,
-    shared_file_details: '',
-    shared_file_status: '',
-    shared_file_effective_from: '',
-    shared_file_effective_to: '',
-    shared_file_notes: ''
-  };
-
   useEffect(() => {
-    fetchSupplier();
+    fetchSupplierData();
   }, [id]);
 
-  const fetchSupplier = async () => {
+  const fetchSupplierData = async () => {
+    setIsLoading(true);
     try {
       const response = await getSupplierById(id);
-      // Merge response data with initial form data
-      const mergedData = { ...initialFormData, ...response.data };
       
-      // Convert date strings to proper format for date inputs
-      Object.keys(mergedData).forEach(key => {
-        if (mergedData[key] && (key.includes('date') || key.includes('Date'))) {
-          const date = new Date(mergedData[key]);
+      // Format date fields for input type="date"
+      const formattedData = { ...response.data };
+      const dateFields = [
+        'bsci_last_audit_date', 'bsci_validity',
+        'sedex_last_audit_date', 'sedex_validity',
+        'wrap_last_audit_date', 'wrap_validity',
+        'security_audit_last_date', 'security_audit_validity',
+        'oeko_tex_validity', 'gots_validity', 'ocs_validity',
+        'grs_validity', 'rcs_validity', 'iso_9001_validity',
+        'iso_14001_validity', 'trade_license_validity',
+        'factory_license_validity', 'fire_license_validity',
+        'membership_validity', 'group_insurance_validity',
+        'boiler_license_validity', 'berc_license_validity',
+        'last_fire_training_by_fscd', 'fscd_next_fire_training_date',
+        'last_fire_drill_record_by_fscd', 'fscd_next_drill_date',
+        'structural_initial_audit_date', 'structural_last_follow_up_audit_date',
+        'fire_initial_audit_date', 'fire_last_follow_up_audit_date',
+        'electrical_initial_audit_date', 'electrical_last_follow_up_audit_date',
+        'last_pc_election_date', 'last_pc_meeting_date',
+        'last_safety_committee_formation_date', 'last_safety_committee_meeting_date'
+      ];
+
+      dateFields.forEach(field => {
+        if (formattedData[field]) {
+          const date = new Date(formattedData[field]);
           if (!isNaN(date.getTime())) {
-            mergedData[key] = date.toISOString().split('T')[0];
+            formattedData[field] = date.toISOString().split('T')[0];
           }
         }
       });
-      
-      setFormData(mergedData);
-    } catch (error) {
-      console.error("Error fetching supplier:", error);
-      setError("Failed to load supplier data");
+
+      setFormData(formattedData);
+    } catch (err) {
+      console.error("Error fetching supplier:", err);
+      setError("Failed to load supplier data. Please try again.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   const handleChange = (e) => {
-    const { name, value, type, checked, files } = e.target;
-    
-    setFormData(prev => ({
+    const { name, value, type, checked } = e.target;
+    let processedValue = value === "" ? null : value;
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : 
-              type === "file" ? files[0] : 
-              value,
+      [name]: type === "checkbox" ? checked : processedValue,
     }));
-    
-    // Mark field as touched
-    setTouchedFields(prev => ({
-      ...prev,
-      [name]: true
-    }));
-    
-    // Clear error when user starts typing
+
+    setTouchedFields((prev) => ({ ...prev, [name]: true }));
     if (error) setError(null);
   };
 
   const handleBlur = (e) => {
     const { name } = e.target;
-    setTouchedFields(prev => ({
-      ...prev,
-      [name]: true
-    }));
+    setTouchedFields((prev) => ({ ...prev, [name]: true }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setUpdating(true);
+  const handleSubmit = async () => {
+    // Only submit if we're on the last tab (CSR)
+    if (activeTab !== "csr") {
+      return;
+    }
+
+    setIsUpdating(true);
     setError(null);
 
     try {
-      console.log("Updating supplier with data:", formData);
+      // Calculate total manpower
+      const formDataCopy = { ...formData };
+      if (!formDataCopy.total_manpower) {
+        const total =
+          (parseInt(formDataCopy.manpower_workers_male) || 0) +
+          (parseInt(formDataCopy.manpower_workers_female) || 0) +
+          (parseInt(formDataCopy.manpower_staff_male) || 0) +
+          (parseInt(formDataCopy.manpower_staff_female) || 0);
+        formDataCopy.total_manpower = total > 0 ? total : null;
+      }
 
-      // Create FormData for file uploads
       const formDataToSend = new FormData();
-      
-      // Append all form data
-      Object.keys(formData).forEach(key => {
-        const value = formData[key];
-        if (value !== null && value !== undefined) {
-          if (value instanceof File) {
-            formDataToSend.append(key, value);
-          } else if (typeof value === 'boolean') {
-            formDataToSend.append(key, value.toString());
-          } else {
-            formDataToSend.append(key, value);
-          }
+      Object.entries(formDataCopy).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "") {
+          formDataToSend.append(
+            key,
+            typeof value === "boolean" ? value.toString() : value
+          );
         }
       });
 
-      const response = await updateSupplier(id, formDataToSend);
-
-      console.log("Supplier updated successfully:", response.data);
+      await updateSupplier(id, formDataToSend);
       alert("Supplier updated successfully!");
-      navigate("/suppliersCSR/" + id);
-    } catch (error) {
-      console.error("Error updating supplier:", error);
-
+      navigate("/suppliersCSR");
+    } catch (err) {
       let errorMessage = "Error updating supplier. Please try again.";
-      if (error.response?.data) {
-        if (typeof error.response.data === 'object') {
-          errorMessage = Object.entries(error.response.data)
-            .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(", ") : errors}`)
-            .join("\n");
-        } else {
-          errorMessage = error.response.data;
-        }
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        errorMessage =
+          typeof errorData === "object"
+            ? Object.entries(errorData)
+                .map(
+                  ([field, errors]) =>
+                    `${field}: ${
+                      Array.isArray(errors) ? errors.join(", ") : errors
+                    }`
+                )
+                .join("\n")
+            : errorData;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
-
       setError(errorMessage);
     } finally {
-      setUpdating(false);
+      setIsUpdating(false);
     }
   };
 
+  const handleNext = () => {
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+    if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1].id);
+  };
+
+  const handlePrevious = () => {
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+    if (currentIndex > 0) setActiveTab(tabs[currentIndex - 1].id);
+  };
+
+  // Tabs array matching AddSupplierCSR
   const tabs = [
-    { id: 'basic', label: 'Basic Info', icon: '🏢' },
-    { id: 'vendor', label: 'Vendor', icon: '👤' },
-    { id: 'address', label: 'Address', icon: '📍' },
-    { id: 'shipment', label: 'Shipment', icon: '🚚' },
-    { id: 'agreement', label: 'Agreements', icon: '📝' },
-    { id: 'financial', label: 'Financial', icon: '💰' },
-    { id: 'classification', label: 'Classification', icon: '🏷️' },
-    { id: 'certifications', label: 'Certifications', icon: '📜' },
-    { id: 'factories', label: 'Factories', icon: '🏭' },
-    { id: 'qa', label: 'QA Assessment', icon: '📊' },
-    { id: 'audit', label: 'Audit', icon: '📋' },
-    { id: 'images', label: 'Attachments', icon: '📎' },
+    { id: "basic", label: "General Info", icon: "🏢" },
+    { id: "building", label: "Building & Manpower", icon: "🏭" },
+    { id: "production", label: "Production", icon: "⚙️" },
+    { id: "certifications", label: "Certifications", icon: "📜" },
+    { id: "licenses", label: "Licenses", icon: "📋" },
+    { id: "safety", label: "Safety", icon: "🚨" },
+    { id: "compliance", label: "Compliance", icon: "✅" },
+    { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
+    { id: "environment", label: "Environment", icon: "🌱" },
+    { id: "rsc", label: "RSC Audit", icon: "🔍" },
+    { id: "csr", label: "CSR", icon: "🤝" },
   ];
 
-  // Helper function to render input fields with validation
-  const renderInput = (label, name, type = 'text', required = false, placeholder = '') => {
-    const isTouched = touchedFields[name];
-    const isEmpty = required && !formData[name];
-    const showError = isTouched && isEmpty;
-    
+  const renderInput = (
+    label,
+    name,
+    type = "text",
+    isRequired = false,
+    rows = null
+  ) => {
+    const value = formData[name] ?? "";
+    const isError = touchedFields[name] && isRequired && !value;
+    const Component = rows ? "textarea" : "input";
+
     return (
-      <div style={styles.formGroup}>
-        <label style={styles.label}>
-          {label}
-          {required && <span style={styles.requiredStar}> *</span>}
+      <div style={formGroupStyle}>
+        <label style={labelStyle}>
+          {label} {isRequired && <span style={{ color: colors.error }}>*</span>}
         </label>
-        <input
+        <Component
           type={type}
           name={name}
-          value={formData[name] || ''}
+          value={value}
           onChange={handleChange}
           onBlur={handleBlur}
           style={{
-            ...styles.input,
-            ...(showError ? styles.inputError : {}),
-            ...(updating ? styles.inputDisabled : {})
+            ...inputStyle,
+            ...(isError ? inputErrorStyle : {}),
+            ...((isUpdating || isLoading) ? inputDisabledStyle : {}),
           }}
-          required={required}
-          disabled={updating || loading}
-          placeholder={placeholder || `Enter ${label.toLowerCase()}`}
+          disabled={isUpdating || isLoading}
+          placeholder={`Enter ${label.toLowerCase()}`}
+          rows={rows}
         />
-        {showError && (
-          <div style={styles.fieldError}>This field is required</div>
-        )}
+        {isError && <div style={fieldErrorStyle}>This field is required</div>}
       </div>
     );
   };
 
-  const renderSelect = (label, name, options, required = false) => {
-    const isTouched = touchedFields[name];
-    const isEmpty = required && !formData[name];
-    const showError = isTouched && isEmpty;
-    
+  const renderSelect = (label, name, options, isRequired = false) => {
+    const value = formData[name] ?? "";
+    const isError = touchedFields[name] && isRequired && !value;
+
     return (
-      <div style={styles.formGroup}>
-        <label style={styles.label}>
-          {label}
-          {required && <span style={styles.requiredStar}> *</span>}
+      <div style={formGroupStyle}>
+        <label style={labelStyle}>
+          {label} {isRequired && <span style={{ color: colors.error }}>*</span>}
         </label>
         <select
           name={name}
-          value={formData[name] || ''}
+          value={value}
           onChange={handleChange}
           onBlur={handleBlur}
           style={{
-            ...styles.select,
-            ...(showError ? styles.inputError : {}),
-            ...(updating ? styles.inputDisabled : {})
+            ...selectStyle,
+            ...(isError ? inputErrorStyle : {}),
+            ...((isUpdating || isLoading) ? inputDisabledStyle : {}),
           }}
-          required={required}
-          disabled={updating || loading}
+          disabled={isUpdating || isLoading}
         >
           <option value="">Select {label}</option>
-          {options.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </select>
-        {showError && (
-          <div style={styles.fieldError}>This field is required</div>
-        )}
+        {isError && <div style={fieldErrorStyle}>This field is required</div>}
       </div>
     );
   };
 
-  const renderCheckbox = (label, name, description = '') => (
-    <div style={styles.formGroup}>
-      <label style={styles.checkboxLabel}>
+  const renderCheckbox = (label, name, description = "") => (
+    <div style={checkboxGroupStyle}>
+      <label style={checkboxLabelStyle}>
         <input
           type="checkbox"
           name={name}
           checked={formData[name] || false}
           onChange={handleChange}
-          style={styles.checkbox}
-          disabled={updating || loading}
+          style={checkboxStyle}
+          disabled={isUpdating || isLoading}
         />
         <div>
-          <div style={styles.checkboxText}>{label}</div>
+          <div style={checkboxTextStyle}>{label}</div>
           {description && (
-            <div style={styles.checkboxDescription}>{description}</div>
+            <div style={checkboxDescriptionStyle}>{description}</div>
           )}
         </div>
       </label>
     </div>
   );
 
-  const renderTextarea = (label, name, rows = 3, required = false) => {
-    const isTouched = touchedFields[name];
-    const isEmpty = required && !formData[name];
-    const showError = isTouched && isEmpty;
-    
-    return (
-      <div style={styles.formGroup}>
-        <label style={styles.label}>
-          {label}
-          {required && <span style={styles.requiredStar}> *</span>}
-        </label>
-        <textarea
-          name={name}
-          value={formData[name] || ''}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          style={{
-            ...styles.textarea,
-            ...(showError ? styles.inputError : {}),
-            ...(updating ? styles.inputDisabled : {})
-          }}
-          rows={rows}
-          required={required}
-          disabled={updating || loading}
-          placeholder={`Enter ${label.toLowerCase()}`}
-        />
-        {showError && (
-          <div style={styles.fieldError}>This field is required</div>
+  const renderCertificationGroup = (prefix, label) => (
+    <div style={subSectionStyle}>
+      <h4 style={subSectionTitleStyle}>{label}</h4>
+      <div style={formGridStyle}>
+        {renderInput("Last Audit Date", `${prefix}_last_audit_date`, "date")}
+        {renderInput("Rating", `${prefix}_rating`)}
+        {renderInput("Validity", `${prefix}_validity`, "date")}
+        {renderInput(
+          "Days Remaining",
+          `${prefix}_validity_days_remaining`,
+          "number"
+        )}
+        {renderSelect("Status", `${prefix}_status`, statusOptions)}
+      </div>
+    </div>
+  );
+
+  const renderSimpleCertGroup = (prefix, label) => (
+    <div style={subSectionStyle}>
+      <h4 style={subSectionTitleStyle}>{label}</h4>
+      <div style={formGridStyle}>
+        {renderInput("Validity", `${prefix}_validity`, "date")}
+        {renderInput(
+          "Days Remaining",
+          `${prefix}_validity_days_remaining`,
+          "number"
+        )}
+        {renderSelect("Status", `${prefix}_status`, statusOptions)}
+      </div>
+    </div>
+  );
+
+  const renderLicenseGroup = (prefix, label) => (
+    <div style={formGroupStyle}>
+      <h4 style={subSectionTitleStyle}>{label}</h4>
+      <div style={formGridStyle}>
+        {renderInput("Validity", `${prefix}_validity`, "date")}
+        {renderInput("Days Remaining", `${prefix}_days_remaining`, "number")}
+      </div>
+    </div>
+  );
+
+  const renderAuditSection = (prefix, label) => (
+    <div style={subSectionStyle}>
+      <h4 style={subSectionTitleStyle}>{label}</h4>
+      <div style={formGridStyle}>
+        {renderInput(
+          "Initial Audit Date",
+          `${prefix}_initial_audit_date`,
+          "date"
+        )}
+        {renderInput(
+          "Initial Findings",
+          `${prefix}_initial_findings`,
+          "number"
+        )}
+        {renderInput(
+          "Last Follow-up Audit Date",
+          `${prefix}_last_follow_up_audit_date`,
+          "date"
+        )}
+        {renderInput("Total Findings", `${prefix}_total_findings`, "number")}
+        {renderInput("Total Corrected", `${prefix}_total_corrected`, "number")}
+        {renderInput(
+          "Total In Progress",
+          `${prefix}_total_in_progress`,
+          "number"
+        )}
+        {renderInput(
+          "Total Pending Verification",
+          `${prefix}_total_pending_verification`,
+          "number"
         )}
       </div>
-    );
-  };
+    </div>
+  );
 
-  const renderFileInput = (label, name, accept = '*/*') => {
-    const file = formData[name];
-    
+  if (isLoading) {
     return (
-      <div style={styles.formGroup}>
-        <label style={styles.label}>{label}</label>
-        <div style={styles.fileInputWrapper}>
-          <label style={styles.fileInputLabel}>
-            <input
-              type="file"
-              name={name}
-              onChange={handleChange}
-              style={styles.fileInput}
-              accept={accept}
-              disabled={updating || loading}
-            />
-            <span style={styles.fileInputButton}>
-              📁 Choose File
-            </span>
-            <span style={styles.fileName}>
-              {file && file.name ? file.name : formData[name + '_name'] || 'No file chosen'}
-            </span>
-          </label>
-        </div>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner}></div>
-        <div style={styles.loadingText}>Loading supplier data...</div>
-      </div>
-    );
-  }
-
-  if (!formData) {
-    return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.errorAlert}>
-          <div style={styles.errorIcon}>⚠️</div>
-          <div>
-            <strong>Error Loading Data</strong>
-            <div style={styles.errorMessage}>Failed to load supplier data. Please try again.</div>
-          </div>
-        </div>
+      <div style={loadingContainerStyle}>
+        <div style={spinnerStyle}></div>
+        <div style={loadingTextStyle}>Loading supplier data...</div>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <div>
-          <button 
-            onClick={() => navigate('/suppliersCSR')} 
-            style={styles.backButton}
-            disabled={updating}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = styles.backButtonHover.backgroundColor}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+    <div style={containerStyle}>
+      <div style={headerStyle}>
+        <div style={headerContentStyle}>
+          <button
+            onClick={() => navigate("/suppliersCSR")}
+            style={backButtonStyle}
+            disabled={isUpdating || isLoading}
           >
-            ←
+            <span style={backArrowStyle}>←</span>
+            <span>Back</span>
           </button>
-          <h1 style={styles.title}>Edit Supplier</h1>
-          <p style={styles.subtitle}>Update supplier information below</p>
+          <div style={titleSectionStyle}>
+            <h1 style={titleStyle}>Edit Supplier</h1>
+            <p style={subtitleStyle}>
+              Update all sections to modify supplier/factory information
+            </p>
+          </div>
         </div>
-        <div style={styles.progress}>
-          <span style={styles.progressText}>
-            {tabs.findIndex(tab => tab.id === activeTab) + 1} of {tabs.length}
-          </span>
+        <div style={progressSectionStyle}>
+          <div style={progressTextStyle}>
+            Step {tabs.findIndex((tab) => tab.id === activeTab) + 1} of{" "}
+            {tabs.length}
+          </div>
+          <div style={progressBarStyle}>
+            <div
+              style={{
+                ...progressFillStyle,
+                width: `${(
+                  ((tabs.findIndex((tab) => tab.id === activeTab) + 1) / tabs.length) *
+                  100
+                )}%`,
+              }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div style={styles.errorAlert}>
-          <div style={styles.errorIcon}>⚠️</div>
+        <div style={errorAlertStyle}>
+          <div style={errorIconStyle}>⚠️</div>
           <div>
             <strong>Error Updating Supplier</strong>
-            <div style={styles.errorMessage}>{error}</div>
+            <div style={errorMessageStyle}>{error}</div>
           </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={styles.form}>
-        {/* Tab Navigation */}
-        <div style={styles.tabsContainer}>
-          <div style={styles.tabs}>
-            {tabs.map(tab => (
+      <div style={contentWrapperStyle}>
+        <div style={tabsContainerStyle}>
+          <div style={tabsStyle}>
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
-                type="button"
                 onClick={() => setActiveTab(tab.id)}
                 style={{
-                  ...styles.tabButton,
-                  ...(activeTab === tab.id ? styles.activeTab : {})
+                  ...tabButtonStyle,
+                  ...(activeTab === tab.id ? activeTabStyle : {}),
                 }}
-                disabled={updating || loading}
-                onMouseEnter={(e) => {
-                  if (!updating && !loading && activeTab !== tab.id) {
-                    e.currentTarget.style.backgroundColor = '#f1f5f9';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!updating && !loading && activeTab !== tab.id) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
+                disabled={isUpdating || isLoading}
+                type="button"
               >
-                <span style={styles.tabIcon}>{tab.icon}</span>
-                <span style={styles.tabLabel}>{tab.label}</span>
+                <span style={tabIconStyle}>{tab.icon}</span>
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
-          <div style={styles.tabIndicator}>
-            <div 
-              style={{
-                ...styles.tabIndicatorBar,
-                width: `${((tabs.findIndex(tab => tab.id === activeTab) + 1) / tabs.length) * 100}%`
-              }} 
-            />
-          </div>
         </div>
 
-        {/* Tab Content */}
-        <div style={styles.tabContent}>
-          {activeTab === 'basic' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Basic Information</h3>
-                <div style={styles.sectionHint}>Company details and contact information</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Company Name *', 'name', 'text', true)}
-                {renderInput('Short Name', 'short_name')}
-                {renderInput('Local Name', 'local_name')}
-                {renderInput('Email *', 'email', 'email', true)}
-                {renderInput('Website', 'website', 'url')}
-                {renderInput('Name 1', 'name_1')}
-                {renderInput('Name 2', 'name_2')}
-                {renderInput('Name 3', 'name_3')}
-                {renderInput('Company Phone', 'company_phone', 'tel')}
-                {renderTextarea('About Us', 'about_us')}
-                {renderSelect('Preferred Language', 'preferred_language', [
-                  { value: 'English', label: 'English' },
-                  { value: 'Turkish', label: 'Turkish' },
-                  { value: 'Chinese', label: 'Chinese' },
-                  { value: 'Spanish', label: 'Spanish' },
-                  { value: 'German', label: 'German' }
-                ])}
-                {renderInput('Deactivation Date', 'deactivation_date', 'date')}
-                {renderInput('Planned Inactivation Date', 'planned_inactivation_date', 'date')}
-                {renderSelect('Vendor Rating', 'vendor_rating', [
-                  { value: 'A', label: 'A - Excellent' },
-                  { value: 'B', label: 'B - Good' },
-                  { value: 'C', label: 'C - Average' },
-                  { value: 'D', label: 'D - Poor' }
-                ])}
-                {renderInput('Capability', 'capability')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'vendor' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Vendor Details</h3>
-                <div style={styles.sectionHint}>Vendor identification and business information</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Vendor ID', 'vendor_id')}
-                {renderInput('Reference No', 'reference_no')}
-                {renderInput('Vendor Type', 'vendor_type')}
-                {renderInput('Business Type', 'business_type')}
-                {renderInput('Holding Group', 'holding_group')}
-                {renderInput('Place of Incorporation', 'place_of_incorporation')}
-                {renderInput('Year Established', 'year_established', 'number')}
-                {renderInput('Purchasing Group', 'purchasing_group')}
-                {renderInput('Contract Sign Date', 'contract_sign_date', 'date')}
-                {renderInput('Deactivation Reason', 'deactivation_reason')}
-                {renderCheckbox('Enable Vendor Access', 'vendor_access_creation', 'Allow vendor to access the portal')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'address' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Address & Contact</h3>
-                <div style={styles.sectionHint}>Physical location and primary contact details</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Address Type', 'address_type')}
-                {renderInput('Country/Region', 'address_country_region')}
-                {renderTextarea('Street Address', 'address_street', 2)}
-                {renderInput('Town/City', 'address_town_city')}
-                {renderInput('Postal Code', 'address_postal_code')}
-                {renderInput('GPS Longitude', 'address_gps_lng')}
-                {renderInput('GPS Latitude', 'address_gps_lat')}
-                {renderInput('Port of Loading/Discharge', 'address_port_of_loading_discharge')}
-                {renderInput('Language', 'address_language')}
-                {renderTextarea('GPS Description', 'address_gps_text')}
-                {renderCheckbox('Inactive Address', 'address_inactive')}
-                {renderCheckbox('EU Country', 'address_eu_country')}
-              </div>
-
-              <div style={styles.subSection}>
-                <div style={styles.sectionHeader}>
-                  <h4 style={styles.subSectionTitle}>Primary Contact</h4>
-                  <div style={styles.sectionHint}>Main contact person details</div>
+        <div style={formStyle}>
+          <div style={tabContentStyle}>
+            {activeTab === "basic" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🏢</span> General Information
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Basic factory/supplier details and contact information
+                  </p>
                 </div>
-                <div style={styles.formGrid}>
-                  {renderInput('Contact Type', 'contact1_type')}
-                  {renderInput('Title', 'contact1_title')}
-                  {renderInput('First Name', 'contact1_first_name')}
-                  {renderInput('Last Name', 'contact1_last_name')}
-                  {renderInput('Position', 'contact1_position')}
-                  {renderInput('Telephone', 'contact1_tel', 'tel')}
-                  {renderInput('Mobile', 'contact1_mobile', 'tel')}
-                  {renderInput('Email', 'contact1_email', 'email')}
-                  {renderInput('Department', 'contact1_department')}
-                  {renderCheckbox('Texweave Access', 'contact1_texweave_access', 'Grant access to Texweave platform')}
+                <div style={formGridStyle}>
+                  {renderInput("SL No", "sl_no", "number")}
+                  {renderInput("Supplier/Factory Name", "supplier_name")}
+                  {renderInput("Supplier ID", "supplier_id")}
+                  {renderInput("Location", "location", "text", false, 3)}
+                  {renderSelect(
+                    "Supplier Category",
+                    "supplier_category",
+                    categoryOptions
+                  )}
+                  {renderInput(
+                    "Year of Establishment",
+                    "year_of_establishment",
+                    "number"
+                  )}
+                  {renderInput(
+                    "Ownership Details",
+                    "ownership_details",
+                    "text",
+                    false,
+                    3
+                  )}
+                  {renderInput(
+                    "Factory Main Contact",
+                    "factory_main_contact",
+                    "text",
+                    false,
+                    2
+                  )}
+                  {renderInput(
+                    "Factory Merchandiser Contact",
+                    "factory_merchandiser_contact",
+                    "text",
+                    false,
+                    2
+                  )}
+                  {renderInput(
+                    "Factory HR/Compliance Contact",
+                    "factory_hr_compliance_contact",
+                    "text",
+                    false,
+                    2
+                  )}
+                  {renderInput("Email", "email", "email")}
+                  {renderInput("Phone", "phone", "tel")}
                 </div>
               </div>
-            </div>
-          )}
-
-          {activeTab === 'shipment' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Shipment Terms</h3>
-                <div style={styles.sectionHint}>Logistics and payment terms</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderSelect('Incoterm', 'incoterm', [
-                  { value: 'EXW', label: 'EXW - Ex Works' },
-                  { value: 'FOB', label: 'FOB - Free on Board' },
-                  { value: 'CIF', label: 'CIF - Cost, Insurance & Freight' },
-                  { value: 'DDP', label: 'DDP - Delivered Duty Paid' }
-                ])}
-                {renderInput('Average Lead Time (days)', 'avg_lead_time_days', 'number')}
-                {renderSelect('Payment Method', 'payment_method', [
-                  { value: 'TT', label: 'Telegraphic Transfer' },
-                  { value: 'LC', label: 'Letter of Credit' },
-                  { value: 'DP', label: 'Documents against Payment' },
-                  { value: 'DA', label: 'Documents against Acceptance' }
-                ])}
-                {renderInput('Payment Term', 'payment_term')}
-                {renderSelect('Currency', 'currency', [
-                  { value: 'USD', label: 'USD - US Dollar' },
-                  { value: 'EUR', label: 'EUR - Euro' },
-                  { value: 'GBP', label: 'GBP - British Pound' },
-                  { value: 'CNY', label: 'CNY - Chinese Yuan' }
-                ])}
-                {renderInput('Cash Discount (%)', 'cash_discount', 'number')}
-                {renderInput('Liability Insurance', 'liability_insurance')}
-                {renderInput('Export License No', 'export_license_no')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'agreement' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Agreements</h3>
-                <div style={styles.sectionHint}>Contract and agreement details</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Agreement Code', 'agreement_code')}
-                {renderInput('Agreement Name', 'agreement_name')}
-                {renderInput('Agreement Type', 'agreement_type')}
-                {renderTextarea('Agreement Description', 'agreement_description')}
-                {renderSelect('Agreement Status', 'agreement_status', [
-                  { value: 'pending', label: 'Pending' },
-                  { value: 'active', label: 'Active' },
-                  { value: 'expired', label: 'Expired' },
-                  { value: 'cancelled', label: 'Cancelled' }
-                ])}
-                {renderSelect('Document Status', 'agreement_doc_status', [
-                  { value: 'draft', label: 'Draft' },
-                  { value: 'submitted', label: 'Submitted' },
-                  { value: 'approved', label: 'Approved' },
-                  { value: 'rejected', label: 'Rejected' }
-                ])}
-                {renderInput('Signature Due Date', 'agreement_signature_due_date', 'date')}
-                {renderInput('Expiry Date', 'agreement_expiry_date', 'date')}
-                {renderInput('Accepted On', 'agreement_accepted_on', 'date')}
-                {renderTextarea('Instruction to Vendor', 'agreement_instruction_to_vendor')}
-                {renderCheckbox('Vendor Action Required', 'agreement_vendor_action_required', 'Vendor needs to take action')}
-                {renderFileInput('Contract File', 'agreement_contract_file')}
-                {renderFileInput('Vendor Signing Copy', 'agreement_vendor_signing_copy')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'financial' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Financial Details</h3>
-                <div style={styles.sectionHint}>Banking and financial information</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Account Name', 'account_name')}
-                {renderInput('Account No.', 'account_no')}
-                {renderInput('Account No. 2', 'account_no_2')}
-                {renderInput('Bank Key', 'bank_key')}
-                {renderInput('Bank Name', 'bank_name')}
-                {renderInput('Country of Bank', 'country_of_bank')}
-                {renderInput('Bank Code / Swift Code', 'bank_code_swift_code')}
-                {renderInput('Discount Rate', 'discount_rate')}
-                {renderInput('Total Annual Turnover', 'total_annual_turnover')}
-                {renderInput('Export Annual Turnover', 'export_annual_turnover')}
-                {renderInput('Credit Report', 'credit_report')}
-                {renderInput('Credit Limit', 'credit_limit', 'number')}
-                {renderInput('Agent Payment', 'agent_payment', 'number')}
-                {renderInput('Super Bonus', 'super_bonus')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'classification' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Classification</h3>
-                <div style={styles.sectionHint}>Supplier categorization</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Classification Code', 'classification_code')}
-                {renderInput('Classification Name', 'classification_name')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'certifications' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Certifications</h3>
-                <div style={styles.sectionHint}>Industry certifications and standards</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Certification Type', 'certification_type')}
-                {renderInput('Certification Name', 'certification_name')}
-                {renderInput('Certification Number', 'certification_number')}
-                {renderInput('Issue Date', 'certification_issue_date', 'date')}
-                {renderInput('Expiry Date', 'certification_expiry_date', 'date')}
-                {renderSelect('Status', 'certification_status', [
-                  { value: 'active', label: 'Active' },
-                  { value: 'expired', label: 'Expired' },
-                  { value: 'pending_renewal', label: 'Pending Renewal' },
-                  { value: 'suspended', label: 'Suspended' }
-                ])}
-                {renderInput('Institute Country', 'certification_institute_country')}
-                {renderTextarea('Notes', 'certification_notes')}
-                {renderFileInput('Attachment', 'certification_attachment')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'factories' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Factory Details</h3>
-                <div style={styles.sectionHint}>Manufacturing facilities information</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Factory Name', 'factory_name')}
-                {renderInput('Factory ID', 'factory_id')}
-                {renderInput('Factory Type', 'factory_type')}
-                {renderSelect('Factory Status', 'factory_status', [
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' },
-                  { value: 'under_construction', label: 'Under Construction' },
-                  { value: 'closed', label: 'Closed' }
-                ])}
-                {renderInput('Document Status', 'factory_doc_status')}
-                {renderInput('Vendor Ref', 'factory_vendor_ref')}
-                {renderInput('Vendor Reverse Ref', 'factory_vendor_reverse_ref')}
-                {renderInput('Factory Contact', 'factory_contact')}
-                {renderInput('Factory Phone', 'factory_phone')}
-                {renderTextarea('Factory Address', 'factory_address')}
-                {renderInput('Capacity', 'factory_capacity')}
-                {renderInput('Related Factory', 'factory_related')}
-                {renderInput('Related Since', 'factory_related_since', 'date')}
-                {renderTextarea('Factory Note', 'factory_note')}
-                {renderCheckbox('Default Factory', 'factory_default', 'Set as primary factory')}
-                {renderCheckbox('Sync', 'factory_sync', 'Synchronize with main system')}
-                
-                <div style={styles.checkboxGroup}>
-                  <div style={styles.checkboxGroupTitle}>Audit Types</div>
-                  {renderCheckbox('Social Audit', 'audit_social')}
-                  {renderCheckbox('1st Enlistment Audit', 'audit_1st_enlistment')}
-                  {renderCheckbox('2nd Enlistment Audit', 'audit_2nd_enlistment')}
-                  {renderCheckbox('Qualification Visit', 'audit_qualification_visit')}
-                  {renderCheckbox('KIK CSR Audit', 'audit_kik_csr')}
-                  {renderCheckbox('Environmental Audit', 'audit_environmental')}
-                  {renderCheckbox('QC Visit', 'audit_qc_visit')}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'qa' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>QA Assessment</h3>
-                <div style={styles.sectionHint}>Quality assurance evaluation</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderSelect('QA Rank', 'qa_rank', [
-                  { value: 'A', label: 'A - Excellent' },
-                  { value: 'B', label: 'B - Good' },
-                  { value: 'C', label: 'C - Average' },
-                  { value: 'D', label: 'D - Poor' }
-                ])}
-                {renderSelect('Assessment Level', 'qa_assessment_level', [
-                  { value: 'high', label: 'High' },
-                  { value: 'medium', label: 'Medium' },
-                  { value: 'low', label: 'Low' }
-                ])}
-                {renderSelect('Risk Level', 'qa_risk_level', [
-                  { value: 'high', label: 'High Risk' },
-                  { value: 'medium', label: 'Medium Risk' },
-                  { value: 'low', label: 'Low Risk' }
-                ])}
-                {renderSelect('Performance Level', 'qa_performance_level', [
-                  { value: 'excellent', label: 'Excellent' },
-                  { value: 'good', label: 'Good' },
-                  { value: 'fair', label: 'Fair' },
-                  { value: 'poor', label: 'Poor' }
-                ])}
-                {renderInput('QA Score', 'qa_score', 'number')}
-                {renderInput('Disposal Licensing', 'qa_disposal_licensing')}
-                {renderCheckbox('QA Accredited', 'qa_accredited', 'Officially accredited by QA body')}
-                {renderTextarea('QA Summary', 'qa_summary')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'audit' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Latest Audit Report</h3>
-                <div style={styles.sectionHint}>Most recent audit information</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Audit Report No', 'latest_audit_report_no')}
-                {renderInput('Audit Version', 'latest_audit_version')}
-                {renderSelect('Audit Type', 'latest_audit_report_type', [
-                  { value: 'social', label: 'Social Compliance' },
-                  { value: 'quality', label: 'Quality Control' },
-                  { value: 'environmental', label: 'Environmental' },
-                  { value: 'safety', label: 'Health & Safety' }
-                ])}
-                {renderInput('Audit Customer', 'latest_audit_customer')}
-                {renderInput('Audit Date', 'latest_audit_date', 'date')}
-                {renderInput('Auditor', 'latest_auditor')}
-                {renderInput('Audit Party', 'latest_audit_party')}
-                {renderSelect('Audit Result', 'latest_audit_result', [
-                  { value: 'passed', label: 'Passed' },
-                  { value: 'failed', label: 'Failed' },
-                  { value: 'conditional', label: 'Conditional Pass' },
-                  { value: 'pending', label: 'Pending Review' }
-                ])}
-                {renderInput('Audit Expiry Date', 'latest_audit_expiry_date', 'date')}
-                {renderInput('Audit Report Date', 'latest_audit_report_date', 'date')}
-                {renderSelect('Audit Status', 'latest_audit_status', [
-                  { value: 'draft', label: 'Draft' },
-                  { value: 'finalized', label: 'Finalized' },
-                  { value: 'published', label: 'Published' },
-                  { value: 'archived', label: 'Archived' }
-                ])}
-                {renderInput('Editing Status', 'latest_audit_editing_status')}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'images' && (
-            <div style={styles.formSection}>
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>Images & Attachments</h3>
-                <div style={styles.sectionHint}>Upload supporting documents and files</div>
-              </div>
-              <div style={styles.formGrid}>
-                {renderInput('Image Type', 'image_type')}
-                {renderInput('Image Description', 'image_description')}
-                {renderFileInput('Image File', 'image_file', 'image/*')}
-                {renderInput('Last Modified By', 'image_last_modified_by')}
-                {renderInput('Last Modified On', 'image_last_modified_on', 'datetime-local')}
-                
-                {renderInput('Attachment Type', 'attachment_type')}
-                {renderInput('Attachment Description', 'attachment_description')}
-                {renderFileInput('Attachment File', 'attachment_file')}
-                {renderInput('Last Modified By', 'attachment_last_modified_by')}
-                {renderInput('Last Modified On', 'attachment_last_modified_on', 'datetime-local')}
-                
-                {renderInput('Shared File Name', 'shared_file_name')}
-                {renderInput('Shared File Type', 'shared_file_type')}
-                {renderInput('Shared File Description', 'shared_file_description')}
-                {renderFileInput('Shared File', 'shared_file')}
-                {renderInput('Shared File Details', 'shared_file_details')}
-                {renderSelect('Shared File Status', 'shared_file_status', [
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' },
-                  { value: 'archived', label: 'Archived' }
-                ])}
-                {renderInput('Effective From', 'shared_file_effective_from', 'date')}
-                {renderInput('Effective To', 'shared_file_effective_to', 'date')}
-                {renderTextarea('Notes', 'shared_file_notes')}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Form Actions */}
-        <div style={styles.formActions}>
-          <div style={styles.requiredHint}>
-            <span style={styles.requiredStar}>*</span> Required fields
-          </div>
-          <div style={styles.actionButtons}>
-            <button
-              type="button"
-              onClick={() => navigate('/suppliersCSR')}
-              style={styles.cancelButton}
-              disabled={updating}
-              onMouseEnter={(e) => {
-                if (!updating) {
-                  e.currentTarget.style.backgroundColor = styles.cancelButtonHover.backgroundColor;
-                  e.currentTarget.style.borderColor = styles.cancelButtonHover.borderColor;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!updating) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.borderColor = styles.cancelButton.borderColor;
-                }
-              }}
-            >
-              Cancel
-            </button>
-            {activeTab !== 'basic' && (
-              <button
-                type="button"
-                onClick={() => {
-                  const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
-                  setActiveTab(tabs[currentIndex - 1].id);
-                }}
-                style={styles.previousButton}
-                disabled={updating || loading}
-                onMouseEnter={(e) => {
-                  if (!updating && !loading) {
-                    e.currentTarget.style.backgroundColor = '#f9fafb';
-                    e.currentTarget.style.borderColor = '#9ca3af';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!updating && !loading) {
-                    e.currentTarget.style.backgroundColor = 'white';
-                    e.currentTarget.style.borderColor = styles.previousButton.borderColor;
-                  }
-                }}
-              >
-                ← Previous
-              </button>
             )}
-            {activeTab !== 'images' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
-                  setActiveTab(tabs[currentIndex + 1].id);
-                }}
-                style={styles.nextButton}
-                disabled={updating || loading}
-                onMouseEnter={(e) => {
-                  if (!updating && !loading) {
-                    e.currentTarget.style.backgroundColor = styles.nextButtonHover.backgroundColor;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!updating && !loading) {
-                    e.currentTarget.style.backgroundColor = styles.nextButton.backgroundColor;
-                  }
-                }}
-              >
-                Next →
-              </button>
-            ) : (
-              <button 
-                type="submit" 
-                style={{
-                  ...styles.submitButton,
-                  ...(updating ? styles.submitButtonLoading : {})
-                }}
-                disabled={updating || loading}
-                onMouseEnter={(e) => {
-                  if (!updating && !loading) {
-                    e.currentTarget.style.backgroundColor = styles.submitButtonHover.backgroundColor;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!updating && !loading) {
-                    e.currentTarget.style.backgroundColor = styles.submitButton.backgroundColor;
-                  }
-                }}
-              >
-                {updating ? (
-                  <>
-                    <span style={styles.spinner}></span>
-                    Updating...
-                  </>
-                ) : 'Update Supplier'}
-              </button>
+
+            {activeTab === "building" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🏭</span> Building & Manpower
+                    Details
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Facility infrastructure and workforce information
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  <div style={checkboxGroupContainerStyle}>
+                    <div style={checkboxGroupTitleStyle}>Building Type</div>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox("Rented Building", "rented_building")}
+                      {renderCheckbox("Share Building", "share_building")}
+                      {renderCheckbox("Own Property", "own_property")}
+                    </div>
+                  </div>
+                  {renderInput(
+                    "Building Details",
+                    "building_details",
+                    "text",
+                    false,
+                    3
+                  )}
+                  {renderInput("Total Area (sq ft)", "total_area", "number")}
+                  <div style={subSectionStyle}>
+                    <h4 style={subSectionTitleStyle}>Manpower Details</h4>
+                    <div style={formGridStyle}>
+                      {renderInput(
+                        "Workers - Male",
+                        "manpower_workers_male",
+                        "number"
+                      )}
+                      {renderInput(
+                        "Workers - Female",
+                        "manpower_workers_female",
+                        "number"
+                      )}
+                      {renderInput(
+                        "Staff - Male",
+                        "manpower_staff_male",
+                        "number"
+                      )}
+                      {renderInput(
+                        "Staff - Female",
+                        "manpower_staff_female",
+                        "number"
+                      )}
+                      {renderInput(
+                        "Total Manpower",
+                        "total_manpower",
+                        "number"
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "production" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>⚙️</span> Production
+                    Information
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Manufacturing capabilities and business operations
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  {renderInput(
+                    "Production Process",
+                    "production_process",
+                    "text",
+                    false,
+                    3
+                  )}
+                  {renderInput(
+                    "Manufacturing Items",
+                    "manufacturing_item",
+                    "text",
+                    false,
+                    3
+                  )}
+                  {renderInput("Capacity per Month", "capacity_per_month")}
+                  {renderInput("Business by Market", "business_by_market")}
+                  {renderInput(
+                    "Existing Customers",
+                    "existing_customer",
+                    "text",
+                    false,
+                    3
+                  )}
+                  {renderInput(
+                    "Number of Sewing Lines",
+                    "number_of_sewing_line",
+                    "number"
+                  )}
+                  {renderInput(
+                    "Total Number of Machineries",
+                    "total_number_of_machineries",
+                    "number"
+                  )}
+                  {renderInput(
+                    "Yearly Turnover (USD)",
+                    "yearly_turnover_usd",
+                    "number"
+                  )}
+                  {renderSelect(
+                    "Weekly Holiday",
+                    "weekly_holiday",
+                    holidayOptions
+                  )}
+                  {renderInput("BGMEA Number", "bgmea_number")}
+                  {renderInput("RSC", "rsc")}
+                  {renderInput(
+                    "TAD Group Order Status",
+                    "tad_group_order_status"
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "certifications" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>📜</span> Certifications
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Audit and certification details
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  {renderCertificationGroup("bsci", "BSCI")}
+                  {renderCertificationGroup("sedex", "Sedex")}
+                  {renderCertificationGroup("wrap", "WRAP")}
+                  {renderCertificationGroup("security_audit", "Security Audit")}
+                  {renderSimpleCertGroup("oeko_tex", "Oeko-Tex")}
+                  {renderSimpleCertGroup("gots", "GOTS")}
+                  {renderSimpleCertGroup("ocs", "OCS")}
+                  {renderSimpleCertGroup("grs", "GRS")}
+                  {renderSimpleCertGroup("rcs", "RCS")}
+                  {renderSimpleCertGroup("iso_9001", "ISO 9001")}
+                  {renderSimpleCertGroup("iso_14001", "ISO 14001")}
+                  {renderInput(
+                    "Certification Remarks",
+                    "certification_remarks",
+                    "text",
+                    false,
+                    3
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "licenses" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>📋</span> Legal Licenses
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    License and membership information
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  {renderLicenseGroup("trade_license", "Trade License")}
+                  {renderLicenseGroup("factory_license", "Factory License")}
+                  {renderLicenseGroup("fire_license", "Fire License")}
+                  {renderLicenseGroup("membership", "Membership")}
+                  {renderLicenseGroup("group_insurance", "Group Insurance")}
+                  <div style={subSectionStyle}>
+                    <h4 style={subSectionTitleStyle}>Boiler License</h4>
+                    <div style={formGridStyle}>
+                      {renderInput("Boiler No", "boiler_no")}
+                      {renderInput(
+                        "Validity",
+                        "boiler_license_validity",
+                        "date"
+                      )}
+                      {renderInput(
+                        "Days Remaining",
+                        "boiler_license_days_remaining",
+                        "number"
+                      )}
+                    </div>
+                  </div>
+                  {renderLicenseGroup("berc_license", "BERC License")}
+                  {renderInput(
+                    "License Remarks",
+                    "license_remarks",
+                    "text",
+                    false,
+                    3
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "safety" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🚨</span> Fire Safety
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Fire safety training and drill records
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  {renderInput(
+                    "Last Fire Training by FSCD",
+                    "last_fire_training_by_fscd",
+                    "date"
+                  )}
+                  {renderInput(
+                    "Next Fire Training Date (FSCD)",
+                    "fscd_next_fire_training_date",
+                    "date"
+                  )}
+                  {renderInput(
+                    "Last Fire Drill Record by FSCD",
+                    "last_fire_drill_record_by_fscd",
+                    "date"
+                  )}
+                  {renderInput(
+                    "Next Drill Date (FSCD)",
+                    "fscd_next_drill_date",
+                    "date"
+                  )}
+                  {renderInput(
+                    "Total Fire Fighter/Rescue/First Aider (FSCD)",
+                    "total_fire_fighter_rescue_first_aider_fscd",
+                    "number"
+                  )}
+                  {renderInput(
+                    "Fire Safety Remarks",
+                    "fire_safety_remarks",
+                    "text",
+                    false,
+                    3
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "compliance" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>✅</span> Wages & Compliance
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Wages, benefits, and committee information
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  <div style={subSectionStyle}>
+                    <h4 style={subSectionTitleStyle}>Wages & Benefits</h4>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Minimum Wages Paid",
+                        "minimum_wages_paid"
+                      )}
+                      {renderCheckbox("Earn Leave Status", "earn_leave_status")}
+                      {renderCheckbox("Service Benefit", "service_benefit")}
+                      {renderCheckbox("Maternity Benefit", "maternity_benefit")}
+                      {renderCheckbox("Yearly Increment", "yearly_increment")}
+                      {renderCheckbox("Festival Bonus", "festival_bonus")}
+                      {renderCheckbox("Salary Due Status", "salary_due_status")}
+                    </div>
+                    {renderInput("Due Salary Month", "due_salary_month")}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "pcSafety" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>👥</span> PC & Safety Committee
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Participation Committee and Safety Committee information
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  <div style={subSectionStyle}>
+                    <h4 style={subSectionTitleStyle}>Participation Committee</h4>
+                    <div style={formGridStyle}>
+                      {renderInput(
+                        "Last PC Election Date",
+                        "last_pc_election_date",
+                        "date"
+                      )}
+                      {renderInput(
+                        "Last PC Meeting Date",
+                        "last_pc_meeting_date",
+                        "date"
+                      )}
+                    </div>
+                  </div>
+                  <div style={subSectionStyle}>
+                    <h4 style={subSectionTitleStyle}>Safety Committee</h4>
+                    <div style={formGridStyle}>
+                      {renderInput(
+                        "Last Safety Committee Formation Date",
+                        "last_safety_committee_formation_date",
+                        "date"
+                      )}
+                      {renderInput(
+                        "Last Safety Committee Meeting Date",
+                        "last_safety_committee_meeting_date",
+                        "date"
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "environment" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🌱</span> Environmental
+                    Information
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Environmental reports and assessments
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  {renderInput(
+                    "Water Test Report (DOE)",
+                    "water_test_report_doe"
+                  )}
+                  {renderInput(
+                    "ZDHC Water Test Report",
+                    "zdhc_water_test_report"
+                  )}
+                  {renderInput(
+                    "Higg FEM Self Assessment Score",
+                    "higg_fem_self_assessment_score",
+                    "number"
+                  )}
+                  {renderInput(
+                    "Higg FEM Verification Assessment Score",
+                    "higg_fem_verification_assessment_score",
+                    "number"
+                  )}
+                  {renderCheckbox(
+                    "Behive Chemical Inventory",
+                    "behive_chemical_inventory"
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "rsc" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🔍</span> Accord RSC
+                    Information
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    RSC audit and safety findings
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  {renderInput("RSC ID", "rsc_id")}
+                  {renderInput("Progress Rate", "progress_rate", "number")}
+                  {renderAuditSection("structural", "Structural Safety")}
+                  {renderAuditSection("fire", "Fire Safety")}
+                  {renderAuditSection("electrical", "Electrical Safety")}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "csr" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🤝</span> CSR Information
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Corporate social responsibility activities
+                  </p>
+                </div>
+                <div style={formGridStyle}>
+                  {renderCheckbox(
+                    "Donation to Local Community",
+                    "donation_local_community"
+                  )}
+                  {renderCheckbox(
+                    "Tree Plantation in Local Community",
+                    "tree_plantation_local_community"
+                  )}
+                  {renderCheckbox(
+                    "Sanitary Napkin Status",
+                    "sanitary_napkin_status"
+                  )}
+                  {renderCheckbox("Fair Shop", "fair_shop")}
+                  {renderCheckbox(
+                    "Any Gift Provided During Festival",
+                    "any_gift_provided_during_festival"
+                  )}
+                </div>
+              </div>
             )}
           </div>
+
+          <div style={formActionsStyle}>
+            <div style={requiredHintStyle}>
+              <span style={{ color: colors.error }}>*</span> Required fields
+            </div>
+            <div style={actionButtonsStyle}>
+              <button
+                type="button"
+                onClick={() => navigate("/suppliersCSR")}
+                style={cancelButtonStyle}
+                disabled={isUpdating || isLoading}
+              >
+                Cancel
+              </button>
+              <div style={navigationButtonsStyle}>
+                {activeTab !== "basic" && (
+                  <button
+                    type="button"
+                    onClick={handlePrevious}
+                    style={previousButtonStyle}
+                    disabled={isUpdating || isLoading}
+                  >
+                    ← Previous
+                  </button>
+                )}
+
+                {activeTab !== "csr" ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    style={nextButtonStyle}
+                    disabled={isUpdating || isLoading}
+                  >
+                    Next →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    style={{
+                      ...submitButtonStyle,
+                      ...(isUpdating
+                        ? {
+                            backgroundColor: colors.gray,
+                            cursor: "not-allowed",
+                          }
+                        : {}),
+                    }}
+                    disabled={isUpdating || isLoading}
+                  >
+                    {isUpdating ? "Updating..." : "Update Supplier"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 };
 
-const styles = {
-  container: {
-    padding: '0',
-    backgroundColor: '#f8fafc',
-    minHeight: '100vh',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: '2rem',
-    backgroundColor: 'white',
-    borderBottom: '1px solid #e2e8f0',
-  },
-  title: {
-    fontSize: '1.875rem',
-    fontWeight: '700',
-    color: '#1e293b',
-    margin: '0.5rem 0 0.25rem 0',
-  },
-  subtitle: {
-    fontSize: '1rem',
-    color: '#64748b',
-    margin: '0',
-  },
-  backButton: {
-    padding: '0.5rem',
-    backgroundColor: 'transparent',
-    color: '#64748b',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '1.25rem',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '2.5rem',
-    height: '2.5rem',
-    marginBottom: '0.5rem',
-    transition: 'background-color 0.2s',
-  },
-  backButtonHover: {
-    backgroundColor: '#f1f5f9',
-  },
-  progress: {
-    backgroundColor: '#f1f5f9',
-    padding: '0.5rem 1rem',
-    borderRadius: '20px',
-  },
-  progressText: {
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#475569',
-  },
-  errorAlert: {
-    backgroundColor: '#fef2f2',
-    color: '#dc2626',
-    padding: '1rem 2rem',
-    borderRadius: '8px',
-    margin: '0 2rem 1rem 2rem',
-    border: '1px solid #fecaca',
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '0.75rem',
-  },
-  errorIcon: {
-    fontSize: '1.25rem',
-  },
-  errorMessage: {
-    fontSize: '0.875rem',
-    marginTop: '0.25rem',
-    whiteSpace: 'pre-wrap',
-  },
-  loadingContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    gap: '1rem',
-  },
-  spinner: {
-    width: '2.5rem',
-    height: '2.5rem',
-    border: '3px solid #e2e8f0',
-    borderTopColor: '#3b82f6',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  loadingText: {
-    fontSize: '1rem',
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  form: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    margin: '0 2rem 2rem 2rem',
-    boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-    overflow: 'hidden',
-  },
-  tabsContainer: {
-    borderBottom: '1px solid #e2e8f0',
-    position: 'relative',
-  },
-  tabs: {
-    display: 'flex',
-    overflowX: 'auto',
-    padding: '0 2rem',
-    gap: '0.25rem',
-    scrollbarWidth: 'none',
-    msOverflowStyle: 'none',
-  },
-  tabsScrollbar: {
-    display: 'none',
-  },
-  tabButton: {
-    padding: '1rem 1.5rem',
-    backgroundColor: 'transparent',
-    border: 'none',
-    borderRadius: '8px 8px 0 0',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#64748b',
-    transition: 'all 0.2s',
-    whiteSpace: 'nowrap',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  },
-  activeTab: {
-    color: '#3b82f6',
-    backgroundColor: '#eff6ff',
-  },
-  tabIcon: {
-    fontSize: '1rem',
-  },
-  tabLabel: {
-    fontSize: '0.875rem',
-  },
-  tabIndicator: {
-    height: '3px',
-    backgroundColor: '#e2e8f0',
-    position: 'relative',
-  },
-  tabIndicatorBar: {
-    height: '100%',
-    backgroundColor: '#3b82f6',
-    transition: 'width 0.3s ease',
-  },
-  tabContent: {
-    padding: '2rem',
-    minHeight: '500px',
-  },
-  formSection: {
-    marginBottom: '0',
-  },
-  sectionHeader: {
-    marginBottom: '2rem',
-  },
-  sectionTitle: {
-    fontSize: '1.25rem',
-    fontWeight: '600',
-    margin: '0 0 0.5rem 0',
-    color: '#1e293b',
-  },
-  subSectionTitle: {
-    fontSize: '1.125rem',
-    fontWeight: '600',
-    margin: '2rem 0 0.5rem 0',
-    color: '#334155',
-  },
-  sectionHint: {
-    fontSize: '0.875rem',
-    color: '#64748b',
-  },
-  subSection: {
-    marginTop: '2rem',
-    paddingTop: '2rem',
-    borderTop: '1px solid #e2e8f0',
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '1.5rem',
-  },
-  formGroup: {
-    marginBottom: '0',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '0.5rem',
-    fontWeight: '500',
-    color: '#374151',
-    fontSize: '0.875rem',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    marginBottom: '0.5rem',
-    color: '#374151',
-    cursor: 'pointer',
-    gap: '0.75rem',
-  },
-  checkboxText: {
-    fontWeight: '500',
-    fontSize: '0.875rem',
-    marginBottom: '0.125rem',
-  },
-  checkboxDescription: {
-    fontSize: '0.75rem',
-    color: '#6b7280',
-    lineHeight: '1.4',
-  },
-  checkboxGroup: {
-    gridColumn: '1 / -1',
-    marginTop: '1rem',
-  },
-  checkboxGroupTitle: {
-    fontWeight: '600',
-    fontSize: '0.875rem',
-    color: '#374151',
-    marginBottom: '1rem',
-  },
-  requiredStar: {
-    color: '#ef4444',
-    marginLeft: '2px',
-  },
-  input: {
-    width: '100%',
-    padding: '0.625rem 0.875rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    transition: 'all 0.2s',
-    backgroundColor: 'white',
-  },
-  inputHover: {
-    borderColor: '#9ca3af',
-  },
-  inputFocus: {
-    outline: 'none',
-    borderColor: '#3b82f6',
-    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)',
-  },
-  inputError: {
-    borderColor: '#ef4444',
-    backgroundColor: '#fef2f2',
-  },
-  inputDisabled: {
-    backgroundColor: '#f9fafb',
-    color: '#9ca3af',
-    cursor: 'not-allowed',
-  },
-  fieldError: {
-    fontSize: '0.75rem',
-    color: '#ef4444',
-    marginTop: '0.25rem',
-  },
-  select: {
-    width: '100%',
-    padding: '0.625rem 0.875rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    backgroundColor: 'white',
-    transition: 'all 0.2s',
-  },
-  textarea: {
-    width: '100%',
-    padding: '0.625rem 0.875rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    resize: 'vertical',
-    minHeight: '5rem',
-    transition: 'all 0.2s',
-  },
-  checkbox: {
-    marginTop: '0.25rem',
-    height: '1rem',
-    width: '1rem',
-    accentColor: '#3b82f6',
-  },
-  fileInputWrapper: {
-    width: '100%',
-  },
-  fileInputLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    cursor: 'pointer',
-  },
-  fileInput: {
-    display: 'none',
-  },
-  fileInputButton: {
-    padding: '0.625rem 1rem',
-    backgroundColor: '#f3f4f6',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-    whiteSpace: 'nowrap',
-    transition: 'background-color 0.2s',
-  },
-  fileInputButtonHover: {
-    backgroundColor: '#e5e7eb',
-  },
-  fileName: {
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    flex: '1',
-  },
-  formActions: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '1.5rem 2rem',
-    borderTop: '1px solid #e2e8f0',
-    backgroundColor: '#f8fafc',
-  },
-  requiredHint: {
-    fontSize: '0.75rem',
-    color: '#6b7280',
-  },
-  actionButtons: {
-    display: 'flex',
-    gap: '1rem',
-  },
-  cancelButton: {
-    padding: '0.625rem 1.5rem',
-    backgroundColor: 'transparent',
-    color: '#6b7280',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    transition: 'all 0.2s',
-  },
-  cancelButtonHover: {
-    backgroundColor: '#f9fafb',
-    borderColor: '#9ca3af',
-  },
-  previousButton: {
-    padding: '0.625rem 1.5rem',
-    backgroundColor: 'white',
-    color: '#374151',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    transition: 'all 0.2s',
-  },
-  nextButton: {
-    padding: '0.625rem 1.5rem',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    transition: 'all 0.2s',
-  },
-  nextButtonHover: {
-    backgroundColor: '#2563eb',
-  },
-  submitButton: {
-    padding: '0.625rem 1.5rem',
-    backgroundColor: '#10b981',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    transition: 'all 0.2s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-  },
-  submitButtonHover: {
-    backgroundColor: '#059669',
-  },
-  submitButtonLoading: {
-    backgroundColor: '#6b7280',
-    cursor: 'not-allowed',
-  },
+// Style constants (copied from AddSupplierCSR.jsx)
+const containerStyle = {
+  backgroundColor: colors.light,
+  minHeight: "100vh",
+  fontFamily:
+    "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+};
+
+const headerStyle = {
+  backgroundColor: "white",
+  padding: "1.5rem 2rem",
+  borderBottom: `1px solid ${colors.border}`,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+};
+
+const headerContentStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "1.5rem",
+  marginBottom: "1rem",
+};
+
+const backButtonStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  padding: "0.5rem 1rem",
+  backgroundColor: "transparent",
+  border: `1px solid ${colors.border}`,
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontSize: "0.875rem",
+  fontWeight: "500",
+  color: colors.gray,
+  transition: "background-color 0.2s",
+};
+
+const backArrowStyle = {
+  fontSize: "1.125rem",
+};
+
+const titleSectionStyle = {
+  flex: 1,
+};
+
+const titleStyle = {
+  fontSize: "1.5rem",
+  fontWeight: "600",
+  color: colors.dark,
+  margin: "0 0 0.25rem 0",
+};
+
+const subtitleStyle = {
+  fontSize: "0.875rem",
+  color: colors.gray,
+  margin: 0,
+};
+
+const progressSectionStyle = {
+  maxWidth: "400px",
+};
+
+const progressTextStyle = {
+  fontSize: "0.75rem",
+  fontWeight: "500",
+  color: colors.gray,
+  marginBottom: "0.5rem",
+};
+
+const progressBarStyle = {
+  height: "6px",
+  backgroundColor: colors.border,
+  borderRadius: "3px",
+  overflow: "hidden",
+};
+
+const progressFillStyle = {
+  height: "100%",
+  backgroundColor: colors.primary,
+  transition: "width 0.3s",
+};
+
+const loadingContainerStyle = {
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  minHeight: "100vh",
+  gap: "1rem",
+};
+
+const spinnerStyle = {
+  width: "2.5rem",
+  height: "2.5rem",
+  border: `3px solid ${colors.border}`,
+  borderTopColor: colors.primary,
+  borderRadius: "50%",
+  animation: "spin 1s linear infinite",
+};
+
+const loadingTextStyle = {
+  fontSize: "1rem",
+  color: colors.gray,
+  fontWeight: "500",
+};
+
+const errorAlertStyle = {
+  backgroundColor: "#fef2f2",
+  color: colors.danger,
+  padding: "1rem 2rem",
+  borderRadius: "8px",
+  margin: "1rem 2rem",
+  border: `1px solid #fecaca`,
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "0.75rem",
+};
+
+const errorIconStyle = {
+  fontSize: "1.25rem",
+};
+
+const errorMessageStyle = {
+  fontSize: "0.875rem",
+  whiteSpace: "pre-wrap",
+};
+
+const contentWrapperStyle = {
+  maxWidth: "1200px",
+  margin: "0 auto",
+  padding: "2rem",
+};
+
+const tabsContainerStyle = {
+  backgroundColor: "white",
+  borderRadius: "12px 12px 0 0",
+  borderBottom: `1px solid ${colors.border}`,
+  overflowX: "auto",
+};
+
+const tabsStyle = {
+  display: "flex",
+  padding: "0 1.5rem",
+  gap: "0.25rem",
+};
+
+const tabButtonStyle = {
+  padding: "1rem 1.5rem",
+  backgroundColor: "transparent",
+  border: "none",
+  cursor: "pointer",
+  fontSize: "0.875rem",
+  fontWeight: "500",
+  color: colors.gray,
+  transition: "color 0.2s",
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  position: "relative",
+};
+
+const activeTabStyle = {
+  color: colors.primary,
+  fontWeight: "600",
+};
+
+const tabIconStyle = {
+  fontSize: "1rem",
+};
+
+const formStyle = {
+  backgroundColor: "white",
+  borderRadius: "0 0 12px 12px",
+  boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+};
+
+const tabContentStyle = {
+  padding: "2rem",
+};
+
+const formSectionStyle = {
+  animation: "fadeIn 0.3s",
+};
+
+const sectionHeaderStyle = {
+  marginBottom: "2rem",
+  borderBottom: `1px solid ${colors.border}`,
+  paddingBottom: "1rem",
+};
+
+const sectionTitleStyle = {
+  fontSize: "1.25rem",
+  fontWeight: "600",
+  color: colors.dark,
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+};
+
+const sectionIconStyle = {
+  fontSize: "1.25rem",
+};
+
+const sectionDescriptionStyle = {
+  fontSize: "0.875rem",
+  color: colors.gray,
+};
+
+const subSectionStyle = {
+  marginTop: "2rem",
+};
+
+const subSectionTitleStyle = {
+  fontSize: "1.125rem",
+  fontWeight: "600",
+  color: colors.dark,
+  marginBottom: "1rem",
+};
+
+const formGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: "1.5rem",
+};
+
+const formGroupStyle = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const labelStyle = {
+  fontSize: "0.875rem",
+  fontWeight: "500",
+  color: colors.dark,
+  marginBottom: "0.5rem",
+};
+
+const inputStyle = {
+  padding: "0.75rem",
+  border: `1px solid ${colors.border}`,
+  borderRadius: "8px",
+  fontSize: "0.875rem",
+  transition: "border-color 0.2s",
+};
+
+const inputErrorStyle = {
+  borderColor: colors.error,
+};
+
+const inputDisabledStyle = {
+  backgroundColor: colors.light,
+  color: colors.muted,
+  cursor: "not-allowed",
+};
+
+const fieldErrorStyle = {
+  fontSize: "0.75rem",
+  color: colors.error,
+  marginTop: "0.25rem",
+};
+
+const selectStyle = {
+  padding: "0.75rem",
+  border: `1px solid ${colors.border}`,
+  borderRadius: "8px",
+  fontSize: "0.875rem",
+  backgroundColor: "white",
+};
+
+const checkboxGroupContainerStyle = {
+  gridColumn: "1 / -1",
+};
+
+const checkboxGroupTitleStyle = {
+  fontSize: "0.875rem",
+  fontWeight: "600",
+  color: colors.dark,
+  marginBottom: "1rem",
+};
+
+const checkboxGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+  gap: "1rem",
+};
+
+const checkboxGroupStyle = {
+  marginBottom: "0.5rem",
+};
+
+const checkboxLabelStyle = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: "0.75rem",
+  cursor: "pointer",
+};
+
+const checkboxStyle = {
+  height: "1rem",
+  width: "1rem",
+  accentColor: colors.primary,
+};
+
+const checkboxTextStyle = {
+  fontSize: "0.875rem",
+  fontWeight: "500",
+};
+
+const checkboxDescriptionStyle = {
+  fontSize: "0.75rem",
+  color: colors.gray,
+};
+
+const formActionsStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "1.5rem 2rem",
+  borderTop: `1px solid ${colors.border}`,
+  backgroundColor: colors.light,
+};
+
+const requiredHintStyle = {
+  fontSize: "0.75rem",
+  color: colors.gray,
+};
+
+const actionButtonsStyle = {
+  display: "flex",
+  gap: "1rem",
+};
+
+const navigationButtonsStyle = {
+  display: "flex",
+  gap: "1rem",
+};
+
+const cancelButtonStyle = {
+  padding: "0.75rem 1.5rem",
+  backgroundColor: "transparent",
+  color: colors.gray,
+  border: `1px solid ${colors.border}`,
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "500",
+  transition: "background-color 0.2s",
+};
+
+const previousButtonStyle = {
+  padding: "0.75rem 1.5rem",
+  backgroundColor: "white",
+  color: colors.dark,
+  border: `1px solid ${colors.border}`,
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "500",
+  transition: "background-color 0.2s",
+};
+
+const nextButtonStyle = {
+  padding: "0.75rem 1.5rem",
+  backgroundColor: colors.primary,
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "500",
+  transition: "background-color 0.2s",
+};
+
+const submitButtonStyle = {
+  padding: "0.75rem 1.5rem",
+  backgroundColor: colors.success,
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "500",
+  transition: "background-color 0.2s",
 };
 
 // Add CSS animation
@@ -1470,6 +1520,13 @@ const styleSheet = document.styleSheets[0];
 styleSheet.insertRule(`
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+`, styleSheet.cssRules.length);
+
+styleSheet.insertRule(`
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 `, styleSheet.cssRules.length);
 

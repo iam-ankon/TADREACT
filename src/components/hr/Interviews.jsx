@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
-import { 
-  FaArrowDown, 
-  FaPrint, 
-  FaTrash, 
-  FaEdit, 
-  FaSave, 
-  FaTimes, 
-  FaUserPlus, 
-  FaEnvelope, 
+import {
+  FaArrowDown,
+  FaPrint,
+  FaTrash,
+  FaEdit,
+  FaSave,
+  FaTimes,
+  FaUserPlus,
+  FaEnvelope,
   FaFileAlt,
   FaCheckCircle,
   FaSearch,
@@ -24,15 +24,9 @@ import {
   FaUser,
   FaStar,
   FaGlobe,
-  FaBullhorn
+  FaBullhorn,
 } from "react-icons/fa";
-import {
-  FiMail,
-  FiSend,
-  FiUserCheck,
-  FiUserX,
-  FiClock
-} from "react-icons/fi";
+import { FiMail, FiSend, FiUserCheck, FiUserX, FiClock } from "react-icons/fi";
 import {
   getInterviews,
   getInterviewById,
@@ -41,8 +35,22 @@ import {
   deleteInterview,
   checkOfferLetter,
   getCsrfToken,
+  fetchCsrfToken, // Add this import
   getBackendURL,
 } from "../../api/employeeApi";
+
+// Helper function to ensure values are never null for inputs
+const sanitizeInputValue = (value) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === "null" ||
+    value === "undefined"
+  ) {
+    return "";
+  }
+  return value;
+};
 
 // localStorage helpers
 const getPersistedOfferLetterStatus = (interviewId) => {
@@ -98,34 +106,47 @@ const Interviews = () => {
   const [selectedInterview, setSelectedInterview] = useState(null);
   const { name, position_for, age, email, phone, reference } =
     location.state || {};
-  const [formData, setFormData] = useState({
-    name: name || "",
-    position_for: position_for || "",
-    age: age || "",
-    email: email || "",
-    phone: phone || "",
-    reference: reference || "",
-    place: "",
-    interview_date: "",
-    education: "",
-    job_knowledge: "",
-    work_experience: "",
-    communication: "",
-    personality: "",
-    potential: "",
-    general_knowledge: "",
-    assertiveness: "",
-    interview_mark: "",
-    interview_result: "",
-    interview_notes: "",
-    current_remuneration: "",
-    expected_package: "",
-    notice_period_required: "",
-    recommendation: "",
-    immediate_recruitment: false,
-    on_hold: false,
-    no_good: false,
-    final_selection_remarks: "",
+
+  // Initialize formData with empty strings instead of null
+  const [formData, setFormData] = useState(() => {
+    const initialData = {
+      name: sanitizeInputValue(name) || "",
+      position_for: sanitizeInputValue(position_for) || "",
+      age: sanitizeInputValue(age) || "",
+      email: sanitizeInputValue(email) || "",
+      phone: sanitizeInputValue(phone) || "",
+      reference: sanitizeInputValue(reference) || "",
+      place: "",
+      interview_date: "",
+      education: "",
+      job_knowledge: "",
+      work_experience: "",
+      communication: "",
+      personality: "",
+      potential: "",
+      general_knowledge: "",
+      assertiveness: "",
+      interview_mark: "",
+      interview_result: "",
+      interview_notes: "",
+      current_remuneration: "",
+      expected_package: "",
+      notice_period_required: "",
+      recommendation: "",
+      immediate_recruitment: false,
+      on_hold: false,
+      no_good: false,
+      final_selection_remarks: "",
+    };
+
+    // Ensure all values are strings
+    Object.keys(initialData).forEach((key) => {
+      if (initialData[key] === null || initialData[key] === undefined) {
+        initialData[key] = "";
+      }
+    });
+
+    return initialData;
   });
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,7 +166,8 @@ const Interviews = () => {
       display: "flex",
       minHeight: "100vh",
       backgroundColor: "#f8fafc",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily:
+        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     },
     sidebar: {
       width: "340px",
@@ -443,7 +465,7 @@ const Interviews = () => {
     },
     tabActive: {
       color: "#3b82f6",
-      borderBottomColor: "#3b82f6",
+      borderBottom: "3px solid #3b82f6", // Fixed: Use shorthand property
       backgroundColor: "#eff6ff",
     },
     statusBadge: {
@@ -635,7 +657,7 @@ const Interviews = () => {
 
   // Add CSS animations
   useEffect(() => {
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = `
       @keyframes slideIn {
         from {
@@ -696,13 +718,13 @@ const Interviews = () => {
       }
     `;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
   }, []);
 
-  // --- Original Functions (Keep all your existing functionality) ---
+  // --- Original Functions ---
 
   useEffect(() => {
     if (formData.interview_date) {
@@ -802,12 +824,12 @@ const Interviews = () => {
       setCandidateData(location.state);
       setFormData((prev) => ({
         ...prev,
-        name: location.state.name || "",
-        position_for: location.state.position_for || "",
-        age: location.state.age || "",
-        email: location.state.email || "",
-        phone: location.state.phone || "",
-        reference: location.state.reference || "",
+        name: sanitizeInputValue(location.state.name) || "",
+        position_for: sanitizeInputValue(location.state.position_for) || "",
+        age: sanitizeInputValue(location.state.age) || "",
+        email: sanitizeInputValue(location.state.email) || "",
+        phone: sanitizeInputValue(location.state.phone) || "",
+        reference: sanitizeInputValue(location.state.reference) || "",
       }));
 
       if (location.state.email) {
@@ -833,8 +855,16 @@ const Interviews = () => {
     try {
       const interview = await getInterviewById(interviewId);
       setSelectedInterview(interview.data);
+
+      // Convert null/undefined values to empty strings
+      const sanitizedData = {};
+      Object.keys(interview.data).forEach((key) => {
+        const value = interview.data[key];
+        sanitizedData[key] = sanitizeInputValue(value);
+      });
+
       setFormData({
-        ...interview.data,
+        ...sanitizedData,
         interview_date: interview.data.interview_date
           ? new Date(interview.data.interview_date).toISOString().slice(0, 16)
           : "",
@@ -868,12 +898,12 @@ const Interviews = () => {
       setCandidateData(data);
       setFormData((prev) => ({
         ...prev,
-        name: data.name || "",
-        position_for: data.position_for || "",
-        age: data.age || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        reference: data.reference || "",
+        name: sanitizeInputValue(data.name) || "",
+        position_for: sanitizeInputValue(data.position_for) || "",
+        age: sanitizeInputValue(data.age) || "",
+        email: sanitizeInputValue(data.email) || "",
+        phone: sanitizeInputValue(data.phone) || "",
+        reference: sanitizeInputValue(data.reference) || "",
       }));
     } catch (error) {
       console.error("Error fetching candidate data:", error);
@@ -892,13 +922,22 @@ const Interviews = () => {
   useEffect(() => {
     if (location.state?.interview) {
       setSelectedInterview(location.state.interview);
-      setFormData(location.state.interview);
+      const sanitizedInterview = {};
+      Object.keys(location.state.interview).forEach((key) => {
+        sanitizedInterview[key] = sanitizeInputValue(
+          location.state.interview[key]
+        );
+      });
+      setFormData(sanitizedInterview);
     }
   }, [location]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const inputValue = type === "checkbox" ? checked : value;
+
+    // Sanitize the value before setting it
+    const inputValue =
+      type === "checkbox" ? checked : sanitizeInputValue(value);
 
     setFormData((prev) => {
       const updatedFormData = {
@@ -1027,16 +1066,14 @@ const Interviews = () => {
 
     setIsLoading(true);
 
+    // Try to get CSRF token first
     let csrfToken = getCsrfToken();
 
     if (!csrfToken) {
       showToast("Setting up security token...", "info");
-
       try {
-        const response = await fetch(`${getBackendURL()}/api/csrf/`, {
-          credentials: "include",
-        });
-        csrfToken = getCsrfToken();
+        // Use the fetchCsrfToken function from employeeApi
+        csrfToken = await fetchCsrfToken();
       } catch (error) {
         console.error("❌ Failed to fetch CSRF token:", error);
       }
@@ -1048,6 +1085,7 @@ const Interviews = () => {
       return;
     }
 
+    // Sanitize form data - convert empty strings to null for numeric fields
     const jsonData = { ...formData };
 
     const numericFields = [
@@ -1070,14 +1108,36 @@ const Interviews = () => {
       if (value === "" || value == null) {
         jsonData[field] = null;
       } else {
-        jsonData[field] = parseInt(value, 10) || 0;
+        // Convert string to number, default to 0 if invalid
+        const numValue = parseInt(value, 10);
+        jsonData[field] = isNaN(numValue) ? 0 : numValue;
       }
     });
 
-    if (!jsonData.age || jsonData.age === "") {
-      jsonData.age = null;
+    // Handle empty strings for other fields
+    [
+      "age",
+      "recommendation",
+      "interview_notes",
+      "final_selection_remarks",
+    ].forEach((field) => {
+      if (jsonData[field] === "") {
+        jsonData[field] = null;
+      }
+    });
+
+    // Ensure interview_date is in correct format
+    if (jsonData.interview_date) {
+      try {
+        jsonData.interview_date = new Date(
+          jsonData.interview_date
+        ).toISOString();
+      } catch (error) {
+        console.error("Error formatting date:", error);
+      }
     }
 
+    // Calculate interview mark if not set
     if (!jsonData.interview_mark) {
       const { interviewMark } = calculateInterviewMark(jsonData);
       jsonData.interview_mark = interviewMark;
@@ -1098,11 +1158,13 @@ const Interviews = () => {
         navigate(`/interviews?interview_id=${res.data.id}`, { replace: true });
       }
     } catch (error) {
-      console.error("Submit error:", error.response?.data);
-      showToast(
-        "Failed to save: " + (error.response?.data?.detail || error.message),
-        "error"
-      );
+      console.error("Submit error:", error);
+      const errorMessage =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to save interview";
+      showToast("Failed to save: " + errorMessage, "error");
     } finally {
       setIsLoading(false);
     }
@@ -1204,12 +1266,12 @@ const Interviews = () => {
   const resetForm = () => {
     setSelectedInterview(null);
     setFormData({
-      name: location.state?.name || "",
-      position_for: location.state?.position_for || "",
-      age: location.state?.age || "",
-      email: location.state?.email || "",
-      phone: location.state?.phone || "",
-      reference: location.state?.reference || "",
+      name: sanitizeInputValue(location.state?.name) || "",
+      position_for: sanitizeInputValue(location.state?.position_for) || "",
+      age: sanitizeInputValue(location.state?.age) || "",
+      email: sanitizeInputValue(location.state?.email) || "",
+      phone: sanitizeInputValue(location.state?.phone) || "",
+      reference: sanitizeInputValue(location.state?.reference) || "",
       place: "",
       interview_date: "",
       education: "",
@@ -1235,7 +1297,8 @@ const Interviews = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this interview?")) return;
+    if (!window.confirm("Are you sure you want to delete this interview?"))
+      return;
 
     try {
       await deleteInterview(id);
@@ -1480,6 +1543,11 @@ const Interviews = () => {
   };
 
   const printAllInterviews = () => {
+    if (interviews.length === 0) {
+      showToast("No interviews to print", "info");
+      return;
+    }
+
     const printWindow = window.open(
       "",
       "Print All Interviews",
@@ -1866,16 +1934,14 @@ const Interviews = () => {
   return (
     <div style={styles.container}>
       <Sidebars />
-      
+
       {/* Modern Sidebar */}
       <div style={styles.sidebar}>
-        
         <div style={styles.sidebarHeader}>
           <div style={styles.sidebarTitle}>
             <FaUserTie size={24} /> Interviews
           </div>
         </div>
-        
 
         <div style={styles.searchContainer}>
           <FaSearch style={styles.searchIcon} />
@@ -1901,8 +1967,12 @@ const Interviews = () => {
         <button
           style={{ ...styles.button, ...styles.buttonPrimary }}
           onClick={resetForm}
-          onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-          onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.transform = "translateY(-2px)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.transform = "translateY(0)")
+          }
         >
           <FaUserPlus /> New Interview
         </button>
@@ -1911,8 +1981,13 @@ const Interviews = () => {
           style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={printAllInterviews}
           disabled={interviews.length === 0}
-          onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.transform = "translateY(-2px)")}
-          onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+          onMouseEnter={(e) =>
+            !e.currentTarget.disabled &&
+            (e.currentTarget.style.transform = "translateY(-2px)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.transform = "translateY(0)")
+          }
         >
           <FaPrint /> Print All
         </button>
@@ -1925,7 +2000,10 @@ const Interviews = () => {
           </div>
           <div style={styles.statCard}>
             <div style={styles.statValue}>
-              {interviews.filter(i => i.interview_result === "Outstanding").length}
+              {
+                interviews.filter((i) => i.interview_result === "Outstanding")
+                  .length
+              }
             </div>
             <div style={styles.statLabel}>Outstanding</div>
           </div>
@@ -1933,522 +2011,1413 @@ const Interviews = () => {
 
         {/* Interview List */}
         <div style={{ maxHeight: "calc(50vh - 50px)", overflowY: "auto" }}>
-        <div style={styles.interviewList}>
-          {isLoading ? (
-            <div style={styles.loading}>
-              <div className="animate-pulse">Loading interviews...</div>
-            </div>
-          ) : interviews.length === 0 ? (
-            <div style={styles.emptyState}>
-              <FaUserTie style={styles.emptyIcon} />
-              <div style={{ fontSize: "14px", fontWeight: "600", marginBottom: "8px" }}>
-                No interviews scheduled
+          <div style={styles.interviewList}>
+            {isLoading ? (
+              <div style={styles.loading}>
+                <div className="animate-pulse">Loading interviews...</div>
               </div>
-              <div style={{ fontSize: "13px", color: "#94a3b8" }}>
-                Click "New Interview" to create your first interview
-              </div>
-            </div>
-          ) : (
-            interviews
-              .filter((interview) => {
-                const searchLower = searchQuery.toLowerCase();
-                return (
-                  interview.name.toLowerCase().includes(searchLower) ||
-                  (interview.position_for &&
-                    interview.position_for
-                      .toLowerCase()
-                      .includes(searchLower)) ||
-                  (interview.email &&
-                    interview.email.toLowerCase().includes(searchLower)) ||
-                  (interview.phone && interview.phone.includes(searchQuery))
-                );
-              })
-              .map((interview) => (
+            ) : interviews.length === 0 ? (
+              <div style={styles.emptyState}>
+                <FaUserTie style={styles.emptyIcon} />
                 <div
-                  key={interview.id}
                   style={{
-                    ...styles.interviewItem,
-                    ...(selectedInterview?.id === interview.id && styles.interviewItemActive),
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    marginBottom: "8px",
                   }}
-                  onMouseEnter={(e) => {
-                    if (selectedInterview?.id !== interview.id) {
-                      e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.15)";
-                      e.currentTarget.style.borderColor = "#3b82f6";
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedInterview?.id !== interview.id) {
-                      e.currentTarget.style.boxShadow = "none";
-                      e.currentTarget.style.borderColor = "#e2e8f0";
-                      e.currentTarget.style.transform = "translateY(0)";
-                    }
-                  }}
-                  onClick={() => {
-                    setSelectedInterview(interview);
-                    setFormData({
-                      ...interview,
-                      interview_date: interview.interview_date
-                        ? new Date(interview.interview_date)
-                            .toISOString()
-                            .slice(0, 16)
-                        : "",
-                    });
-                    setActiveTab("details");
-                  }}
-                  className="animate-fadeIn"
                 >
-                  <div style={styles.interviewName}>{interview.name}</div>
-                  <div style={styles.interviewPosition}>
-                    {interview.position_for}
-                  </div>
-                  <div style={styles.interviewMeta}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <FaCalendarAlt style={{ fontSize: "11px" }} />
-                      {new Date(interview.interview_date).toLocaleDateString()}
-                    </div>
-                    <div style={getResultBadgeStyle(interview.interview_result)}>
-                      {interview.interview_result}
-                    </div>
-                  </div>
-                  <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
-                    {getStatusIcon(interview)}
-                    <span style={{ fontSize: "12px", fontWeight: "600" }}>{getStatusText(interview)}</span>
-                  </div>
+                  No interviews scheduled
                 </div>
-              ))
-          )}
+                <div style={{ fontSize: "13px", color: "#94a3b8" }}>
+                  Click "New Interview" to create your first interview
+                </div>
+              </div>
+            ) : (
+              interviews
+                .filter((interview) => {
+                  const searchLower = searchQuery.toLowerCase();
+                  return (
+                    interview.name.toLowerCase().includes(searchLower) ||
+                    (interview.position_for &&
+                      interview.position_for
+                        .toLowerCase()
+                        .includes(searchLower)) ||
+                    (interview.email &&
+                      interview.email.toLowerCase().includes(searchLower)) ||
+                    (interview.phone && interview.phone.includes(searchQuery))
+                  );
+                })
+                .map((interview) => (
+                  <div
+                    key={interview.id}
+                    style={{
+                      ...styles.interviewItem,
+                      ...(selectedInterview?.id === interview.id &&
+                        styles.interviewItemActive),
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedInterview?.id !== interview.id) {
+                        e.currentTarget.style.boxShadow =
+                          "0 4px 12px rgba(59, 130, 246, 0.15)";
+                        e.currentTarget.style.borderColor = "#3b82f6";
+                        e.currentTarget.style.transform = "translateY(-2px)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedInterview?.id !== interview.id) {
+                        e.currentTarget.style.boxShadow = "none";
+                        e.currentTarget.style.borderColor = "#e2e8f0";
+                        e.currentTarget.style.transform = "translateY(0)";
+                      }
+                    }}
+                    onClick={() => {
+                      setSelectedInterview(interview);
+                      setFormData({
+                        ...interview,
+                        interview_date: interview.interview_date
+                          ? new Date(interview.interview_date)
+                              .toISOString()
+                              .slice(0, 16)
+                          : "",
+                      });
+                      setActiveTab("details");
+                    }}
+                    className="animate-fadeIn"
+                  >
+                    <div style={styles.interviewName}>{interview.name}</div>
+                    <div style={styles.interviewPosition}>
+                      {interview.position_for}
+                    </div>
+                    <div style={styles.interviewMeta}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <FaCalendarAlt style={{ fontSize: "11px" }} />
+                        {new Date(
+                          interview.interview_date
+                        ).toLocaleDateString()}
+                      </div>
+                      <div
+                        style={getResultBadgeStyle(interview.interview_result)}
+                      >
+                        {interview.interview_result}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      {getStatusIcon(interview)}
+                      <span style={{ fontSize: "12px", fontWeight: "600" }}>
+                        {getStatusText(interview)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       {/* Modern Main Content */}
       <div style={styles.content}>
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-        {/* Toast Notification */}
-        {toast && (
-          <div
-            style={{
-              ...styles.toast,
-              ...(toast.type === "error"
-                ? styles.toastError
-                : toast.type === "info"
-                ? styles.toastInfo
-                : styles.toastSuccess),
-            }}
-            className="animate-fadeIn"
-          >
-            {toast.type === "success" && <FaCheckCircle size={20} />}
-            {toast.type === "error" && <FaTimes size={20} />}
-            {toast.type === "info" && <FaCheckCircle size={20} />}
-            <div>
-              <div style={{ fontWeight: "700", fontSize: "15px" }}>{toast.message}</div>
-            </div>
-          </div>
-        )}
-
-        {selectedInterview ? (
-          <div className="animate-fadeIn">
-            {/* Tabs */}
-            <div style={styles.tabContainer}>
-              <div
-                style={{
-                  ...styles.tab,
-                  ...(activeTab === "details" && styles.tabActive),
-                }}
-                onClick={() => setActiveTab("details")}
-              >
-                Interview Details
-              </div>
-              <div
-                style={{
-                  ...styles.tab,
-                  ...(activeTab === "edit" && styles.tabActive),
-                }}
-                onClick={() => setActiveTab("edit")}
-              >
-                Edit Interview
-              </div>
-            </div>
-
-            {/* Details View */}
-            {activeTab === "details" ? (
+          {/* Toast Notification */}
+          {toast && (
+            <div
+              style={{
+                ...styles.toast,
+                ...(toast.type === "error"
+                  ? styles.toastError
+                  : toast.type === "info"
+                  ? styles.toastInfo
+                  : styles.toastSuccess),
+              }}
+              className="animate-fadeIn"
+            >
+              {toast.type === "success" && <FaCheckCircle size={20} />}
+              {toast.type === "error" && <FaTimes size={20} />}
+              {toast.type === "info" && <FaCheckCircle size={20} />}
               <div>
-                {/* Header Card */}
-                <div style={styles.card}>
-                  <div style={styles.cardHeader}>
-                    <div>
-                      <h2 style={{ margin: 0, color: "#1e293b", fontSize: "28px", fontWeight: "800" }}>
-                        {selectedInterview.name}
-                      </h2>
-                      <div style={{ color: "#64748b", marginTop: "8px", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 12px", backgroundColor: "#f1f5f9", borderRadius: "8px" }}>
-                          <FaUserTie size={14} /> {selectedInterview.position_for}
-                        </span>
-                        <span style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 12px", backgroundColor: "#f1f5f9", borderRadius: "8px" }}>
-                          <FaMailBulk size={14} /> {selectedInterview.email}
-                        </span>
-                        <span style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 12px", backgroundColor: "#f1f5f9", borderRadius: "8px" }}>
-                          <FaPhone size={14} /> {selectedInterview.phone}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={getStatusBadge(selectedInterview)}>
-                      {getStatusIcon(selectedInterview)}
-                      {getStatusText(selectedInterview)}
-                    </div>
-                  </div>
-
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaCalendarAlt /> Date of Birth
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {selectedInterview.age || "Not specified"}
-                      </div>
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaCalendarAlt /> Interview Date
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {new Date(selectedInterview.interview_date).toLocaleString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaBuilding /> Place
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {selectedInterview.place || "Not specified"}
-                      </div>
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaUserTie /> Reference
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {selectedInterview.reference || "Not specified"}
-                      </div>
-                    </div>
-                  </div>
+                <div style={{ fontWeight: "700", fontSize: "15px" }}>
+                  {toast.message}
                 </div>
+              </div>
+            </div>
+          )}
 
-                {/* Evaluation Card */}
-                <div style={styles.card}>
-                  <div style={styles.sectionTitle}>Evaluation Summary</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "40px", marginBottom: "28px", flexWrap: "wrap" }}>
-                    <div>
-                      <div style={styles.label}>Overall Score</div>
-                      <div style={{ fontSize: "56px", fontWeight: "800", color: "#3b82f6", lineHeight: "1" }}>
-                        {selectedInterview.interview_mark}/100
+          {selectedInterview ? (
+            <div className="animate-fadeIn">
+              {/* Tabs */}
+              <div style={styles.tabContainer}>
+                <div
+                  style={{
+                    ...styles.tab,
+                    ...(activeTab === "details" && styles.tabActive),
+                  }}
+                  onClick={() => setActiveTab("details")}
+                >
+                  Interview Details
+                </div>
+                <div
+                  style={{
+                    ...styles.tab,
+                    ...(activeTab === "edit" && styles.tabActive),
+                  }}
+                  onClick={() => setActiveTab("edit")}
+                >
+                  Edit Interview
+                </div>
+              </div>
+
+              {/* Details View */}
+              {activeTab === "details" ? (
+                <div>
+                  {/* Header Card */}
+                  <div style={styles.card}>
+                    <div style={styles.cardHeader}>
+                      <div>
+                        <h2
+                          style={{
+                            margin: 0,
+                            color: "#1e293b",
+                            fontSize: "28px",
+                            fontWeight: "800",
+                          }}
+                        >
+                          {selectedInterview.name}
+                        </h2>
+                        <div
+                          style={{
+                            color: "#64748b",
+                            marginTop: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "16px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              padding: "6px 12px",
+                              backgroundColor: "#f1f5f9",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <FaUserTie size={14} />{" "}
+                            {selectedInterview.position_for}
+                          </span>
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              padding: "6px 12px",
+                              backgroundColor: "#f1f5f9",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <FaMailBulk size={14} /> {selectedInterview.email}
+                          </span>
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              padding: "6px 12px",
+                              backgroundColor: "#f1f5f9",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <FaPhone size={14} /> {selectedInterview.phone}
+                          </span>
+                        </div>
                       </div>
-                      <div style={styles.progressBar}>
-                        <div 
-                          style={{ 
-                            ...styles.progressFill, 
-                            width: `${selectedInterview.interview_mark}%` 
-                          }} 
-                        />
+                      <div style={getStatusBadge(selectedInterview)}>
+                        {getStatusIcon(selectedInterview)}
+                        {getStatusText(selectedInterview)}
                       </div>
                     </div>
-                    <div>
-                      <div style={styles.label}>Result</div>
-                      <div style={getResultBadgeStyle(selectedInterview.interview_result)}>
-                        {selectedInterview.interview_result}
+
+                    <div style={styles.formRow}>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FaCalendarAlt /> Date of Birth
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.age || "Not specified"}
+                        </div>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FaCalendarAlt /> Interview Date
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.interview_date
+                            ? (() => {
+                                const date = new Date(
+                                  selectedInterview.interview_date
+                                );
+                                // Add 6 hours for Bangladesh Time display
+                                const bangladeshTime = new Date(
+                                  date.getTime() + 6 * 60 * 60 * 1000
+                                );
+                                return (
+                                  bangladeshTime.toLocaleString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }) + " (Bangladesh Time)"
+                                );
+                              })()
+                            : "Not specified"}
+                        </div>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FaBuilding /> Place
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.place || "Not specified"}
+                        </div>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FaUserTie /> Reference
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.reference || "Not specified"}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div style={styles.evaluationGrid}>
-                    {[
-                      { label: "Education", value: selectedInterview.education, max: 20, field: "education" },
-                      { label: "Job Knowledge", value: selectedInterview.job_knowledge, max: 20, field: "job_knowledge" },
-                      { label: "Work Experience", value: selectedInterview.work_experience, max: 10, field: "work_experience" },
-                      { label: "Communication", value: selectedInterview.communication, max: 10, field: "communication" },
-                      { label: "Personality", value: selectedInterview.personality, max: 10, field: "personality" },
-                      { label: "Potential", value: selectedInterview.potential, max: 10, field: "potential" },
-                      { label: "General Knowledge", value: selectedInterview.general_knowledge, max: 10, field: "general_knowledge" },
-                      { label: "Assertiveness", value: selectedInterview.assertiveness, max: 10, field: "assertiveness" },
-                    ].map((item, index) => (
-                      <div 
-                        key={index} 
-                        style={styles.evaluationCard}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "#3b82f6";
-                          e.currentTarget.style.transform = "translateY(-2px)";
-                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = "#e2e8f0";
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-                          <div style={{ 
-                            ...styles.iconWrapper, 
-                            backgroundColor: "#eff6ff",
-                            color: "#3b82f6"
-                          }}>
-                            {getEvaluationIcon(item.field)}
-                          </div>
-                          <div style={styles.scoreLabel}>{item.label}</div>
-                        </div>
-                        <div style={styles.evaluationScore}>
-                          {item.value || 0}/{item.max}
+                  {/* Evaluation Card */}
+                  <div style={styles.card}>
+                    <div style={styles.sectionTitle}>Evaluation Summary</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "40px",
+                        marginBottom: "28px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div>
+                        <div style={styles.label}>Overall Score</div>
+                        <div
+                          style={{
+                            fontSize: "56px",
+                            fontWeight: "800",
+                            color: "#3b82f6",
+                            lineHeight: "1",
+                          }}
+                        >
+                          {selectedInterview.interview_mark}/100
                         </div>
                         <div style={styles.progressBar}>
-                          <div 
-                            style={{ 
-                              ...styles.progressFill, 
-                              width: `${((item.value || 0) / item.max) * 100}%` 
-                            }} 
+                          <div
+                            style={{
+                              ...styles.progressFill,
+                              width: `${selectedInterview.interview_mark}%`,
+                            }}
                           />
                         </div>
                       </div>
-                    ))}
+                      <div>
+                        <div style={styles.label}>Result</div>
+                        <div
+                          style={getResultBadgeStyle(
+                            selectedInterview.interview_result
+                          )}
+                        >
+                          {selectedInterview.interview_result}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.evaluationGrid}>
+                      {[
+                        {
+                          label: "Education",
+                          value: selectedInterview.education,
+                          max: 20,
+                          field: "education",
+                        },
+                        {
+                          label: "Job Knowledge",
+                          value: selectedInterview.job_knowledge,
+                          max: 20,
+                          field: "job_knowledge",
+                        },
+                        {
+                          label: "Work Experience",
+                          value: selectedInterview.work_experience,
+                          max: 10,
+                          field: "work_experience",
+                        },
+                        {
+                          label: "Communication",
+                          value: selectedInterview.communication,
+                          max: 10,
+                          field: "communication",
+                        },
+                        {
+                          label: "Personality",
+                          value: selectedInterview.personality,
+                          max: 10,
+                          field: "personality",
+                        },
+                        {
+                          label: "Potential",
+                          value: selectedInterview.potential,
+                          max: 10,
+                          field: "potential",
+                        },
+                        {
+                          label: "General Knowledge",
+                          value: selectedInterview.general_knowledge,
+                          max: 10,
+                          field: "general_knowledge",
+                        },
+                        {
+                          label: "Assertiveness",
+                          value: selectedInterview.assertiveness,
+                          max: 10,
+                          field: "assertiveness",
+                        },
+                      ].map((item, index) => (
+                        <div
+                          key={index}
+                          style={styles.evaluationCard}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = "#3b82f6";
+                            e.currentTarget.style.transform =
+                              "translateY(-2px)";
+                            e.currentTarget.style.boxShadow =
+                              "0 4px 12px rgba(59, 130, 246, 0.1)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = "#e2e8f0";
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "12px",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                ...styles.iconWrapper,
+                                backgroundColor: "#eff6ff",
+                                color: "#3b82f6",
+                              }}
+                            >
+                              {getEvaluationIcon(item.field)}
+                            </div>
+                            <div style={styles.scoreLabel}>{item.label}</div>
+                          </div>
+                          <div style={styles.evaluationScore}>
+                            {item.value || 0}/{item.max}
+                          </div>
+                          <div style={styles.progressBar}>
+                            <div
+                              style={{
+                                ...styles.progressFill,
+                                width: `${
+                                  ((item.value || 0) / item.max) * 100
+                                }%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Decision & Notes Card */}
+                  <div style={styles.card}>
+                    <div style={styles.sectionTitle}>Decision & Notes</div>
+                    <div style={styles.formRow}>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FiClock /> Current Remuneration
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.current_remuneration ||
+                            "Not specified"}
+                        </div>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FaFileAlt /> Expected Package
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.expected_package ||
+                            "Not specified"}
+                        </div>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FaCalendarAlt /> Notice Period Required
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.notice_period_required ||
+                            "Not specified"}
+                        </div>
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>
+                          <FaCheckCircle /> Recommendation
+                        </label>
+                        <div
+                          style={{
+                            padding: "14px 18px",
+                            backgroundColor: "#f8fafc",
+                            borderRadius: "12px",
+                            border: "2px solid #e2e8f0",
+                            fontWeight: "500",
+                          }}
+                        >
+                          {selectedInterview.recommendation || "Not specified"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: "28px" }}>
+                      <label style={styles.label}>
+                        <FaComments /> Interview Notes
+                      </label>
+                      <div
+                        style={{
+                          padding: "18px",
+                          backgroundColor: "#f8fafc",
+                          borderRadius: "12px",
+                          minHeight: "100px",
+                          border: "2px solid #e2e8f0",
+                          lineHeight: "1.6",
+                        }}
+                      >
+                        {selectedInterview.interview_notes ||
+                          "No notes available"}
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: "28px" }}>
+                      <label style={styles.label}>
+                        <FaUserTie /> Final Selection Remarks (MD Sir)
+                      </label>
+                      <div
+                        style={{
+                          padding: "18px",
+                          backgroundColor: "#f0f9ff",
+                          borderRadius: "12px",
+                          minHeight: "100px",
+                          border: "2px solid #bae6fd",
+                          lineHeight: "1.6",
+                        }}
+                      >
+                        {selectedInterview.final_selection_remarks ||
+                          "No remarks provided"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div style={styles.actionButtons}>
+                    <button
+                      style={{ ...styles.button, ...styles.buttonInfo }}
+                      onClick={() => printInterview(selectedInterview)}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.transform = "translateY(-2px)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.transform = "translateY(0)")
+                      }
+                    >
+                      <FaPrint /> Print
+                    </button>
+
+                    {/* Invite for Interview */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "invite" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-24px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#8b5cf6",
+                            fontSize: "18px",
+                          }}
+                        />
+                      )}
+                      <button
+                        disabled={isButtonDisabled("invite")}
+                        style={{
+                          ...styles.button,
+                          ...styles.buttonPurple,
+                          ...(isButtonDisabled("invite") &&
+                            styles.buttonDisabled),
+                        }}
+                        onClick={() => handleInviteMail(selectedInterview)}
+                        onMouseEnter={(e) =>
+                          !e.currentTarget.disabled &&
+                          (e.currentTarget.style.transform = "translateY(-2px)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.transform = "translateY(0)")
+                        }
+                      >
+                        <FiMail /> Invite
+                      </button>
+                    </div>
+
+                    {/* Send to MD Sir */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "send_md" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-24px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#f59e0b",
+                            fontSize: "18px",
+                          }}
+                        />
+                      )}
+                      <button
+                        disabled={isButtonDisabled("send_md")}
+                        style={{
+                          ...styles.button,
+                          ...styles.buttonWarning,
+                          ...(isButtonDisabled("send_md") &&
+                            styles.buttonDisabled),
+                        }}
+                        onClick={() => handleSendMail(selectedInterview)}
+                        onMouseEnter={(e) =>
+                          !e.currentTarget.disabled &&
+                          (e.currentTarget.style.transform = "translateY(-2px)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.transform = "translateY(0)")
+                        }
+                      >
+                        <FiSend /> Send to MD
+                      </button>
+                    </div>
+
+                    {/* Send Offer Letter */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "send_offer" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-24px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#06b6d4",
+                            fontSize: "18px",
+                          }}
+                        />
+                      )}
+                      <button
+                        disabled={isButtonDisabled("send_offer")}
+                        style={{
+                          ...styles.button,
+                          ...styles.buttonTeal,
+                          ...(isButtonDisabled("send_offer") &&
+                            styles.buttonDisabled),
+                        }}
+                        onClick={() => handleLetterSend(selectedInterview)}
+                        onMouseEnter={(e) =>
+                          !e.currentTarget.disabled &&
+                          (e.currentTarget.style.transform = "translateY(-2px)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.transform = "translateY(0)")
+                        }
+                      >
+                        <FaFileAlt /> Offer Letter
+                      </button>
+                    </div>
+
+                    {/* Create Employee */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "create_employee" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-24px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#10b981",
+                            fontSize: "18px",
+                          }}
+                        />
+                      )}
+                      <button
+                        disabled={isButtonDisabled("create_employee")}
+                        style={{
+                          ...styles.button,
+                          ...styles.buttonSuccess,
+                          ...(isButtonDisabled("create_employee") &&
+                            styles.buttonDisabled),
+                        }}
+                        onClick={() =>
+                          handleSelectedAsEmployee(selectedInterview)
+                        }
+                        onMouseEnter={(e) =>
+                          !e.currentTarget.disabled &&
+                          (e.currentTarget.style.transform = "translateY(-2px)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.transform = "translateY(0)")
+                        }
+                      >
+                        <FiUserCheck /> Create Employee
+                      </button>
+                    </div>
+
+                    {/* Delete */}
+                    <div style={{ position: "relative" }}>
+                      {getArrowStage() === "delete_interview" && (
+                        <FaArrowDown
+                          style={{
+                            position: "absolute",
+                            top: "-24px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            color: "#ef4444",
+                            fontSize: "18px",
+                          }}
+                        />
+                      )}
+                      <button
+                        style={{ ...styles.button, ...styles.buttonDanger }}
+                        onClick={() => handleDelete(selectedInterview.id)}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.transform = "translateY(-2px)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.transform = "translateY(0)")
+                        }
+                      >
+                        <FaTrash /> Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ) : (
+                // Edit View
+                <div>
+                  <form onSubmit={handleInterviewAction}>
+                    <div style={styles.card}>
+                      <div style={styles.sectionTitle}>
+                        Candidate Information
+                      </div>
+                      <div style={styles.formRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaUserTie /> Name
+                          </label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={sanitizeInputValue(formData.name)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaBriefcase /> Position
+                          </label>
+                          <input
+                            type="text"
+                            name="position_for"
+                            value={sanitizeInputValue(formData.position_for)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                      </div>
 
-                {/* Decision & Notes Card */}
-                <div style={styles.card}>
-                  <div style={styles.sectionTitle}>Decision & Notes</div>
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FiClock /> Current Remuneration
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {selectedInterview.current_remuneration || "Not specified"}
+                      <div style={styles.formRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaCalendarAlt /> Date of Birth
+                          </label>
+                          <input
+                            type="date"
+                            name="age"
+                            value={sanitizeInputValue(formData.age)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaUserTie /> Reference
+                          </label>
+                          <input
+                            type="text"
+                            name="reference"
+                            value={sanitizeInputValue(formData.reference)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaFileAlt /> Expected Package
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {selectedInterview.expected_package || "Not specified"}
-                      </div>
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaCalendarAlt /> Notice Period Required
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {selectedInterview.notice_period_required || "Not specified"}
-                      </div>
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaCheckCircle /> Recommendation
-                      </label>
-                      <div style={{ padding: "14px 18px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "2px solid #e2e8f0", fontWeight: "500" }}>
-                        {selectedInterview.recommendation || "Not specified"}
-                      </div>
-                    </div>
-                  </div>
 
-                  <div style={{ marginTop: "28px" }}>
-                    <label style={styles.label}>
-                      <FaComments /> Interview Notes
-                    </label>
-                    <div style={{ 
-                      padding: "18px", 
-                      backgroundColor: "#f8fafc", 
-                      borderRadius: "12px", 
-                      minHeight: "100px",
-                      border: "2px solid #e2e8f0",
-                      lineHeight: "1.6"
-                    }}>
-                      {selectedInterview.interview_notes || "No notes available"}
-                    </div>
-                  </div>
+                      <div style={styles.formRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaMailBulk /> Email
+                          </label>
+                          <input
+                            type="email"
+                            name="email"
+                            value={sanitizeInputValue(formData.email)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaPhone /> Phone
+                          </label>
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={sanitizeInputValue(formData.phone)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                      </div>
 
-                  <div style={{ marginTop: "28px" }}>
-                    <label style={styles.label}>
-                      <FaUserTie /> Final Selection Remarks (MD Sir)
-                    </label>
-                    <div style={{ 
-                      padding: "18px", 
-                      backgroundColor: "#f0f9ff", 
-                      borderRadius: "12px", 
-                      minHeight: "100px",
-                      border: "2px solid #bae6fd",
-                      lineHeight: "1.6"
-                    }}>
-                      {selectedInterview.final_selection_remarks || "No remarks provided"}
+                      <div style={styles.formRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaCalendarAlt /> Interview Date
+                          </label>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "12px",
+                            }}
+                          >
+                            <input
+                              type="datetime-local"
+                              value={localInterviewDate}
+                              onChange={handleInterviewDateChange}
+                              style={styles.input}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = "#3b82f6";
+                                e.target.style.backgroundColor = "white";
+                                e.target.style.boxShadow =
+                                  "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = "#e2e8f0";
+                                e.target.style.backgroundColor = "#f8fafc";
+                                e.target.style.boxShadow = "none";
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: "13px",
+                                color: "#64748b",
+                                fontWeight: "500",
+                              }}
+                            >
+                              (Bangladesh Time)
+                            </span>
+                          </div>
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaBuilding /> Place
+                          </label>
+                          <input
+                            type="text"
+                            name="place"
+                            value={sanitizeInputValue(formData.place)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
+
+                    <div style={styles.card}>
+                      <div style={styles.sectionTitle}>Evaluation Criteria</div>
+
+                      <div style={styles.evaluationGrid}>
+                        {[
+                          {
+                            label: "Education (Max 20)",
+                            name: "education",
+                            max: 20,
+                            icon: <FaGraduationCap />,
+                          },
+                          {
+                            label: "Job Knowledge (Max 20)",
+                            name: "job_knowledge",
+                            max: 20,
+                            icon: <FaBriefcase />,
+                          },
+                          {
+                            label: "Work Experience (Max 10)",
+                            name: "work_experience",
+                            max: 10,
+                            icon: <FaBuilding />,
+                          },
+                          {
+                            label: "Communication (Max 10)",
+                            name: "communication",
+                            max: 10,
+                            icon: <FaComments />,
+                          },
+                          {
+                            label: "Personality (Max 10)",
+                            name: "personality",
+                            max: 10,
+                            icon: <FaUser />,
+                          },
+                          {
+                            label: "Potential (Max 10)",
+                            name: "potential",
+                            max: 10,
+                            icon: <FaStar />,
+                          },
+                          {
+                            label: "General Knowledge (Max 10)",
+                            name: "general_knowledge",
+                            max: 10,
+                            icon: <FaGlobe />,
+                          },
+                          {
+                            label: "Assertiveness (Max 10)",
+                            name: "assertiveness",
+                            max: 10,
+                            icon: <FaBullhorn />,
+                          },
+                        ].map((item, index) => (
+                          <div key={index} style={styles.scoreContainer}>
+                            <div style={styles.scoreLabel}>
+                              {item.icon} {item.label}
+                            </div>
+                            <input
+                              type="number"
+                              name={item.name}
+                              value={sanitizeInputValue(formData[item.name])}
+                              onChange={handleInputChange}
+                              style={styles.scoreInput}
+                              min="0"
+                              max={item.max}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = "#3b82f6";
+                                e.target.style.backgroundColor = "white";
+                                e.target.style.boxShadow =
+                                  "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = "#e2e8f0";
+                                e.target.style.boxShadow = "none";
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: "24px" }}>
+                        <div style={styles.formRow}>
+                          <div style={styles.formGroup}>
+                            <label style={styles.label}>Interview Score</label>
+                            <input
+                              type="text"
+                              value={sanitizeInputValue(
+                                formData.interview_mark
+                              )}
+                              style={styles.input}
+                              readOnly
+                            />
+                          </div>
+                          <div style={styles.formGroup}>
+                            <label style={styles.label}>Interview Result</label>
+                            <input
+                              type="text"
+                              value={sanitizeInputValue(
+                                formData.interview_result
+                              )}
+                              style={styles.input}
+                              readOnly
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.card}>
+                      <div style={styles.sectionTitle}>
+                        Compensation & Decision
+                      </div>
+
+                      <div style={styles.formRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FiClock /> Current Remuneration
+                          </label>
+                          <input
+                            type="text"
+                            name="current_remuneration"
+                            value={sanitizeInputValue(
+                              formData.current_remuneration
+                            )}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaFileAlt /> Expected Package
+                          </label>
+                          <input
+                            type="text"
+                            name="expected_package"
+                            value={sanitizeInputValue(
+                              formData.expected_package
+                            )}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={styles.formRow}>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaCalendarAlt /> Notice Period Required
+                          </label>
+                          <input
+                            type="text"
+                            name="notice_period_required"
+                            value={sanitizeInputValue(
+                              formData.notice_period_required
+                            )}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={styles.label}>
+                            <FaCheckCircle /> Recommendation
+                          </label>
+                          <input
+                            type="text"
+                            name="recommendation"
+                            value={sanitizeInputValue(formData.recommendation)}
+                            onChange={handleInputChange}
+                            style={styles.input}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: "20px" }}>
+                        <label style={styles.label}>Status</label>
+                        <div style={styles.checkboxGroup}>
+                          {[
+                            {
+                              label: "Immediate Recruitment",
+                              name: "immediate_recruitment",
+                            },
+                            { label: "On Hold", name: "on_hold" },
+                            { label: "No Good", name: "no_good" },
+                          ].map((item) => (
+                            <label
+                              key={item.name}
+                              style={{
+                                ...styles.checkboxContainer,
+                                ...(formData[item.name] &&
+                                  styles.checkboxContainerSelected),
+                              }}
+                              onClick={() => {
+                                const event = {
+                                  target: {
+                                    name: item.name,
+                                    checked: !formData[item.name],
+                                  },
+                                };
+                                handleCheckboxChange(event);
+                              }}
+                            >
+                              <div
+                                style={{
+                                  ...styles.checkbox,
+                                  ...(formData[item.name] &&
+                                    styles.checkboxChecked),
+                                }}
+                              >
+                                {formData[item.name] && (
+                                  <FaCheckCircle
+                                    style={{ color: "white", fontSize: "12px" }}
+                                  />
+                                )}
+                              </div>
+                              {item.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: "20px" }}>
+                        <label style={styles.label}>
+                          <FaComments /> Interview Notes
+                        </label>
+                        <textarea
+                          name="interview_notes"
+                          value={sanitizeInputValue(formData.interview_notes)}
+                          onChange={handleInputChange}
+                          style={styles.textarea}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = "#3b82f6";
+                            e.target.style.backgroundColor = "white";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = "#e2e8f0";
+                            e.target.style.backgroundColor = "#f8fafc";
+                            e.target.style.boxShadow = "none";
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ marginTop: "20px" }}>
+                        <label style={styles.label}>
+                          <FaUserTie /> Final Selection Remarks (MD Sir)
+                          {currentUser !== "Tuhin" && (
+                            <span
+                              style={{
+                                color: "#ef4444",
+                                fontSize: "13px",
+                                marginLeft: "12px",
+                                fontWeight: "500",
+                              }}
+                            >
+                              (Only editable by Tuhin)
+                            </span>
+                          )}
+                        </label>
+                        <textarea
+                          name="final_selection_remarks"
+                          value={
+                            sanitizeInputValue(
+                              formData.final_selection_remarks
+                            ) || ""
+                          }
+                          onChange={handleInputChange}
+                          style={{
+                            ...styles.textarea,
+                            backgroundColor:
+                              currentUser !== "Tuhin" ? "#f1f5f9" : "white",
+                            cursor:
+                              currentUser !== "Tuhin" ? "not-allowed" : "text",
+                          }}
+                          readOnly={currentUser !== "Tuhin"}
+                          placeholder={
+                            currentUser !== "Tuhin"
+                              ? "Contact Tuhin to edit this field"
+                              : "Enter final selection remarks"
+                          }
+                          onFocus={(e) => {
+                            if (currentUser === "Tuhin") {
+                              e.target.style.borderColor = "#3b82f6";
+                              e.target.style.backgroundColor = "white";
+                              e.target.style.boxShadow =
+                                "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            }
+                          }}
+                          onBlur={(e) => {
+                            if (currentUser === "Tuhin") {
+                              e.target.style.borderColor = "#e2e8f0";
+                              e.target.style.backgroundColor = "#f8fafc";
+                              e.target.style.boxShadow = "none";
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </form>
+                  <div style={styles.actionButtons}>
+                    <button
+                      type="submit"
+                      style={{
+                        ...styles.button,
+                        ...styles.buttonPrimary,
+                        ...(isLoading && { opacity: 0.7 }),
+                      }}
+                      disabled={isLoading}
+                      onClick={handleInterviewAction}
+                      onMouseEnter={(e) =>
+                        !e.currentTarget.disabled &&
+                        (e.currentTarget.style.transform = "translateY(-2px)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.transform = "translateY(0)")
+                      }
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="animate-pulse">Processing...</div>
+                        </>
+                      ) : selectedInterview ? (
+                        <>
+                          <FaSave /> Update Interview
+                        </>
+                      ) : (
+                        <>
+                          <FaSave /> Create Interview
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      style={{ ...styles.button, ...styles.buttonGray }}
+                      onClick={resetForm}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.transform = "translateY(-2px)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.transform = "translateY(0)")
+                      }
+                    >
+                      <FaTimes /> Cancel
+                    </button>
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div style={styles.actionButtons}>
-                  <button
-                    style={{ ...styles.button, ...styles.buttonInfo }}
-                    onClick={() => printInterview(selectedInterview)}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+              )}
+            </div>
+          ) : (
+            // Create New Interview View
+            <div className="animate-fadeIn">
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h2
+                    style={{
+                      margin: 0,
+                      color: "#1e293b",
+                      fontSize: "28px",
+                      fontWeight: "800",
+                    }}
                   >
-                    <FaPrint /> Print
-                  </button>
-
-                  {/* Invite for Interview */}
-                  <div style={{ position: "relative" }}>
-                    {getArrowStage() === "invite" && (
-                      <FaArrowDown
-                        style={{
-                          position: "absolute",
-                          top: "-24px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          color: "#8b5cf6",
-                          fontSize: "18px",
-                        }}
-                      />
-                    )}
-                    <button
-                      disabled={isButtonDisabled("invite")}
-                      style={{
-                        ...styles.button,
-                        ...styles.buttonPurple,
-                        ...(isButtonDisabled("invite") && styles.buttonDisabled),
-                      }}
-                      onClick={() => handleInviteMail(selectedInterview)}
-                      onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.transform = "translateY(-2px)")}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                    >
-                      <FiMail /> Invite
-                    </button>
-                  </div>
-
-                  {/* Send to MD Sir */}
-                  <div style={{ position: "relative" }}>
-                    {getArrowStage() === "send_md" && (
-                      <FaArrowDown
-                        style={{
-                          position: "absolute",
-                          top: "-24px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          color: "#f59e0b",
-                          fontSize: "18px",
-                        }}
-                      />
-                    )}
-                    <button
-                      disabled={isButtonDisabled("send_md")}
-                      style={{
-                        ...styles.button,
-                        ...styles.buttonWarning,
-                        ...(isButtonDisabled("send_md") && styles.buttonDisabled),
-                      }}
-                      onClick={() => handleSendMail(selectedInterview)}
-                      onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.transform = "translateY(-2px)")}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                    >
-                      <FiSend /> Send to MD
-                    </button>
-                  </div>
-
-                  {/* Send Offer Letter */}
-                  <div style={{ position: "relative" }}>
-                    {getArrowStage() === "send_offer" && (
-                      <FaArrowDown
-                        style={{
-                          position: "absolute",
-                          top: "-24px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          color: "#06b6d4",
-                          fontSize: "18px",
-                        }}
-                      />
-                    )}
-                    <button
-                      disabled={isButtonDisabled("send_offer")}
-                      style={{
-                        ...styles.button,
-                        ...styles.buttonTeal,
-                        ...(isButtonDisabled("send_offer") && styles.buttonDisabled),
-                      }}
-                      onClick={() => handleLetterSend(selectedInterview)}
-                      onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.transform = "translateY(-2px)")}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                    >
-                      <FaFileAlt /> Offer Letter
-                    </button>
-                  </div>
-
-                  {/* Create Employee */}
-                  <div style={{ position: "relative" }}>
-                    {getArrowStage() === "create_employee" && (
-                      <FaArrowDown
-                        style={{
-                          position: "absolute",
-                          top: "-24px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          color: "#10b981",
-                          fontSize: "18px",
-                        }}
-                      />
-                    )}
-                    <button
-                      disabled={isButtonDisabled("create_employee")}
-                      style={{
-                        ...styles.button,
-                        ...styles.buttonSuccess,
-                        ...(isButtonDisabled("create_employee") && styles.buttonDisabled),
-                      }}
-                      onClick={() => handleSelectedAsEmployee(selectedInterview)}
-                      onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.transform = "translateY(-2px)")}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                    >
-                      <FiUserCheck /> Create Employee
-                    </button>
-                  </div>
-
-                  {/* Delete */}
-                  <div style={{ position: "relative" }}>
-                    {getArrowStage() === "delete_interview" && (
-                      <FaArrowDown
-                        style={{
-                          position: "absolute",
-                          top: "-24px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          color: "#ef4444",
-                          fontSize: "18px",
-                        }}
-                      />
-                    )}
-                    <button
-                      style={{ ...styles.button, ...styles.buttonDanger }}
-                      onClick={() => handleDelete(selectedInterview.id)}
-                      onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                    >
-                      <FaTrash /> Delete
-                    </button>
-                  </div>
+                    Schedule New Interview
+                  </h2>
                 </div>
-              </div>
-            ) : (
-              // Edit View
-              <div>
+
                 <form onSubmit={handleInterviewAction}>
                   <div style={styles.card}>
-                    <div style={styles.sectionTitle}>
-                      Candidate Information
-                    </div>
+                    <div style={styles.sectionTitle}>Candidate Information</div>
                     <div style={styles.formRow}>
                       <div style={styles.formGroup}>
                         <label style={styles.label}>
@@ -2457,13 +3426,14 @@ const Interviews = () => {
                         <input
                           type="text"
                           name="name"
-                          value={formData.name}
+                          value={sanitizeInputValue(formData.name)}
                           onChange={handleInputChange}
                           style={styles.input}
                           onFocus={(e) => {
                             e.target.style.borderColor = "#3b82f6";
                             e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = "#e2e8f0";
@@ -2479,13 +3449,14 @@ const Interviews = () => {
                         <input
                           type="text"
                           name="position_for"
-                          value={formData.position_for}
+                          value={sanitizeInputValue(formData.position_for)}
                           onChange={handleInputChange}
                           style={styles.input}
                           onFocus={(e) => {
                             e.target.style.borderColor = "#3b82f6";
                             e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = "#e2e8f0";
@@ -2504,13 +3475,14 @@ const Interviews = () => {
                         <input
                           type="date"
                           name="age"
-                          value={formData.age}
+                          value={sanitizeInputValue(formData.age)}
                           onChange={handleInputChange}
                           style={styles.input}
                           onFocus={(e) => {
                             e.target.style.borderColor = "#3b82f6";
                             e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = "#e2e8f0";
@@ -2526,13 +3498,14 @@ const Interviews = () => {
                         <input
                           type="text"
                           name="reference"
-                          value={formData.reference}
+                          value={sanitizeInputValue(formData.reference)}
                           onChange={handleInputChange}
                           style={styles.input}
                           onFocus={(e) => {
                             e.target.style.borderColor = "#3b82f6";
                             e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = "#e2e8f0";
@@ -2551,13 +3524,14 @@ const Interviews = () => {
                         <input
                           type="email"
                           name="email"
-                          value={formData.email}
+                          value={sanitizeInputValue(formData.email)}
                           onChange={handleInputChange}
                           style={styles.input}
                           onFocus={(e) => {
                             e.target.style.borderColor = "#3b82f6";
                             e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = "#e2e8f0";
@@ -2573,13 +3547,14 @@ const Interviews = () => {
                         <input
                           type="tel"
                           name="phone"
-                          value={formData.phone}
+                          value={sanitizeInputValue(formData.phone)}
                           onChange={handleInputChange}
                           style={styles.input}
                           onFocus={(e) => {
                             e.target.style.borderColor = "#3b82f6";
                             e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = "#e2e8f0";
@@ -2595,33 +3570,24 @@ const Interviews = () => {
                         <label style={styles.label}>
                           <FaCalendarAlt /> Interview Date
                         </label>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "12px",
+                        <input
+                          type="datetime-local"
+                          name="interview_date"
+                          value={sanitizeInputValue(formData.interview_date)}
+                          onChange={handleInputChange}
+                          style={styles.input}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = "#3b82f6";
+                            e.target.style.backgroundColor = "white";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
-                        >
-                          <input
-                            type="datetime-local"
-                            value={localInterviewDate}
-                            onChange={handleInterviewDateChange}
-                            style={styles.input}
-                            onFocus={(e) => {
-                              e.target.style.borderColor = "#3b82f6";
-                              e.target.style.backgroundColor = "white";
-                              e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                            }}
-                            onBlur={(e) => {
-                              e.target.style.borderColor = "#e2e8f0";
-                              e.target.style.backgroundColor = "#f8fafc";
-                              e.target.style.boxShadow = "none";
-                            }}
-                          />
-                          <span style={{ fontSize: "13px", color: "#64748b", fontWeight: "500" }}>
-                            (Bangladesh Time)
-                          </span>
-                        </div>
+                          onBlur={(e) => {
+                            e.target.style.borderColor = "#e2e8f0";
+                            e.target.style.backgroundColor = "#f8fafc";
+                            e.target.style.boxShadow = "none";
+                          }}
+                        />
                       </div>
                       <div style={styles.formGroup}>
                         <label style={styles.label}>
@@ -2630,13 +3596,14 @@ const Interviews = () => {
                         <input
                           type="text"
                           name="place"
-                          value={formData.place}
+                          value={sanitizeInputValue(formData.place)}
                           onChange={handleInputChange}
                           style={styles.input}
                           onFocus={(e) => {
                             e.target.style.borderColor = "#3b82f6";
                             e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
+                            e.target.style.boxShadow =
+                              "0 0 0 4px rgba(59, 130, 246, 0.1)";
                           }}
                           onBlur={(e) => {
                             e.target.style.borderColor = "#e2e8f0";
@@ -2645,283 +3612,10 @@ const Interviews = () => {
                           }}
                         />
                       </div>
-                    </div>
-                  </div>
-
-                  <div style={styles.card}>
-                    <div style={styles.sectionTitle}>Evaluation Criteria</div>
-
-                    <div style={styles.evaluationGrid}>
-                      {[
-                        { label: "Education (Max 20)", name: "education", max: 20, icon: <FaGraduationCap /> },
-                        { label: "Job Knowledge (Max 20)", name: "job_knowledge", max: 20, icon: <FaBriefcase /> },
-                        { label: "Work Experience (Max 10)", name: "work_experience", max: 10, icon: <FaBuilding /> },
-                        { label: "Communication (Max 10)", name: "communication", max: 10, icon: <FaComments /> },
-                        { label: "Personality (Max 10)", name: "personality", max: 10, icon: <FaUser /> },
-                        { label: "Potential (Max 10)", name: "potential", max: 10, icon: <FaStar /> },
-                        { label: "General Knowledge (Max 10)", name: "general_knowledge", max: 10, icon: <FaGlobe /> },
-                        { label: "Assertiveness (Max 10)", name: "assertiveness", max: 10, icon: <FaBullhorn /> },
-                      ].map((item, index) => (
-                        <div key={index} style={styles.scoreContainer}>
-                          <div style={styles.scoreLabel}>
-                            {item.icon} {item.label}
-                          </div>
-                          <input
-                            type="number"
-                            name={item.name}
-                            value={formData[item.name]}
-                            onChange={handleInputChange}
-                            style={styles.scoreInput}
-                            min="0"
-                            max={item.max}
-                            onFocus={(e) => {
-                              e.target.style.borderColor = "#3b82f6";
-                              e.target.style.backgroundColor = "white";
-                              e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                            }}
-                            onBlur={(e) => {
-                              e.target.style.borderColor = "#e2e8f0";
-                              e.target.style.boxShadow = "none";
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div style={{ marginTop: "24px" }}>
-                      <div style={styles.formRow}>
-                        <div style={styles.formGroup}>
-                          <label style={styles.label}>Interview Score</label>
-                          <input
-                            type="text"
-                            value={formData.interview_mark}
-                            style={styles.input}
-                            readOnly
-                          />
-                        </div>
-                        <div style={styles.formGroup}>
-                          <label style={styles.label}>Interview Result</label>
-                          <input
-                            type="text"
-                            value={formData.interview_result}
-                            style={styles.input}
-                            readOnly
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={styles.card}>
-                    <div style={styles.sectionTitle}>
-                      Compensation & Decision
-                    </div>
-
-                    <div style={styles.formRow}>
-                      <div style={styles.formGroup}>
-                        <label style={styles.label}>
-                          <FiClock /> Current Remuneration
-                        </label>
-                        <input
-                          type="text"
-                          name="current_remuneration"
-                          value={formData.current_remuneration}
-                          onChange={handleInputChange}
-                          style={styles.input}
-                          onFocus={(e) => {
-                            e.target.style.borderColor = "#3b82f6";
-                            e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                          }}
-                          onBlur={(e) => {
-                            e.target.style.borderColor = "#e2e8f0";
-                            e.target.style.backgroundColor = "#f8fafc";
-                            e.target.style.boxShadow = "none";
-                          }}
-                        />
-                      </div>
-                      <div style={styles.formGroup}>
-                        <label style={styles.label}>
-                          <FaFileAlt /> Expected Package
-                        </label>
-                        <input
-                          type="text"
-                          name="expected_package"
-                          value={formData.expected_package}
-                          onChange={handleInputChange}
-                          style={styles.input}
-                          onFocus={(e) => {
-                            e.target.style.borderColor = "#3b82f6";
-                            e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                          }}
-                          onBlur={(e) => {
-                            e.target.style.borderColor = "#e2e8f0";
-                            e.target.style.backgroundColor = "#f8fafc";
-                            e.target.style.boxShadow = "none";
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={styles.formRow}>
-                      <div style={styles.formGroup}>
-                        <label style={styles.label}>
-                          <FaCalendarAlt /> Notice Period Required
-                        </label>
-                        <input
-                          type="text"
-                          name="notice_period_required"
-                          value={formData.notice_period_required}
-                          onChange={handleInputChange}
-                          style={styles.input}
-                          onFocus={(e) => {
-                            e.target.style.borderColor = "#3b82f6";
-                            e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                          }}
-                          onBlur={(e) => {
-                            e.target.style.borderColor = "#e2e8f0";
-                            e.target.style.backgroundColor = "#f8fafc";
-                            e.target.style.boxShadow = "none";
-                          }}
-                        />
-                      </div>
-                      <div style={styles.formGroup}>
-                        <label style={styles.label}>
-                          <FaCheckCircle /> Recommendation
-                        </label>
-                        <input
-                          type="text"
-                          name="recommendation"
-                          value={formData.recommendation}
-                          onChange={handleInputChange}
-                          style={styles.input}
-                          onFocus={(e) => {
-                            e.target.style.borderColor = "#3b82f6";
-                            e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                          }}
-                          onBlur={(e) => {
-                            e.target.style.borderColor = "#e2e8f0";
-                            e.target.style.backgroundColor = "#f8fafc";
-                            e.target.style.boxShadow = "none";
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: "20px" }}>
-                      <label style={styles.label}>Status</label>
-                      <div style={styles.checkboxGroup}>
-                        {[
-                          { label: "Immediate Recruitment", name: "immediate_recruitment" },
-                          { label: "On Hold", name: "on_hold" },
-                          { label: "No Good", name: "no_good" },
-                        ].map((item) => (
-                          <label 
-                            key={item.name}
-                            style={{
-                              ...styles.checkboxContainer,
-                              ...(formData[item.name] && styles.checkboxContainerSelected),
-                            }}
-                            onClick={() => {
-                              const event = {
-                                target: {
-                                  name: item.name,
-                                  checked: !formData[item.name],
-                                },
-                              };
-                              handleCheckboxChange(event);
-                            }}
-                          >
-                            <div 
-                              style={{
-                                ...styles.checkbox,
-                                ...(formData[item.name] && styles.checkboxChecked),
-                              }}
-                            >
-                              {formData[item.name] && <FaCheckCircle style={{ color: "white", fontSize: "12px" }} />}
-                            </div>
-                            {item.label}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: "20px" }}>
-                      <label style={styles.label}>
-                        <FaComments /> Interview Notes
-                      </label>
-                      <textarea
-                        name="interview_notes"
-                        value={formData.interview_notes}
-                        onChange={handleInputChange}
-                        style={styles.textarea}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-
-                    <div style={{ marginTop: "20px" }}>
-                      <label style={styles.label}>
-                        <FaUserTie /> Final Selection Remarks (MD Sir)
-                        {currentUser !== "Tuhin" && (
-                          <span
-                            style={{
-                              color: "#ef4444",
-                              fontSize: "13px",
-                              marginLeft: "12px",
-                              fontWeight: "500",
-                            }}
-                          >
-                            (Only editable by Tuhin)
-                          </span>
-                        )}
-                      </label>
-                      <textarea
-                        name="final_selection_remarks"
-                        value={formData.final_selection_remarks || ""}
-                        onChange={handleInputChange}
-                        style={{
-                          ...styles.textarea,
-                          backgroundColor:
-                            currentUser !== "Tuhin" ? "#f1f5f9" : "white",
-                          cursor:
-                            currentUser !== "Tuhin" ? "not-allowed" : "text",
-                        }}
-                        readOnly={currentUser !== "Tuhin"}
-                        placeholder={
-                          currentUser !== "Tuhin"
-                            ? "Contact Tuhin to edit this field"
-                            : "Enter final selection remarks"
-                        }
-                        onFocus={(e) => {
-                          if (currentUser === "Tuhin") {
-                            e.target.style.borderColor = "#3b82f6";
-                            e.target.style.backgroundColor = "white";
-                            e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                          }
-                        }}
-                        onBlur={(e) => {
-                          if (currentUser === "Tuhin") {
-                            e.target.style.borderColor = "#e2e8f0";
-                            e.target.style.backgroundColor = "#f8fafc";
-                            e.target.style.boxShadow = "none";
-                          }
-                        }}
-                      />
                     </div>
                   </div>
                 </form>
+
                 <div style={styles.actionButtons}>
                   <button
                     type="submit"
@@ -2932,20 +3626,19 @@ const Interviews = () => {
                     }}
                     disabled={isLoading}
                     onClick={handleInterviewAction}
-                    onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.transform = "translateY(-2px)")}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+                    onMouseEnter={(e) =>
+                      !e.currentTarget.disabled &&
+                      (e.currentTarget.style.transform = "translateY(-2px)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.transform = "translateY(0)")
+                    }
                   >
                     {isLoading ? (
-                      <>
-                        <div className="animate-pulse">Processing...</div>
-                      </>
-                    ) : selectedInterview ? (
-                      <>
-                        <FaSave /> Update Interview
-                      </>
+                      <div className="animate-pulse">Processing...</div>
                     ) : (
                       <>
-                        <FaSave /> Create Interview
+                        <FaSave /> Schedule Interview
                       </>
                     )}
                   </button>
@@ -2953,285 +3646,52 @@ const Interviews = () => {
                     type="button"
                     style={{ ...styles.button, ...styles.buttonGray }}
                     onClick={resetForm}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.transform = "translateY(-2px)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.transform = "translateY(0)")
+                    }
                   >
                     <FaTimes /> Cancel
                   </button>
                 </div>
               </div>
-            )}
-          </div>
-        ) : (
-          // Create New Interview View
-          <div className="animate-fadeIn">
-            <div style={styles.card}>
-              <div style={styles.cardHeader}>
-                <h2 style={{ margin: 0, color: "#1e293b", fontSize: "28px", fontWeight: "800" }}>
-                  Schedule New Interview
-                </h2>
+            </div>
+          )}
+        </div>
+
+        {/* Success Popup */}
+        {showPopup && (
+          <div
+            style={{
+              position: "fixed",
+              top: "100px",
+              right: "50px",
+              padding: "18px 28px",
+              backgroundColor: "#10b981",
+              color: "white",
+              borderRadius: "14px",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+              zIndex: 1000,
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+              animation: "slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+          >
+            <FaCheckCircle size={22} />
+            <div>
+              <div style={{ fontWeight: "700", fontSize: "15px" }}>
+                Interview Evaluated
               </div>
-              
-              <form onSubmit={handleInterviewAction}>
-                <div style={styles.card}>
-                  <div style={styles.sectionTitle}>Candidate Information</div>
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaUserTie /> Name
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaBriefcase /> Position
-                      </label>
-                      <input
-                        type="text"
-                        name="position_for"
-                        value={formData.position_for}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaCalendarAlt /> Date of Birth
-                      </label>
-                      <input
-                        type="date"
-                        name="age"
-                        value={formData.age}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaUserTie /> Reference
-                      </label>
-                      <input
-                        type="text"
-                        name="reference"
-                        value={formData.reference}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaMailBulk /> Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaPhone /> Phone
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaCalendarAlt /> Interview Date
-                      </label>
-                      <input
-                        type="datetime-local"
-                        name="interview_date"
-                        value={formData.interview_date}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>
-                        <FaBuilding /> Place
-                      </label>
-                      <input
-                        type="text"
-                        name="place"
-                        value={formData.place}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = "#3b82f6";
-                          e.target.style.backgroundColor = "white";
-                          e.target.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = "#e2e8f0";
-                          e.target.style.backgroundColor = "#f8fafc";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </form>
-              
-              <div style={styles.actionButtons}>
-                <button
-                  type="submit"
-                  style={{
-                    ...styles.button,
-                    ...styles.buttonPrimary,
-                    ...(isLoading && { opacity: 0.7 }),
-                  }}
-                  disabled={isLoading}
-                  onClick={handleInterviewAction}
-                  onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.transform = "translateY(-2px)")}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                >
-                  {isLoading ? (
-                    <div className="animate-pulse">Processing...</div>
-                  ) : (
-                    <>
-                      <FaSave /> Schedule Interview
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  style={{ ...styles.button, ...styles.buttonGray }}
-                  onClick={resetForm}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-                >
-                  <FaTimes /> Cancel
-                </button>
+              <div style={{ fontSize: "13px", opacity: 0.9, marginTop: "4px" }}>
+                Score: {formData.interview_mark} - {formData.interview_result}
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Success Popup */}
-      {showPopup && (
-        <div
-          style={{
-            position: "fixed",
-            top: "100px",
-            right: "50px",
-            padding: "18px 28px",
-            backgroundColor: "#10b981",
-            color: "white",
-            borderRadius: "14px",
-            boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: "14px",
-            animation: "slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          }}
-        >
-          <FaCheckCircle size={22} />
-          <div>
-            <div style={{ fontWeight: "700", fontSize: "15px" }}>
-              Interview Evaluated
-            </div>
-            <div style={{ fontSize: "13px", opacity: 0.9, marginTop: "4px" }}>
-              Score: {formData.interview_mark} - {formData.interview_result}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
     </div>
   );
 };
