@@ -217,7 +217,7 @@ const Sidebars = () => {
         onClick={toggleSidebar}
         className="menu-btn"
         style={{
-          position: "fixed",
+          position: "absolute",
           top: "25px",
           left: isOpen ? "255px" : "85px",
           background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",

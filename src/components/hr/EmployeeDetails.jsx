@@ -373,9 +373,9 @@ const EmployeeDetails = () => {
               <button className="btn-export" onClick={handleExport}>
                 <FiDownload /> Export CSV
               </button>
-              <button className="btn-print" onClick={handlePrint}>
+              {/* <button className="btn-print" onClick={handlePrint}>
                 <FaPrint /> Print
-              </button>
+              </button> */}
               <button className="btn-primary" onClick={() => navigate("/add-employee")}>
                 <FaPlus /> Add Employee
               </button>
@@ -890,7 +890,7 @@ const EmployeeDetails = () => {
           flex: 1;
           padding: 24px;
           overflow-y: auto;
-          background: var(--light);
+         
           border-radius: 24px 0 0 24px;
           margin-left: -1px;
           max-height: 100vh;

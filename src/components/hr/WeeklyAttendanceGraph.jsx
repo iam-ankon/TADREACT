@@ -369,7 +369,7 @@ const styles = {
   container: {
     backgroundColor: "white",
     borderRadius: "12px",
-    padding: "1.5rem",
+    padding: "5rem",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     marginBottom: "1.5rem",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",

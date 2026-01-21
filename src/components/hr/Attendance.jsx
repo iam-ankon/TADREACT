@@ -13,7 +13,6 @@ const Attendance = () => {
   const [companies, setCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -46,8 +45,6 @@ const Attendance = () => {
 
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
-
-  const recordsPerPage = 15;
 
   useEffect(() => {
     const savedStart = localStorage.getItem("attendanceDateRangeStart");
@@ -106,7 +103,6 @@ const Attendance = () => {
       direction = "descending";
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Reset to first page when sorting
   };
 
   // Sorting function
@@ -572,25 +568,20 @@ const Attendance = () => {
 
   const clearDateFilter = () => {
     setDateFilter("");
-    setCurrentPage(1);
   };
   const clearCompanyFilter = () => {
     setCompanyFilter("");
-    setCurrentPage(1);
   };
   const clearSearch = () => {
     setSearchTerm("");
-    setCurrentPage(1);
   };
   const clearMonthFilter = () => {
     setMonthFilter("");
-    setCurrentPage(1);
   };
   const clearDateRange = () => {
     setDateRangeStart("");
     setDateRangeEnd("");
     setShowDateRange(false);
-    setCurrentPage(1);
   };
 
   const getUniqueCompanies = () => {
@@ -607,16 +598,6 @@ const Attendance = () => {
   };
 
   const filteredAttendance = getFilteredAttendance();
-  const indexOfLastRecord = currentPage * recordsPerPage;
-  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = Array.isArray(filteredAttendance)
-    ? filteredAttendance.slice(indexOfFirstRecord, indexOfLastRecord)
-    : [];
-  const totalPages = Math.ceil(
-    (Array.isArray(filteredAttendance) ? filteredAttendance.length : 0) /
-      recordsPerPage
-  );
-  const paginate = (page) => setCurrentPage(page);
 
   // Loading skeleton
   const SkeletonRow = () => (
@@ -669,12 +650,6 @@ const Attendance = () => {
                   {Array.isArray(filteredAttendance)
                     ? filteredAttendance.length
                     : 0}
-                </span>
-              </div>
-              <div style={summaryItemStyle}>
-                <span style={summaryLabelStyle}>Current Page</span>
-                <span style={summaryValueStyle}>
-                  {currentPage} of {totalPages}
                 </span>
               </div>
               <div style={summaryItemStyle}>
@@ -800,7 +775,6 @@ const Attendance = () => {
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
-                      setCurrentPage(1);
                     }}
                     style={modernInputStyle}
                   />
@@ -823,7 +797,6 @@ const Attendance = () => {
                     value={companyFilter}
                     onChange={(e) => {
                       setCompanyFilter(e.target.value);
-                      setCurrentPage(1);
                     }}
                     style={modernSelectStyle}
                   >
@@ -857,7 +830,6 @@ const Attendance = () => {
                     value={monthFilter}
                     onChange={(e) => {
                       setMonthFilter(e.target.value);
-                      setCurrentPage(1);
                     }}
                     style={modernInputStyle}
                   />
@@ -886,7 +858,6 @@ const Attendance = () => {
                         value={dateFilter}
                         onChange={(e) => {
                           setDateFilter(e.target.value);
-                          setCurrentPage(1);
                         }}
                         style={modernInputStyle}
                       />
@@ -907,7 +878,6 @@ const Attendance = () => {
                           value={dateRangeStart}
                           onChange={(e) => {
                             setDateRangeStart(e.target.value);
-                            setCurrentPage(1);
                           }}
                           style={modernInputStyle}
                         />
@@ -920,7 +890,6 @@ const Attendance = () => {
                           min={dateRangeStart}
                           onChange={(e) => {
                             setDateRangeEnd(e.target.value);
-                            setCurrentPage(1);
                           }}
                           style={modernInputStyle}
                         />
@@ -943,7 +912,6 @@ const Attendance = () => {
                         setDateRangeStart("");
                         setDateRangeEnd("");
                       }
-                      setCurrentPage(1);
                     }}
                     style={dateToggleButtonStyle}
                   >
@@ -1019,10 +987,6 @@ const Attendance = () => {
                 <span style={statLabelStyle}>Filtered Records</span>
               </div>
               <div style={statItemStyle}>
-                <span style={statValueStyle}>{totalPages}</span>
-                <span style={statLabelStyle}>Pages</span>
-              </div>
-              <div style={statItemStyle}>
                 <span style={statValueStyle}>
                   {Array.isArray(companies) ? companies.length : 0}
                 </span>
@@ -1042,18 +1006,8 @@ const Attendance = () => {
             <div style={tableHeaderStyle}>
               <h3 style={tableTitleStyle}>Attendance Records</h3>
               <div style={tableSummaryStyle}>
-                Showing {indexOfFirstRecord + 1}-
-                {Math.min(
-                  indexOfLastRecord,
-                  Array.isArray(filteredAttendance)
-                    ? filteredAttendance.length
-                    : 0
-                )}{" "}
-                of{" "}
-                {Array.isArray(filteredAttendance)
-                  ? filteredAttendance.length
-                  : 0}{" "}
-                records • Sorted by {sortConfig.key.replace("_", " ")} {sortConfig.direction === "ascending" ? "↑" : "↓"}
+                Showing {Array.isArray(filteredAttendance) ? filteredAttendance.length : 0} records
+                {sortConfig.key && ` • Sorted by ${sortConfig.key.replace("_", " ")} ${sortConfig.direction === "ascending" ? "↑" : "↓"}`}
               </div>
             </div>
 
@@ -1093,8 +1047,8 @@ const Attendance = () => {
                     Array(5)
                       .fill(0)
                       .map((_, i) => <SkeletonRow key={i} />)
-                  ) : currentRecords.length > 0 ? (
-                    currentRecords.map((a) => {
+                  ) : filteredAttendance.length > 0 ? (
+                    filteredAttendance.map((a) => {
                       if (!a) return null;
                       const emp = getEmployeeDetails(a.employee);
                       const delay = a.attendance_delay || a.delay_time;
@@ -1167,56 +1121,6 @@ const Attendance = () => {
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div style={paginationStyle}>
-                <button
-                  onClick={() => paginate(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  style={paginationButtonStyle}
-                >
-                  ← Previous
-                </button>
-
-                <div style={pageNumbersStyle}>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const page =
-                      totalPages <= 5
-                        ? i + 1
-                        : currentPage <= 3
-                        ? i + 1
-                        : currentPage >= totalPages - 2
-                        ? totalPages - 4 + i
-                        : currentPage - 2 + i;
-                    if (page >= 1 && page <= totalPages)
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => paginate(page)}
-                          style={{
-                            ...paginationButtonStyle,
-                            ...(currentPage === page ? activePageStyle : {}),
-                          }}
-                        >
-                          {page}
-                        </button>
-                      );
-                    return null;
-                  }).filter(Boolean)}
-                </div>
-
-                <button
-                  onClick={() =>
-                    paginate(Math.min(totalPages, currentPage + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                  style={paginationButtonStyle}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1739,6 +1643,8 @@ const tableSummaryStyle = {
 
 const tableContainerStyle = {
   overflowX: "auto",
+  maxHeight: "calc(100vh - 400px)", // Added max height for scrolling
+  overflowY: "auto",
 };
 
 const tableStyle = {
@@ -1760,6 +1666,9 @@ const thStyle = {
   letterSpacing: "0.05em",
   cursor: "pointer",
   userSelect: "none",
+  position: "sticky",
+  top: 0,
+  zIndex: 1,
 };
 
 const headerContentStyle = {
@@ -1813,38 +1722,6 @@ const delayStyle = (isEarly) => ({
   fontFamily: "monospace",
   fontSize: "13px",
 });
-
-const paginationStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "20px 24px",
-  borderTop: "1px solid #e2e8f0",
-  background: "#fafafa",
-};
-
-const paginationButtonStyle = {
-  padding: "10px 16px",
-  border: "1px solid #e2e8f0",
-  background: "white",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: "500",
-  color: "#4a5568",
-  transition: "all 0.2s",
-};
-
-const activePageStyle = {
-  background: "#4299e1",
-  color: "white",
-  borderColor: "#4299e1",
-};
-
-const pageNumbersStyle = {
-  display: "flex",
-  gap: "4px",
-};
 
 const skeletonStyle = {
   background: "#f7fafc",
