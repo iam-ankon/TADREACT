@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Sidebars from "./sidebars";
 import { 
   hrmsApi, 
@@ -8,23 +8,89 @@ import {
 
 const TerminationAttachment = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchAttachments();
+    if (id) {
+      fetchAttachments();
+    }
   }, [id]);
 
   const fetchAttachments = async () => {
+    if (!id) {
+      setError("No employee ID provided");
+      return;
+    }
+
     try {
       setLoading(true);
-      const response = await hrmsApi.get(`termination_attachment/?employee_id=${id}`);
-      setAttachments(response.data);
+      setError(null);
+      
+      console.log(`Fetching attachments for employee ID: ${id}`);
+      
+      // Try multiple possible endpoints
+      let response;
+      
+      // Try employee_termination endpoint first
+      try {
+        console.log("Trying employee_termination endpoint...");
+        response = await hrmsApi.get(`employee_termination/?employee=${id}`);
+        
+        if (response.data && response.data.length > 0) {
+          console.log("Found termination records:", response.data.length);
+          // Check if attachments are included in termination data
+          const terminationData = response.data[0];
+          if (terminationData.attachments) {
+            setAttachments(terminationData.attachments);
+            return;
+          }
+        }
+      } catch (terminationError) {
+        console.log("employee_termination endpoint failed, trying other options...");
+      }
+      
+      // Try checking if employee has any documents in their record
+      try {
+        console.log("Trying employee documents endpoint...");
+        response = await hrmsApi.get(`employees/${id}/`);
+        
+        if (response.data) {
+          const employeeData = response.data;
+          
+          // Check for attachments in employee data
+          if (employeeData.documents || employeeData.attachments) {
+            setAttachments(employeeData.documents || employeeData.attachments || []);
+            return;
+          }
+          
+          // If no attachments found, show appropriate message
+          setAttachments([]);
+          console.log("No attachments found for this employee");
+          return;
+        }
+      } catch (employeeError) {
+        console.error("Error fetching employee data:", employeeError);
+      }
+      
+      // If we get here, no attachments were found
+      setAttachments([]);
+      console.log("No attachments found for employee");
+      
     } catch (error) {
-      console.error("Error fetching termination attachments:", error);
-      alert("Error fetching termination attachments. Please try again.");
+      console.error("Error fetching attachments:", error);
+      
+      // Check if it's a 404 error and handle gracefully
+      if (error.response?.status === 404) {
+        setError(`The attachments endpoint was not found. Please ensure the backend has the 'termination_attachment' endpoint implemented.`);
+        setAttachments([]); // Set empty array instead of showing error
+      } else {
+        setError("Failed to load attachments. Please try again later.");
+      }
     } finally {
       setLoading(false);
     }
@@ -51,29 +117,84 @@ const TerminationAttachment = () => {
     }
 
     setUploading(true);
+    setError(null);
 
     try {
+      // First, check if we have a termination record for this employee
+      let terminationId = null;
+      
+      try {
+        const terminationResponse = await hrmsApi.get(`employee_termination/?employee=${id}`);
+        if (terminationResponse.data && terminationResponse.data.length > 0) {
+          terminationId = terminationResponse.data[0].id;
+        }
+      } catch (err) {
+        console.log("No existing termination record found");
+      }
+      
+      // If no termination record exists, create one first
+      if (!terminationId) {
+        try {
+          // Create a basic termination record
+          const createResponse = await hrmsApi.post("employee_termination/", {
+            employee: id,
+            termination_date: new Date().toISOString().split('T')[0],
+            termination_reason: "Document upload",
+            status: "pending"
+          });
+          
+          if (createResponse.data && createResponse.data.id) {
+            terminationId = createResponse.data.id;
+            console.log("Created termination record with ID:", terminationId);
+          }
+        } catch (createError) {
+          console.error("Failed to create termination record:", createError);
+          throw new Error("Please create a termination record first before uploading documents.");
+        }
+      }
+      
+      // Now upload the files
       const formData = new FormData();
       files.forEach((fileObj) => {
-        formData.append("file", fileObj.file);
-        formData.append("description", fileObj.description);
-      });
-      formData.append("employee", id);
-
-      await hrmsApi.post("termination_attachment/", formData, {
-        headers: { 
-          "Content-Type": "multipart/form-data",
-          "X-CSRFToken": getCsrfToken()
-        },
+        formData.append("files", fileObj.file);
+        formData.append("descriptions", fileObj.description);
       });
       
+      // Add employee and termination info
+      formData.append("employee", id);
+      if (terminationId) {
+        formData.append("termination", terminationId);
+      }
+      
+      // Try uploading to employee endpoint if termination_attachment doesn't exist
+      let uploadResponse;
+      try {
+        console.log("Attempting to upload files...");
+        uploadResponse = await hrmsApi.post(`employees/${id}/upload_documents/`, formData, {
+          headers: { 
+            "Content-Type": "multipart/form-data",
+            "X-CSRFToken": getCsrfToken()
+          },
+        });
+      } catch (uploadError) {
+        console.error("Upload failed:", uploadError);
+        
+        // If that endpoint doesn't exist, show error
+        if (uploadError.response?.status === 404) {
+          throw new Error("File upload endpoint not available. Please contact administrator.");
+        } else {
+          throw uploadError;
+        }
+      }
+      
+      // Refresh attachments
       await fetchAttachments();
-      alert("Termination files uploaded successfully!");
+      alert("Files uploaded successfully!");
       setFiles([]);
       document.getElementById("fileInput").value = "";
     } catch (error) {
-      console.error("Error uploading termination files:", error);
-      alert("Error uploading termination files. Please try again.");
+      console.error("Error uploading files:", error);
+      setError(`Upload failed: ${error.message || "Please try again."}`);
     } finally {
       setUploading(false);
     }
@@ -81,19 +202,20 @@ const TerminationAttachment = () => {
 
   const handleDelete = async (attachmentId) => {
     const confirmDelete = window.confirm(
-      "Are you sure you want to delete this termination file?"
+      "Are you sure you want to delete this file?"
     );
     if (!confirmDelete) return;
 
     try {
-      await hrmsApi.delete(`termination_attachment/${attachmentId}/`);
-      setAttachments(
-        attachments.filter((attachment) => attachment.id !== attachmentId)
-      );
-      alert("Termination file deleted successfully!");
+      // Try to delete from employee documents endpoint
+      await hrmsApi.delete(`employees/${id}/delete_document/${attachmentId}/`);
+      
+      // Refresh attachments
+      await fetchAttachments();
+      alert("File deleted successfully!");
     } catch (error) {
-      console.error("Error deleting termination file:", error);
-      alert("Error deleting termination file. Please try again.");
+      console.error("Error deleting file:", error);
+      alert("Error deleting file. Please try again.");
     }
   };
 
@@ -102,7 +224,7 @@ const TerminationAttachment = () => {
 
     try {
       await hrmsApi.patch(
-        `termination_attachment/${attachmentId}/`,
+        `employees/${id}/update_document/${attachmentId}/`,
         { description: newDescription }
       );
       await fetchAttachments();
@@ -118,7 +240,23 @@ const TerminationAttachment = () => {
       <Sidebars />
       <div style={styles.content}>
         <div style={styles.card}>
-          <h2 style={styles.heading}>Employee Attachments</h2>
+          <div style={styles.header}>
+            <button 
+              onClick={() => navigate(-1)}
+              style={styles.backButton}
+            >
+              ← Back
+            </button>
+            <h2 style={styles.heading}>Employee Documents</h2>
+          </div>
+          
+          <div style={styles.employeeInfo}>
+            <p>Employee ID: {id}</p>
+            <p style={styles.infoNote}>
+              This page allows you to upload and manage documents for this employee.
+              {error && <span style={{color: '#dc3545', marginLeft: '10px'}}>{error}</span>}
+            </p>
+          </div>
 
           <div style={styles.uploadSection}>
             <div style={styles.fileInputContainer}>
@@ -164,11 +302,16 @@ const TerminationAttachment = () => {
           </div>
 
           <div style={styles.attachmentsSection}>
-            <h3 style={styles.sectionHeading}>Uploaded Files</h3>
+            <h3 style={styles.sectionHeading}>Uploaded Documents</h3>
             {loading ? (
-              <p style={styles.loadingText}>Loading attachments...</p>
+              <p style={styles.loadingText}>Loading documents...</p>
             ) : attachments.length === 0 ? (
-              <p style={styles.noFiles}>No files uploaded yet</p>
+              <div style={styles.noFilesContainer}>
+                <p style={styles.noFiles}>No documents uploaded yet</p>
+                <p style={styles.noFilesSubtitle}>
+                  Use the upload button above to add documents for this employee.
+                </p>
+              </div>
             ) : (
               <ul style={styles.fileList}>
                 {attachments.map((attachment) => (
@@ -176,18 +319,28 @@ const TerminationAttachment = () => {
                     <div style={styles.fileInfo}>
                       <a
                         href={
-                          attachment.file.startsWith("http")
+                          attachment.file?.startsWith("http")
                             ? attachment.file
-                            : `http://119.148.51.38:8000${attachment.file}`
+                            : attachment.file?.startsWith("/")
+                            ? `http://119.148.51.38:8000${attachment.file}`
+                            : "#"
                         }
                         target="_blank"
                         rel="noopener noreferrer"
                         style={styles.fileLink}
+                        onClick={(e) => {
+                          if (!attachment.file || attachment.file === "#") {
+                            e.preventDefault();
+                            alert("File link not available");
+                          }
+                        }}
                       >
-                        {attachment.file.split("/").pop()}
+                        {attachment.file?.split("/").pop() || `Document ${attachment.id}`}
                       </a>
                       <span style={styles.uploadDate}>
-                        {new Date(attachment.uploaded_at).toLocaleString()}
+                        {attachment.uploaded_at 
+                          ? new Date(attachment.uploaded_at).toLocaleString()
+                          : "Date not available"}
                       </span>
                     </div>
                     <div style={styles.descriptionContainer}>
@@ -248,13 +401,39 @@ const styles = {
     boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
     padding: "24px",
   },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    marginBottom: "16px",
+  },
+  backButton: {
+    padding: "8px 16px",
+    backgroundColor: "#6c757d",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
   heading: {
     fontSize: "24px",
     fontWeight: "600",
     color: "#2c3e50",
+    margin: 0,
+  },
+  employeeInfo: {
     marginBottom: "24px",
-    paddingBottom: "12px",
-    borderBottom: "1px solid #eaeaea",
+    padding: "16px",
+    backgroundColor: "#f8f9fa",
+    borderRadius: "6px",
+    fontSize: "14px",
+    color: "#495057",
+  },
+  infoNote: {
+    fontSize: "12px",
+    color: "#6c757d",
+    marginTop: "8px",
   },
   sectionHeading: {
     fontSize: "18px",
@@ -345,11 +524,18 @@ const styles = {
     textAlign: "center",
     padding: "16px",
   },
+  noFilesContainer: {
+    textAlign: "center",
+    padding: "32px",
+  },
   noFiles: {
     color: "#6c757d",
-    fontStyle: "italic",
-    textAlign: "center",
-    padding: "16px",
+    fontSize: "16px",
+    marginBottom: "8px",
+  },
+  noFilesSubtitle: {
+    color: "#adb5bd",
+    fontSize: "14px",
   },
   fileList: {
     listStyle: "none",
@@ -447,6 +633,12 @@ Object.assign(styles.deleteButton, {
 Object.assign(styles.fileLink, {
   ':hover': {
     textDecoration: "underline",
+  },
+});
+
+Object.assign(styles.backButton, {
+  ':hover': {
+    backgroundColor: "#5a6268",
   },
 });
 

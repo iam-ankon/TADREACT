@@ -936,7 +936,7 @@ const EmployeeDetails = () => {
         .main-content::after,
         .content-wrapper::after {
           content: '';
-          position: fixed;
+         
           bottom: 0;
           left: 0;
           right: 0;

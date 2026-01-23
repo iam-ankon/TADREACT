@@ -157,22 +157,16 @@ export const getCsrfToken = () => {
   return null;
 };
 
-
 export const sendLeaveEmailToMD = async (emailData) => {
   try {
     // Use the properly exported hrmsApi instance
-    const response = await hrmsApi.post(
-      'send-leave-email-to-md/',
-      emailData
-    );
+    const response = await hrmsApi.post("send-leave-email-to-md/", emailData);
     return response.data;
   } catch (error) {
-    console.error('Error sending email to MD:', error);
+    console.error("Error sending email to MD:", error);
     throw error;
   }
 };
-
-
 
 /* -------------------------------------------------------------------------- */
 /*  DELETE ATTENDANCE BY MONTH                                               */
@@ -180,97 +174,108 @@ export const sendLeaveEmailToMD = async (emailData) => {
 export const deleteAttendanceByMonth = async (year, month) => {
   try {
     console.log(`🗑️ Deleting attendance for ${year}-${month}`);
-    
+
     // Option 1: Try the specific endpoint first (might be implemented later)
     try {
       const response = await hrmsApi.delete(`attendance/delete_by_month/`, {
         params: {
           year: year,
-          month: month
-        }
+          month: month,
+        },
       });
       console.log("✅ Monthly attendance deleted via dedicated endpoint");
       return response.data;
     } catch (endpointError) {
-      console.log("⚠️ Dedicated endpoint not found, falling back to manual deletion");
+      console.log(
+        "⚠️ Dedicated endpoint not found, falling back to manual deletion",
+      );
     }
-    
+
     // Option 2: Manual deletion by fetching and deleting each record
     console.log("🔍 Fetching all attendance records...");
     const allAttendance = await hrmsApi.get("attendance/");
-    
+
     if (!allAttendance.data || !Array.isArray(allAttendance.data)) {
       throw new Error("No attendance data found");
     }
-    
+
     // Filter records for the specific month
-    const prefix = `${year}-${String(month).padStart(2, '0')}`;
-    const recordsToDelete = allAttendance.data.filter(record => {
+    const prefix = `${year}-${String(month).padStart(2, "0")}`;
+    const recordsToDelete = allAttendance.data.filter((record) => {
       if (!record || !record.date) return false;
-      
+
       // Handle different date formats
-      const dateStr = record.date.includes('T') 
-        ? record.date.split('T')[0] 
+      const dateStr = record.date.includes("T")
+        ? record.date.split("T")[0]
         : record.date;
-      
+
       return dateStr.startsWith(prefix);
     });
-    
-    console.log(`📊 Found ${recordsToDelete.length} records to delete for ${prefix}`);
-    
+
+    console.log(
+      `📊 Found ${recordsToDelete.length} records to delete for ${prefix}`,
+    );
+
     if (recordsToDelete.length === 0) {
       return {
         success: true,
         message: "No records found for this month",
-        deleted_count: 0
+        deleted_count: 0,
       };
     }
-    
+
     // Show progress
     let deletedCount = 0;
     let errors = [];
-    
+
     // Delete in batches to avoid overwhelming the server
     const batchSize = 10;
     for (let i = 0; i < recordsToDelete.length; i += batchSize) {
       const batch = recordsToDelete.slice(i, i + batchSize);
-      
-      const batchPromises = batch.map(record => 
-        hrmsApi.delete(`attendance/${record.id}/`)
+
+      const batchPromises = batch.map((record) =>
+        hrmsApi
+          .delete(`attendance/${record.id}/`)
           .then(() => {
             deletedCount++;
-            console.log(`✅ Deleted record ${record.id} (${deletedCount}/${recordsToDelete.length})`);
+            console.log(
+              `✅ Deleted record ${record.id} (${deletedCount}/${recordsToDelete.length})`,
+            );
             return true;
           })
-          .catch(error => {
-            console.warn(`❌ Failed to delete record ${record.id}:`, error.message);
+          .catch((error) => {
+            console.warn(
+              `❌ Failed to delete record ${record.id}:`,
+              error.message,
+            );
             errors.push({ id: record.id, error: error.message });
             return false;
-          })
+          }),
       );
-      
+
       await Promise.all(batchPromises);
-      
+
       // Small delay between batches
       if (i + batchSize < recordsToDelete.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
-    
-    console.log(`🎯 Deletion complete: ${deletedCount} successful, ${errors.length} failed`);
-    
+
+    console.log(
+      `🎯 Deletion complete: ${deletedCount} successful, ${errors.length} failed`,
+    );
+
     return {
       success: true,
       message: `Deleted ${deletedCount} attendance records for ${year}-${month}`,
       deleted_count: deletedCount,
       failed_count: errors.length,
-      errors: errors
+      errors: errors,
     };
-    
   } catch (error) {
     console.error("❌ Error deleting monthly attendance:", error);
     console.error("Error details:", error.response?.data);
-    
+
     // More specific error messages
     let errorMessage = "Failed to delete attendance";
     if (error.response?.data?.detail) {
@@ -278,7 +283,7 @@ export const deleteAttendanceByMonth = async (year, month) => {
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     throw new Error(errorMessage);
   }
 };
@@ -363,7 +368,7 @@ const createInstance = (baseURL) => {
         `✅ ${response.config.method?.toUpperCase()} ${
           response.config.url
         } success:`,
-        response.status
+        response.status,
       );
       return response;
     },
@@ -398,7 +403,7 @@ const createInstance = (baseURL) => {
       }
 
       return Promise.reject(error);
-    }
+    },
   );
 
   return instance;
@@ -430,7 +435,8 @@ export const testHRMSEndpoint = () => hrmsApi.get("employees/");
 /* -------------------------------------------------------------------------- */
 /*  4.  AUTHENTICATION                                                       */
 export const loginUser = async (payload) => {
-  const { username, password, employee_id, designation, department, email } = payload;
+  const { username, password, employee_id, designation, department, email } =
+    payload;
 
   const resp = await fetch(`${getBackendURL()}/users/login/`, {
     method: "POST",
@@ -482,7 +488,7 @@ export const loginUser = async (payload) => {
   store("email", data.email || data.username);
   store("mode", data.mode || "restricted");
   store("permissions", JSON.stringify(data.permissions || {}));
-  
+
   // CRITICAL: Add reporting leader information
   store("reporting_leader", data.reporting_leader);
 
@@ -529,7 +535,7 @@ export const getPerformanceAppraisalsByEmployeeId = async (employeeId) => {
 
     // Try the custom endpoint first
     const response = await api.get(
-      `/performance-appraisals/by_employee/?employee_id=${employeeId}`
+      `/performance-appraisals/by_employee/?employee_id=${employeeId}`,
     );
 
     console.log(`📊 API Response for ${employeeId}:`, response.data);
@@ -537,21 +543,21 @@ export const getPerformanceAppraisalsByEmployeeId = async (employeeId) => {
   } catch (error) {
     console.error(
       `❌ Custom endpoint failed for employee ${employeeId}:`,
-      error
+      error,
     );
 
     // Fallback: Use main endpoint with query parameter
     try {
       console.log("🔄 Falling back to main endpoint with filter...");
       const response = await api.get(
-        `/performance-appraisals/?employee_id=${employeeId}`
+        `/performance-appraisals/?employee_id=${employeeId}`,
       );
       console.log(`📊 Fallback response for ${employeeId}:`, response.data);
       return response;
     } catch (fallbackError) {
       console.error(
         `❌ Fallback also failed for employee ${employeeId}:`,
-        fallbackError
+        fallbackError,
       );
 
       // Last resort: Get all and filter client-side
@@ -560,7 +566,7 @@ export const getPerformanceAppraisalsByEmployeeId = async (employeeId) => {
         const allResponse = await getPerformanceAppraisals();
         if (allResponse.data) {
           const filtered = allResponse.data.filter(
-            (appraisal) => appraisal.employee_id === employeeId
+            (appraisal) => appraisal.employee_id === employeeId,
           );
           console.log(`📊 Client-side filtered for ${employeeId}:`, filtered);
           return { data: filtered };
@@ -583,7 +589,7 @@ export const getIncrementHistory = async (employeeId) => {
       // Filter only approved increments
       const incrementHistory = response.data.filter(
         (appraisal) =>
-          appraisal.increment === true && appraisal.increment_approved === true
+          appraisal.increment === true && appraisal.increment_approved === true,
       );
 
       console.log(`💰 Increment history for ${employeeId}:`, incrementHistory);
@@ -594,7 +600,7 @@ export const getIncrementHistory = async (employeeId) => {
   } catch (error) {
     console.error(
       `❌ Error getting increment history for ${employeeId}:`,
-      error
+      error,
     );
     return [];
   }
@@ -607,7 +613,7 @@ export const approveIncrement = async (appraisalId) => {
     // Call the custom action endpoint - it should be POST to approve_increment/
     const response = await hrmsApi.post(
       `performance_appraisals/${appraisalId}/approve_increment/`,
-      {} // Empty body since we don't need to send data for approval
+      {}, // Empty body since we don't need to send data for approval
     );
 
     console.log("✅ API Response:", response.data);
@@ -618,8 +624,6 @@ export const approveIncrement = async (appraisalId) => {
     throw error;
   }
 };
-
-
 
 // In employeeApi.js - Add this function after the approveIncrement function
 
@@ -633,7 +637,7 @@ export const approveDesignation = async (appraisalId) => {
     // Call the custom action endpoint for designation approval
     const response = await hrmsApi.post(
       `performance_appraisals/${appraisalId}/approve_designation/`,
-      {} // Empty body since we don't need to send data for approval
+      {}, // Empty body since we don't need to send data for approval
     );
 
     console.log("✅ API Response:", response.data);
@@ -645,8 +649,75 @@ export const approveDesignation = async (appraisalId) => {
   }
 };
 
+/* -------------------------------------------------------------------------- */
+/*  TERMINATED EMPLOYEES ARCHIVE APIs                                        */
+/* -------------------------------------------------------------------------- */
 
+// Get all terminated employees (archives)
+export const getTerminatedEmployees = () =>
+  hrmsApi.get("terminated_employees/");
 
+// Get terminated employee by ID
+export const getTerminatedEmployeeById = (id) =>
+  hrmsApi.get(`terminated_employees/${id}/`);
+
+// Search terminated employees with filters
+export const searchTerminatedEmployees = (params = {}) => {
+  const queryParams = new URLSearchParams();
+
+  if (params.search) queryParams.append("search", params.search);
+  if (params.department) queryParams.append("department", params.department);
+  if (params.company) queryParams.append("company", params.company);
+  if (params.termination_type)
+    queryParams.append("termination_type", params.termination_type);
+  if (params.status) queryParams.append("status", params.status);
+  if (params.start_date) queryParams.append("start_date", params.start_date);
+  if (params.end_date) queryParams.append("end_date", params.end_date);
+  if (params.page) queryParams.append("page", params.page);
+  if (params.page_size) queryParams.append("page_size", params.page_size);
+
+  const queryString = queryParams.toString();
+  const url = queryString
+    ? `terminated_employees/?${queryString}`
+    : "terminated_employees/";
+
+  return hrmsApi.get(url);
+};
+
+// Restore terminated employee (move back to active)
+export const restoreTerminatedEmployee = (archiveId) =>
+  hrmsApi.post(`terminated_employees/${archiveId}/restore/`, {});
+
+// Get termination statistics
+export const getTerminationStats = () =>
+  hrmsApi.get("terminated_employees/stats/");
+
+// Export terminated employees data
+export const exportTerminatedEmployees = (format = "json") =>
+  hrmsApi.get(`terminated_employees/export/?format=${format}`, {
+    responseType: format === "csv" ? "blob" : "json",
+  });
+
+// Update termination status (exit interview, clearance, settlement)
+export const updateTerminationStatus = (archiveId, statusData) =>
+  hrmsApi.patch(`terminated_employees/${archiveId}/update_status/`, statusData);
+
+// Bulk delete terminated employee records
+export const bulkDeleteTerminatedEmployees = (archiveIds) =>
+  hrmsApi.post("terminated_employees/bulk_delete/", { ids: archiveIds });
+
+// Get termination trends by month
+export const getTerminationTrends = (startDate, endDate) => {
+  const params = {};
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+
+  return hrmsApi.get("terminated_employees/trends/", { params });
+};
+
+// Get department-wise termination statistics
+export const getDepartmentTerminationStats = () =>
+  hrmsApi.get("terminated_employees/department_stats/");
 
 /* -------------------------------------------------------------------------- */
 /*  6.  EMPLOYEE APIs                                                        */
@@ -656,26 +727,36 @@ export const getEmployeeById = (id) => hrmsApi.get(`employees/${id}/`);
 export const addEmployee = (data) => hrmsApi.post("employees/", data);
 export const updateEmployee = (id, data) =>
   hrmsApi.patch(`employees/${id}/`, data);
-export const deleteEmployee = (id) => hrmsApi.delete(`employees/${id}/`);
+export const deleteEmployee = async (id, terminationData) => {
+  try {
+    const response = await hrmsApi.delete(`employees/${id}/terminate/`, {
+      data: terminationData, // Send termination data in body
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error terminating employee:", error);
+    throw error;
+  }
+};
 
 /* ---- image & customers (partial updates) ---- */
 export const updateEmployeeImage = (id, formData) => {
   console.log("=== updateEmployeeImage DEBUG ===");
   console.log("Employee ID:", id);
   console.log("FormData received:", formData);
-  
+
   // Log FormData contents
   if (formData instanceof FormData) {
     for (let [key, value] of formData.entries()) {
       console.log(`FormData - ${key}:`, value);
     }
   }
-  
+
   console.log("=== END DEBUG ===");
-  
+
   return hrmsApi.patch(`employees/${id}/`, formData, {
     headers: {
-      'Content-Type': 'multipart/form-data',
+      "Content-Type": "multipart/form-data",
     },
   });
 };
@@ -704,96 +785,103 @@ export const updateEmployeeCustomers = (id, customerIds) => {
   return hrmsApi.patch(`employees/${id}/update_customers/`, payload);
 };
 
-
-
-
-
 // In employeeApi.js - UPDATE the getEmployeeLeaves function
 export const getEmployeeLeaves = async () => {
   try {
     console.log("🔍 Getting leaves for current user...");
-    
+
     // Get current user info
     const username = localStorage.getItem("username");
     const employeeId = localStorage.getItem("employee_id");
     const employeeDbId = localStorage.getItem("employee_db_id");
     const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
-    
+
     console.log("📋 User info:", {
       username,
       employeeId,
       employeeDbId,
-      hasFullAccess: permissions.full_access
+      hasFullAccess: permissions.full_access,
     });
-    
+
     // Check if user has full access (but exclude Sohel from seeing all leaves)
     const hasFullAccess = permissions.full_access === true;
-    const isSohel = username === 'Sohel';
-    
+    const isSohel = username === "Sohel";
+
     let url = "employee_leaves/";
-    
+
     // If user has full access AND is NOT Sohel, get all leaves
     if (hasFullAccess && !isSohel) {
       console.log("👑 Full access user (not Sohel) - getting all leaves");
     } else {
       // For regular users and Sohel, only get their own leaves
-      console.log(`👤 ${isSohel ? 'Sohel (restricted)' : 'Regular user'} - getting own leaves`);
-      
+      console.log(
+        `👤 ${isSohel ? "Sohel (restricted)" : "Regular user"} - getting own leaves`,
+      );
+
       if (!employeeId && !employeeDbId) {
         console.error("❌ No employee ID found in localStorage");
         return { data: [] };
       }
-      
+
       // Add employee_id as query parameter
       const params = new URLSearchParams();
-      if (employeeId) params.append('employee_id', employeeId);
-      if (employeeDbId) params.append('employee_db_id', employeeDbId);
-      
+      if (employeeId) params.append("employee_id", employeeId);
+      if (employeeDbId) params.append("employee_db_id", employeeDbId);
+
       if (params.toString()) {
         url += `?${params.toString()}`;
       }
     }
-    
+
     console.log("🌐 API URL:", url);
-    
+
     const response = await hrmsApi.get(url);
-    
+
     console.log("📋 API Response:", {
       status: response.status,
-      dataCount: Array.isArray(response.data) ? response.data.length : 'unknown',
-      data: response.data
+      dataCount: Array.isArray(response.data)
+        ? response.data.length
+        : "unknown",
+      data: response.data,
     });
-    
+
     // Filter response to ensure only current user's leaves (for regular users and Sohel)
     let leavesData = [];
     if (response.data) {
       if (Array.isArray(response.data)) {
         leavesData = response.data;
-      } else if (response.data.results && Array.isArray(response.data.results)) {
+      } else if (
+        response.data.results &&
+        Array.isArray(response.data.results)
+      ) {
         leavesData = response.data.results;
       } else {
         leavesData = [response.data];
       }
     }
-    
+
     // If user has full access AND is NOT Sohel, return all leaves
     if (hasFullAccess && !isSohel) {
-      console.log(`✅ Returning all ${leavesData.length} leaves for full access user`);
+      console.log(
+        `✅ Returning all ${leavesData.length} leaves for full access user`,
+      );
       return { ...response, data: leavesData };
     }
-    
+
     // For regular users and Sohel, filter to only their own leaves
     console.log("🔍 Filtering leaves for regular user/Sohel...");
-    const filteredLeaves = leavesData.filter(leave => {
-      const leaveEmployeeId = leave.employee?.employee_id || leave.employee_code || leave.employee_id;
+    const filteredLeaves = leavesData.filter((leave) => {
+      const leaveEmployeeId =
+        leave.employee?.employee_id || leave.employee_code || leave.employee_id;
       const leaveEmployeeDbId = leave.employee?.id || leave.employee;
       const leaveEmployeeName = leave.employee_name || leave.employee?.name;
-      
-      const matches = 
+
+      const matches =
         leaveEmployeeId === employeeId ||
         leaveEmployeeDbId?.toString() === employeeDbId ||
-        (leaveEmployeeName && leaveEmployeeName === localStorage.getItem("employee_name"));
-      
+        (leaveEmployeeName &&
+          leaveEmployeeName === localStorage.getItem("employee_name"));
+
       if (!matches) {
         console.log(`❌ Filtered out leave ${leave.id}:`, {
           leaveEmployeeId,
@@ -801,48 +889,47 @@ export const getEmployeeLeaves = async () => {
           leaveEmployeeName,
           ourEmployeeId: employeeId,
           ourEmployeeDbId: employeeDbId,
-          ourEmployeeName: localStorage.getItem("employee_name")
+          ourEmployeeName: localStorage.getItem("employee_name"),
         });
       }
-      
+
       return matches;
     });
-    
-    console.log(`✅ Filtered leaves: ${filteredLeaves.length} out of ${leavesData.length}`);
-    
+
+    console.log(
+      `✅ Filtered leaves: ${filteredLeaves.length} out of ${leavesData.length}`,
+    );
+
     return { ...response, data: filteredLeaves };
-    
   } catch (error) {
     console.error("❌ Error fetching leaves:", error);
     console.error("❌ Error details:", error.response?.data);
-    
+
     // Return empty array on error to prevent frontend crashes
     return { data: [] };
   }
 };
 
-
-
 // In employeeApi.js - Update the addEmployeeLeave function
 export const addEmployeeLeave = async (data) => {
   try {
     console.log("📝 Creating leave request with data:", data);
-    
+
     // Get current user's reporting leader from localStorage
     const reportingLeader = localStorage.getItem("reporting_leader");
     console.log("👤 Current user reporting leader:", reportingLeader);
-    
+
     // Ensure employee field is properly formatted and include reporting_leader
     const leaveData = {
       ...data,
       employee: parseInt(data.employee), // Ensure it's a number
       employee_code: data.employee_code || localStorage.getItem("employee_id"),
       status: data.status || "pending",
-      reporting_leader: reportingLeader || "" // CRITICAL: Add reporting leader
+      reporting_leader: reportingLeader || "", // CRITICAL: Add reporting leader
     };
-    
+
     console.log("📦 Final API payload:", leaveData);
-    
+
     const response = await hrmsApi.post("employee_leaves/", leaveData);
     console.log("✅ Leave created successfully:", response.data);
     return response;
@@ -852,7 +939,6 @@ export const addEmployeeLeave = async (data) => {
     throw error;
   }
 };
-
 
 /* -------------------------------------------------------------------------- */
 /*  7.  CUSTOMER APIs - ADDED MISSING FUNCTION                              */
@@ -926,27 +1012,21 @@ export const debugEmployeeLeaves = async () => {
   }
 };
 
-
-
-
 // Add to employeeApi.js - in the DEBUG / TEST HELPERS section
 
 /* -------------------------------------------------------------------------- */
 /*  DEBUG & DIAGNOSTIC APIs                                                  */
 /* -------------------------------------------------------------------------- */
 
-export const debugAllLeaves = () => 
-  hrmsApi.get("debug_all_leaves/");
+export const debugAllLeaves = () => hrmsApi.get("debug_all_leaves/");
 
-export const debugEmployees = () => 
-  hrmsApi.get("debug_employees/");
+export const debugEmployees = () => hrmsApi.get("debug_employees/");
 
 export const debugUserEmployeeMapping = () =>
   hrmsApi.get("debug_user_employee_mapping/");
 
-export const checkUserEmployeeMapping = () => 
+export const checkUserEmployeeMapping = () =>
   hrmsApi.get("check_user_employee_mapping/");
-
 
 // In employeeApi.js - fix the debugCurrentUserLeaves function
 export const debugCurrentUserLeaves = async () => {
@@ -1026,66 +1106,60 @@ export const getNotifications = () => hrmsApi.get("notifications/");
 export const getEmployeeLeaveById = (id) =>
   hrmsApi.get(`employee_leaves/${id}/`);
 
-
 export const deleteEmployeeLeave = (id) =>
   hrmsApi.delete(`employee_leaves/${id}/`);
-
-
-
-
 
 // In employeeApi.js - Add to the ATTENDANCE APIs section
 
 // In employeeApi.js - Update the function
 export const getWeeklyAttendanceStats = (startDate, endDate) => {
-  return hrmsApi.get("api/weekly_attendance_stats/", {  // Try with api/ prefix
-    params: {
-      start_date: startDate,
-      end_date: endDate
-    }
-  }).catch(error => {
-    console.error('Error with api/ prefix, trying without...', error);
-    // Fallback to without api/ prefix
-    return hrmsApi.get("weekly_attendance_stats/", {
+  return hrmsApi
+    .get("api/weekly_attendance_stats/", {
+      // Try with api/ prefix
       params: {
         start_date: startDate,
-        end_date: endDate
-      }
+        end_date: endDate,
+      },
+    })
+    .catch((error) => {
+      console.error("Error with api/ prefix, trying without...", error);
+      // Fallback to without api/ prefix
+      return hrmsApi.get("weekly_attendance_stats/", {
+        params: {
+          start_date: startDate,
+          end_date: endDate,
+        },
+      });
     });
-  });
 };
-
 
 // In employeeApi.js - Add this function
 export const getTeamLeaves = async () => {
   try {
     console.log("🔍 Getting team leaves via dedicated endpoint...");
     const response = await hrmsApi.get("team_leaves/");
-    
+
     return response;
   } catch (error) {
-
     return await getEmployeeLeaves();
   }
 };
-
 
 // In employeeApi.js - Update the updateEmployeeLeave function
 export const updateEmployeeLeave = (id, data) => {
   console.log("📤 Updating leave with ID:", id);
   console.log("📦 Update data:", data);
-  
+
   return hrmsApi.patch(`employee_leaves/${id}/`, data);
 };
-
 
 // In employeeApi.js - Add this function
 export const addTeamLeaderComment = (leaveId, comment) => {
   console.log("💬 Adding team leader comment for leave:", leaveId);
   console.log("📝 Comment:", comment);
-  
+
   return hrmsApi.post(`employee_leaves/${leaveId}/add_team_comment/`, {
-    teamleader: comment  // Match the field name in your model
+    teamleader: comment, // Match the field name in your model
   });
 };
 
@@ -1093,7 +1167,7 @@ export const addTeamLeaderComment = (leaveId, comment) => {
 // export const addEmployeeLeave = async (data) => {
 //   try {
 //     console.log("📝 Creating leave request with data:", data);
-    
+
 //     // Ensure employee field is properly formatted
 //     const leaveData = {
 //       ...data,
@@ -1101,9 +1175,9 @@ export const addTeamLeaderComment = (leaveId, comment) => {
 //       employee_code: data.employee_code || localStorage.getItem("employee_id"),
 //       status: data.status || "pending"
 //     };
-    
+
 //     console.log("📦 Final API payload:", leaveData);
-    
+
 //     const response = await hrmsApi.post("employee_leaves/", leaveData);
 //     console.log("✅ Leave created successfully:", response.data);
 //     return response;
@@ -1113,7 +1187,6 @@ export const addTeamLeaderComment = (leaveId, comment) => {
 //     throw error;
 //   }
 // };
-
 
 // CORRECT — use hrmsApi (same as all other employee endpoints)
 export const sendWelcomeEmail = (employeeId) => {
@@ -1125,41 +1198,53 @@ export const sendWelcomeEmail = (employeeId) => {
 export const getEmployeeDetailsByCode = async (employeeCode) => {
   try {
     console.log("🔍 Fetching employee details for code:", employeeCode);
-    
-    const response = await hrmsApi.get(`employees/?employee_id=${employeeCode}`);
+
+    const response = await hrmsApi.get(
+      `employees/?employee_id=${employeeCode}`,
+    );
     console.log("✅ Employee search response count:", response.data.length);
-    
+
     if (response.data && response.data.length > 0) {
       // Filter to find the EXACT employee with matching employee_id
-      const exactEmployee = response.data.find(emp => 
-        emp.employee_id === employeeCode || 
-        emp.employee_id?.toString() === employeeCode?.toString()
+      const exactEmployee = response.data.find(
+        (emp) =>
+          emp.employee_id === employeeCode ||
+          emp.employee_id?.toString() === employeeCode?.toString(),
       );
-      
+
       if (exactEmployee) {
-        console.log("🎯 Found exact employee:", exactEmployee.name, "-", exactEmployee.designation);
+        console.log(
+          "🎯 Found exact employee:",
+          exactEmployee.name,
+          "-",
+          exactEmployee.designation,
+        );
         return exactEmployee;
       } else {
-        console.warn("⚠️ No exact match found for employee code:", employeeCode);
-        console.log("📋 Available employees in response:", response.data.map(emp => ({
-          id: emp.id,
-          name: emp.name,
-          employee_id: emp.employee_id,
-          designation: emp.designation
-        })));
+        console.warn(
+          "⚠️ No exact match found for employee code:",
+          employeeCode,
+        );
+        console.log(
+          "📋 Available employees in response:",
+          response.data.map((emp) => ({
+            id: emp.id,
+            name: emp.name,
+            employee_id: emp.employee_id,
+            designation: emp.designation,
+          })),
+        );
       }
     } else {
       console.warn("⚠️ No employees found in response");
     }
-    
+
     return null;
   } catch (error) {
     console.error("❌ Error fetching employee details:", error);
     return null;
   }
 };
-
-
 
 /* -------------------------------------------------------------------------- */
 /*  13.  ATTENDANCE APIs                                                     */
@@ -1255,15 +1340,17 @@ export const getLetterSend = () => hrmsApi.get("letter_send/");
 export const getLetterSendById = (id) => hrmsApi.get(`letter_send/${id}/`);
 export const addLetterSend = (data) => {
   const fd = new FormData();
-  
-  if (data.get('name')) fd.append("name", data.get('name'));
-  if (data.get('email')) fd.append("email", data.get('email'));
-  if (data.get('letter_file')) fd.append("letter_file", data.get('letter_file'));
-  if (data.get('letter_type')) fd.append("letter_type", data.get('letter_type'));
-  
+
+  if (data.get("name")) fd.append("name", data.get("name"));
+  if (data.get("email")) fd.append("email", data.get("email"));
+  if (data.get("letter_file"))
+    fd.append("letter_file", data.get("letter_file"));
+  if (data.get("letter_type"))
+    fd.append("letter_type", data.get("letter_type"));
+
   return hrmsApi.post("letter_send/", fd, {
     headers: {
-      'Content-Type': 'multipart/form-data',
+      "Content-Type": "multipart/form-data",
     },
   });
 };
@@ -1293,8 +1380,6 @@ export const getEmployeeLeaveTypes = () => hrmsApi.get("employee_leave_types/");
 export const updateEmployeeLeaveType = (id, data) =>
   hrmsApi.put(`employee_leave_types/${id}/`, data);
 
-
-
 /* -------------------------------------------------------------------------- */
 /*  20.  OFFER-LETTER CHECK                                                  */
 /* -------------------------------------------------------------------------- */
@@ -1302,16 +1387,13 @@ export const updateEmployeeLeaveType = (id, data) =>
 /*  UPDATE INTERVIEW OFFER LETTER STATUS                                     */
 /* -------------------------------------------------------------------------- */
 
-
-
-
 /* -------------------------------------------------------------------------- */
 /*  UPDATE INTERVIEW OFFER LETTER STATUS                                     */
 /* -------------------------------------------------------------------------- */
 export const updateInterviewOfferLetterStatus = (interviewId, email) =>
-  hrmsApi.patch(`interviews/${interviewId}/`, { 
+  hrmsApi.patch(`interviews/${interviewId}/`, {
     offer_letter_sent: true,
-    email: email // Ensure email is included for tracking
+    email: email, // Ensure email is included for tracking
   });
 
 // Add to employeeApi.js - Debug function
@@ -1323,15 +1405,17 @@ export const debugCurrentUserData = async () => {
       employee_db_id: localStorage.getItem("employee_db_id"),
       employee_name: localStorage.getItem("employee_name"),
       username: localStorage.getItem("username"),
-      user_id: localStorage.getItem("user_id")
+      user_id: localStorage.getItem("user_id"),
     });
 
     // Test API endpoints
-    const [leavesResponse, balancesResponse, debugResponse] = await Promise.all([
-      getEmployeeLeaves(),
-      getEmployeeLeaveBalances(),
-      hrmsApi.get('api/debug_current_user_leaves/')
-    ]);
+    const [leavesResponse, balancesResponse, debugResponse] = await Promise.all(
+      [
+        getEmployeeLeaves(),
+        getEmployeeLeaveBalances(),
+        hrmsApi.get("api/debug_current_user_leaves/"),
+      ],
+    );
 
     console.log("📋 Leaves API response:", leavesResponse.data);
     console.log("💰 Balances API response:", balancesResponse.data);
@@ -1341,11 +1425,11 @@ export const debugCurrentUserData = async () => {
       localStorage: {
         employee_id: localStorage.getItem("employee_id"),
         employee_db_id: localStorage.getItem("employee_db_id"),
-        employee_name: localStorage.getItem("employee_name")
+        employee_name: localStorage.getItem("employee_name"),
       },
       leaves: leavesResponse.data,
       balances: balancesResponse.data,
-      debug: debugResponse.data
+      debug: debugResponse.data,
     };
   } catch (error) {
     console.error("❌ Debug error:", error);
@@ -1357,34 +1441,34 @@ export const debugCurrentUserData = async () => {
 // export const getEmployeeLeaves = async () => {
 //   try {
 //     console.log("🔍 Getting employee leaves...");
-    
+
 //     // Get employee_id from localStorage for better filtering
 //     const employeeId = localStorage.getItem("employee_id");
 //     const employeeDbId = localStorage.getItem("employee_db_id");
-    
+
 //     console.log("📋 Using employee data:", {
 //       employeeId,
 //       employeeDbId
 //     });
-    
+
 //     let url = "employee_leaves/";
-    
+
 //     // Add employee_id as query parameter to help backend filtering
 //     if (employeeId) {
 //       url += `?employee_id=${employeeId}`;
 //     }
-    
+
 //     console.log("🌐 API URL:", url);
-    
+
 //     const response = await hrmsApi.get(url);
-    
+
 //     console.log("📋 Leaves API response:", {
 //       status: response.status,
 //       data: response.data,
 //       count: Array.isArray(response.data) ? response.data.length : 'unknown',
 //       dataType: Array.isArray(response.data) ? 'array' : typeof response.data
 //     });
-    
+
 //     // If data is not an array, try to extract from results or convert
 //     let leavesData = response.data;
 //     if (response.data && !Array.isArray(response.data)) {
@@ -1396,14 +1480,14 @@ export const debugCurrentUserData = async () => {
 //         console.log("🔄 Converted single object to array");
 //       }
 //     }
-    
+
 //     console.log("✅ Final leaves data:", leavesData);
 //     return { ...response, data: leavesData };
-    
+
 //   } catch (error) {
 //     console.error("❌ Error fetching leaves:", error);
 //     console.error("❌ Error details:", error.response?.data);
-    
+
 //     // Return empty array on error to prevent frontend crashes
 //     return { data: [] };
 //   }
@@ -1579,5 +1663,15 @@ export default {
   apiRequest,
 
   getWeeklyAttendanceStats,
-  
+
+  getTerminatedEmployees,
+  getTerminatedEmployeeById,
+  searchTerminatedEmployees,
+  restoreTerminatedEmployee,
+  getTerminationStats,
+  exportTerminatedEmployees,
+  updateTerminationStatus,
+  bulkDeleteTerminatedEmployees,
+  getTerminationTrends,
+  getDepartmentTerminationStats,
 };

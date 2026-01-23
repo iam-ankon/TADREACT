@@ -52,6 +52,7 @@ import MailMdSir from "./components/hr/MailMdSir";
 import InviteMail from "./components/hr/InviteMail";
 import WeeklyAttendanceGraph from "./components/hr/WeeklyAttendanceGraph.jsx";
 import HolidaysPage from "./components/hr/HolidaysPage.jsx";
+import TerminatedEmployeeArchive from "./components/hr/TerminatedEmployeeArchive.jsx";
 
 
 //regular user Dashboard
@@ -149,6 +150,7 @@ const AppContent = () => {
           <Route path="/employee-termination" element={<ProtectedRoute><EmployeeTermination /></ProtectedRoute>} />
           <Route path="/weekly-attendance-graph" element={<ProtectedRoute><WeeklyAttendanceGraph /></ProtectedRoute>} />
           <Route path="/holidays" element={<ProtectedRoute><HolidaysPage /></ProtectedRoute>} />
+          <Route path="/terminated-employee-archive" element={<ProtectedRoute><TerminatedEmployeeArchive /></ProtectedRoute>} />
          
 
           {/* Regular User Routes (Accessible to ALL authenticated users) */} 

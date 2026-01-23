@@ -574,7 +574,7 @@ const StatsDisplay = ({ stats }) => (
     <StatItem icon={<Hash size={16} />} color="#8B5CF6" value={stats.totalAppraisals} label="Total Appraisals" bg="#F5F3FF" border="#DDD6FE" />
     <StatItem icon={<Star size={16} />} color="#10B981" value={stats.avgRating} label="Avg Rating" bg="#ECFDF5" border="#A7F3D0" />
     <StatItem icon={<Award size={16} />} color="#0EA5E9" value={stats.excellent} label="Excellent" bg="#F0F9FF" border="#BAE6FD" />
-    <StatItem icon={<TrendingDown size={16} />} color="#EF4444" value={stats.poor} label="Needs Improvement" bg="#FEF2F2" border="#FECACA" />
+    {/* <StatItem icon={<TrendingDown size={16} />} color="#EF4444" value={stats.poor} label="Needs Improvement" bg="#FEF2F2" border="#FECACA" /> */}
     <StatItem icon={<Target size={16} />} color="#F59E0B" value={stats.good} label="Good" bg="#FFFBEB" border="#FDE68A" />
   </div>
 );
@@ -669,7 +669,7 @@ const ActionBar = ({
           label="🏢 All Departments"
         />
         
-        <FilterSelect
+        {/* <FilterSelect
           value={ratingFilter}
           onChange={setRatingFilter}
           options={[
@@ -681,7 +681,7 @@ const ActionBar = ({
           ]}
           icon={<Star size={16} />}
           label="⭐ All Ratings"
-        />
+        /> */}
         
         <SortButton
           onClick={() => toggleSort("rating")}
@@ -1116,7 +1116,7 @@ const ListView = ({ appraisals, onEdit, onDelete, onView, getRatingConfig }) => 
         background: "#F9FAFB",
         borderBottom: "1px solid #E5E7EB",
         display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr",
+        gridTemplateColumns: "2fr 1fr 1fr 1fr",
         gap: "16px",
         fontSize: "12px",
         fontWeight: "600",
@@ -1132,8 +1132,6 @@ const ListView = ({ appraisals, onEdit, onDelete, onView, getRatingConfig }) => 
       <div>Employee</div>
       <div>Department</div>
       <div>Designation</div>
-      <div>Rating</div>
-      <div>Status</div>
       <div>Actions</div>
     </div>
 
@@ -1943,7 +1941,7 @@ const AppraisalListItem = ({
       </div>
 
       {/* Rating Column */}
-      <div
+      {/* <div
         style={{ flex: 1, display: "flex", alignItems: "center", gap: "12px" }}
       >
         <div>{getRatingStars(rating)}</div>
@@ -1956,10 +1954,10 @@ const AppraisalListItem = ({
         >
           {rating.toFixed(1)}
         </div>
-      </div>
+      </div> */}
 
       {/* Status Column */}
-      <div style={{ flex: 1 }}>
+      {/* <div style={{ flex: 1 }}>
         <div
           style={{
             display: "inline-flex",
@@ -1975,7 +1973,7 @@ const AppraisalListItem = ({
         >
           {ratingConfig.label}
         </div>
-      </div>
+      </div> */}
 
       {/* Actions Column */}
       <div style={{ flex: 1, display: "flex", gap: "8px" }}>

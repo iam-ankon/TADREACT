@@ -36,6 +36,7 @@ import {
   Phone,
   TrendingDown,
   AlertTriangle,
+  Archive,
 } from "lucide-react";
 import Sidebars from "./sidebars";
 import { getEmployees, deleteEmployee } from "../../api/employeeApi";
@@ -53,6 +54,15 @@ const EmployeeTermination = () => {
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [viewMode, setViewMode] = useState("list");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showTerminateModal, setShowTerminateModal] = useState(false);
+  const [employeeToTerminate, setEmployeeToTerminate] = useState(null);
+  const [formData, setFormData] = useState({
+    reason: "",
+    type: "termination",
+    exit_interview_completed: false,
+    clearance_completed: false,
+    final_settlement_paid: false,
+  });
 
   const navigate = useNavigate();
 
@@ -94,8 +104,10 @@ const EmployeeTermination = () => {
           emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           emp.employee_id?.toString().includes(searchQuery) ||
           emp.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          emp.department_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          emp.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
+          emp.department_name
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          emp.company_name?.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
 
@@ -110,7 +122,9 @@ const EmployeeTermination = () => {
 
     // Apply department filter
     if (departmentFilter !== "all") {
-      filtered = filtered.filter((emp) => emp.department_name === departmentFilter);
+      filtered = filtered.filter(
+        (emp) => emp.department_name === departmentFilter,
+      );
     }
 
     // Apply sorting
@@ -148,12 +162,19 @@ const EmployeeTermination = () => {
           ? 1
           : -1
         : aValue < bValue
-        ? 1
-        : -1;
+          ? 1
+          : -1;
     });
 
     setFilteredEmployees(filtered);
-  }, [employees, searchQuery, statusFilter, departmentFilter, sortBy, sortOrder]);
+  }, [
+    employees,
+    searchQuery,
+    statusFilter,
+    departmentFilter,
+    sortBy,
+    sortOrder,
+  ]);
 
   /* ------------------------------------------------------------------ *
    *  3. Save search state
@@ -162,23 +183,75 @@ const EmployeeTermination = () => {
     localStorage.setItem("employeeListSearchQuery", searchQuery);
   }, [searchQuery]);
 
-  /* ------------------------------------------------------------------ *
-   *  Handlers
-   * ------------------------------------------------------------------ */
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to terminate this employee? This action cannot be undone.")) return;
+  const initiateTermination = (employee) => {
+    setEmployeeToTerminate(employee);
+    setFormData({
+      reason: "",
+      type: "termination",
+      exit_interview_completed: false,
+      clearance_completed: false,
+      final_settlement_paid: false,
+    });
+    setShowTerminateModal(true);
+  };
+
+  // Handle actual termination
+  const handleConfirmTermination = async () => {
+    if (!employeeToTerminate) return;
+
+    // Basic validation
+    if (!formData.reason.trim()) {
+      alert("Please provide a termination reason");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Really terminate ${employeeToTerminate.name}? This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    const terminationDetails = {
+      reason: formData.reason.trim(),
+      type: formData.type,
+      terminated_by: "Current User", // ← replace with real user name if available
+      exit_interview_completed: formData.exit_interview_completed,
+      clearance_completed: formData.clearance_completed,
+      final_settlement_paid: formData.final_settlement_paid,
+    };
+
     try {
-      await deleteEmployee(id);
-      setEmployees((prev) => prev.filter((emp) => emp.id !== id));
-      setShowDeleteConfirm(null);
-    } catch (e) {
-      console.error("Delete error:", e);
-      alert("Failed to terminate employee. Please try again.");
+      // Use your API function (adjust employee_id or id field name as needed)
+      await deleteEmployee(
+        employeeToTerminate.employee_id || employeeToTerminate.id,
+        terminationDetails,
+      );
+
+      // Remove from list
+      setEmployees((prev) =>
+        prev.filter(
+          (emp) =>
+            emp.employee_id !== employeeToTerminate.employee_id &&
+            emp.id !== employeeToTerminate.id,
+        ),
+      );
+
+      setShowTerminateModal(false);
+      setEmployeeToTerminate(null);
+      alert("Employee terminated and archived successfully!");
+    } catch (err) {
+      console.error("Termination failed:", err);
+      alert("Failed to terminate employee. Please check console.");
     }
   };
 
+  /* ------------------------------------------------------------------ *
+   *  Handlers
+   * ------------------------------------------------------------------ */
   const handleEdit = (id) => navigate(`/edit-employee/${id}`);
-  const handleView = (id) => navigate(`/employee-details/${id}`);
+  const handleView = (id) => navigate(`/employee/${id}`);
 
   const handleSearchChange = (e) => {
     const query = e.target.value;
@@ -215,13 +288,23 @@ const EmployeeTermination = () => {
 
   const getStats = () => {
     const totalEmployees = employees.length;
-    const activeEmployees = employees.filter((emp) => emp.status?.toLowerCase() === "active").length;
-    const terminatedEmployees = employees.filter((emp) => emp.status?.toLowerCase() === "terminated").length;
-    const pendingEmployees = employees.filter((emp) => emp.status?.toLowerCase() === "pending").length;
-    const departments = [...new Set(employees.map((emp) => emp.department_name).filter(Boolean))];
+    const activeEmployees = employees.filter(
+      (emp) => emp.status?.toLowerCase() === "active",
+    ).length;
+    const terminatedEmployees = employees.filter(
+      (emp) => emp.status?.toLowerCase() === "terminated",
+    ).length;
+    const pendingEmployees = employees.filter(
+      (emp) => emp.status?.toLowerCase() === "pending",
+    ).length;
+    const departments = [
+      ...new Set(employees.map((emp) => emp.department_name).filter(Boolean)),
+    ];
     const recentTerminations = employees.filter((emp) => {
       if (emp.status?.toLowerCase() === "terminated") {
-        const terminationDate = new Date(emp.termination_date || emp.updated_at || Date.now());
+        const terminationDate = new Date(
+          emp.termination_date || emp.updated_at || Date.now(),
+        );
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
         return terminationDate > weekAgo;
@@ -229,7 +312,14 @@ const EmployeeTermination = () => {
       return false;
     }).length;
 
-    return { totalEmployees, activeEmployees, terminatedEmployees, pendingEmployees, departments, recentTerminations };
+    return {
+      totalEmployees,
+      activeEmployees,
+      terminatedEmployees,
+      pendingEmployees,
+      departments,
+      recentTerminations,
+    };
   };
 
   if (loading) {
@@ -821,6 +911,45 @@ const EmployeeTermination = () => {
                   Refresh
                 </motion.button>
 
+                {/* NEW ARCHIVE BUTTON */}
+                <Link
+                  to="/terminated-employee-archive"
+                  style={{ textDecoration: "none" }}
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      padding: "10px 16px",
+                      background: "#F59E0B",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "12px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 4px 14px rgba(245, 158, 11, 0.4)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "#D97706";
+                      e.currentTarget.style.boxShadow =
+                        "0 6px 20px rgba(245, 158, 11, 0.6)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "#F59E0B";
+                      e.currentTarget.style.boxShadow =
+                        "0 4px 14px rgba(245, 158, 11, 0.4)";
+                    }}
+                  >
+                    <Archive size={16} />
+                    View Archive
+                  </motion.button>
+                </Link>
+
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -910,7 +1039,8 @@ const EmployeeTermination = () => {
             }}
           >
             <span>
-              Found {filteredEmployees.length} employee(s) matching "{searchQuery}"
+              Found {filteredEmployees.length} employee(s) matching "
+              {searchQuery}"
             </span>
             <button
               onClick={clearSearch}
@@ -1083,7 +1213,7 @@ const EmployeeTermination = () => {
                   key={employee.id}
                   employee={employee}
                   onEdit={handleEdit}
-                  onDelete={() => setShowDeleteConfirm(employee.id)}
+                  onTerminate={initiateTermination}
                   onView={handleView}
                   expandedEmployee={expandedEmployee}
                   setExpandedEmployee={setExpandedEmployee}
@@ -1148,7 +1278,7 @@ const EmployeeTermination = () => {
                     employee={employee}
                     index={index}
                     onEdit={handleEdit}
-                    onDelete={() => setShowDeleteConfirm(employee.id)}
+                    onTerminate={initiateTermination}
                     onView={handleView}
                     expandedEmployee={expandedEmployee}
                     setExpandedEmployee={setExpandedEmployee}
@@ -1250,6 +1380,260 @@ const EmployeeTermination = () => {
         )}
       </div>
 
+      {/* Termination Modal */}
+      <AnimatePresence>
+        {showTerminateModal && employeeToTerminate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.5)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+              padding: "16px",
+            }}
+            onClick={() => setShowTerminateModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "24px",
+                maxWidth: "500px",
+                width: "100%",
+                maxHeight: "90vh",
+                overflow: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "12px",
+                    background: "#FEF2F2",
+                    borderRadius: "12px",
+                    color: "#EF4444",
+                  }}
+                >
+                  <UserMinus size={24} />
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      color: "#111827",
+                      margin: "0 0 4px 0",
+                    }}
+                  >
+                    Terminate Employee
+                  </h3>
+                  <p style={{ color: "#6B7280", fontSize: "14px", margin: 0 }}>
+                    Terminating: {employeeToTerminate.name}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    color: "#374151",
+                    fontSize: "14px",
+                  }}
+                >
+                  Reason for Termination *
+                </label>
+                <textarea
+                  value={formData.reason}
+                  onChange={(e) =>
+                    setFormData({ ...formData, reason: e.target.value })
+                  }
+                  placeholder="Enter reason for termination..."
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid #D1D5DB",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    minHeight: "80px",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    color: "#374151",
+                    fontSize: "14px",
+                  }}
+                >
+                  Termination Type
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #D1D5DB",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                  }}
+                >
+                  <option value="termination">Termination</option>
+                  <option value="resignation">Resignation</option>
+                  <option value="retirement">Retirement</option>
+                  <option value="layoff">Layoff</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.exit_interview_completed}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          exit_interview_completed: e.target.checked,
+                        })
+                      }
+                    />
+                    <span style={{ fontSize: "14px" }}>
+                      Exit Interview Completed
+                    </span>
+                  </label>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.clearance_completed}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          clearance_completed: e.target.checked,
+                        })
+                      }
+                    />
+                    <span style={{ fontSize: "14px" }}>
+                      Clearance Completed
+                    </span>
+                  </label>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.final_settlement_paid}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          final_settlement_paid: e.target.checked,
+                        })
+                      }
+                    />
+                    <span style={{ fontSize: "14px" }}>
+                      Final Settlement Paid
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  justifyContent: "flex-end",
+                  marginTop: "24px",
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setShowTerminateModal(false);
+                    setEmployeeToTerminate(null);
+                  }}
+                  style={{
+                    padding: "10px 20px",
+                    background: "white",
+                    border: "1px solid #D1D5DB",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#374151",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmTermination}
+                  style={{
+                    padding: "10px 20px",
+                    background: "#EF4444",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                  }}
+                >
+                  Confirm Termination
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {showDeleteConfirm && (
@@ -1312,9 +1696,7 @@ const EmployeeTermination = () => {
                   >
                     Confirm Termination
                   </h3>
-                  <p
-                    style={{ color: "#6B7280", fontSize: "14px", margin: 0 }}
-                  >
+                  <p style={{ color: "#6B7280", fontSize: "14px", margin: 0 }}>
                     This action cannot be undone
                   </p>
                 </div>
@@ -1327,7 +1709,9 @@ const EmployeeTermination = () => {
                   lineHeight: "1.6",
                 }}
               >
-                Are you sure you want to terminate this employee? This will permanently remove the employee record and all associated data from the system.
+                Are you sure you want to terminate this employee? This will
+                permanently remove the employee record and all associated data
+                from the system.
               </p>
               <div
                 style={{
@@ -1352,7 +1736,10 @@ const EmployeeTermination = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleDelete(showDeleteConfirm)}
+                  onClick={() => {
+                    // This modal is no longer used - termination happens through the other modal
+                    setShowDeleteConfirm(null);
+                  }}
                   style={{
                     padding: "10px 20px",
                     background: "#EF4444",
@@ -1419,7 +1806,7 @@ const EmployeeTermination = () => {
 const EmployeeCard = ({
   employee,
   onEdit,
-  onDelete,
+  onTerminate,
   onView,
   expandedEmployee,
   setExpandedEmployee,
@@ -1463,7 +1850,11 @@ const EmployeeCard = ({
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
         height: "fit-content",
       }}
-      onClick={() => setExpandedEmployee(expandedEmployee === employee.id ? null : employee.id)}
+      onClick={() =>
+        setExpandedEmployee(
+          expandedEmployee === employee.id ? null : employee.id,
+        )
+      }
     >
       {/* Card Header */}
       <div
@@ -1708,7 +2099,7 @@ const EmployeeCard = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onDelete(employee.id);
+              onTerminate(employee);
             }}
             style={{
               padding: "8px",
@@ -1792,14 +2183,16 @@ const EmployeeCard = ({
                   <strong>Designation:</strong> {employee.designation || "N/A"}
                 </div>
                 <div>
-                  <strong>Department:</strong> {employee.department_name || "N/A"}
+                  <strong>Department:</strong>{" "}
+                  {employee.department_name || "N/A"}
                 </div>
                 <div>
                   <strong>Company:</strong> {employee.company_name || "N/A"}
                 </div>
                 {employee.joining_date && (
                   <div>
-                    <strong>Joining Date:</strong> {new Date(employee.joining_date).toLocaleDateString()}
+                    <strong>Joining Date:</strong>{" "}
+                    {new Date(employee.joining_date).toLocaleDateString()}
                   </div>
                 )}
               </div>
@@ -1828,11 +2221,13 @@ const EmployeeListItem = ({
   employee,
   index,
   onEdit,
-  onDelete,
+  onTerminate,
   onView,
   expandedEmployee,
   setExpandedEmployee,
 }) => {
+  const navigate = useNavigate(); // Add this line to get navigate function
+
   const getStatusConfig = (status) => {
     const configs = {
       active: { bg: "#10B981", light: "#D1FAE5", label: "Active" },
@@ -1952,7 +2347,7 @@ const EmployeeListItem = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onView();
+            onView(employee.id);
           }}
           style={{
             padding: "8px 12px",
@@ -1972,7 +2367,6 @@ const EmployeeListItem = ({
           onMouseLeave={(e) => (e.currentTarget.style.background = "#EFF6FF")}
         >
           <Eye size={14} />
-         
         </button>
         <button
           onClick={(e) => {
@@ -1997,12 +2391,11 @@ const EmployeeListItem = ({
           onMouseLeave={(e) => (e.currentTarget.style.background = "#F3F4F6")}
         >
           <FileText size={14} />
-          
         </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onDelete();
+            onTerminate(employee);
           }}
           style={{
             padding: "8px 12px",
@@ -2022,7 +2415,6 @@ const EmployeeListItem = ({
           onMouseLeave={(e) => (e.currentTarget.style.background = "#FEE2E2")}
         >
           <Trash2 size={14} />
-         
         </button>
       </div>
     </div>

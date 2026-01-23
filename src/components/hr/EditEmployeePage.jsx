@@ -345,481 +345,483 @@ const EditEmployeePage = () => {
             </div>
           </div>
 
-          {/* Form Sections */}
-          <div className="form-sections">
-            {/* Personal Information */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaUser className="section-icon" />
-                <h3>Personal Information</h3>
-              </div>
-              <div className="form-grid">
-                <div className={`form-group ${errors.name ? 'error' : ''}`}>
-                  <label>
-                    Full Name <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={employee.name}
-                    onChange={handleChange}
-                    placeholder="Enter full name"
-                    disabled={isSubmitting}
-                  />
-                  {errors.name && <span className="error-message">{errors.name}</span>}
+          {/* Form Sections - Scrollable Container */}
+          <div className="form-sections-container">
+            <div className="form-sections">
+              {/* Personal Information */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaUser className="section-icon" />
+                  <h3>Personal Information</h3>
                 </div>
-
-                <div className={`form-group ${errors.employee_id ? 'error' : ''}`}>
-                  <label>
-                    Employee ID <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="employee_id"
-                    value={employee.employee_id}
-                    onChange={handleChange}
-                    placeholder="Enter employee ID"
-                    disabled={isSubmitting}
-                  />
-                  {errors.employee_id && <span className="error-message">{errors.employee_id}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label>Device User ID</label>
-                  <input
-                    type="text"
-                    name="device_user_id"
-                    value={employee.device_user_id}
-                    onChange={handleChange}
-                    placeholder="Enter device user ID"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Designation</label>
-                  <input
-                    type="text"
-                    name="designation"
-                    value={employee.designation}
-                    onChange={handleChange}
-                    placeholder="Enter designation"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Gender</label>
-                  <select
-                    name="gender"
-                    value={employee.gender}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="M">Male</option>
-                    <option value="F">Female</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Date of Birth</label>
-                  <input
-                    type="date"
-                    name="date_of_birth"
-                    value={employee.date_of_birth}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaPhone className="section-icon" />
-                <h3>Contact Information</h3>
-              </div>
-              <div className="form-grid">
-                <div className={`form-group ${errors.email ? 'error' : ''}`}>
-                  <label>Email Address</label>
-                  <div className="input-with-icon">
-                    <FaEnvelope className="input-icon" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={employee.email}
-                      onChange={handleChange}
-                      placeholder="employee@company.com"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  {errors.email && <span className="error-message">{errors.email}</span>}
-                </div>
-
-                <div className={`form-group ${errors.personal_phone ? 'error' : ''}`}>
-                  <label>Personal Phone</label>
-                  <div className="input-with-icon">
-                    <FaPhone className="input-icon" />
+                <div className="form-grid">
+                  <div className={`form-group ${errors.name ? 'error' : ''}`}>
+                    <label>
+                      Full Name <span className="required">*</span>
+                    </label>
                     <input
                       type="text"
-                      name="personal_phone"
-                      value={employee.personal_phone}
+                      name="name"
+                      value={employee.name}
                       onChange={handleChange}
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="Enter full name"
                       disabled={isSubmitting}
                     />
+                    {errors.name && <span className="error-message">{errors.name}</span>}
                   </div>
-                  {errors.personal_phone && <span className="error-message">{errors.personal_phone}</span>}
-                </div>
 
-                <div className={`form-group ${errors.office_phone ? 'error' : ''}`}>
-                  <label>Office Phone</label>
-                  <div className="input-with-icon">
-                    <FaPhone className="input-icon" />
+                  <div className={`form-group ${errors.employee_id ? 'error' : ''}`}>
+                    <label>
+                      Employee ID <span className="required">*</span>
+                    </label>
                     <input
                       type="text"
-                      name="office_phone"
-                      value={employee.office_phone}
+                      name="employee_id"
+                      value={employee.employee_id}
                       onChange={handleChange}
-                      placeholder="Extension or direct line"
+                      placeholder="Enter employee ID"
+                      disabled={isSubmitting}
+                    />
+                    {errors.employee_id && <span className="error-message">{errors.employee_id}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Device User ID</label>
+                    <input
+                      type="text"
+                      name="device_user_id"
+                      value={employee.device_user_id}
+                      onChange={handleChange}
+                      placeholder="Enter device user ID"
                       disabled={isSubmitting}
                     />
                   </div>
-                  {errors.office_phone && <span className="error-message">{errors.office_phone}</span>}
-                </div>
 
-                <div className="form-group">
-                  <label>Reference Phone</label>
-                  <input
-                    type="text"
-                    name="reference_phone"
-                    value={employee.reference_phone}
-                    onChange={handleChange}
-                    placeholder="Reference contact number"
-                    disabled={isSubmitting}
-                  />
-                </div>
+                  <div className="form-group">
+                    <label>Designation</label>
+                    <input
+                      type="text"
+                      name="designation"
+                      value={employee.designation}
+                      onChange={handleChange}
+                      placeholder="Enter designation"
+                      disabled={isSubmitting}
+                    />
+                  </div>
 
-                <div className="form-group">
-                  <label>Emergency Contact</label>
-                  <input
-                    type="text"
-                    name="emergency_contact"
-                    value={employee.emergency_contact}
-                    onChange={handleChange}
-                    placeholder="Emergency contact person"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Address Information */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaMapMarkerAlt className="section-icon" />
-                <h3>Address Information</h3>
-              </div>
-              <div className="form-grid">
-                <div className="form-group full-width">
-                  <label>Mailing Address</label>
-                  <textarea
-                    name="mail_address"
-                    value={employee.mail_address}
-                    onChange={handleChange}
-                    placeholder="Current mailing address"
-                    rows="3"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="form-group full-width">
-                  <label>Permanent Address</label>
-                  <textarea
-                    name="permanent_address"
-                    value={employee.permanent_address}
-                    onChange={handleChange}
-                    placeholder="Permanent residential address"
-                    rows="3"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Company Information */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaBuilding className="section-icon" />
-                <h3>Company Information</h3>
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Company</label>
-                  <div className="select-with-icon">
-                    <FaBuilding className="select-icon" />
+                  <div className="form-group">
+                    <label>Gender</label>
                     <select
-                      name="company"
-                      value={employee.company}
+                      name="gender"
+                      value={employee.gender}
                       onChange={handleChange}
                       disabled={isSubmitting}
                     >
-                      <option value="">Select Company</option>
-                      {companies.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.company_name}
-                        </option>
-                      ))}
+                      <option value="">Select Gender</option>
+                      <option value="M">Male</option>
+                      <option value="F">Female</option>
                     </select>
                   </div>
-                </div>
 
-                <div className="form-group">
-                  <label>Department</label>
-                  <div className="select-with-icon">
-                    <FaBriefcase className="select-icon" />
-                    <select
-                      name="department"
-                      value={employee.department}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                    >
-                      <option value="">Select Department</option>
-                      {departments.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.department_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Joining Date</label>
-                  <div className="input-with-icon">
-                    <FaCalendarAlt className="input-icon" />
+                  <div className="form-group">
+                    <label>Date of Birth</label>
                     <input
                       type="date"
-                      name="joining_date"
-                      value={employee.joining_date}
+                      name="date_of_birth"
+                      value={employee.date_of_birth}
                       onChange={handleChange}
                       disabled={isSubmitting}
                     />
                   </div>
                 </div>
-
-                <div className="form-group">
-                  <label>Reporting Leader</label>
-                  <input
-                    type="text"
-                    name="reporting_leader"
-                    value={employee.reporting_leader}
-                    onChange={handleChange}
-                    placeholder="Manager or supervisor"
-                    disabled={isSubmitting}
-                  />
-                </div>
               </div>
-            </div>
 
-            {/* Financial Information */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaMoneyBillWave className="section-icon" />
-                <h3>Financial Information</h3>
-              </div>
-              <div className="form-grid">
-                <div className={`form-group ${errors.salary ? 'error' : ''}`}>
-                  <label>Salary</label>
-                  <div className="input-with-icon currency">
-                    <span className="currency-symbol">৳</span>
-                    <input
-                      type="number"
-                      name="salary"
-                      value={employee.salary}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      disabled={isSubmitting}
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                  {errors.salary && <span className="error-message">{errors.salary}</span>}
+              {/* Contact Information */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaPhone className="section-icon" />
+                  <h3>Contact Information</h3>
                 </div>
-
-                <div className={`form-group ${errors.salary_cash ? 'error' : ''}`}>
-                  <label>Salary (Cash Portion)</label>
-                  <div className="input-with-icon currency">
-                    <span className="currency-symbol">৳</span>
-                    <input
-                      type="number"
-                      name="salary_cash"
-                      value={employee.salary_cash}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      disabled={isSubmitting}
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                  {errors.salary_cash && <span className="error-message">{errors.salary_cash}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label>Bank Account Number</label>
-                  <input
-                    type="text"
-                    name="bank_account"
-                    value={employee.bank_account}
-                    onChange={handleChange}
-                    placeholder="Bank account number"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Branch Code</label>
-                  <input
-                    type="text"
-                    name="branch_name"
-                    value={employee.branch_name}
-                    onChange={handleChange}
-                    placeholder="Bank branch code"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Information */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaIdCard className="section-icon" />
-                <h3>Additional Information</h3>
-              </div>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>NID Number</label>
-                  <input
-                    type="text"
-                    name="nid_number"
-                    value={employee.nid_number}
-                    onChange={handleChange}
-                    placeholder="National ID number"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Blood Group</label>
-                  <input
-                    type="text"
-                    name="blood_group"
-                    value={employee.blood_group}
-                    onChange={handleChange}
-                    placeholder="e.g., A+, O-"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Special Skills</label>
-                  <textarea
-                    name="special_skills"
-                    value={employee.special_skills}
-                    onChange={handleChange}
-                    placeholder="Special skills or certifications"
-                    rows="2"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Remarks</label>
-                  <textarea
-                    name="remarks"
-                    value={employee.remarks}
-                    onChange={handleChange}
-                    placeholder="Additional notes or remarks"
-                    rows="2"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Customer Assignment */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaUsers className="section-icon" />
-                <h3>Customer Assignment</h3>
-              </div>
-              <div className="customers-section">
-                <p className="section-description">
-                  Select customers assigned to this employee
-                </p>
-                <div className="customers-grid">
-                  {customers.map((c) => {
-                    const checked = employee.customer.includes(c.id);
-                    return (
-                      <label
-                        key={c.id}
-                        className={`customer-checkbox ${checked ? 'checked' : ''}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => !isSubmitting && handleCustomerCheckboxChange(c.id)}
-                          disabled={isSubmitting}
-                        />
-                        <span className="customer-name">{c.customer_name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Photo Upload */}
-            <div className="form-section">
-              <div className="section-header">
-                <FaImage className="section-icon" />
-                <h3>Employee Photo</h3>
-              </div>
-              <div className="photo-upload-section">
-                <div className="photo-preview">
-                  {imagePreview ? (
-                    <div className="preview-container">
-                      <img
-                        src={imagePreview}
-                        alt="Employee"
-                        className="preview-image"
+                <div className="form-grid">
+                  <div className={`form-group ${errors.email ? 'error' : ''}`}>
+                    <label>Email Address</label>
+                    <div className="input-with-icon">
+                      <FaEnvelope className="input-icon" />
+                      <input
+                        type="email"
+                        name="email"
+                        value={employee.email}
+                        onChange={handleChange}
+                        placeholder="employee@company.com"
+                        disabled={isSubmitting}
                       />
-                      <div className="preview-overlay">
-                        <FaFileUpload />
-                        <span>Click to change</span>
-                      </div>
                     </div>
-                  ) : (
-                    <div className="upload-placeholder">
-                      <FaFileUpload size={40} />
-                      <span>No photo selected</span>
+                    {errors.email && <span className="error-message">{errors.email}</span>}
+                  </div>
+
+                  <div className={`form-group ${errors.personal_phone ? 'error' : ''}`}>
+                    <label>Personal Phone</label>
+                    <div className="input-with-icon">
+                      <FaPhone className="input-icon" />
+                      <input
+                        type="text"
+                        name="personal_phone"
+                        value={employee.personal_phone}
+                        onChange={handleChange}
+                        placeholder="+1 (555) 123-4567"
+                        disabled={isSubmitting}
+                      />
                     </div>
-                  )}
-                  <input
-                    type="file"
-                    name="image1"
-                    accept="image/*"
-                    onChange={handleChange}
-                    className="file-input"
-                    disabled={isSubmitting}
-                  />
+                    {errors.personal_phone && <span className="error-message">{errors.personal_phone}</span>}
+                  </div>
+
+                  <div className={`form-group ${errors.office_phone ? 'error' : ''}`}>
+                    <label>Office Phone</label>
+                    <div className="input-with-icon">
+                      <FaPhone className="input-icon" />
+                      <input
+                        type="text"
+                        name="office_phone"
+                        value={employee.office_phone}
+                        onChange={handleChange}
+                        placeholder="Extension or direct line"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    {errors.office_phone && <span className="error-message">{errors.office_phone}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Reference Phone</label>
+                    <input
+                      type="text"
+                      name="reference_phone"
+                      value={employee.reference_phone}
+                      onChange={handleChange}
+                      placeholder="Reference contact number"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Emergency Contact</label>
+                    <input
+                      type="text"
+                      name="emergency_contact"
+                      value={employee.emergency_contact}
+                      onChange={handleChange}
+                      placeholder="Emergency contact person"
+                      disabled={isSubmitting}
+                    />
+                  </div>
                 </div>
-                <div className="upload-instructions">
-                  <p>Upload a clear photo of the employee</p>
-                  <small>Recommended: Square image, max 2MB, JPG/PNG format</small>
+              </div>
+
+              {/* Address Information */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaMapMarkerAlt className="section-icon" />
+                  <h3>Address Information</h3>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>Mailing Address</label>
+                    <textarea
+                      name="mail_address"
+                      value={employee.mail_address}
+                      onChange={handleChange}
+                      placeholder="Current mailing address"
+                      rows="3"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Permanent Address</label>
+                    <textarea
+                      name="permanent_address"
+                      value={employee.permanent_address}
+                      onChange={handleChange}
+                      placeholder="Permanent residential address"
+                      rows="3"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Company Information */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaBuilding className="section-icon" />
+                  <h3>Company Information</h3>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Company</label>
+                    <div className="select-with-icon">
+                      <FaBuilding className="select-icon" />
+                      <select
+                        name="company"
+                        value={employee.company}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                      >
+                        <option value="">Select Company</option>
+                        {companies.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.company_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Department</label>
+                    <div className="select-with-icon">
+                      <FaBriefcase className="select-icon" />
+                      <select
+                        name="department"
+                        value={employee.department}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                      >
+                        <option value="">Select Department</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.department_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Joining Date</label>
+                    <div className="input-with-icon">
+                      <FaCalendarAlt className="input-icon" />
+                      <input
+                        type="date"
+                        name="joining_date"
+                        value={employee.joining_date}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Reporting Leader</label>
+                    <input
+                      type="text"
+                      name="reporting_leader"
+                      value={employee.reporting_leader}
+                      onChange={handleChange}
+                      placeholder="Manager or supervisor"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Information */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaMoneyBillWave className="section-icon" />
+                  <h3>Financial Information</h3>
+                </div>
+                <div className="form-grid">
+                  <div className={`form-group ${errors.salary ? 'error' : ''}`}>
+                    <label>Salary</label>
+                    <div className="input-with-icon currency">
+                      <span className="currency-symbol">৳</span>
+                      <input
+                        type="number"
+                        name="salary"
+                        value={employee.salary}
+                        onChange={handleChange}
+                        placeholder="0.00"
+                        disabled={isSubmitting}
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    {errors.salary && <span className="error-message">{errors.salary}</span>}
+                  </div>
+
+                  <div className={`form-group ${errors.salary_cash ? 'error' : ''}`}>
+                    <label>Salary (Cash Portion)</label>
+                    <div className="input-with-icon currency">
+                      <span className="currency-symbol">৳</span>
+                      <input
+                        type="number"
+                        name="salary_cash"
+                        value={employee.salary_cash}
+                        onChange={handleChange}
+                        placeholder="0.00"
+                        disabled={isSubmitting}
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    {errors.salary_cash && <span className="error-message">{errors.salary_cash}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Bank Account Number</label>
+                    <input
+                      type="text"
+                      name="bank_account"
+                      value={employee.bank_account}
+                      onChange={handleChange}
+                      placeholder="Bank account number"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Branch Code</label>
+                    <input
+                      type="text"
+                      name="branch_name"
+                      value={employee.branch_name}
+                      onChange={handleChange}
+                      placeholder="Bank branch code"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Information */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaIdCard className="section-icon" />
+                  <h3>Additional Information</h3>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>NID Number</label>
+                    <input
+                      type="text"
+                      name="nid_number"
+                      value={employee.nid_number}
+                      onChange={handleChange}
+                      placeholder="National ID number"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Blood Group</label>
+                    <input
+                      type="text"
+                      name="blood_group"
+                      value={employee.blood_group}
+                      onChange={handleChange}
+                      placeholder="e.g., A+, O-"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Special Skills</label>
+                    <textarea
+                      name="special_skills"
+                      value={employee.special_skills}
+                      onChange={handleChange}
+                      placeholder="Special skills or certifications"
+                      rows="2"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Remarks</label>
+                    <textarea
+                      name="remarks"
+                      value={employee.remarks}
+                      onChange={handleChange}
+                      placeholder="Additional notes or remarks"
+                      rows="2"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Assignment */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaUsers className="section-icon" />
+                  <h3>Customer Assignment</h3>
+                </div>
+                <div className="customers-section">
+                  <p className="section-description">
+                    Select customers assigned to this employee
+                  </p>
+                  <div className="customers-grid">
+                    {customers.map((c) => {
+                      const checked = employee.customer.includes(c.id);
+                      return (
+                        <label
+                          key={c.id}
+                          className={`customer-checkbox ${checked ? 'checked' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => !isSubmitting && handleCustomerCheckboxChange(c.id)}
+                            disabled={isSubmitting}
+                          />
+                          <span className="customer-name">{c.customer_name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Photo Upload */}
+              <div className="form-section">
+                <div className="section-header">
+                  <FaImage className="section-icon" />
+                  <h3>Employee Photo</h3>
+                </div>
+                <div className="photo-upload-section">
+                  <div className="photo-preview">
+                    {imagePreview ? (
+                      <div className="preview-container">
+                        <img
+                          src={imagePreview}
+                          alt="Employee"
+                          className="preview-image"
+                        />
+                        <div className="preview-overlay">
+                          <FaFileUpload />
+                          <span>Click to change</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="upload-placeholder">
+                        <FaFileUpload size={40} />
+                        <span>No photo selected</span>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      name="image1"
+                      accept="image/*"
+                      onChange={handleChange}
+                      className="file-input"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="upload-instructions">
+                    <p>Upload a clear photo of the employee</p>
+                    <small>Recommended: Square image, max 2MB, JPG/PNG format</small>
+                  </div>
                 </div>
               </div>
             </div>
@@ -868,6 +870,9 @@ const EditEmployeePage = () => {
           max-width: 1400px;
           margin: 0 auto;
           border: 1px solid #e2e8f0;
+          display: flex;
+          flex-direction: column;
+          height: calc(100vh - 4rem);
         }
 
         /* Header Styles */
@@ -878,6 +883,7 @@ const EditEmployeePage = () => {
           padding: 2rem 2rem 1.5rem;
           border-bottom: 2px solid #f1f5f9;
           background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          flex-shrink: 0;
         }
 
         .header-content h1 {
@@ -907,9 +913,15 @@ const EditEmployeePage = () => {
           gap: 0.75rem;
         }
 
-        /* Form Sections */
-        .form-sections {
+        /* Scrollable Form Sections Container */
+        .form-sections-container {
+          flex: 1;
+          overflow-y: auto;
           padding: 0 2rem;
+        }
+
+        .form-sections {
+          min-height: min-content;
         }
 
         .form-section {
@@ -1105,6 +1117,50 @@ const EditEmployeePage = () => {
           border: 1px solid #e5e7eb;
         }
 
+        /* Custom Scrollbar Styles */
+        .form-sections-container::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .form-sections-container::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+
+        .form-sections-container::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+
+        .form-sections-container::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+
+        .customers-grid::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+
+        .customers-grid::-webkit-scrollbar-track {
+          background: #e2e8f0;
+          border-radius: 3px;
+        }
+
+        .customers-grid::-webkit-scrollbar-thumb {
+          background: #94a3b8;
+          border-radius: 3px;
+        }
+
+        .customers-grid::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+        }
+
+        /* Firefox scrollbar */
+        .form-sections-container {
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 #f1f5f9;
+        }
+
         .customer-checkbox {
           display: flex;
           align-items: center;
@@ -1250,9 +1306,10 @@ const EditEmployeePage = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 2rem;
+          padding: 1.5rem 2rem;
           border-top: 2px solid #f1f5f9;
           background: #f8fafc;
+          flex-shrink: 0;
         }
 
         /* Button Styles */
@@ -1314,6 +1371,10 @@ const EditEmployeePage = () => {
             padding: 1rem;
           }
 
+          .edit-employee-card {
+            height: calc(100vh - 2rem);
+          }
+
           .edit-header {
             flex-direction: column;
             gap: 1rem;
@@ -1329,12 +1390,13 @@ const EditEmployeePage = () => {
             justify-content: flex-end;
           }
 
-          .form-sections {
+          .form-sections-container {
             padding: 0 1rem;
           }
 
           .form-section {
             padding: 1rem;
+            margin: 1.5rem 0;
           }
 
           .form-grid {
@@ -1344,6 +1406,7 @@ const EditEmployeePage = () => {
           .form-footer {
             flex-direction: column;
             gap: 1rem;
+            padding: 1rem;
           }
 
           .form-footer button {
