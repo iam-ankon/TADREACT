@@ -54,7 +54,7 @@ const AppraisalDetails = () => {
   const handleApprove = async (appraisalId) => {
     if (
       !window.confirm(
-        "Are you sure you want to approve this increment? This will update the employee's salary."
+        "Are you sure you want to approve this increment? This will update the employee's salary.",
       )
     ) {
       return;
@@ -69,7 +69,7 @@ const AppraisalDetails = () => {
     } catch (err) {
       console.error("❌ Error approving increment:", err);
       alert(
-        `Failed to approve increment. Please try again. Error: ${err.message}`
+        `Failed to approve increment. Please try again. Error: ${err.message}`,
       );
     } finally {
       setLoading(false);
@@ -92,7 +92,7 @@ const AppraisalDetails = () => {
   const handleApproveDesignation = async (appraisalId) => {
     if (
       !window.confirm(
-        "Are you sure you want to approve this designation change? This will update the employee's designation."
+        "Are you sure you want to approve this designation change? This will update the employee's designation.",
       )
     ) {
       return;
@@ -107,7 +107,7 @@ const AppraisalDetails = () => {
     } catch (err) {
       console.error("❌ Error approving designation:", err);
       alert(
-        `Failed to approve designation. Please try again. Error: ${err.message}`
+        `Failed to approve designation. Please try again. Error: ${err.message}`,
       );
     } finally {
       setLoading(false);
@@ -205,44 +205,48 @@ const AppraisalDetails = () => {
 
   // Print function remains the same as your original
   const printPage = () => {
-    const performanceItems = criteria
-      .map(
-        (item) => `
-            <div class="item">
-              <span class="label">${item.name}:</span>
-              <span class="value">${appraisal[item.key]}</span>
-              <span class="value">${appraisal[item.descriptionKey]}</span>
-            </div>
-            <!-- Additional Text -->
-            <div class="item additional-text">
-              <span class="additional-text-value">
-                <small style="font-style: italic; color: #777;">${
-                  item.additionalText
-                }</small>
-              </span>
-            </div>
-          `
-      )
+    // Create performance table rows
+    const performanceTableRows = criteria
+      .map((item) => {
+        const score = appraisal[item.key] || "N/A";
+        const comment =
+          appraisal[item.descriptionKey] || "No comments provided";
+        const note = item.additionalText;
+
+        return `
+        <tr class="criteria-row">
+          <td class="criteria-name"><strong>${item.name}</strong></td>
+          <td class="criteria-points" style="text-align: center"><strong>${score}</strong></td>
+          <td class="criteria-comment">${comment}</td>
+        </tr>
+        <tr class="note-row">
+          <td colspan="3" class="criteria-note">
+            <em>${note}</em>
+          </td>
+        </tr>
+      `;
+      })
       .join("");
 
+    // Compact lists
     const performanceList = appraisal.performance?.trim()
       ? appraisal.performance
           .split("\n")
           .map(
             (item, index) => `
-              <div class="numbered-item">
-                <span class="number">${index + 1})</span>
-                <span class="dotted-line">${item}</span>
-              </div>`
+            <div class="list-item">
+              <div class="list-number">${index + 1}.</div>
+              <div class="list-content">${item}</div>
+            </div>`,
           )
           .join("")
       : [...Array(5)]
           .map(
             (_, index) => `
-              <div class="numbered-item">
-                <span class="number">${index + 1})</span>
-                <span class="dotted-line">... ...</span>
-              </div>`
+            <div class="list-item">
+              <div class="list-number">${index + 1}.</div>
+              <div class="list-content">...</div>
+            </div>`,
           )
           .join("");
 
@@ -251,344 +255,787 @@ const AppraisalDetails = () => {
           .split("\n")
           .map(
             (item, index) => `
-              <div class="numbered-item">
-                <span class="number">${index + 1})</span>
-                <span class="dotted-line">${item}</span>
-              </div>`
+            <div class="list-item">
+              <div class="list-number">${index + 1}.</div>
+              <div class="list-content">${item}</div>
+            </div>`,
           )
           .join("")
       : [...Array(3)]
           .map(
             (_, index) => `
-              <div class="numbered-item">
-                <span class="number">${index + 1})</span>
-                <span class="dotted-line">... ...</span>
-              </div>`
+            <div class="list-item">
+              <div class="list-number">${index + 1}.</div>
+              <div class="list-content">...</div>
+            </div>`,
           )
           .join("");
 
+    const gradeInfo = getGrade(totalPoints);
+
     const printContent = `
-                <html>
-                  <head>
-                    <style>
-                      body {
-                        line-height: 1.2;
-                        color: #333;
-                        background-color: #fff;
-                        margin: 0;
-                        padding: 10px;
-                        font-size: 12px;
-                      }
-                      .container {
-                        width: 100%;
-                        max-width: 800px;
-                        margin: auto;
-                        padding: 10px;
-                      }
-                      h2 {
-                        text-align: center;
-                        border-bottom: 2px solid #333;
-                        padding-bottom: 5px;
-                        margin-bottom: 10px;
-                        font-size: 16px;
-                      }
-                      .details-container {
-                        display: flex;
-                        flex-wrap: wrap;
-                        justify-content: space-between;
-                      }
-                      .details-item {
-                        width: 48%;
-                        margin-bottom: 5px;
-                      }
-                      .label {
-                        font-weight: bold;
-                        color: #2a2a2a;
-                      }
-                      .value {
-                        color: #555;
-                      }
-                      .vertical-container {
-                        margin-top: 10px;
-                        border: 1px solid #333;
-                        padding: 5px;
-                        background-color: #f9f9f9;
-                        page-break-inside: avoid;
-                      }
-                      .vertical-container .item {
-                        display: grid;
-                        grid-template-columns: 70% 15% auto;
-                        align-items: start;
-                        gap: 5px;
-                        margin-bottom: 3px;
-                        padding: 3px;
-                      }
-                      .final-selection {
-                      display: flex;
-                      gap: 20px;
-                      align-items: center;
-                      }
-                      .recommended-text {
-                          margin-top: 10px;
-                          font-style: italic;
-                          color: #555;
-                      }
-                      .performances-text {
-                          margin-top: 10px;
-                          font-style: italic;
-                          color: #555;
-                      }
-                      .iteme {
-                      display: flex;
-                      align-items: center;
-                      }
-      
-                      .label {
-                      margin-right: 10px;
-                      }
-      
-                      .numbered-item {
-                        margin: 5px 0;
-                      }
-                      .signature-container {
-                        margin-top: 20px;
-                        border: 1px solid #333;
-                        padding: 10px;
-                        background-color: #f1f1f1;
-                        page-break-inside: avoid;
-                      }
-      
-                      .item {
-                          display: grid;
-                          grid-template-columns: 70% 15% 15%;
-                          gap: 10px;
-                          margin-bottom: 10px;
-                      }
-      
-                      .item .label {
-                          font-weight: bold;
-                      }
-      
-                      .item .value {
-                          font-weight: normal;
-                      }
-      
-                      .item.additional-text {
-                          grid-column: 1 / 3;
-                          padding-left: 10px;
-                      }
-      
-                      .item .value {
-                          font-size: 12px;
-                      }
-      
-      
-                      .salary-designation-columns {
-                      display: flex;
-                      justify-content: space-between;
-                      gap: 20px;
-                      }
-      
-                      .column {
-                      display: flex;
-                      flexDirection: column;
-                      gap: 10px;
-                      flex: 1;
-                      }
-      
-                      .row {
-                      display: flex;
-                      justify-content: space-between;
-                      }
-      
-                      .label {
-                      font-weight: bold;
-                      }
-      
-                      .value {
-                      color: #555;
-                      }
-      
-                      .signature-columns {
-                      display: flex;
-                      justify-content: space-between;
-                      gap: 20px;
-                      margin-top: 50px;
-                      }
-      
-                      .signature-column {
-                      text-align: center;
-                      width: 23%;
-                      }
-      
-                      .signature-label {
-                      font-weight: bold;
-                      margin-top: 5px;
-                      }
-      
-                      .signature-line {
-                      width: 100%;
-                      border-bottom: 1px solid #000;
-                      margin-bottom: 5px;
-                      }
-      
-                      .vertical-container .item .value {
-                        word-wrap: break-word;
-                        overflow-wrap: break-word;
-                      }
-      
-                    </style>
-                  </head>
-                  <body>
-                    <div class="container">
-                      <h2>${appraisal.name}'s APPRAISAL</h2>
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Performance Appraisal - ${appraisal.name}</title>
+        <style>
+          /* Ultra Compact Print Styles */
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.3;
+            color: #000;
+            background-color: #fff;
+            font-size: 9px;
+            padding: 5px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            font-weight: 400;
+          }
+          
+          .print-container {
+            width: 100%;
+            max-width: 100%;
+            padding: 8px;
+            background: #fff;
+          }
+          
+          /* Header - Ultra Compact */
+          .header {
+            text-align: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #0078D4;
+          }
+          
+          .appraisal-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+          }
+          
+          .employee-name {
+            font-size: 12px;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 2px;
+          }
+          
+          .company-name {
+            font-size: 8px;
+            color: #666;
+            font-weight: 600;
+          }
+          
+          /* Employee Info - Ultra Compact */
+          .info-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+            padding: 6px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 8px;
+          }
+          
+          .info-label {
+            font-weight: 700;
+            color: #1e40af;
+            text-transform: uppercase;
+            margin-bottom: 1px;
+          }
+          
+          .info-value {
+            font-weight: 600;
+            color: #000;
+          }
+          
+          /* Score Section - Ultra Compact */
+          .score-section {
+            background: #f0f9ff;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #bae6fd;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+          
+          .grade-badge {
+            background: ${gradeInfo.bgColor};
+            color: ${gradeInfo.color};
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-align: center;
+            border: 1px solid ${gradeInfo.color};
+            min-width: 80px;
+          }
+          
+          .total-score {
+            font-size: 16px;
+            font-weight: 800;
+            display: block;
+            line-height: 1;
+          }
+          
+          .grade-letter {
+            font-size: 10px;
+            font-weight: 700;
+            display: block;
+          }
+          
+          .scale-info {
+            flex: 1;
+            margin-left: 10px;
+          }
+          
+          .scale-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 3px;
+            margin-bottom: 5px;
+          }
+          
+          .scale-item {
+            text-align: center;
+            padding: 3px 2px;
+            background: white;
+            border-radius: 2px;
+            font-size: 7px;
+            font-weight: 600;
+            border: 1px solid #ddd;
+          }
+          
+          .grade-scale {
+            padding: 4px;
+            background: linear-gradient(90deg, #ef4444, #f59e0b, #8b5cf6, #3b82f6, #10b981);
+            border-radius: 3px;
+            text-align: center;
+            font-size: 7px;
+            font-weight: 700;
+            color: white;
+            border: 1px solid #000;
+          }
+          
+          /* Performance Table - Ultra Compact */
+          .performance-section {
+            margin-bottom: 8px;
+          }
+          
+          .section-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #000;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #0078D4;
+            text-transform: uppercase;
+          }
+          
+          .performance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5px;
+            font-size: 8px;
+            border: 1px solid #ddd;
+          }
+          
+          .performance-table th {
+            background: #e9ecef;
+            padding: 4px 6px;
+            text-align: left;
+            font-size: 8px;
+            font-weight: 700;
+            color: #000;
+            border-bottom: 1px solid #ddd;
+            text-transform: uppercase;
+          }
+          
+          .performance-table td {
+            padding: 4px 6px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+          }
+          
+          .criteria-name {
+            font-weight: 600;
+            color: #000;
+            font-size: 8px;
+            line-height: 1.2;
+          }
+          
+          .criteria-points {
+            text-align: center;
+            font-weight: 700;
+            font-size: 9px;
+            color: #0078D4;
+            min-width: 20px;
+          }
+          
+          .criteria-comment {
+            font-size: 7px;
+            color: #444;
+            line-height: 1.2;
+          }
+          
+          .criteria-note {
+            font-size: 7px;
+            color: #666;
+            font-style: italic;
+            padding: 2px 6px 4px;
+            border-bottom: 1px dashed #ddd;
+          }
+          
+          .note-row {
+            background-color: #f9f9f9;
+          }
+          
+          /* Recommendations - Ultra Compact */
+          .recommendations {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+          }
+          
+          .recommendation-card {
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: white;
+            text-align: center;
+          }
+          
+          .recommendation-card.active {
+            background: ${
+              appraisal.promotion
+                ? "#e8f4fd"
+                : appraisal.increment
+                  ? "#e8f8f0"
+                  : appraisal.performance_reward
+                    ? "#fef9e3"
+                    : "#f8f9fa"
+            };
+            border-color: ${
+              appraisal.promotion
+                ? "#3b82f6"
+                : appraisal.increment
+                  ? "#10b981"
+                  : appraisal.performance_reward
+                    ? "#f59e0b"
+                    : "#ddd"
+            };
+          }
+          
+          .recommendation-icon {
+            font-size: 12px;
+            margin-bottom: 4px;
+          }
+          
+          .recommendation-title {
+            font-size: 8px;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+          }
+          
+          .status-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 7px;
+            font-weight: 700;
+            margin-top: 4px;
+          }
+          
+          .status-approved {
+            background: #10b981;
+            color: white;
+          }
+          
+          .status-pending {
+            background: #f59e0b;
+            color: white;
+          }
+          
+          /* Lists - Ultra Compact */
+          .list-section {
+            margin-bottom: 8px;
+          }
+          
+          .list-container {
+            background: #f8f9fa;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+          }
+          
+          .list-item {
+            display: flex;
+            gap: 6px;
+            padding: 3px 0;
+            border-bottom: 1px solid #eee;
+          }
+          
+          .list-item:last-child {
+            border-bottom: none;
+          }
+          
+          .list-number {
+            width: 16px;
+            height: 16px;
+            background: #0078D4;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 8px;
+            flex-shrink: 0;
+          }
+          
+          .list-content {
+            flex: 1;
+            color: #000;
+            line-height: 1.2;
+            font-size: 8px;
+            font-weight: 500;
+          }
+          
+          /* Salary Comparison - Ultra Compact */
+          .salary-section {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-bottom: 8px;
+          }
+          
+          .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 6px;
+          }
+          
+          .comparison-column {
+            padding: 6px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            text-align: center;
+          }
+          
+          .column-title {
+            font-size: 9px;
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 6px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #0078D4;
+            text-transform: uppercase;
+          }
+          
+          .salary-item {
+            margin-bottom: 6px;
+          }
+          
+          .salary-label {
+            font-size: 7px;
+            font-weight: 700;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+          }
+          
+          .salary-value {
+            font-size: 11px;
+            font-weight: 800;
+            color: #000;
+          }
+          
+          .salary-value.empty {
+            color: #999;
+            font-style: italic;
+            font-size: 10px;
+          }
+          
+          /* Signatures - Ultra Compact */
+          .signature-section {
+            margin-top: 12px;
+            padding-top: 8px;
+            border-top: 1px solid #0078D4;
+          }
+          
+          .signature-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+          }
+          
+          .signature-box {
+            text-align: center;
+            padding: 6px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+          }
+          
+          .signature-line {
+            height: 1px;
+            background: #000;
+            margin: 12px 0 4px;
+          }
+          
+          .signature-label {
+            font-size: 8px;
+            font-weight: 700;
+            color: #1e40af;
+            margin-top: 2px;
+            text-transform: uppercase;
+          }
+          
+          .signature-title {
+            font-size: 6px;
+            color: #666;
+            text-transform: uppercase;
+            margin-top: 1px;
+            font-weight: 600;
+          }
+          
+          /* Footer - Ultra Compact */
+          .footer {
+            margin-top: 10px;
+            padding-top: 6px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 7px;
+            color: #666;
+          }
+          
+          .footer-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 4px;
+            padding: 4px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            border: 1px solid #eee;
+          }
+          
+          /* Print Specific Styles */
+          @media print {
+            body {
+              padding: 0;
+              font-size: 8px;
+              margin: 0;
+            }
             
-                      <div class="details-container">
-                        <div class="details-item"><span class="label">Employee ID:</span> ${
-                          appraisal.employee_id
-                        }</div>
-                        <div class="details-item"><span class="label">Name:</span> ${
-                          appraisal.name
-                        }</div>
-                        <div class="details-item"><span class="label">Department:</span> ${
-                          appraisal.department
-                        }</div>
-                        <div class="details-item"><span class="label">Designation:</span> ${
-                          appraisal.designation
-                        }</div>
-                        <div class="details-item"><span class="label">Last Promotion Date:</span> ${
-                          appraisal.last_promotion_date
-                        }</div>
-                        <div class="details-item"><span class="label">Joining Date:</span> ${
-                          appraisal.joining_date
-                        }</div>
-                        <div class="details-item"><span class="label">Last Increment Date:</span> ${
-                          appraisal.last_increment_date
-                        }</div>
-                        <div class="details-item"><span class="label">Last Education:</span> ${
-                          appraisal.last_education
-                        }</div>
-                        <div class="vertical-container">47-50 = A+ | 42-46 = A | 37-41 = B | 32-36 = C | <31 = D</div>
-                      </div>
+            .print-container {
+              padding: 5mm;
+              max-width: 100%;
+              margin: 0;
+            }
             
-                      <div class="vertical-container">
-                        <div class="item">
-                          <span class="value">5 = Excellent | 4 = Very Good | 3 = Meets Expectation | 2 = Fairly Good | 1 = Below Expectation</span>
-                        </div>
-                        <div class="item">
-                          <span class="label">Performance Rating Standards:</span>
-                          <span class="label">Points:</span>
-                          <span class="label">Comments:</span>
-                        </div>
-                        ${performanceItems}
-                      </div>
+            /* Optimize page breaks */
+            .performance-section {
+              page-break-inside: auto;
+            }
             
-                      <div class="final-selection">
-                      <span class="recommended-text">Recommended for</span>
-                      <div class="iteme">
-                          <span class="label">Promotion:</span>
-                          <input type="checkbox" ${
-                            appraisal.promotion ? "checked" : ""
-                          } />
-                      </div>
-                      <div class="iteme">
-                          <span class="label">Increment:</span>
-                          <input type="checkbox" ${
-                            appraisal.increment ? "checked" : ""
-                          }  />
-                      </div>
-                      <div class="iteme">
-                          <span class="label">Performance Reward:</span>
-                          <input type="checkbox" ${
-                            appraisal.performance_reward ? "checked" : ""
-                          }  />
-                      </div>
-                      <span class="performances-text">for the following performances</span>
-                      </div>
-      
-                      <div class="numbered-list">
-                        <h3>Performance Notes:</h3>
-                        ${performanceList}
-                      </div>
+            .performance-table {
+              page-break-inside: auto;
+            }
             
-                      <div class="numbered-list">
-                        <h3 style="font-size: 16px; font-weight: bold; color: #0078D4;">Expected performances after Promotion / increment/performance reward:</h3>
-                        ${expectedList}
-                      </div>
+            /* Reduce margins for print */
+            .header, .info-grid, .score-section, 
+            .section-title, .recommendations, 
+            .list-section, .salary-section, 
+            .signature-section {
+              margin-bottom: 6px;
+            }
             
-                      <div class="signature-container">
-                      <h3 style="font-size: 16px; font-weight: bold; color: #0078D4;">Salary & Designation</h3>
-                      <div class="salary-designation-columns">
-                          <div class="column">
-                          <div class="row">
-                              <span class="label">Present Salary:</span>
-                              <span class="value">${
-                                appraisal.present_salary
-                              }</span>
-                          </div>
-                          <div class="row">
-                              <span class="label">Present Designation:</span>
-                              <span class="value">${
-                                appraisal.present_designation
-                              }</span>
-                          </div>
-                          </div>
-                          <div class="column">
-                          <div class="row">
-                              <span class="label">Proposed Salary:</span>
-                              <span class="value">${
-                                appraisal.proposed_salary
-                              }</span>
-                          </div>
-                          <div class="row">
-                              <span class="label">Proposed Designation:</span>
-                              <span class="value">${
-                                appraisal.proposed_designation
-                              }</span>
-                          </div>
-                          </div>
-                          <div class="column">
-                          <div class="row">
-                              <span class="label">Approved Salary:</span>
-                              <span class="value"></span>
-                          </div>
-                          <div class="row">
-                              <span class="label">Approved Designation:</span>
-                              <span class="value"></span>
-                          </div>
-                          </div>
-                      </div>
-      
-                      <h3 style="font-size: 16px; font-weight: bold; color: #0078D4; margin-top: 20px;">Signature</h3>
-                      <div class="signature-columns">
-                          <div class="signature-column">
-                          <div class="signature-line"></div>
-                          <span class="signature-label">Section Head</span>
-                          </div>
-                          <div class="signature-column">
-                          <div class="signature-line"></div>
-                          <span class="signature-label">Department Head</span>
-                          </div>
-                          <div class="signature-column">
-                          <div class="signature-line"></div>
-                          <span class="signature-label">Head of HR</span>
-                          </div>
-                          <div class="signature-column">
-                          <div class="signature-line"></div>
-                          <span class="signature-label">Authority</span>
-                          </div>
-                      </div>
-                      </div>
-                    </div>
-                  </body>
-                </html>
-              `;
+            /* Force tighter spacing */
+            h3, h4 {
+              margin: 4px 0;
+            }
+            
+            p, div {
+              margin: 2px 0;
+            }
+          }
+          
+          /* Even tighter for long content */
+          .compact-table .performance-table {
+            font-size: 7px;
+          }
+          
+          .compact-table .performance-table th,
+          .compact-table .performance-table td {
+            padding: 3px 4px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-container">
+          <!-- Header -->
+          <div class="header">
+            <div class="appraisal-title">Performance Appraisal</div>
+            <div class="employee-name">${appraisal.name}</div>
+            <div class="company-name">Confidential Document</div>
+          </div>
+          
+          <!-- Employee Information -->
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">ID:</span>
+              <span class="info-value">${appraisal.employee_id}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Dept:</span>
+              <span class="info-value">${appraisal.department}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Designation:</span>
+              <span class="info-value">${appraisal.designation}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Join Date:</span>
+              <span class="info-value">${appraisal.joining_date}</span>
+            </div>
+          </div>
+          
+          <!-- Score Section -->
+          <div class="score-section">
+            <div class="grade-badge">
+              <span class="total-score">${totalPoints}/50</span>
+              <span class="grade-letter">Grade: ${gradeInfo.grade}</span>
+            </div>
+            
+            <div class="scale-info">
+              <div class="scale-grid">
+                <div class="scale-item">5=Excellent</div>
+                <div class="scale-item">4=Very Good</div>
+                <div class="scale-item">3=Meets Exp.</div>
+                <div class="scale-item">2=Fairly Good</div>
+                <div class="scale-item">1=Below Exp.</div>
+              </div>
+              <div class="grade-scale">
+                47-50=A+ | 42-46=A | 37-41=B | 32-36=C | <31=D
+              </div>
+            </div>
+          </div>
+          
+          <!-- Performance Assessment -->
+          <div class="performance-section compact-table">
+            <h3 class="section-title">Performance Assessment</h3>
+            <table class="performance-table">
+              <thead>
+                <tr>
+                  <th width="55%">Criteria</th>
+                  <th width="12%" style="text-align: center">Points</th>
+                  <th width="33%">Comments</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${performanceTableRows}
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Recommendations -->
+          <div class="recommendations">
+            <div class="recommendation-card ${appraisal.promotion ? "active" : ""}">
+              <div class="recommendation-icon">👤</div>
+              <div class="recommendation-title">Promotion</div>
+              <div style="font-size: 8px; margin: 3px 0;">
+                ${
+                  appraisal.promotion
+                    ? `${appraisal.present_designation} → ${appraisal.proposed_designation}`
+                    : "Not Recommended"
+                }
+              </div>
+              ${
+                appraisal.promotion && appraisal.designation_approved
+                  ? '<div class="status-badge status-approved">Approved</div>'
+                  : appraisal.promotion
+                    ? '<div class="status-badge status-pending">Pending</div>'
+                    : ""
+              }
+            </div>
+            
+            <div class="recommendation-card ${appraisal.increment ? "active" : ""}">
+              <div class="recommendation-icon">💰</div>
+              <div class="recommendation-title">Increment</div>
+              <div style="font-size: 8px; margin: 3px 0;">
+                ${
+                  appraisal.increment
+                    ? `৳${appraisal.present_salary} → ৳${appraisal.proposed_salary}`
+                    : "Not Recommended"
+                }
+              </div>
+              ${
+                appraisal.increment && appraisal.increment_approved
+                  ? '<div class="status-badge status-approved">Approved</div>'
+                  : appraisal.increment
+                    ? '<div class="status-badge status-pending">Pending</div>'
+                    : ""
+              }
+            </div>
+            
+            <div class="recommendation-card ${appraisal.performance_reward ? "active" : ""}">
+              <div class="recommendation-icon">🏆</div>
+              <div class="recommendation-title">Reward</div>
+              <div style="font-size: 8px; margin: 3px 0;">
+                ${appraisal.performance_reward ? "Recommended" : "Not Recommended"}
+              </div>
+              ${
+                appraisal.performance_reward
+                  ? '<div class="status-badge status-approved">Yes</div>'
+                  : ""
+              }
+            </div>
+          </div>
+          
+          <!-- Performance Notes -->
+          <div class="list-section">
+            <h3 class="section-title">Performance Notes</h3>
+            <div class="list-container">
+              ${performanceList}
+            </div>
+          </div>
+          
+          <!-- Expected Performance -->
+          <div class="list-section">
+            <h3 class="section-title">Expected Performance</h3>
+            <div class="list-container">
+              ${expectedList}
+            </div>
+          </div>
+          
+          <!-- Salary & Designation -->
+          <div class="salary-section">
+            <h3 class="section-title" style="text-align: center;">Salary & Designation</h3>
+            <div class="comparison-grid">
+              <div class="comparison-column">
+                <div class="column-title">Current</div>
+                <div class="salary-item">
+                  <div class="salary-label">Salary</div>
+                  <div class="salary-value">৳${appraisal.present_salary}</div>
+                </div>
+                <div class="salary-item">
+                  <div class="salary-label">Designation</div>
+                  <div class="salary-value">${appraisal.present_designation}</div>
+                </div>
+              </div>
+              
+              <div class="comparison-column">
+                <div class="column-title">Proposed</div>
+                <div class="salary-item">
+                  <div class="salary-label">Salary</div>
+                  <div class="salary-value">৳${appraisal.proposed_salary}</div>
+                </div>
+                <div class="salary-item">
+                  <div class="salary-label">Designation</div>
+                  <div class="salary-value">${appraisal.proposed_designation}</div>
+                </div>
+              </div>
+              
+              <div class="comparison-column">
+                <div class="column-title">Approved</div>
+                <div class="salary-item">
+                  <div class="salary-label">Salary</div>
+                  <div class="salary-value ${appraisal.increment_approved ? "" : "empty"}">
+                    ${appraisal.increment_approved ? "৳" + appraisal.proposed_salary : "—"}
+                  </div>
+                </div>
+                <div class="salary-item">
+                  <div class="salary-label">Designation</div>
+                  <div class="salary-value ${appraisal.designation_approved ? "" : "empty"}">
+                    ${appraisal.designation_approved ? appraisal.proposed_designation : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Signatures -->
+          <div class="signature-section">
+            <h3 class="section-title" style="text-align: center;">Signatures</h3>
+            <div class="signature-grid">
+              <div class="signature-box">
+                <div class="signature-label">Section Head</div>
+                <div class="signature-title">Supervisor</div>
+                <div class="signature-line"></div>
+                <div class="signature-title">Signature & Date</div>
+              </div>
+              
+              <div class="signature-box">
+                <div class="signature-label">Dept Head</div>
+                <div class="signature-title">Manager</div>
+                <div class="signature-line"></div>
+                <div class="signature-title">Signature & Date</div>
+              </div>
+              
+              <div class="signature-box">
+                <div class="signature-label">Head of HR</div>
+                <div class="signature-title">HR</div>
+                <div class="signature-line"></div>
+                <div class="signature-title">Signature & Date</div>
+              </div>
+              
+              <div class="signature-box">
+                <div class="signature-label">Authority</div>
+                <div class="signature-title">Management</div>
+                <div class="signature-line"></div>
+                <div class="signature-title">Signature & Date</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="footer">
+            <div>Performance Appraisal Report • ${new Date().toLocaleDateString(
+              "en-US",
+              {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              },
+            )}</div>
+            <div class="footer-info">
+              <span>ID: APP-${appraisal.id}-${new Date().getFullYear()}</span>
+              <span>CONFIDENTIAL</span>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "absolute";
     iframe.style.width = "0";
     iframe.style.height = "0";
     iframe.style.border = "none";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
     document.body.appendChild(iframe);
 
     const iframeDoc = iframe.contentWindow.document;
@@ -596,8 +1043,16 @@ const AppraisalDetails = () => {
     iframeDoc.write(printContent);
     iframeDoc.close();
 
-    iframe.contentWindow.print();
-    document.body.removeChild(iframe);
+    // Wait for fonts to load
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+
+      // Clean up after printing
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
   };
 
   if (!appraisal)
@@ -740,10 +1195,10 @@ const AppraisalDetails = () => {
                   score >= 4
                     ? "#10B981"
                     : score >= 3
-                    ? "#3B82F6"
-                    : score >= 2
-                    ? "#F59E0B"
-                    : "#EF4444";
+                      ? "#3B82F6"
+                      : score >= 2
+                        ? "#F59E0B"
+                        : "#EF4444";
 
                 return (
                   <div key={index} style={styles.criteriaCard}>
@@ -1040,7 +1495,8 @@ const containerStyle = {
   display: "flex",
   backgroundColor: "#f8fafc",
   minHeight: "100vh",
-  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  fontFamily:
+    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   overflow: "hidden", // Prevent body scroll
 };
 
