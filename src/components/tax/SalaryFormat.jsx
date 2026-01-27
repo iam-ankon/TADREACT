@@ -1308,14 +1308,14 @@ const SalaryFormat = () => {
                 </div>
 
                 <div className="action-buttons">
-                  <button
+                  {/* <button
                     onClick={handleSyncData}
                     className="btn btn-sync"
                     disabled={calculatingTaxes}
                   >
                     <FaSync />
                     Sync DB
-                  </button>
+                  </button> */}
 
                   {/* <button
                     onClick={handleRecalculateTaxes}

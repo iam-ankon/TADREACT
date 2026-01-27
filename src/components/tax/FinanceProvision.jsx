@@ -529,6 +529,7 @@ const FinanceProvision = () => {
       return {
         "Employee ID": empId,
         Name: emp?.name || "",
+        Company: emp?.company_name || "",
         Salary: emp?.salary || 0,
         "Source Other": sourceOther[empId] || 0,
         Bonus: bonusOverride[empId] || 0,
@@ -760,13 +761,13 @@ const FinanceProvision = () => {
                 >
                   <FaFileAlt /> Salary Sheet
                 </button>
-                <button
+                {/* <button
                   className="btn sync"
                   onClick={handleSyncData}
                   disabled={calculating}
                 >
                   <FaSync /> Sync DB
-                </button>
+                </button> */}
                 <button
                   className="btn export"
                   onClick={handleExport}
@@ -904,6 +905,7 @@ const FinanceProvision = () => {
                 <tr>
                   <th>ID</th>
                   <th>Name</th>
+                  <th>Company</th>
                   <th>Salary</th>
                   <th>Source Other</th>
                   <th>Bonus</th>
@@ -933,6 +935,7 @@ const FinanceProvision = () => {
                     >
                       <td className="id-cell">{emp.employee_id}</td>
                       <td className="name-cell">{emp.name}</td>
+                      <td className="company-cell">{emp.company_name}</td>
                       <td className="salary-cell">
                         {financeAPI.utils.formatCurrency(emp.salary || 0)}
                       </td>

@@ -1248,17 +1248,20 @@ const AppraisalDetails = () => {
           <div style={styles.section}>
             <h3 style={styles.sectionTitle}>Recommendations</h3>
             <div style={styles.recommendationsGrid}>
+              {/* Promotion Card - ALWAYS SHOW INFORMATION */}
               <div
                 style={{
                   ...styles.recommendationCard,
-                  ...(appraisal.promotion && styles.recommendationCardActive),
+                  ...(appraisal.promotion === true &&
+                    styles.recommendationCardActive),
                 }}
               >
                 <div style={styles.recommendationHeader}>
                   <span
                     style={{
                       ...styles.recommendationIcon,
-                      color: appraisal.promotion ? "#3B82F6" : "#9CA3AF",
+                      color:
+                        appraisal.promotion === true ? "#3B82F6" : "#9CA3AF",
                     }}
                   >
                     👤
@@ -1267,46 +1270,68 @@ const AppraisalDetails = () => {
                   <div style={styles.checkboxContainer}>
                     <input
                       type="checkbox"
-                      checked={appraisal.promotion}
+                      checked={appraisal.promotion === true}
                       readOnly
                       style={styles.checkbox}
                     />
                   </div>
                 </div>
-                {appraisal.promotion && (
-                  <>
-                    <div style={styles.recommendationContent}>
-                      <div style={styles.designationChange}>
-                        <span>
-                          From: <strong>{appraisal.present_designation}</strong>
-                        </span>
-                        <span style={{ margin: "0 10px" }}>→</span>
-                        <span>
-                          To: <strong>{appraisal.proposed_designation}</strong>
-                        </span>
-                      </div>
+
+                {/* ALWAYS SHOW DESIGNATION INFORMATION */}
+                <div style={styles.recommendationContent}>
+                  <div style={styles.designationChange}>
+                    <span>
+                      From:{" "}
+                      <strong>
+                        {appraisal.present_designation ||
+                          appraisal.designation ||
+                          "Not specified"}
+                      </strong>
+                    </span>
+                    <span style={{ margin: "0 10px" }}>→</span>
+                    <span>
+                      To:{" "}
+                      <strong>
+                        {appraisal.proposed_designation || "Not specified"}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Show status if promotion is true */}
+                {appraisal.promotion === true ? (
+                  appraisal.designation_approved === true ? (
+                    <div style={styles.approvedBadge}>
+                      <span style={{ marginRight: "6px" }}>✅</span>
+                      Approved
                     </div>
-                    {!appraisal.designation_approved && (
-                      <div style={styles.pendingBadge}>
-                        <span style={{ marginRight: "6px" }}>⏱️</span>
-                        Pending Approval
-                      </div>
-                    )}
-                  </>
+                  ) : (
+                    <div style={styles.pendingBadge}>
+                      <span style={{ marginRight: "6px" }}>⏱️</span>
+                      Pending Approval
+                    </div>
+                  )
+                ) : (
+                  <div style={styles.remarks}>
+                    <small>Not Recommended</small>
+                  </div>
                 )}
               </div>
 
+              {/* Increment Card - ALWAYS SHOW INFORMATION */}
               <div
                 style={{
                   ...styles.recommendationCard,
-                  ...(appraisal.increment && styles.recommendationCardActive),
+                  ...(appraisal.increment === true &&
+                    styles.recommendationCardActive),
                 }}
               >
                 <div style={styles.recommendationHeader}>
                   <span
                     style={{
                       ...styles.recommendationIcon,
-                      color: appraisal.increment ? "#10B981" : "#9CA3AF",
+                      color:
+                        appraisal.increment === true ? "#10B981" : "#9CA3AF",
                     }}
                   >
                     💰
@@ -1315,49 +1340,59 @@ const AppraisalDetails = () => {
                   <div style={styles.checkboxContainer}>
                     <input
                       type="checkbox"
-                      checked={appraisal.increment}
+                      checked={appraisal.increment === true}
                       readOnly
                       style={styles.checkbox}
                     />
                   </div>
                 </div>
-                {appraisal.increment && (
-                  <>
-                    <div style={styles.recommendationContent}>
-                      <div style={styles.salaryChange}>
-                        <span>
-                          From: <strong>৳{appraisal.present_salary}</strong>
-                        </span>
-                        <span style={{ margin: "0 10px" }}>→</span>
-                        <span>
-                          To: <strong>৳{appraisal.proposed_salary}</strong>
-                        </span>
-                      </div>
-                      {appraisal.salary_text && (
-                        <div style={styles.remarks}>
-                          <small>{appraisal.salary_text}</small>
-                        </div>
-                      )}
+
+                {/* ALWAYS SHOW SALARY INFORMATION */}
+                <div style={styles.recommendationContent}>
+                  <div style={styles.salaryChange}>
+                    <span>
+                      From:{" "}
+                      <strong>
+                        ৳{appraisal.present_salary || appraisal.salary || "N/A"}
+                      </strong>
+                    </span>
+                    <span style={{ margin: "0 10px" }}>→</span>
+                    <span>
+                      To: <strong>৳{appraisal.proposed_salary || "N/A"}</strong>
+                    </span>
+                  </div>
+                  {appraisal.salary_text && (
+                    <div style={styles.remarks}>
+                      <small>{appraisal.salary_text}</small>
                     </div>
-                    {appraisal.increment_approved ? (
-                      <div style={styles.approvedBadge}>
-                        <span style={{ marginRight: "6px" }}>✅</span>
-                        Approved
-                      </div>
-                    ) : (
-                      <div style={styles.pendingBadge}>
-                        <span style={{ marginRight: "6px" }}>⏱️</span>
-                        Pending Approval
-                      </div>
-                    )}
-                  </>
+                  )}
+                </div>
+
+                {/* Show status if increment is true */}
+                {appraisal.increment === true ? (
+                  appraisal.increment_approved === true ? (
+                    <div style={styles.approvedBadge}>
+                      <span style={{ marginRight: "6px" }}>✅</span>
+                      Approved
+                    </div>
+                  ) : (
+                    <div style={styles.pendingBadge}>
+                      <span style={{ marginRight: "6px" }}>⏱️</span>
+                      Pending Approval
+                    </div>
+                  )
+                ) : (
+                  <div style={styles.remarks}>
+                    <small>Not Recommended</small>
+                  </div>
                 )}
               </div>
 
+              {/* Performance Reward Card - ALWAYS SHOW STATUS */}
               <div
                 style={{
                   ...styles.recommendationCard,
-                  ...(appraisal.performance_reward &&
+                  ...(appraisal.performance_reward === true &&
                     styles.recommendationCardActive),
                 }}
               >
@@ -1365,9 +1400,10 @@ const AppraisalDetails = () => {
                   <span
                     style={{
                       ...styles.recommendationIcon,
-                      color: appraisal.performance_reward
-                        ? "#F59E0B"
-                        : "#9CA3AF",
+                      color:
+                        appraisal.performance_reward === true
+                          ? "#F59E0B"
+                          : "#9CA3AF",
                     }}
                   >
                     🏆
@@ -1376,13 +1412,28 @@ const AppraisalDetails = () => {
                   <div style={styles.checkboxContainer}>
                     <input
                       type="checkbox"
-                      checked={appraisal.performance_reward}
+                      checked={appraisal.performance_reward === true}
                       readOnly
                       style={styles.checkbox}
                     />
                   </div>
                 </div>
-                {appraisal.performance_reward && (
+
+                {/* ALWAYS SHOW REWARD STATUS */}
+                <div style={styles.recommendationContent}>
+                  <div style={{ textAlign: "center", padding: "10px 0" }}>
+                    {appraisal.performance_reward === true ? (
+                      <span style={{ color: "#059669", fontWeight: "bold" }}>
+                        Recommended
+                      </span>
+                    ) : (
+                      <span style={{ color: "#6B7280" }}>Not Recommended</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Show badge if recommended */}
+                {appraisal.performance_reward === true && (
                   <div style={styles.approvedBadge}>
                     <span style={{ marginRight: "6px" }}>✅</span>
                     Recommended
