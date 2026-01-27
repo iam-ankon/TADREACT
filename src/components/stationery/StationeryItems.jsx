@@ -44,7 +44,7 @@ const StationeryItems = () => {
     name: "",
     description: "",
     unit: "pcs",
-    reorder_level: 10,
+    
     current_stock: 0,
   });
 
@@ -121,7 +121,7 @@ const StationeryItems = () => {
         name: "",
         description: "",
         unit: "pcs",
-        reorder_level: 10,
+        
         current_stock: 0,
       });
       fetchItems();
@@ -136,7 +136,7 @@ const StationeryItems = () => {
       name: item.name,
       description: item.description || "",
       unit: item.unit,
-      reorder_level: item.reorder_level,
+     
       current_stock: item.current_stock,
     });
     setShowForm(true);
@@ -514,7 +514,7 @@ const StationeryItems = () => {
                     name: "",
                     description: "",
                     unit: "pcs",
-                    reorder_level: 10,
+                   
                     current_stock: 0,
                   });
                   setShowForm(true);
@@ -719,32 +719,7 @@ const StationeryItems = () => {
                       onChange={(e) => setFormData({ ...formData, current_stock: parseInt(e.target.value) || 0 })}
                     />
                   </div>
-                  <div>
-                    <label style={{
-                      display: "block",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      color: "#374151",
-                      marginBottom: "8px",
-                    }}>
-                      Reorder Level
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        background: "#F9FAFB",
-                        border: "1px solid #D1D5DB",
-                        borderRadius: "10px",
-                        fontSize: "14px",
-                        outline: "none",
-                      }}
-                      value={formData.reorder_level}
-                      onChange={(e) => setFormData({ ...formData, reorder_level: parseInt(e.target.value) || 10 })}
-                    />
-                  </div>
+
                 </div>
                 <div style={{ marginTop: "20px" }}>
                   <label style={{
@@ -1106,7 +1081,7 @@ const ItemCard = ({ item, onEdit, onDelete, expandedItem, setExpandedItem }) => 
           }}>
             <span>Stock Level</span>
             <span style={{ fontWeight: "600", color: "#374151" }}>
-              {item.current_stock} / {item.reorder_level * 3}
+              {item.current_stock}
             </span>
           </div>
           <div style={{
@@ -1117,7 +1092,7 @@ const ItemCard = ({ item, onEdit, onDelete, expandedItem, setExpandedItem }) => 
           }}>
             <div style={{
               height: "100%",
-              width: `${Math.min(100, (item.current_stock / (item.reorder_level * 3)) * 100)}%`,
+              width: `${Math.min(100, (item.current_stock ) * 100)}%`,
               background: `linear-gradient(90deg, ${statusColors[status.label].bg}, ${statusColors[status.label].bg}80)`,
               borderRadius: "3px",
               transition: "width 0.5s ease",
@@ -1153,6 +1128,7 @@ const ItemCard = ({ item, onEdit, onDelete, expandedItem, setExpandedItem }) => 
               Current
             </div>
           </div>
+
           <div style={{
             textAlign: "center",
             padding: "12px",
@@ -1164,28 +1140,7 @@ const ItemCard = ({ item, onEdit, onDelete, expandedItem, setExpandedItem }) => 
               fontWeight: "700",
               color: "#111827",
             }}>
-              {item.reorder_level}
-            </div>
-            <div style={{
-              fontSize: "11px",
-              color: "#6B7280",
-              marginTop: "4px",
-            }}>
-              Reorder At
-            </div>
-          </div>
-          <div style={{
-            textAlign: "center",
-            padding: "12px",
-            background: "#F9FAFB",
-            borderRadius: "10px",
-          }}>
-            <div style={{
-              fontSize: "18px",
-              fontWeight: "700",
-              color: "#111827",
-            }}>
-              {Math.max(0, item.reorder_level - item.current_stock)}
+              {Math.max(0, item.current_stock)}
             </div>
             <div style={{
               fontSize: "11px",
@@ -1384,12 +1339,7 @@ const ListItem = ({ item, index, onEdit, onDelete, expandedItem, setExpandedItem
             </div>
             <div style={{ fontSize: "11px", color: "#6B7280" }}>Stock</div>
           </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "18px", fontWeight: "700", color: "#111827" }}>
-              {item.reorder_level}
-            </div>
-            <div style={{ fontSize: "11px", color: "#6B7280" }}>Reorder</div>
-          </div>
+
           <div style={{ display: "flex", gap: "8px" }}>
             <button
               onClick={(e) => {

@@ -38,12 +38,15 @@ const formatNumber = (num) => {
 };
 
 // Add these OT calculation functions (same as SalaryFormat.jsx)
-const calculateOTPay = (monthlySalary, otHours, totalDays = 31) => {
+const calculateOTPay = (monthlySalary, otHours, totalDaysInMonth) => {
   if (!monthlySalary || !otHours || otHours <= 0) return 0;
 
-  // OT Pay = (Gross Salary ÷ 31 ÷ 10) × Monthly OT Hours
-  const dailySalary = monthlySalary / totalDays;
-  const hourlyRate = dailySalary / 10; // Assuming 10-hour work day
+  // Basic salary is 60% of gross salary
+  const basicSalary = monthlySalary * 0.6;
+  
+  // OT Pay = (Basic Salary ÷ daysInMonth ÷ 10) × Monthly OT Hours
+  const dailyBasicSalary = basicSalary / totalDaysInMonth;
+  const hourlyRate = dailyBasicSalary / 10; // Assuming 10-hour work day
   const otPay = hourlyRate * otHours;
 
   return Number(otPay.toFixed(2));

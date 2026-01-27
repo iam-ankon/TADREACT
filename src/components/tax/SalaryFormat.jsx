@@ -34,12 +34,15 @@ const formatNumber = (num) => {
   return num < 0 ? `-৳${formatted}` : `৳${formatted}`;
 };
 
-const calculateOTPay = (monthlySalary, otHours, totalDays = 31) => {
+const calculateOTPay = (monthlySalary, otHours, totalDaysInMonth) => {
   if (!monthlySalary || !otHours || otHours <= 0) return 0;
 
-  // OT Pay = (Gross Salary ÷ 31 ÷ 10) × Monthly OT Hours
-  const dailySalary = monthlySalary / totalDays;
-  const hourlyRate = dailySalary / 10; // Assuming 10-hour work day
+  // Basic salary is 60% of gross salary
+  const basicSalary = monthlySalary * 0.6;
+
+  // OT Pay = (Basic Salary ÷ daysInMonth ÷ 10) × Monthly OT Hours
+  const dailyBasicSalary = basicSalary / totalDaysInMonth;
+  const hourlyRate = dailyBasicSalary / 10; // Assuming 10-hour work day
   const otPay = hourlyRate * otHours;
 
   return Number(otPay.toFixed(2));
@@ -802,7 +805,7 @@ const SalaryFormat = () => {
         const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
         const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
         const otHours = Number(getManual(empId, "otHours")) || 0; // Get OT hours
-        const otPay = calculateOTPay(monthlySalary, otHours, totalDaysInMonth); // Calculate OT pay
+        const otPay = calculateOTPay(monthlySalary, otHours, totalDaysInMonth);
         const additionManual = Number(getManual(empId, "addition")) || 0;
         const addition = additionManual; // OT is already included in addition via updateManual
         const advance = Number(getManual(empId, "advance")) || 0;
@@ -990,15 +993,17 @@ const SalaryFormat = () => {
       const emp = employees.find((e) => e.employee_id === empId);
       if (emp) {
         const monthlySalary = Number(emp.salary) || 0;
-        const otPay = calculateOTPay(monthlySalary, parsed);
+        const otPay = calculateOTPay(monthlySalary, parsed, totalDaysInMonth);
 
         // Get existing addition value (if any)
         const existingAddition = newData[empId]?.addition || 0;
+        const existingOtPay = newData[empId]?.otPay || 0;
 
-        // Update addition with OT pay
+        // Update addition: remove old OT pay and add new OT pay
         newData[empId] = {
           ...newData[empId],
-          addition: existingAddition + otPay,
+          addition: existingAddition - existingOtPay + otPay,
+          otPay: otPay, // Store OT pay separately for future updates
         };
       }
     }
