@@ -76,7 +76,7 @@ const SalaryFormat = () => {
   const selectedMonth = today.getMonth() + 1;
   const selectedYear = today.getFullYear();
   const totalDaysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-  const BASE_MONTH = 30;
+  const BASE_MONTH = new Date(selectedYear, selectedMonth, 0).getDate();
 
   const monthNames = [
     "January",
@@ -1115,155 +1115,9 @@ const SalaryFormat = () => {
     }
   };
 
-  const exportAllCompanies = () => {
-    Object.keys(grouped).forEach((companyName, i) => {
-      setTimeout(() => exportCompanyData(companyName), i * 200);
-    });
-  };
-
   // FIXED: UPDATED APPROVAL FOOTER
   const renderApprovalFooter = (companyName) => {
     const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
-
-    // return (
-    //   <div className="footer">
-    //     <button
-    //       onClick={() => handleApprovalStep("hr_prepared", companyName)}
-    //       disabled={!isButtonEnabled("hr_prepared", companyName)}
-    //       className={`approval-btn ${
-    //         isButtonEnabled("hr_prepared", companyName) ? "enabled" : "disabled"
-    //       }`}
-    //     >
-    //       <span>Prepared by: HR</span>
-    //       {companyStatus.hr_prepared && <span className="status-badge">✓</span>}
-    //     </button>
-
-    //     <button
-    //       onClick={() => handleApprovalStep("finance_checked", companyName)}
-    //       disabled={!isButtonEnabled("finance_checked", companyName)}
-    //       className={`approval-btn ${
-    //         isButtonEnabled("finance_checked", companyName)
-    //           ? "enabled"
-    //           : "disabled"
-    //       }`}
-    //     >
-    //       <span>Checked by: Finance & Accounts</span>
-    //       {companyStatus.finance_checked && (
-    //         <span className="status-badge">✓</span>
-    //       )}
-    //     </button>
-
-    //     <button
-    //       onClick={() => handleApprovalStep("director_checked", companyName)}
-    //       disabled={!isButtonEnabled("director_checked", companyName)}
-    //       className={`approval-btn ${
-    //         isButtonEnabled("director_checked", companyName)
-    //           ? "enabled"
-    //           : "disabled"
-    //       }`}
-    //     >
-    //       <span>Checked by: Director</span>
-    //       {companyStatus.director_checked && (
-    //         <span className="status-badge">✓</span>
-    //       )}
-    //     </button>
-
-    //     <button
-    //       onClick={() => handleApprovalStep("proprietor_approved", companyName)}
-    //       disabled={!isButtonEnabled("proprietor_approved", companyName)}
-    //       className={`approval-btn ${
-    //         isButtonEnabled("proprietor_approved", companyName)
-    //           ? "enabled"
-    //           : "disabled"
-    //       }`}
-    //     >
-    //       <span>Approved by: Proprietor / MD</span>
-    //       {companyStatus.proprietor_approved && (
-    //         <span className="status-badge">✓</span>
-    //       )}
-    //     </button>
-    //   </div>
-    // );
-  };
-
-  // FIXED: Button enabling logic
-  const isButtonEnabled = (buttonStep, companyName) => {
-    const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
-    const user = currentUser ? currentUser.toLowerCase().trim() : "";
-
-    let enabled = false;
-
-    switch (buttonStep) {
-      case "hr_prepared":
-        enabled = user === "lisa" && !companyStatus.hr_prepared;
-        break;
-      case "finance_checked":
-        enabled =
-          user === "morshed" &&
-          companyStatus.hr_prepared &&
-          !companyStatus.finance_checked;
-        break;
-      case "director_checked":
-        enabled =
-          user === "ankon" &&
-          companyStatus.finance_checked &&
-          !companyStatus.director_checked;
-        break;
-      case "proprietor_approved":
-        enabled =
-          (user === "tuhin" || user === "proprietor" || user === "md") &&
-          companyStatus.director_checked &&
-          !companyStatus.proprietor_approved;
-        break;
-      default:
-        enabled = false;
-    }
-
-    return enabled;
-  };
-
-  // FIXED: Approval handler
-  const handleApprovalStep = async (step, companyName) => {
-    console.log(`📧 Processing ${step} for ${companyName} by ${currentUser}`);
-
-    try {
-      const response = await financeAPI.approval.sendApproval({
-        step: step,
-        company_name: companyName,
-        user_name: currentUser,
-        username: currentUser,
-        month: selectedMonth,
-        year: selectedYear,
-      });
-
-      if (response.data.success) {
-        // Update company-specific approval status
-        if (response.data.approval_status) {
-          setCompanyApprovalStatus((prev) => ({
-            ...prev,
-            [companyName]: {
-              hr_prepared: response.data.approval_status.hr_prepared,
-              finance_checked: response.data.approval_status.finance_checked,
-              director_checked: response.data.approval_status.director_checked,
-              proprietor_approved:
-                response.data.approval_status.proprietor_approved,
-            },
-          }));
-        }
-
-        alert(`✅ Email sent successfully! ${response.data.message}`);
-
-        // Reload approval status
-        setTimeout(() => {
-          loadApprovalStatus(companyName);
-        }, 500);
-      } else {
-        alert(`❌ Failed: ${response.data.message}`);
-      }
-    } catch (error) {
-      console.error("Approval step failed:", error);
-      alert("❌ Connection error. Please try again.");
-    }
   };
 
   // FIXED: Show loading state
@@ -1308,31 +1162,6 @@ const SalaryFormat = () => {
                 </div>
 
                 <div className="action-buttons">
-                  {/* <button
-                    onClick={handleSyncData}
-                    className="btn btn-sync"
-                    disabled={calculatingTaxes}
-                  >
-                    <FaSync />
-                    Sync DB
-                  </button> */}
-
-                  {/* <button
-                    onClick={handleRecalculateTaxes}
-                    className="btn btn-recalculate"
-                    disabled={calculatingTaxes}
-                  >
-                    <FaSync />
-                    {calculatingTaxes ? "Calculating..." : "Recalc Taxes"}
-                  </button> */}
-
-                  {/* <button
-                    onClick={exportAllCompanies}
-                    className="btn btn-export-all"
-                  >
-                    <FaFileExport /> Export All
-                  </button> */}
-
                   <button
                     onClick={() => navigate("/finance-provision")}
                     className="btn btn-back"
@@ -1457,24 +1286,6 @@ const SalaryFormat = () => {
                       {selectedYear}
                     </h3>
                   </div>
-                  {/* <div className="company-action-buttons">
-                    <button
-                      onClick={() => generateExcelForCompany(comp)}
-                      className="btn btn-generate-excel"
-                      disabled={generatingExcel[comp]}
-                    >
-                      <FaFileExcel />
-                      {generatingExcel[comp]
-                        ? "Generating..."
-                        : "Generate Excel"}
-                    </button>
-                    <button
-                      onClick={() => exportCompanyData(comp)}
-                      className="btn btn-export-section"
-                    >
-                      <FaFileExport /> Export {comp} Data
-                    </button>
-                  </div> */}
                 </div>
 
                 <div className="table-scroll-container">
@@ -1560,7 +1371,7 @@ const SalaryFormat = () => {
                             ait + advance + absentDeduction;
 
                           const netPayBank =
-                            (monthlySalary / totalDaysInMonth) * daysWorked -
+                            monthlySalary -
                             cashPayment -
                             totalDeduction +
                             addition;
@@ -1956,11 +1767,8 @@ const SalaryFormat = () => {
                             const cash = getManual(empId, "cashPayment");
                             const addition = getManual(empId, "addition");
                             const totalDed = ait + advance + absentDed;
-                            const netBank =
-                              (salary / totalDaysInMonth) * daysWorked -
-                              cash -
-                              totalDed +
-                              addition;
+                            const netBank = salary;
+                            cash - totalDed + addition;
                             const totalPay = netBank + cash + ait;
 
                             return {

@@ -325,10 +325,9 @@ const SalaryRecords = () => {
     const totalDeduction = ait + advance + absentDeduction;
 
     // Calculate net pay (bank)
-    const dailySalary = totalDays > 0 ? grossSalary / totalDays : 0;
-    const earnedSalary = dailySalary * daysWorked;
+
     const netPayBank =
-      earnedSalary - cashPayment - totalDeduction + totalAddition;
+      grossSalary - cashPayment - totalDeduction + totalAddition;
 
     // Calculate total payable
     const totalPayable = netPayBank + cashPayment + ait + cashSalary;
@@ -845,7 +844,6 @@ const SalaryRecords = () => {
                 </div>
 
                 <div className="action-buttons">
-
                   <button
                     onClick={() => navigate("/salary-format")}
                     className="btn btn-back"
