@@ -34,11 +34,15 @@ const formatNumber = (num) => {
   return num < 0 ? `-৳${formatted}` : `৳${formatted}`;
 };
 
-const calculateOTPay = (monthlySalary, otHours, totalDaysInMonth) => {
-  if (!monthlySalary || !otHours || otHours <= 0) return 0;
+const calculateOTPay = (monthlySalary, otMinutes, totalDaysInMonth) => {
+  if (!monthlySalary || !otMinutes || otMinutes <= 0) return 0;
 
   // Basic salary is 60% of gross salary
   const basicSalary = monthlySalary * 0.6;
+
+  // Input is in minutes where 60 = 60 minutes (1 hour)
+  // Convert minutes to hours for calculation
+  const otHours = otMinutes / 60;
 
   // OT Pay = (Basic Salary ÷ daysInMonth ÷ 10) × Monthly OT Hours
   const dailyBasicSalary = basicSalary / totalDaysInMonth;
@@ -49,6 +53,14 @@ const calculateOTPay = (monthlySalary, otHours, totalDaysInMonth) => {
 };
 
 const SalaryFormat = () => {
+  // MOVE THESE TO THE TOP - before any functions that use them
+  const today = new Date();
+  const selectedMonth = today.getMonth() + 1;
+  const selectedYear = today.getFullYear();
+  const totalDaysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+  const BASE_MONTH = new Date(selectedYear, selectedMonth, 0).getDate();
+
+  // Now declare all your state variables
   const [employees, setEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [taxResults, setTaxResults] = useState({});
@@ -63,7 +75,10 @@ const SalaryFormat = () => {
   const [calculatingTaxes, setCalculatingTaxes] = useState(false);
   const navigate = useNavigate();
   const [companyApprovalStatus, setCompanyApprovalStatus] = useState({});
-  const [generatingExcel, setGeneratingExcel] = useState({}); // Track Excel generation per company
+  const [generatingExcel, setGeneratingExcel] = useState({});
+
+  // Add the new state for save lock
+  const [isDataSavedForMonth, setIsDataSavedForMonth] = useState(false);
 
   // BACKEND-BASED APPROVAL STATUS
   const [approvalStatus, setApprovalStatus] = useState({
@@ -74,12 +89,6 @@ const SalaryFormat = () => {
   });
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [currentUser, setCurrentUser] = useState("");
-
-  const today = new Date();
-  const selectedMonth = today.getMonth() + 1;
-  const selectedYear = today.getFullYear();
-  const totalDaysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-  const BASE_MONTH = new Date(selectedYear, selectedMonth, 0).getDate();
 
   const monthNames = [
     "January",
@@ -105,6 +114,32 @@ const SalaryFormat = () => {
       return acc;
     }, {});
   }, [filteredEmployees]);
+
+  // Check if data is already saved for current month
+  useEffect(() => {
+    const checkIfDataSavedForCurrentMonth = () => {
+      try {
+        const savedMonthKey = `salary_saved_${selectedYear}_${selectedMonth}`;
+        const savedData = localStorage.getItem(savedMonthKey);
+
+        if (savedData) {
+          const { isSaved } = JSON.parse(savedData);
+          if (isSaved) {
+            setIsDataSavedForMonth(true);
+            console.log(
+              `✅ Salary data already saved for ${monthNames[selectedMonth - 1]} ${selectedYear}`,
+            );
+          }
+        }
+      } catch (error) {
+        console.log("No saved data found for this month");
+      }
+    };
+
+    if (!loading) {
+      checkIfDataSavedForCurrentMonth();
+    }
+  }, [loading, selectedMonth, selectedYear]);
 
   // FIXED: Load initial data immediately
   useEffect(() => {
@@ -694,97 +729,21 @@ const SalaryFormat = () => {
     }
   };
 
-  // FIX THE parseDate function first
-  const parseDate = (dateStr) => {
-    if (!dateStr) return null;
-
-    // First try common formats
-    const formats = [
-      "DD/MM/YYYY",
-      "MM/DD/YYYY",
-      "YYYY-MM-DD",
-      "DD-MM-YYYY",
-      "MM-DD-YYYY",
-    ];
-
-    for (let format of formats) {
-      let date = parseWithFormat(dateStr, format);
-      if (date) return date;
-    }
-
-    // Try manual parsing as fallback
-    const parts = dateStr.split(/[/\-.]/);
-    if (parts.length === 3) {
-      let day, month, year;
-
-      // Try to determine format based on part lengths
-      if (parts[0].length === 4) {
-        // YYYY-MM-DD or YYYY/MM/DD
-        year = parseInt(parts[0]);
-        month = parseInt(parts[1]) - 1;
-        day = parseInt(parts[2]);
-      } else {
-        // Assume DD/MM/YYYY or similar
-        day = parseInt(parts[0]);
-        month = parseInt(parts[1]) - 1;
-        year = parseInt(parts[2]);
-
-        // If year is 2 digits, assume 2000+
-        if (year < 100) year += 2000;
-      }
-
-      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-        return new Date(year, month, day);
-      }
-    }
-
-    console.warn(`Could not parse date: ${dateStr}`);
-    return null;
-  };
-
-  // Helper function to parse with specific format
-  const parseWithFormat = (dateStr, format) => {
-    const formatMap = {
-      DD: "day",
-      MM: "month",
-      YYYY: "year",
-    };
-
-    const separators = ["/", "-", "."];
-    let separator = "";
-
-    for (let sep of separators) {
-      if (dateStr.includes(sep) && format.includes(sep)) {
-        separator = sep;
-        break;
-      }
-    }
-
-    if (!separator) return null;
-
-    const dateParts = dateStr.split(separator);
-    const formatParts = format.split(separator);
-
-    if (dateParts.length !== 3 || formatParts.length !== 3) return null;
-
-    let day, month, year;
-
-    formatParts.forEach((part, index) => {
-      const value = parseInt(dateParts[index]);
-      if (part === "DD") day = value;
-      else if (part === "MM") month = value - 1;
-      else if (part === "YYYY") year = value;
-    });
-
-    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      return new Date(year, month, day);
-    }
-
-    return null;
-  };
-
-  // Then in the saveData function, fix the DOJ formatting:
+  // Update your saveData function
   const saveData = async () => {
+    const savedMonthKey = `salary_saved_${selectedYear}_${selectedMonth}`;
+
+    // Check if already saved
+    if (isDataSavedForMonth) {
+      const confirmResave = window.confirm(
+        `Salary data for ${monthNames[selectedMonth - 1]} ${selectedYear} has already been saved. Do you want to save again?`,
+      );
+
+      if (!confirmResave) {
+        return;
+      }
+    }
+
     const payload = filteredEmployees
       .map((emp, idx) => {
         const empId = emp.employee_id?.trim();
@@ -913,6 +872,7 @@ const SalaryFormat = () => {
           ait: ait, // This will be 0 for salary <= 41K
           total_ded: totalDeduction,
           ot_hours: otHours,
+          ot_pay: otPay,
           addition: addition,
           cash_payment: cashPayment,
           cash_salary: salaryCash,
@@ -938,6 +898,19 @@ const SalaryFormat = () => {
       const saved = res.data.saved || 0;
       const errors = res.data.errors || [];
 
+      // MARK: Set data as saved for this month
+      localStorage.setItem(
+        savedMonthKey,
+        JSON.stringify({
+          isSaved: true,
+          savedAt: new Date().toISOString(),
+          savedBy: currentUser || "unknown",
+          savedCount: saved,
+        }),
+      );
+
+      setIsDataSavedForMonth(true);
+
       if (errors.length > 0) {
         console.warn("Save errors:", errors);
         alert(
@@ -945,13 +918,26 @@ const SalaryFormat = () => {
         );
       } else {
         alert(
-          `Success: All ${saved} rows saved! (${res.data.created} new, ${res.data.updated} updated)`,
+          `✅ Success: All ${saved} rows saved for ${monthNames[selectedMonth - 1]} ${selectedYear}!`,
         );
       }
     } catch (e) {
+      // Re-enable button if save failed
+      localStorage.removeItem(savedMonthKey);
+      setIsDataSavedForMonth(false);
       console.error("Save failed:", e.response?.data || e);
-      alert("Save failed – check console");
+      alert("❌ Save failed – check console");
     }
+  };
+
+  // Add reset function
+  const resetMonthSave = () => {
+    const savedMonthKey = `salary_saved_${selectedYear}_${selectedMonth}`;
+    localStorage.removeItem(savedMonthKey);
+    setIsDataSavedForMonth(false);
+    alert(
+      `✅ Save button enabled for ${monthNames[selectedMonth - 1]} ${selectedYear}. You can now save data again.`,
+    );
   };
 
   const toggleCompany = (comp) => {
@@ -1076,6 +1062,7 @@ const SalaryFormat = () => {
       setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
     }
   };
+
   // Function to call backend Excel generation
   const exportCompanyData = async (companyName) => {
     try {
@@ -1174,9 +1161,39 @@ const SalaryFormat = () => {
                     <FaArrowLeft /> Back
                   </button>
 
-                  <button className="btn btn-save" onClick={saveData}>
-                    <FaSave /> Save Data
+                  <button
+                    className="btn btn-save"
+                    onClick={saveData}
+                    disabled={isDataSavedForMonth}
+                    style={{
+                      opacity: isDataSavedForMonth ? 0.6 : 1,
+                      cursor: isDataSavedForMonth ? "not-allowed" : "pointer",
+                      position: "relative",
+                    }}
+                    title={
+                      isDataSavedForMonth
+                        ? `Data already saved for ${monthNames[selectedMonth - 1]} ${selectedYear}`
+                        : "Save salary data"
+                    }
+                  >
+                    <FaSave />
+                    {isDataSavedForMonth ? "✓ Saved" : "Save Data"}
                   </button>
+
+                  {isDataSavedForMonth && (
+                    <button
+                      onClick={resetMonthSave}
+                      className="btn btn-reset"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                        color: "white",
+                      }}
+                      title="Reset save lock for this month"
+                    >
+                      <FaSync /> Reset
+                    </button>
+                  )}
 
                   <button
                     onClick={() => navigate("/salary-records")}
@@ -1315,7 +1332,8 @@ const SalaryFormat = () => {
                           <th>Advance</th>
                           <th>AIT</th>
                           <th>Total Ded.</th>
-                          <th>OT Hours</th>
+                          <th>OT Min</th>
+                          <th>OT Pay</th>
                           <th>Addition</th>
                           <th>Cash Payment</th>
                           <th>Cash Salary</th>
@@ -1512,7 +1530,7 @@ const SalaryFormat = () => {
                                 <input
                                   type="number"
                                   value={getManual(empId, "otHours") || ""}
-                                  placeholder="0"
+                                  placeholder="Minutes"
                                   onChange={(e) =>
                                     updateManual(
                                       empId,
@@ -1522,8 +1540,19 @@ const SalaryFormat = () => {
                                   }
                                   className="editable-input ot-input"
                                   min="0"
-                                  step="0.5"
+                                  step="1"
+                                  title="Enter OT in minutes (60 = 1 hour, 120 = 2 hours)"
                                 />
+
+                              </td>
+                              <td className="ot-pay">
+                                {formatNumber(
+                                  calculateOTPay(
+                                    monthlySalary,
+                                    getManual(empId, "otHours") || 0,
+                                    totalDaysInMonth,
+                                  ),
+                                )}
                               </td>
 
                               <td>

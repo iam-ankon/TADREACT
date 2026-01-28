@@ -37,16 +37,19 @@ const formatNumber = (num) => {
   return safeNum < 0 ? `-৳${formatted}` : `৳${formatted}`;
 };
 
-// Add these OT calculation functions (same as SalaryFormat.jsx)
-const calculateOTPay = (monthlySalary, otHours, totalDaysInMonth) => {
-  if (!monthlySalary || !otHours || otHours <= 0) return 0;
+const calculateOTPay = (monthlySalary, otMinutes, totalDaysInMonth, workDayHours = 10) => {
+  if (!monthlySalary || !otMinutes || otMinutes <= 0) return 0;
 
   // Basic salary is 60% of gross salary
   const basicSalary = monthlySalary * 0.6;
-  
-  // OT Pay = (Basic Salary ÷ daysInMonth ÷ 10) × Monthly OT Hours
+
+  // Input is in minutes where 60 = 60 minutes (1 hour)
+  // Convert minutes to hours for calculation
+  const otHours = otMinutes / 60;
+
+  // OT Pay = (Basic Salary ÷ daysInMonth ÷ workDayHours) × Monthly OT Hours
   const dailyBasicSalary = basicSalary / totalDaysInMonth;
-  const hourlyRate = dailyBasicSalary / 10; // Assuming 10-hour work day
+  const hourlyRate = dailyBasicSalary / workDayHours; // Now configurable: 8 or 10 hours
   const otPay = hourlyRate * otHours;
 
   return Number(otPay.toFixed(2));
@@ -96,6 +99,7 @@ const SalaryRecords = () => {
   const [error, setError] = useState(null);
   const [showAllColumns, setShowAllColumns] = useState(false);
   const [generatingExcel, setGeneratingExcel] = useState({});
+  const [workDayHours, setWorkDayHours] = useState({}); // Store work day hours per company
   const navigate = useNavigate();
 
   // Approval status states
@@ -215,7 +219,17 @@ const SalaryRecords = () => {
         }
       });
 
+      // Initialize work day hours for each company (default to 10)
+      const initialWorkDayHours = {};
+      records.forEach((record) => {
+        const companyName = record.company_name || "Unknown Company";
+        if (!initialWorkDayHours[companyName]) {
+          initialWorkDayHours[companyName] = 10; // Default to 10 hours
+        }
+      });
+
       setEditableData(initialEditableData);
+      setWorkDayHours(initialWorkDayHours);
       setSalaryRecords(records);
       setFilteredRecords(records);
     } catch (error) {
@@ -243,7 +257,6 @@ const SalaryRecords = () => {
     }
   };
 
-  // Update editable field
   // Update editable field with OT auto-calculation
   const updateEditableField = (employeeId, field, value) => {
     setEditableData((prev) => {
@@ -261,10 +274,15 @@ const SalaryRecords = () => {
         if (record) {
           const grossSalary = toNumber(record.gross_salary);
           const totalDays = toNumber(record.total_days) || 31;
-          const otPay = calculateOTPay(grossSalary, toNumber(value), totalDays);
+          
+          // Get work day hours for this company
+          const companyName = record.company_name || "Unknown Company";
+          const workDayHoursValue = workDayHours[companyName] || 10;
+          
+          const otPay = calculateOTPay(grossSalary, toNumber(value), totalDays, workDayHoursValue);
 
           // Get existing addition value (if any)
-          const existingAddition = newData[employeeId]?.addition || 0;
+          const existingAddition =  0;
 
           // Update addition with OT pay
           newData[employeeId] = {
@@ -291,7 +309,6 @@ const SalaryRecords = () => {
   };
 
   // Calculate derived values based on edited data
-  // Calculate derived values based on edited data
   const calculateDerivedValues = (record) => {
     const employeeId = record.employee_id;
     const editable = editableData[employeeId] || {};
@@ -313,9 +330,13 @@ const SalaryRecords = () => {
     const conveyance = toNumber(record.conveyance);
     const cashSalary = toNumber(record.cash_salary);
 
-    // Calculate OT Pay (like in SalaryFormat)
-    const otPay = calculateOTPay(grossSalary, otHours, totalDays);
-    const totalAddition = addition + otPay;
+    // Get work day hours for this company
+    const companyName = record.company_name || "Unknown Company";
+    const workDayHoursValue = workDayHours[companyName] || 10;
+    
+    // Calculate OT Pay with work day hours
+    const otPay = calculateOTPay(grossSalary, otHours, totalDays, workDayHoursValue);
+    const totalAddition = addition;
 
     // Calculate absent days
     const absentDays = Math.max(0, totalDays - daysWorked);
@@ -328,9 +349,7 @@ const SalaryRecords = () => {
     const totalDeduction = ait + advance + absentDeduction;
 
     // Calculate net pay (bank)
-
-    const netPayBank =
-      grossSalary - cashPayment - totalDeduction + totalAddition;
+    const netPayBank = grossSalary - cashPayment - totalDeduction + totalAddition;
 
     // Calculate total payable
     const totalPayable = netPayBank + cashPayment + ait + cashSalary;
@@ -507,6 +526,10 @@ const SalaryRecords = () => {
         const calculated = calculateDerivedValues(record);
         const editable = editableData[empId] || {};
 
+        // Get work day hours for this company
+        const companyName = record.company_name || "Unknown Company";
+        const workDayHoursValue = workDayHours[companyName] || 10;
+
         // Create updated record with both original and edited values
         const savedRecord = {
           sl: idx + 1,
@@ -529,6 +552,7 @@ const SalaryRecords = () => {
           ait: calculated.ait,
           total_ded: calculated.totalDeduction,
           ot_hours: calculated.otHours,
+          ot_pay: calculated.otPay,
           addition: calculated.addition,
           cash_payment: calculated.cashPayment,
           cash_salary: calculated.cashSalary,
@@ -538,6 +562,7 @@ const SalaryRecords = () => {
           month: selectedMonth,
           year: selectedYear,
           company_name: record.company_name || "Unknown Company",
+          work_day_hours: workDayHoursValue, // Save work day hours
         };
 
         return savedRecord;
@@ -576,6 +601,8 @@ const SalaryRecords = () => {
       return;
     }
 
+    const workDayHoursValue = workDayHours[companyName] || 10;
+
     const headers = [
       "SL",
       "Name",
@@ -595,6 +622,7 @@ const SalaryRecords = () => {
       "AIT",
       "Total Ded.",
       "OT Hours",
+      "OT Pay",
       "Addition",
       "Cash Payment",
       "Cash Salary",
@@ -604,6 +632,7 @@ const SalaryRecords = () => {
       "Branch Name",
       "Remarks",
       "Company",
+      "Work Day Hours",
     ];
 
     const rows = records.map((record, idx) => {
@@ -628,6 +657,7 @@ const SalaryRecords = () => {
         calculated.ait,
         calculated.totalDeduction,
         calculated.otHours,
+        calculated.otPay,
         calculated.addition,
         calculated.cashPayment,
         calculated.cashSalary,
@@ -637,6 +667,7 @@ const SalaryRecords = () => {
         record.branch_name || "",
         getEditableValue(record, "remarks") || "",
         record.company_name || "",
+        workDayHoursValue,
       ];
     });
 
@@ -976,7 +1007,24 @@ const SalaryRecords = () => {
                         ({records.length} employees)
                       </span>
                     </h3>
+                    
+                    {/* WORK DAY HOURS SELECTOR */}
+                    <div className="work-day-selector">
+                      <label>Work Day Hours for OT Calculation:</label>
+                      <select 
+                        value={workDayHours[comp] || 10}
+                        onChange={(e) => setWorkDayHours(prev => ({
+                          ...prev, 
+                          [comp]: Number(e.target.value)
+                        }))}
+                        className="work-day-select"
+                      >
+                        <option value={10}>10 Hours/Day</option>
+                        <option value={8}>8 Hours/Day</option>
+                      </select>
+                    </div>
                   </div>
+                  
                   <div className="company-action-buttons">
                     <button
                       onClick={() => generateExcelForCompany(comp)}
@@ -1019,7 +1067,8 @@ const SalaryRecords = () => {
                           <th>Advance</th>
                           <th>AIT</th>
                           <th>Total Ded.</th>
-                          <th>OT Hours</th>
+                          <th>OT Min</th>
+                          <th>OT Pay</th>
                           <th>Addition</th>
                           <th>Cash Payment</th>
                           <th>Cash Salary</th>
@@ -1122,11 +1171,11 @@ const SalaryRecords = () => {
                               </td>
 
                               {/* EDITABLE: OT Hours */}
-                              <td>
+                              <td className="ot-hours">
                                 <input
                                   type="number"
-                                  value={getEditableValue(record, "ot_hours")}
-                                  placeholder="0"
+                                  value={getEditableValue(record, "ot_hours") || ""}
+                                  placeholder="Minutes"
                                   onChange={(e) =>
                                     updateEditableField(
                                       record.employee_id,
@@ -1136,8 +1185,12 @@ const SalaryRecords = () => {
                                   }
                                   className="editable-input ot-input"
                                   min="0"
-                                  step="0.5"
+                                  step="1"
+                                  title="Enter OT in minutes (60 = 1 hour, 120 = 2 hours)"
                                 />
+                              </td>
+                              <td className="ot-pay-amount">
+                                {formatNumber(calculated.otPay)}
                               </td>
 
                               {/* EDITABLE: Addition */}
@@ -2549,6 +2602,38 @@ const SalaryRecords = () => {
           .approval-btn {
             min-width: 100%;
           }
+        }
+
+        .work-day-selector {
+          margin-top: 1rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+          background: rgba(139, 92, 246, 0.1);
+          border-radius: 8px;
+          border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .work-day-selector label {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: #7c3aed;
+        }
+
+        .work-day-select {
+          padding: 0.4rem 0.8rem;
+          border: 2px solid #8b5cf6;
+          border-radius: 6px;
+          background: white;
+          color: #1f2937;
+          font-weight: 500;
+          cursor: pointer;
+        }
+
+        .work-day-select:focus {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
         }
 
         @media (max-width: 480px) {
