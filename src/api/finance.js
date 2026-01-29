@@ -572,8 +572,8 @@ export const salaryRecordsAPI = {
     });
   },
 
-  generateBankTransferExcel: (data) => {
-    return apiClient.post("/generate-bank-transfer-excel/", data, {
+  generateSalarySheetExcel: (data) => {
+    return apiClient.post("/generate-salary-sheet-excel/", data, {
       responseType: "blob",
       headers: {
         "Content-Type": "application/json",

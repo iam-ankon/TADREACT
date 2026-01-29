@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -88,7 +89,7 @@ const Sidebar = () => {
     isRnD: department.includes("r&d") || department.includes("research"),
     isProduction: department.includes("production"),
     isSampleSection: department.includes("sample"),
-    isHR: department.includes("human resource") || department.includes("hr"),
+    isHr: department.includes("human resource") || department.includes("hr"),
     isCorporateHealth: department.includes("corporate health"),
     isArchitecture: department.includes("architecture"),
     isBusinessDev: department.includes("business development"),
@@ -137,7 +138,7 @@ const Sidebar = () => {
 
   const isGroupHeadOfAdmin = designation
     .toLowerCase()
-    .includes("group head of admin");
+    .includes("team leader - admin");
 
   const isTeamLeaderCompliance = designation
     .toLowerCase()
@@ -156,6 +157,9 @@ const Sidebar = () => {
     .includes("supply chain manager");
 
   const isHeadOfDesign = designation.toLowerCase().includes("head of design");
+
+  // Group HR Head is a limited HR user (not full access)
+  const isLimitedHR = designation.toLowerCase().includes("group hr head");
 
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => {
@@ -208,7 +212,12 @@ const Sidebar = () => {
   };
 
   const handleDashboardClick = () => {
-    navigate(hasFullAccess ? "/hr-work" : "/dashboard");
+    // Group HR Head goes to /hr-work, not full access dashboard
+    if (isLimitedHR) {
+      navigate("/hr-work");
+    } else {
+      navigate(hasFullAccess ? "/hr-work" : "/dashboard");
+    }
   };
 
   useEffect(() => {
@@ -237,24 +246,24 @@ const Sidebar = () => {
   // === HR DASHBOARD MENU ITEMS (Full Access Users) ===
   const hrDashboardMenuItems = [
     { to: "/hr-work", icon: <FiHome />, label: "Dashboard", badge: null },
-    // { to: "/cv-list", icon: <FiFileText />, label: "All CV", badge: "12" },
-    // { to: "/interviews", icon: <FiBriefcase />, label: "Recruitment", badge: "3" },
-    // { to: "/employees", icon: <FiUsers />, label: "Employees", badge: null },
-    // { to: "/attendance", icon: <FiClock />, label: "Attendance", badge: null },
-    // { to: "/employee_leave", icon: <FiCalendar />, label: "Leave Management", badge: "5" },
-    // { to: "/performanse_appraisal", icon: <FiTrendingUp />, label: "Performance Appraisal", badge: null },
-    // { to: "/employee-termination", icon: <FiLogOut />, label: "Termination", badge: null },
-    // { to: "/letter-send", icon: <FiSend />, label: "Send Letters", badge: "2" },
-    // { to: "/email-logs", icon: <TfiEmail />, label: "Email Log", badge: null },
-    // { to: "/tad-groups", icon: <TfiWorld />, label: "TAD Groups", badge: null },
     {
       to: "/finance-provision",
       icon: <FiDollarSign />,
       label: "Finance",
       badge: null,
     },
-    // { to: "/hr-settings", icon: <FiSettings />, label: "Settings", badge: null },
-    // { to: "/hr-help", icon: <FiHelpCircle />, label: "Help Center", badge: null },
+    {
+      to: "/csr-dashboard",
+      icon: <FiUsers />,
+      label: "CSR",
+      badge: null,
+    },
+    {
+      to: "/merchandiser-dashboard",
+      icon: <FiUsers />,
+      label: "Merchandising",
+      badge: null,
+    },
     {
       to: "/chat",
       icon: <FiMessageSquare />,
@@ -262,7 +271,24 @@ const Sidebar = () => {
       badge: null,
       onClick: handleChatClick,
     },
-    // { to: "/notifications", icon: <FiBell />, label: "Notifications", badge: null },
+  ];
+
+  // === LIMITED HR ACCESS MENU ITEMS (Group HR Head only) ===
+  const limitedHRMenuItems = [
+    { to: "/hr-work", icon: <FiHome />, label: "HR Dashboard", badge: null },
+    {
+      to: "/finance-provision",
+      icon: <FiDollarSign />,
+      label: "Finance",
+      badge: null,
+    },
+    {
+      to: "/chat",
+      icon: <FiMessageSquare />,
+      label: "Chatbox",
+      badge: null,
+      onClick: handleChatClick,
+    },
   ];
 
   // === REGULAR EMPLOYEE MENU ITEMS ===
@@ -375,19 +401,20 @@ const Sidebar = () => {
       badge: null,
       onClick: handleChatClick,
     },
-    // { to: "/notifications", icon: <FiBell />, label: "Notifications", badge: null },
-    // { to: "/help", icon: <FiHelpCircle />, label: "Help Center", badge: null },
   ];
 
   // Select menu items based on user permissions
-  const menuItems = hasFullAccess
+  // Group HR Head is NOT full access - they get limited HR menu
+  const menuItems = isLimitedHR
+    ? limitedHRMenuItems
+    : hasFullAccess
     ? hrDashboardMenuItems
     : regularEmployeeMenuItems;
 
   // Get department display name for user info
   const getDepartmentDisplayName = () => {
     if (departmentPermissions.isAdmin) return "Admin Department";
-    if (departmentPermissions.isHR) return "Human Resources";
+    if (departmentPermissions.isHr) return "Human Resources";
     if (departmentPermissions.isQA) return "Quality Assurance";
     if (departmentPermissions.isCSR) return "Corporate Social Responsibility";
     if (departmentPermissions.isRnD) return "Research & Development";
@@ -411,23 +438,28 @@ const Sidebar = () => {
   // Get user role display
   const getUserRoleDisplay = () => {
     if (hasFullAccess) return "HR Administrator";
-    if (isTeamLeader) return "Merchandising Team Leader";
+    if (isLimitedHR) return "Group HR Head";
+
+    // Check more specific conditions first
+    if (isGroupHeadOfAdmin) return "Team Leader - Admin";
     if (isTeamLeaderQC) return "Team Leader - QA";
     if (isTeamLeaderDigital) return "Digital Marketing Team Leader";
+    if (isTeamLeaderCompliance) return "Team Leader - CSR";
+    if (isTeamLeader) return "Merchandising Team Leader";
     if (isProjectArchitect) return "Project Architect";
     if (isBusinessOperationManager) return "KLOTHEN Bangladesh";
     if (isHeadOfDepartment) return "Head of Department";
-    if (isGroupHeadOfAdmin) return "Group Head of Admin";
     if (isHeadOfDesign) return "Head of Design";
-    if (isTeamLeaderCompliance) return "Team Leader - CSR";
     if (isHeadOfFinance) return "Team Leader Finance & Accounts";
     if (isDirectorOfTadLogistic) return "LOGISTIC DEPARTMENT";
     if (isSupplyChainManager) return "Koithe Bangladesh";
+
     return "Employee";
   };
-
-  // Determine sidebar style based on user type
-  const isHRDashboard = hasFullAccess;
+  
+  // Determine if user should see HR sidebar style
+  // Group HR Head sees HR style, but is NOT full access
+  const isHRDashboard = hasFullAccess || isLimitedHR;
 
   const sidebarStyle = {
     position: "fixed",
@@ -501,9 +533,9 @@ const Sidebar = () => {
     height: "50px",
     borderRadius: "8px",
     objectFit: "contain",
-    backgroundColor: isHRDashboard ? "#3b82f6" : "transparent", // Changed this line
-    padding: isHRDashboard ? "6px" : "0", // Increased padding slightly
-    border: isHRDashboard ? "1px solid rgba(0, 0, 0, 0.1)" : "none", // Added border for HR
+    backgroundColor: isHRDashboard ? "#3b82f6" : "transparent",
+    padding: isHRDashboard ? "6px" : "0",
+    border: isHRDashboard ? "1px solid rgba(0, 0, 0, 0.1)" : "none",
   };
   const navStyle = {
     padding: "24px 0",

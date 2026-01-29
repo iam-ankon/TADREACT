@@ -37,7 +37,12 @@ const formatNumber = (num) => {
   return safeNum < 0 ? `-৳${formatted}` : `৳${formatted}`;
 };
 
-const calculateOTPay = (monthlySalary, otMinutes, totalDaysInMonth, workDayHours = 10) => {
+const calculateOTPay = (
+  monthlySalary,
+  otMinutes,
+  totalDaysInMonth,
+  workDayHours = 10,
+) => {
   if (!monthlySalary || !otMinutes || otMinutes <= 0) return 0;
 
   // Basic salary is 60% of gross salary
@@ -274,15 +279,20 @@ const SalaryRecords = () => {
         if (record) {
           const grossSalary = toNumber(record.gross_salary);
           const totalDays = toNumber(record.total_days) || 31;
-          
+
           // Get work day hours for this company
           const companyName = record.company_name || "Unknown Company";
           const workDayHoursValue = workDayHours[companyName] || 10;
-          
-          const otPay = calculateOTPay(grossSalary, toNumber(value), totalDays, workDayHoursValue);
+
+          const otPay = calculateOTPay(
+            grossSalary,
+            toNumber(value),
+            totalDays,
+            workDayHoursValue,
+          );
 
           // Get existing addition value (if any)
-          const existingAddition =  0;
+          const existingAddition = 0;
 
           // Update addition with OT pay
           newData[employeeId] = {
@@ -333,9 +343,14 @@ const SalaryRecords = () => {
     // Get work day hours for this company
     const companyName = record.company_name || "Unknown Company";
     const workDayHoursValue = workDayHours[companyName] || 10;
-    
+
     // Calculate OT Pay with work day hours
-    const otPay = calculateOTPay(grossSalary, otHours, totalDays, workDayHoursValue);
+    const otPay = calculateOTPay(
+      grossSalary,
+      otHours,
+      totalDays,
+      workDayHoursValue,
+    );
     const totalAddition = addition;
 
     // Calculate absent days
@@ -349,7 +364,8 @@ const SalaryRecords = () => {
     const totalDeduction = ait + advance + absentDeduction;
 
     // Calculate net pay (bank)
-    const netPayBank = grossSalary - cashPayment - totalDeduction + totalAddition;
+    const netPayBank =
+      grossSalary - cashPayment - totalDeduction + totalAddition;
 
     // Calculate total payable
     const totalPayable = netPayBank + cashPayment + ait + cashSalary;
@@ -594,103 +610,140 @@ const SalaryRecords = () => {
   };
 
   // Export company data
-  const exportCompanyData = (companyName) => {
-    const records = grouped[companyName];
-    if (!records || records.length === 0) {
-      alert(`No records found for ${companyName}`);
-      return;
-    }
+  // const exportCompanyData = (companyName) => {
+  //   const records = grouped[companyName];
+  //   if (!records || records.length === 0) {
+  //     alert(`No records found for ${companyName}`);
+  //     return;
+  //   }
 
-    const workDayHoursValue = workDayHours[companyName] || 10;
+  //   const workDayHoursValue = workDayHours[companyName] || 10;
 
-    const headers = [
-      "SL",
-      "Name",
-      "ID",
-      "Designation",
-      "DOJ",
-      "Basic",
-      "House Rent",
-      "Medical",
-      "Conveyance",
-      "Gross Salary",
-      "Total Days",
-      "Days Worked",
-      "Absent Days",
-      "Absent Ded.",
-      "Advance",
-      "AIT",
-      "Total Ded.",
-      "OT Hours",
-      "OT Pay",
-      "Addition",
-      "Cash Payment",
-      "Cash Salary",
-      "Net Pay (Bank)",
-      "Total Payable",
-      "Bank Account",
-      "Branch Name",
-      "Remarks",
-      "Company",
-      "Work Day Hours",
-    ];
+  //   const headers = [
+  //     "SL",
+  //     "Name",
+  //     "ID",
+  //     "Designation",
+  //     "DOJ",
+  //     "Basic",
+  //     "House Rent",
+  //     "Medical",
+  //     "Conveyance",
+  //     "Gross Salary",
+  //     "Total Days",
+  //     "Days Worked",
+  //     "Absent Days",
+  //     "Absent Ded.",
+  //     "Advance",
+  //     "AIT",
+  //     "Total Ded.",
+  //     "OT Hours",
+  //     "OT Pay",
+  //     "Addition",
+  //     "Cash Payment",
+  //     "Cash Salary",
+  //     "Net Pay (Bank)",
+  //     "Total Payable",
+  //     "Bank Account",
+  //     "Branch Name",
+  //     "Remarks",
+  //     "Company",
+  //     "Work Day Hours",
+  //   ];
 
-    const rows = records.map((record, idx) => {
-      const calculated = calculateDerivedValues(record);
+  //   const rows = records.map((record, idx) => {
+  //     const calculated = calculateDerivedValues(record);
 
-      return [
-        idx + 1,
-        record.name || "",
-        record.employee_id || "",
-        record.designation || "",
-        record.doj || "",
-        calculated.basic,
-        calculated.houseRent,
-        calculated.medical,
-        calculated.conveyance,
-        calculated.grossSalary,
-        record.total_days || 0,
-        calculated.daysWorked,
-        calculated.absentDays,
-        calculated.absentDeduction,
-        calculated.advance,
-        calculated.ait,
-        calculated.totalDeduction,
-        calculated.otHours,
-        calculated.otPay,
-        calculated.addition,
-        calculated.cashPayment,
-        calculated.cashSalary,
-        calculated.netPayBank,
-        calculated.totalPayable,
-        record.bank_account || "",
-        record.branch_name || "",
-        getEditableValue(record, "remarks") || "",
-        record.company_name || "",
-        workDayHoursValue,
-      ];
-    });
+  //     return [
+  //       idx + 1,
+  //       record.name || "",
+  //       record.employee_id || "",
+  //       record.designation || "",
+  //       record.doj || "",
+  //       calculated.basic,
+  //       calculated.houseRent,
+  //       calculated.medical,
+  //       calculated.conveyance,
+  //       calculated.grossSalary,
+  //       record.total_days || 0,
+  //       calculated.daysWorked,
+  //       calculated.absentDays,
+  //       calculated.absentDeduction,
+  //       calculated.advance,
+  //       calculated.ait,
+  //       calculated.totalDeduction,
+  //       calculated.otHours,
+  //       calculated.otPay,
+  //       calculated.addition,
+  //       calculated.cashPayment,
+  //       calculated.cashSalary,
+  //       calculated.netPayBank,
+  //       calculated.totalPayable,
+  //       record.bank_account || "",
+  //       record.branch_name || "",
+  //       getEditableValue(record, "remarks") || "",
+  //       record.company_name || "",
+  //       workDayHoursValue,
+  //     ];
+  //   });
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  //   const wb = XLSX.utils.book_new();
+  //   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 
-    const colWidths = headers.map((_, i) => {
-      const max = Math.max(
-        ...rows.map((row) => (row[i] != null ? String(row[i]).length : 0)),
-        String(headers[i]).length,
+  //   const colWidths = headers.map((_, i) => {
+  //     const max = Math.max(
+  //       ...rows.map((row) => (row[i] != null ? String(row[i]).length : 0)),
+  //       String(headers[i]).length,
+  //     );
+  //     return { wch: Math.min(max + 2, 50) };
+  //   });
+  //   ws["!cols"] = colWidths;
+
+  //   XLSX.utils.book_append_sheet(wb, ws, "Salary Records");
+
+  //   const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  //   const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+  //   saveAs(
+  //     blob,
+  //     `${companyName}_Salary_Records_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`,
+  //   );
+  // };
+
+  const generateSalarySheetForCompany = async (companyName) => {
+    try {
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
+      console.log(`📊 Generating Salary Sheet Excel for ${companyName}...`);
+
+      const response = await financeAPI.salaryRecords.generateSalarySheetExcel({
+        company_name: companyName,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `${companyName.replace(/\s+/g, "_")}_Salary_Sheet_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`,
       );
-      return { wch: Math.min(max + 2, 50) };
-    });
-    ws["!cols"] = colWidths;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-    XLSX.utils.book_append_sheet(wb, ws, "Salary Records");
-
-    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(
-      blob,
-      `${companyName}_Salary_Records_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`,
-    );
+      console.log(`✅ Salary Sheet Excel file generated and downloaded!`);
+      alert(
+        `Salary Sheet Excel file generated successfully for ${companyName}!`,
+      );
+    } catch (error) {
+      console.error("❌ Error generating Salary Sheet Excel file:", error);
+      alert(
+        `❌ Failed to generate Salary Sheet Excel for ${companyName}. Error: ${error.message}`,
+      );
+    } finally {
+      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
+    }
   };
 
   const exportAllCompanies = () => {
@@ -1007,16 +1060,18 @@ const SalaryRecords = () => {
                         ({records.length} employees)
                       </span>
                     </h3>
-                    
+
                     {/* WORK DAY HOURS SELECTOR */}
                     <div className="work-day-selector">
                       <label>Work Day Hours for OT Calculation:</label>
-                      <select 
+                      <select
                         value={workDayHours[comp] || 10}
-                        onChange={(e) => setWorkDayHours(prev => ({
-                          ...prev, 
-                          [comp]: Number(e.target.value)
-                        }))}
+                        onChange={(e) =>
+                          setWorkDayHours((prev) => ({
+                            ...prev,
+                            [comp]: Number(e.target.value),
+                          }))
+                        }
                         className="work-day-select"
                       >
                         <option value={10}>10 Hours/Day</option>
@@ -1024,7 +1079,7 @@ const SalaryRecords = () => {
                       </select>
                     </div>
                   </div>
-                  
+
                   <div className="company-action-buttons">
                     <button
                       onClick={() => generateExcelForCompany(comp)}
@@ -1037,10 +1092,14 @@ const SalaryRecords = () => {
                         : "Generate Excel"}
                     </button>
                     <button
-                      onClick={() => exportCompanyData(comp)}
-                      className="btn btn-export-section"
+                      onClick={() => generateSalarySheetForCompany(comp)}
+                      className="btn btn-export-salary-sheet"
+                      disabled={generatingExcel[comp]}
                     >
-                      <FaFileExport /> Export {comp} Data
+                      <FaFileExport /> Export {comp} Sheet
+                      {generatingExcel[comp]
+                        ? "Generating..."
+                        : ""}
                     </button>
                   </div>
                 </div>
@@ -1174,7 +1233,9 @@ const SalaryRecords = () => {
                               <td className="ot-hours">
                                 <input
                                   type="number"
-                                  value={getEditableValue(record, "ot_hours") || ""}
+                                  value={
+                                    getEditableValue(record, "ot_hours") || ""
+                                  }
                                   placeholder="Minutes"
                                   onChange={(e) =>
                                     updateEditableField(
