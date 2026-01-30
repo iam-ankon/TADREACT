@@ -1161,7 +1161,7 @@ const SalaryFormat = () => {
                     <FaArrowLeft /> Back
                   </button>
 
-                  <button
+                  {/* <button
                     className="btn btn-save"
                     onClick={saveData}
                     disabled={isDataSavedForMonth}
@@ -1178,7 +1178,7 @@ const SalaryFormat = () => {
                   >
                     <FaSave />
                     {isDataSavedForMonth ? "✓ Saved" : "Save Data"}
-                  </button>
+                  </button> */}
 
                   {isDataSavedForMonth && (
                     <button

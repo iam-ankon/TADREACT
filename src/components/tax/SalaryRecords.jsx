@@ -795,6 +795,337 @@ const SalaryRecords = () => {
     }
   };
 
+  // In SalaryRecords.jsx, replace the exportAllCompaniesSingleFile function:
+
+  const exportAllCompaniesSingleFile = async () => {
+    if (Object.keys(grouped).length === 0) {
+      alert("No company data to export");
+      return;
+    }
+
+    try {
+      // Show loading
+      setGeneratingExcel((prev) => ({ ...prev, all_companies: true }));
+
+      alert(
+        `Generating consolidated Excel file for ${Object.keys(grouped).length} companies...`,
+      );
+
+      // Call backend API to generate single Excel file
+      const response = await financeAPI.salaryRecords.generateAllCompaniesExcel(
+        {
+          month: selectedMonth,
+          year: selectedYear,
+        },
+      );
+
+      // Create a clean filename
+      const monthName = monthNames[selectedMonth - 1];
+      const safeMonthName = monthName.replace(/\s+/g, "_");
+      const filename = `ALL_COMPANIES_SALARY_${safeMonthName}_${selectedYear}.xlsx`;
+
+      // Create blob and download
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up URL
+      window.URL.revokeObjectURL(url);
+
+      alert(
+        `Successfully exported ${Object.keys(grouped).length} companies to a single Excel file!`,
+      );
+    } catch (error) {
+      console.error("Export all companies error:", error);
+
+      // Show detailed error
+      let errorMessage = "Failed to export Excel file.";
+      if (error.response) {
+        errorMessage = `Server error: ${error.response.status}`;
+        if (error.response.data) {
+          try {
+            // Try to parse error message if it's JSON
+            if (typeof error.response.data === "string") {
+              errorMessage = error.response.data;
+            } else if (error.response.data.error) {
+              errorMessage = error.response.data.error;
+            }
+          } catch (e) {
+            console.log("Could not parse error response:", e);
+          }
+        }
+      } else if (error.request) {
+        errorMessage = "No response from server. Please check your connection.";
+      } else {
+        errorMessage = `Error: ${error.message}`;
+      }
+
+      alert(`Export failed: ${errorMessage}`);
+
+      // Fallback to frontend generation
+      const useFallback = confirm(
+        "Backend export failed. Would you like to try frontend export? " +
+          "(Note: Frontend export may have limited features)",
+      );
+
+      if (useFallback) {
+        await exportAllCompaniesFrontendFallback();
+      }
+    } finally {
+      setGeneratingExcel((prev) => ({ ...prev, all_companies: false }));
+    }
+  };
+  // Frontend fallback function (keeps your existing code but improves it)
+  const exportAllCompaniesFrontendFallback = async () => {
+    if (Object.keys(grouped).length === 0) {
+      alert("No company data to export");
+      return;
+    }
+
+    try {
+      // Show loading
+      alert(
+        `Generating consolidated Excel file for ${Object.keys(grouped).length} companies...`,
+      );
+
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+
+      // Add each company as a separate sheet with IMPROVED DESIGN
+      Object.keys(grouped).forEach((companyName, companyIndex) => {
+        const records = grouped[companyName];
+
+        // Prepare headers with all columns
+        const headers = [
+          "SL",
+          "Name",
+          "ID",
+          "Designation",
+          "DOJ",
+          "Basic",
+          "House Rent",
+          "Medical",
+          "Conveyance",
+          "Gross Salary",
+          "Total Days",
+          "Days Worked",
+          "Absent Days",
+          "Absent Ded.",
+          "Advance",
+          "AIT",
+          "Total Ded.",
+          "OT Hours",
+          "OT Pay",
+          "Addition",
+          "Cash Payment",
+          "Cash Salary",
+          "Net Pay (Bank)",
+          "Total Payable",
+          "Bank Account",
+          "Branch Name",
+          "Remarks",
+          "Work Day Hours",
+        ];
+
+        // Prepare rows with IMPROVED FORMATTING
+        const rows = records.map((record, idx) => {
+          const calculated = calculateDerivedValues(record);
+          const workDayHoursValue = workDayHours[companyName] || 10;
+
+          return [
+            idx + 1,
+            record.name || "",
+            record.employee_id || "",
+            record.designation || "",
+            record.doj || "",
+            calculated.basic,
+            calculated.houseRent,
+            calculated.medical,
+            calculated.conveyance,
+            calculated.grossSalary,
+            record.total_days || 0,
+            calculated.daysWorked,
+            calculated.absentDays,
+            calculated.absentDeduction,
+            calculated.advance,
+            calculated.ait,
+            calculated.totalDeduction,
+            calculated.otHours,
+            calculated.otPay,
+            calculated.addition,
+            calculated.cashPayment,
+            calculated.cashSalary,
+            calculated.netPayBank,
+            calculated.totalPayable,
+            record.bank_account || "",
+            record.branch_name || "",
+            getEditableValue(record, "remarks") || "",
+            workDayHoursValue,
+          ];
+        });
+
+        // Create worksheet with IMPROVED DESIGN
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+        // Add company title row
+        XLSX.utils.sheet_add_aoa(ws, [[`${companyName} - SALARY SHEET`]], {
+          origin: -1,
+        });
+        XLSX.utils.sheet_add_aoa(
+          ws,
+          [[`Month: ${monthNames[selectedMonth - 1]} ${selectedYear}`]],
+          { origin: -1 },
+        );
+        XLSX.utils.sheet_add_aoa(ws, [[`Total Employees: ${records.length}`]], {
+          origin: -1,
+        });
+
+        // Add empty rows before data
+        XLSX.utils.sheet_add_aoa(ws, [[""]], { origin: -1 });
+
+        // Set column widths
+        const colWidths = headers.map((_, i) => {
+          const max = Math.max(
+            ...rows.map((row) => (row[i] != null ? String(row[i]).length : 0)),
+            String(headers[i]).length,
+          );
+          return { wch: Math.min(max + 2, 35) };
+        });
+        ws["!cols"] = colWidths;
+
+        // Add worksheet to workbook with company name as sheet name
+        let sheetName = companyName.substring(0, 31);
+
+        // Ensure unique sheet names
+        if (wb.SheetNames.includes(sheetName)) {
+          sheetName = `${companyName.substring(0, 28)}_${companyIndex + 1}`;
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+
+      // Add IMPROVED SUMMARY sheet
+      const summaryHeaders = [
+        "SL",
+        "Company",
+        "Employees",
+        "Gross Salary",
+        "AIT",
+        "Net Pay (Bank)",
+        "Total Payable",
+        "Status",
+      ];
+      const summaryRows = Object.keys(grouped).map((companyName, idx) => {
+        const records = grouped[companyName];
+        const summary = records.reduce(
+          (acc, record) => {
+            const calculated = calculateDerivedValues(record);
+            return {
+              gross: acc.gross + calculated.grossSalary,
+              ait: acc.ait + calculated.ait,
+              netBank: acc.netBank + calculated.netPayBank,
+              totalPay: acc.totalPay + calculated.totalPayable,
+            };
+          },
+          { gross: 0, ait: 0, netBank: 0, totalPay: 0 },
+        );
+
+        return [
+          idx + 1,
+          companyName,
+          records.length,
+          summary.gross,
+          summary.ait,
+          summary.netBank,
+          summary.totalPay,
+          "✓",
+        ];
+      });
+
+      // Add grand totals row
+      const grandTotalRow = [
+        "GRAND TOTAL",
+        "",
+        filteredRecords.length,
+        filteredRecords.reduce((sum, record) => {
+          const calculated = calculateDerivedValues(record);
+          return sum + calculated.grossSalary;
+        }, 0),
+        filteredRecords.reduce((sum, record) => {
+          const calculated = calculateDerivedValues(record);
+          return sum + calculated.ait;
+        }, 0),
+        filteredRecords.reduce((sum, record) => {
+          const calculated = calculateDerivedValues(record);
+          return sum + calculated.netPayBank;
+        }, 0),
+        filteredRecords.reduce((sum, record) => {
+          const calculated = calculateDerivedValues(record);
+          return sum + calculated.totalPayable;
+        }, 0),
+        "✓",
+      ];
+
+      const summaryWs = XLSX.utils.aoa_to_sheet([
+        ["MONTHLY SALARY SUMMARY"],
+        [`Month: ${monthNames[selectedMonth - 1]} ${selectedYear}`],
+        [
+          `Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+        ],
+        [""],
+        summaryHeaders,
+        ...summaryRows,
+        [""],
+        grandTotalRow,
+      ]);
+
+      // Set summary column widths
+      const summaryColWidths = [
+        { wch: 5 }, // SL
+        { wch: 35 }, // Company
+        { wch: 12 }, // Employees
+        { wch: 15 }, // Gross Salary
+        { wch: 12 }, // AIT
+        { wch: 15 }, // Net Pay
+        { wch: 15 }, // Total Payable
+        { wch: 10 }, // Status
+      ];
+      summaryWs["!cols"] = summaryColWidths;
+
+      XLSX.utils.book_append_sheet(wb, summaryWs, "SUMMARY");
+
+      // Generate Excel file
+      const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([excelBuffer], {
+        type: "application/octet-stream",
+      });
+
+      // Download the file
+      saveAs(
+        blob,
+        `ALL_COMPANIES_SALARY_${monthNames[selectedMonth - 1]}_${selectedYear}_IMPROVED.xlsx`,
+      );
+
+      alert(
+        `Successfully exported ${Object.keys(grouped).length} companies to a single Excel file!`,
+      );
+    } catch (error) {
+      console.error("Frontend export error:", error);
+      alert(`Export failed: ${error.message}`);
+    }
+  };
+
   // Render approval footer
   const renderApprovalFooter = (companyName) => {
     const companyStatus = companyApprovalStatus[companyName] || {};
@@ -944,6 +1275,14 @@ const SalaryRecords = () => {
                     disabled={filteredRecords.length === 0}
                   >
                     <FaSave /> Save Updates
+                  </button>
+
+                  <button
+                    onClick={exportAllCompaniesSingleFile}
+                    className="btn btn-export-all"
+                    disabled={Object.keys(grouped).length === 0}
+                  >
+                    <FaFileExport /> Download All Companies
                   </button>
 
                   <button
@@ -1097,9 +1436,7 @@ const SalaryRecords = () => {
                       disabled={generatingExcel[comp]}
                     >
                       <FaFileExport /> Export {comp} Sheet
-                      {generatingExcel[comp]
-                        ? "Generating..."
-                        : ""}
+                      {generatingExcel[comp] ? "Generating..." : ""}
                     </button>
                   </div>
                 </div>

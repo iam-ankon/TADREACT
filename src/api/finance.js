@@ -99,7 +99,7 @@ const getCSRFToken = () => {
 apiClient.interceptors.request.use(
   (config) => {
     console.log(
-      `🚀 Finance API - ${config.method?.toUpperCase()} to: ${config.url}`
+      `🚀 Finance API - ${config.method?.toUpperCase()} to: ${config.url}`,
     );
 
     // 1. Add Django Token Authentication (same as HRMS)
@@ -127,14 +127,14 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add request interceptor - UPDATED with proper auth
 apiClient.interceptors.request.use(
   (config) => {
     console.log(
-      `🚀 Finance API - ${config.method?.toUpperCase()} to: ${config.url}`
+      `🚀 Finance API - ${config.method?.toUpperCase()} to: ${config.url}`,
     );
 
     // 1. Add Django Token Authentication (same as HRMS)
@@ -155,7 +155,7 @@ apiClient.interceptors.request.use(
         console.log("🔒 Finance API - CSRF token added");
       } else {
         console.warn(
-          "⚠️ Finance API - No CSRF token found for state-changing request"
+          "⚠️ Finance API - No CSRF token found for state-changing request",
         );
       }
     }
@@ -164,7 +164,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add response interceptor for authentication errors - UPDATED
@@ -174,7 +174,7 @@ apiClient.interceptors.response.use(
       `✅ Finance API - ${response.config.method?.toUpperCase()} ${
         response.config.url
       } success:`,
-      response.status
+      response.status,
     );
     return response;
   },
@@ -212,7 +212,7 @@ apiClient.interceptors.response.use(
     // Handle CSRF errors (403 Forbidden)
     if (error.response?.status === 403 && error.config) {
       console.log(
-        "🔄 Finance API - Possible CSRF error, refreshing CSRF token..."
+        "🔄 Finance API - Possible CSRF error, refreshing CSRF token...",
       );
 
       // Try to fetch fresh CSRF token
@@ -227,7 +227,7 @@ apiClient.interceptors.response.use(
                 Accept: "application/json",
                 "Content-Type": "application/json",
               },
-            }
+            },
           );
 
           if (response.ok) {
@@ -249,7 +249,7 @@ apiClient.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // Employee APIs
@@ -262,7 +262,7 @@ export const employeeAPI = {
     apiClient
       .get("/employees/")
       .then((response) =>
-        response.data.find((e) => e.employee_id === employeeId)
+        response.data.find((e) => e.employee_id === employeeId),
       ),
 
   // Get employees with cache
@@ -284,7 +284,7 @@ export const employeeAPI = {
     try {
       const response = await employeeAPI.getAll();
       const validEmployees = response.data.filter(
-        (e) => e.salary && e.employee_id
+        (e) => e.salary && e.employee_id,
       );
 
       // Cache the result
@@ -293,7 +293,7 @@ export const employeeAPI = {
         JSON.stringify({
           data: validEmployees,
           timestamp: Date.now(),
-        })
+        }),
       );
 
       console.log("🔄 Fetched fresh employee data");
@@ -328,7 +328,7 @@ export const taxAPI = {
         { employees: employeeData },
         {
           timeout: 60000, // 60 seconds for large batches
-        }
+        },
       );
       return response;
     } catch (error) {
@@ -340,7 +340,7 @@ export const taxAPI = {
   getAitValue: async (employeeId, month, year) => {
     try {
       const response = await apiClient.get(
-        `/get-ait/${employeeId}/${year}/${month}/`
+        `/get-ait/${employeeId}/${year}/${month}/`,
       );
       return response.data;
     } catch (error) {
@@ -378,7 +378,7 @@ export const taxAPI = {
     } catch (error) {
       // If backend fails, return default values
       console.warn(
-        `Failed to load tax extra for ${employeeId}, using defaults`
+        `Failed to load tax extra for ${employeeId}, using defaults`,
       );
       return {
         data: {
@@ -404,7 +404,7 @@ export const taxAPI = {
             empId,
             data: { source_other: 0, bonus: 0 },
             error: error.message,
-          }))
+          })),
       );
 
       const results = await Promise.all(promises);
@@ -423,7 +423,7 @@ export const taxAPI = {
     employeeId,
     monthlySalary,
     gender = "Male",
-    sourceOther = 0
+    sourceOther = 0,
   ) => {
     try {
       // Only calculate tax if salary > 41,000
@@ -529,21 +529,23 @@ export const salaryAPI = {
 //   },
 // };
 
-
 // Salary Records APIs
 export const salaryRecordsAPI = {
   // Get all salary records with optional filtering - FIXED VERSION
   getAllRecords: (params = {}) => {
     console.log("📡 Finance API - Getting salary records with params:", params);
-    
+
     // Build query string from params
     const queryString = Object.keys(params)
-      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-      .join('&');
-    
-    const url = `/salary-records/${queryString ? '?' + queryString : ''}`;
+      .map(
+        (key) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`,
+      )
+      .join("&");
+
+    const url = `/salary-records/${queryString ? "?" + queryString : ""}`;
     console.log("🌐 Finance API - URL:", url);
-    
+
     return apiClient.get(url);
   },
 
@@ -580,8 +582,16 @@ export const salaryRecordsAPI = {
       },
     });
   },
-};
 
+  generateAllCompaniesExcel: (data) => {
+    return apiClient.post("/generate-all-companies-excel/", data, {
+      responseType: "blob",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
+};
 
 // Approval APIs
 export const approvalAPI = {
@@ -591,7 +601,7 @@ export const approvalAPI = {
   // Get approval status
   getApprovalStatus: (companyName = "All Companies") =>
     apiClient.get(
-      `/approval-status/?company_name=${encodeURIComponent(companyName)}`
+      `/approval-status/?company_name=${encodeURIComponent(companyName)}`,
     ),
 };
 
@@ -625,7 +635,7 @@ export const storageAPI = {
     window.dispatchEvent(
       new CustomEvent("financeDataUpdated", {
         detail: { type: "taxResults", data: allResults },
-      })
+      }),
     );
 
     return true;
@@ -681,7 +691,7 @@ export const storageAPI = {
     employeeId = null,
     currentSource = 0,
     currentBonus = 0,
-    maxAgeHours = 24
+    maxAgeHours = 24,
   ) => {
     if (!cachedData || !cachedData.timestamp) return false;
 
@@ -696,7 +706,7 @@ export const storageAPI = {
       const currentHash = storageAPI.generateInputHash(
         employeeId,
         currentSource,
-        currentBonus
+        currentBonus,
       );
       return cachedData.inputHash === currentHash;
     }
@@ -709,7 +719,7 @@ export const storageAPI = {
     employeeIds,
     sourceOtherData = {},
     bonusOverrideData = {},
-    maxAgeHours = 24
+    maxAgeHours = 24,
   ) => {
     const allResults = JSON.parse(localStorage.getItem("taxResults") || "{}");
     const validResults = {};
@@ -726,7 +736,7 @@ export const storageAPI = {
           id,
           currentSource,
           currentBonus,
-          maxAgeHours
+          maxAgeHours,
         )
       ) {
         validResults[id] = cached.data;
@@ -762,7 +772,7 @@ export const storageAPI = {
   // Source Tax Other with backend sync
   getSourceTaxOther: async (employeeId = null) => {
     const localData = JSON.parse(
-      localStorage.getItem("sourceTaxOther") || "{}"
+      localStorage.getItem("sourceTaxOther") || "{}",
     );
 
     // If specific employee ID provided, try to get from backend first
@@ -792,7 +802,7 @@ export const storageAPI = {
     window.dispatchEvent(
       new CustomEvent("financeDataUpdated", {
         detail: { type: "sourceTaxOther", data },
-      })
+      }),
     );
   },
 
@@ -827,7 +837,7 @@ export const storageAPI = {
     window.dispatchEvent(
       new CustomEvent("financeDataUpdated", {
         detail: { type: "bonusOverride", data },
-      })
+      }),
     );
   },
 
@@ -889,10 +899,10 @@ export const forceSyncEmployees = async (employeeIds = []) => {
     const batchResults = await taxAPI.getTaxExtraBatch(employeeIds);
 
     const sourceTaxOther = JSON.parse(
-      localStorage.getItem("sourceTaxOther") || "{}"
+      localStorage.getItem("sourceTaxOther") || "{}",
     );
     const bonusOverride = JSON.parse(
-      localStorage.getItem("bonusOverride") || "{}"
+      localStorage.getItem("bonusOverride") || "{}",
     );
 
     batchResults.forEach((result) => {
@@ -920,10 +930,10 @@ export const smartSyncData = async (employeeIds = []) => {
     if (lastSyncTime > fiveMinutesAgo) {
       console.log("Using recent local data, skipping sync");
       const localSourceData = JSON.parse(
-        localStorage.getItem("sourceTaxOther") || "{}"
+        localStorage.getItem("sourceTaxOther") || "{}",
       );
       const localBonusData = JSON.parse(
-        localStorage.getItem("bonusOverride") || "{}"
+        localStorage.getItem("bonusOverride") || "{}",
       );
       return {
         sourceTaxOther: localSourceData,
@@ -937,10 +947,10 @@ export const smartSyncData = async (employeeIds = []) => {
   } catch (error) {
     console.error("Smart sync failed:", error);
     const localSourceData = JSON.parse(
-      localStorage.getItem("sourceTaxOther") || "{}"
+      localStorage.getItem("sourceTaxOther") || "{}",
     );
     const localBonusData = JSON.parse(
-      localStorage.getItem("bonusOverride") || "{}"
+      localStorage.getItem("bonusOverride") || "{}",
     );
     return {
       sourceTaxOther: localSourceData,
@@ -993,7 +1003,7 @@ export const broadcastUpdate = (type, data) => {
   window.dispatchEvent(
     new CustomEvent("financeDataUpdated", {
       detail: { type, data },
-    })
+    }),
   );
 };
 
@@ -1047,7 +1057,7 @@ export const salaryUtils = {
         totalAdvance: 0,
         totalCashPayment: 0,
         totalAddition: 0,
-      }
+      },
     );
   },
 
@@ -1139,7 +1149,7 @@ export const batchCalculationUtils = {
   prepareBatchData: (
     employees,
     sourceOtherData = {},
-    bonusOverrideData = {}
+    bonusOverrideData = {},
   ) => {
     return employees
       .filter((emp) => emp.salary && emp.employee_id)
@@ -1187,13 +1197,13 @@ export const financeAPI = {
   batchCalculateTaxes: async (
     employees,
     sourceOtherData = {},
-    bonusOverrideData = {}
+    bonusOverrideData = {},
   ) => {
     try {
       const batchData = batchCalculationUtils.prepareBatchData(
         employees,
         sourceOtherData,
-        bonusOverrideData
+        bonusOverrideData,
       );
 
       if (batchData.length === 0) {
@@ -1206,7 +1216,7 @@ export const financeAPI = {
         const employeeIds = batchData.map((emp) => emp.employee_id);
         return batchCalculationUtils.processBatchResults(
           response.data.results,
-          employeeIds
+          employeeIds,
         );
       }
 
