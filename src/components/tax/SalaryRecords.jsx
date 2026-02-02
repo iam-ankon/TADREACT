@@ -392,12 +392,18 @@ const SalaryRecords = () => {
     };
   };
 
-  // Load approval status for companies
+  // In SalaryRecords.jsx - Update loadApprovalStatus function
   const loadApprovalStatus = async (companyName = "All Companies") => {
     try {
-      const response = await financeAPI.approval.getApprovalStatus(companyName);
+      // Pass month and year to get status for the selected month/year
+      const response = await financeAPI.approval.getApprovalStatus({
+        company_name: companyName,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
       console.log(
-        `✅ Approval status loaded for ${companyName}:`,
+        `✅ Approval status loaded for ${companyName} (${selectedMonth}/${selectedYear}):`,
         response.data,
       );
 
@@ -408,6 +414,9 @@ const SalaryRecords = () => {
           finance_checked: response.data.finance_checked || false,
           director_checked: response.data.director_checked || false,
           proprietor_approved: response.data.proprietor_approved || false,
+          month: selectedMonth,
+          year: selectedYear,
+          loaded: true,
         },
       }));
     } catch (error) {
@@ -415,6 +424,19 @@ const SalaryRecords = () => {
         `❌ Failed to load approval status for ${companyName}:`,
         error,
       );
+      // Set default status if loading fails
+      setCompanyApprovalStatus((prev) => ({
+        ...prev,
+        [companyName]: {
+          hr_prepared: false,
+          finance_checked: false,
+          director_checked: false,
+          proprietor_approved: false,
+          month: selectedMonth,
+          year: selectedYear,
+          loaded: true,
+        },
+      }));
     }
   };
 
@@ -453,38 +475,58 @@ const SalaryRecords = () => {
     }
   }, [filteredRecords]);
 
-  // Button enabling logic
+  // In SalaryRecords.jsx - Update isButtonEnabled function
   const isButtonEnabled = (buttonStep, companyName) => {
     const companyStatus = companyApprovalStatus[companyName] || {};
     const user = currentUser ? currentUser.toLowerCase().trim() : "";
 
+    // Check if this step was already completed for this month/year
+    const isAlreadyCompleted = () => {
+      switch (buttonStep) {
+        case "hr_prepared":
+          return companyStatus.hr_prepared || false;
+        case "finance_checked":
+          return companyStatus.finance_checked || false;
+        case "director_checked":
+          return companyStatus.director_checked || false;
+        case "proprietor_approved":
+          return companyStatus.proprietor_approved || false;
+        default:
+          return false;
+      }
+    };
+
+    // If already completed for this month, disable button
+    if (isAlreadyCompleted()) {
+      return false;
+    }
+
+    // Check user permissions and workflow order
     switch (buttonStep) {
       case "hr_prepared":
-        return user === "lisa" && !companyStatus.hr_prepared;
+        return user === "lisa"; // Only Lisa can click HR Prepared
+
       case "finance_checked":
-        return (
-          user === "morshed" &&
-          companyStatus.hr_prepared &&
-          !companyStatus.finance_checked
-        );
+        // Morshed can click, but only after HR has prepared
+        return user === "morshed" && (companyStatus.hr_prepared || false);
+
       case "director_checked":
-        return (
-          user === "ankon" &&
-          companyStatus.finance_checked &&
-          !companyStatus.director_checked
-        );
+        // Ankon can click, but only after Finance has checked
+        return user === "samad" && (companyStatus.finance_checked || false);
+
       case "proprietor_approved":
+        // Tuhin/Proprietor/MD can click, but only after Director has checked
         return (
           (user === "tuhin" || user === "proprietor" || user === "md") &&
-          companyStatus.director_checked &&
-          !companyStatus.proprietor_approved
+          (companyStatus.director_checked || false)
         );
+
       default:
         return false;
     }
   };
 
-  // Approval handler
+  // In SalaryRecords.jsx - Update handleApprovalStep function
   const handleApprovalStep = async (step, companyName) => {
     console.log(`📧 Processing ${step} for ${companyName} by ${currentUser}`);
 
@@ -500,8 +542,8 @@ const SalaryRecords = () => {
 
       if (response.data.success) {
         alert(`✅ Email sent successfully! ${response.data.message}`);
-        // Reload approval status
-        loadApprovalStatus(companyName);
+        // Reload approval status to update UI
+        await loadApprovalStatus(companyName);
       } else {
         alert(`❌ Failed: ${response.data.message}`);
       }
@@ -1126,66 +1168,132 @@ const SalaryRecords = () => {
     }
   };
 
-  // Render approval footer
+  // In SalaryRecords.jsx - Update renderApprovalFooter function
   const renderApprovalFooter = (companyName) => {
     const companyStatus = companyApprovalStatus[companyName] || {};
+    const user = currentUser ? currentUser.toLowerCase().trim() : "";
 
     return (
       <div className="footer">
+        {/* HR Prepared Button */}
         <button
           onClick={() => handleApprovalStep("hr_prepared", companyName)}
           disabled={!isButtonEnabled("hr_prepared", companyName)}
           className={`approval-btn ${
-            isButtonEnabled("hr_prepared", companyName) ? "enabled" : "disabled"
+            companyStatus.hr_prepared
+              ? "completed"
+              : isButtonEnabled("hr_prepared", companyName)
+                ? "enabled"
+                : "disabled"
           }`}
+          title={
+            companyStatus.hr_prepared
+              ? "Already prepared by HR"
+              : user === "lisa"
+                ? "Click to mark as prepared by HR"
+                : "Only Lisa can prepare HR documents"
+          }
         >
           <span>Prepared by: HR</span>
           {companyStatus.hr_prepared && <span className="status-badge">✓</span>}
+          {!isButtonEnabled("hr_prepared", companyName) &&
+            !companyStatus.hr_prepared && (
+              <span className="disabled-label">Not Ready</span>
+            )}
         </button>
 
+        {/* Finance Checked Button */}
         <button
           onClick={() => handleApprovalStep("finance_checked", companyName)}
           disabled={!isButtonEnabled("finance_checked", companyName)}
           className={`approval-btn ${
-            isButtonEnabled("finance_checked", companyName)
-              ? "enabled"
-              : "disabled"
+            companyStatus.finance_checked
+              ? "completed"
+              : isButtonEnabled("finance_checked", companyName)
+                ? "enabled"
+                : "disabled"
           }`}
+          title={
+            companyStatus.finance_checked
+              ? "Already checked by Finance"
+              : user === "morshed" && companyStatus.hr_prepared
+                ? "Click to mark as checked by Finance"
+                : !companyStatus.hr_prepared
+                  ? "Wait for HR to prepare first"
+                  : "Only Morshed can check Finance documents"
+          }
         >
           <span>Checked by: Finance & Accounts</span>
           {companyStatus.finance_checked && (
             <span className="status-badge">✓</span>
           )}
+          {!isButtonEnabled("finance_checked", companyName) &&
+            !companyStatus.finance_checked && (
+              <span className="disabled-label">Not Ready</span>
+            )}
         </button>
 
+        {/* Director Checked Button */}
         <button
           onClick={() => handleApprovalStep("director_checked", companyName)}
           disabled={!isButtonEnabled("director_checked", companyName)}
           className={`approval-btn ${
-            isButtonEnabled("director_checked", companyName)
-              ? "enabled"
-              : "disabled"
+            companyStatus.director_checked
+              ? "completed"
+              : isButtonEnabled("director_checked", companyName)
+                ? "enabled"
+                : "disabled"
           }`}
+          title={
+            companyStatus.director_checked
+              ? "Already checked by Director"
+              : user === "ankon" && companyStatus.finance_checked
+                ? "Click to mark as checked by Director"
+                : !companyStatus.finance_checked
+                  ? "Wait for Finance to check first"
+                  : "Only Ankon can check Director documents"
+          }
         >
           <span>Checked by: Director</span>
           {companyStatus.director_checked && (
             <span className="status-badge">✓</span>
           )}
+          {!isButtonEnabled("director_checked", companyName) &&
+            !companyStatus.director_checked && (
+              <span className="disabled-label">Not Ready</span>
+            )}
         </button>
 
+        {/* Proprietor Approved Button */}
         <button
           onClick={() => handleApprovalStep("proprietor_approved", companyName)}
           disabled={!isButtonEnabled("proprietor_approved", companyName)}
           className={`approval-btn ${
-            isButtonEnabled("proprietor_approved", companyName)
-              ? "enabled"
-              : "disabled"
+            companyStatus.proprietor_approved
+              ? "completed"
+              : isButtonEnabled("proprietor_approved", companyName)
+                ? "enabled"
+                : "disabled"
           }`}
+          title={
+            companyStatus.proprietor_approved
+              ? "Already approved by Proprietor/MD"
+              : (user === "tuhin" || user === "proprietor" || user === "md") &&
+                  companyStatus.director_checked
+                ? "Click to mark as approved by Proprietor/MD"
+                : !companyStatus.director_checked
+                  ? "Wait for Director to check first"
+                  : "Only Tuhin/Proprietor/MD can approve"
+          }
         >
           <span>Approved by: Proprietor / MD</span>
           {companyStatus.proprietor_approved && (
             <span className="status-badge">✓</span>
           )}
+          {!isButtonEnabled("proprietor_approved", companyName) &&
+            !companyStatus.proprietor_approved && (
+              <span className="disabled-label">Not Ready</span>
+            )}
         </button>
       </div>
     );
@@ -1933,6 +2041,73 @@ const SalaryRecords = () => {
       </div>
       <style>{`
         /* REUSE ALL CSS FROM SALARY FORMAT */
+
+
+        /* In your CSS styles - Add these */
+        .approval-btn.enabled {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border-color: #059669;
+          cursor: pointer;
+        }
+
+        .approval-btn.enabled:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+        }
+
+        .approval-btn.completed {
+          background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+          color: white;
+          border-color: #6b7280;
+          cursor: not-allowed;
+          opacity: 0.8;
+        }
+
+        .approval-btn.completed:hover {
+          transform: none;
+          box-shadow: none;
+          background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        }
+
+        .approval-btn.disabled {
+          background: #f3f4f6;
+          color: #9ca3af;
+          border-color: #e5e7eb;
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .status-badge {
+          background: white;
+          color: #10b981;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 12px;
+          margin-left: 8px;
+        }
+
+        .completed .status-badge {
+          background: #10b981;
+          color: white;
+        }
+
+        .disabled-label {
+          font-size: 0.7rem;
+          margin-left: 8px;
+          color: #9ca3af;
+          font-style: italic;
+        }
+
+
+
+
         .salary-records-container {
           min-height: 100vh;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

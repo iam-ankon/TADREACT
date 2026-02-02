@@ -84,7 +84,8 @@ const Sidebar = () => {
 
   // === DEPARTMENT-BASED PERMISSIONS ===
   const departmentPermissions = {
-    isAdmin: department.includes("admin") || department.includes("management"),
+    isAdmin:  department.includes("management"),
+    isAdminDepartment: department.includes("admin"),
     isQA: department.includes("qa") || department.includes("quality"),
     isRnD: department.includes("r&d") || department.includes("research"),
     isProduction: department.includes("production"),
@@ -413,7 +414,8 @@ const Sidebar = () => {
 
   // Get department display name for user info
   const getDepartmentDisplayName = () => {
-    if (departmentPermissions.isAdmin) return "Admin Department";
+    if (departmentPermissions.isAdmin) return "Admin & Management";
+    if (departmentPermissions.isAdminDepartment) return "Admin Department";
     if (departmentPermissions.isHr) return "Human Resources";
     if (departmentPermissions.isQA) return "Quality Assurance";
     if (departmentPermissions.isCSR) return "Corporate Social Responsibility";
@@ -437,7 +439,7 @@ const Sidebar = () => {
 
   // Get user role display
   const getUserRoleDisplay = () => {
-    if (hasFullAccess) return "HR Administrator";
+    if (hasFullAccess) return "Administrator";
     if (isLimitedHR) return "Group HR Head";
 
     // Check more specific conditions first

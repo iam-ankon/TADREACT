@@ -593,16 +593,21 @@ export const salaryRecordsAPI = {
   },
 };
 
-// Approval APIs
+// In your finance API file - Update approvalAPI
 export const approvalAPI = {
   // Send approval step
   sendApproval: (data) => apiClient.post("/salary-approval/", data),
 
-  // Get approval status
-  getApprovalStatus: (companyName = "All Companies") =>
-    apiClient.get(
-      `/approval-status/?company_name=${encodeURIComponent(companyName)}`,
-    ),
+  // Get approval status with month/year parameters
+  getApprovalStatus: (params) => {
+    // Default to current month/year if not provided
+    const defaultParams = {
+      company_name: params.company_name || 'All Companies',
+      month: params.month || new Date().getMonth() + 1,
+      year: params.year || new Date().getFullYear(),
+    };
+    return apiClient.get("/approval-status/", { params: defaultParams });
+  },
 };
 
 // Enhanced storage utilities with backend sync and input hashing
