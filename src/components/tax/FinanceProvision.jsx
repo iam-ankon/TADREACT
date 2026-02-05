@@ -52,9 +52,7 @@ const FinanceProvision = () => {
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
-  // Load data from BACKEND first, then calculate missing ones
   const loadData = useCallback(async () => {
-    // Prevent multiple simultaneous loads
     if (calculationInProgress.current) {
       console.log("⏸️ Load already in progress, skipping");
       return;
@@ -72,13 +70,12 @@ const FinanceProvision = () => {
       const employeeIds = employeeData.map((emp) => emp.employee_id);
       console.log(`✅ Loaded ${employeeData.length} employees`);
 
-      // 2. Load source other and bonus from CalculatedTax model
+      // 2. Load source other and bonus from CalculatedTax model - NO MONTH/YEAR
       console.log("💾 Loading source_other and bonus from database...");
       try {
         const savedResponse = await financeAPI.tax.getCalculatedTaxes({
           employee_ids: employeeIds,
-          month: currentMonth,
-          year: currentYear,
+          // No month or year
         });
 
         if (savedResponse.data.success && savedResponse.data.results) {
@@ -91,15 +88,15 @@ const FinanceProvision = () => {
           // Process database results
           Object.keys(savedResults).forEach((empId) => {
             const savedData = savedResults[empId];
-            
-            // Extract source_other and bonus directly from CalculatedTax model
+
+            // Extract source_other and bonus
             if (savedData.source_other !== undefined) {
               newSourceOther[empId] = savedData.source_other || 0;
             }
             if (savedData.bonus !== undefined) {
               newBonusOverride[empId] = savedData.bonus || 0;
             }
-            
+
             // Extract calculation data if available
             if (savedData.calculation_data) {
               databaseResults[empId] = savedData.calculation_data;
@@ -108,14 +105,14 @@ const FinanceProvision = () => {
               // Also save to localStorage cache
               financeAPI.storage.setTaxResultsByEmployee(
                 empId,
-                savedData.calculation_data
+                savedData.calculation_data,
               );
             }
           });
 
           console.log(`💾 Loaded ${dbCount} calculations from database`);
-          
-          // Update state with values from CalculatedTax model
+
+          // Update state
           setSourceOther(newSourceOther);
           setBonusOverride(newBonusOverride);
           setTaxResults(databaseResults);
@@ -133,43 +130,43 @@ const FinanceProvision = () => {
           });
 
           setLastCalculated(
-            `Loaded from database (${new Date().toLocaleTimeString()})`
+            `Loaded from database (${new Date().toLocaleTimeString()})`,
           );
 
           // 3. Calculate only missing ones
           const missingEmployeeIds = employeeIds.filter(
-            (id) => !databaseResults[id]
+            (id) => !databaseResults[id],
           );
 
           if (missingEmployeeIds.length > 0 && !calculationInProgress.current) {
             console.log(
-              `🔄 Calculating ${missingEmployeeIds.length} missing employees...`
+              `🔄 Calculating ${missingEmployeeIds.length} missing employees...`,
             );
             calculateMissingTaxes(
               employeeData,
               missingEmployeeIds,
               newSourceOther,
-              newBonusOverride
+              newBonusOverride,
             );
           }
 
-          return; // Exit early since we have data
+          return;
         }
       } catch (dbError) {
         console.warn(
           "Failed to load from database, using local cache:",
-          dbError
+          dbError,
         );
       }
 
       // 4. FALLBACK: Check localStorage cache
       console.log("📁 Checking localStorage cache...");
       const allResults = financeAPI.storage.getTaxResultsByEmployee();
-      
+
       // Also get source other and bonus from localStorage
       const localSourceData = await financeAPI.storage.getSourceTaxOther();
       const localBonusData = await financeAPI.storage.getBonusOverride();
-      
+
       setSourceOther(localSourceData);
       setBonusOverride(localBonusData);
 
@@ -179,7 +176,6 @@ const FinanceProvision = () => {
       employeeIds.forEach((id) => {
         const cached = allResults[id];
         if (cached && cached.data) {
-          // Check if cache is recent (within 24 hours)
           const cacheTime = new Date(cached.timestamp);
           const now = new Date();
           const hoursDiff = (now - cacheTime) / (1000 * 60 * 60);
@@ -207,17 +203,17 @@ const FinanceProvision = () => {
 
       if (missingEmployeeIds.length > 0 && !calculationInProgress.current) {
         console.log(
-          `🔄 Calculating ${missingEmployeeIds.length} missing employees...`
+          `🔄 Calculating ${missingEmployeeIds.length} missing employees...`,
         );
         calculateMissingTaxes(
           employeeData,
           missingEmployeeIds,
           localSourceData,
-          localBonusData
+          localBonusData,
         );
       } else if (cacheCount > 0) {
         setLastCalculated(
-          `Loaded from cache (${new Date().toLocaleTimeString()})`
+          `Loaded from cache (${new Date().toLocaleTimeString()})`,
         );
       }
     } catch (err) {
@@ -226,9 +222,9 @@ const FinanceProvision = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentMonth, currentYear]);
+  }, []); // REMOVED currentMonth, currentYear from dependencies
 
-  // Calculate taxes for missing employees
+  // Update calculateMissingTaxes function
   const calculateMissingTaxes = useCallback(
     async (employeeList, employeeIds, sourceData, bonusData) => {
       if (calculationInProgress.current || !employeeIds.length) return;
@@ -244,7 +240,6 @@ const FinanceProvision = () => {
         const newErrors = [];
         let successCount = 0;
 
-        // Process in smaller batches to avoid overwhelming server
         const batchSize = 3;
 
         for (
@@ -254,7 +249,7 @@ const FinanceProvision = () => {
         ) {
           const batchIds = employeeIds.slice(
             batchIndex,
-            batchIndex + batchSize
+            batchIndex + batchSize,
           );
 
           const batchPromises = batchIds.map(async (empId) => {
@@ -273,15 +268,13 @@ const FinanceProvision = () => {
                 // Save to LOCALSTORAGE cache
                 financeAPI.storage.setTaxResultsByEmployee(
                   empId,
-                  response.data
+                  response.data,
                 );
 
-                // Save to BACKEND database with source_other and bonus values
+                // Save to BACKEND database - NO MONTH/YEAR
                 try {
                   await financeAPI.tax.saveCalculatedTax({
                     employee_id: empId,
-                    month: currentMonth,
-                    year: currentYear,
                     calculation_data: response.data,
                     source_other: sourceData[empId] || 0,
                     bonus: bonusData[empId] || 0,
@@ -290,7 +283,7 @@ const FinanceProvision = () => {
                 } catch (saveError) {
                   console.warn(
                     `Could not save to database for ${empId}:`,
-                    saveError
+                    saveError,
                   );
                 }
 
@@ -318,14 +311,14 @@ const FinanceProvision = () => {
 
           // Update progress
           const currentProgress = Math.round(
-            ((batchIndex + batchSize) / employeeIds.length) * 100
+            ((batchIndex + batchSize) / employeeIds.length) * 100,
           );
           setProgress(Math.min(currentProgress, 100));
 
           // Update UI incrementally
           setTaxResults((prev) => ({ ...prev, ...newResults }));
 
-          // Small delay between batches to prevent overwhelming server
+          // Small delay between batches
           if (batchIndex + batchSize < employeeIds.length) {
             await new Promise((resolve) => setTimeout(resolve, 300));
           }
@@ -334,7 +327,7 @@ const FinanceProvision = () => {
         // Final update
         setTaxResults((prev) => ({ ...prev, ...newResults }));
         setLastCalculated(
-          `Calculated ${successCount} employees (${new Date().toLocaleTimeString()})`
+          `Calculated ${successCount} employees (${new Date().toLocaleTimeString()})`,
         );
         setCacheStats((prev) => ({
           ...prev,
@@ -344,7 +337,7 @@ const FinanceProvision = () => {
         setErrorLog((prev) => [...prev, ...newErrors]);
 
         console.log(
-          `✅ Calculation completed: ${successCount} success, ${newErrors.length} errors`
+          `✅ Calculation completed: ${successCount} success, ${newErrors.length} errors`,
         );
       } catch (error) {
         console.error("Calculation failed:", error);
@@ -358,7 +351,7 @@ const FinanceProvision = () => {
         setTimeout(() => setProgress(0), 1000);
       }
     },
-    [currentMonth, currentYear]
+    [], // REMOVED currentMonth, currentYear
   );
 
   // Initial load - ONLY ON MOUNT
@@ -416,8 +409,7 @@ const FinanceProvision = () => {
     setEditingBonusId(emp.employee_id);
     setEditBonusValue(bonusOverride[emp.employee_id] || "0");
   };
-
-  // Save source other value
+  // Update handleSaveSource function
   const handleSaveSource = async (employeeId) => {
     const val = parseFloat(editSourceValue) || 0;
     const updatedSourceOther = { ...sourceOther, [employeeId]: val };
@@ -441,11 +433,9 @@ const FinanceProvision = () => {
         });
 
         if (response.data) {
-          // Save to CalculatedTax model
+          // Save to CalculatedTax model - NO MONTH/YEAR
           await financeAPI.tax.saveCalculatedTax({
             employee_id: employeeId,
-            month: currentMonth,
-            year: currentYear,
             calculation_data: response.data,
             source_other: val,
             bonus: bonusOverride[employeeId] || 0,
@@ -453,23 +443,25 @@ const FinanceProvision = () => {
           });
 
           // Update tax results
-          setTaxResults(prev => ({
+          setTaxResults((prev) => ({
             ...prev,
-            [employeeId]: response.data
+            [employeeId]: response.data,
           }));
           financeAPI.storage.setTaxResultsByEmployee(employeeId, response.data);
-          
+
           console.log("✅ Source Other saved to CalculatedTax model");
         }
       }
     } catch (err) {
       console.error("Failed to save source other:", err);
-      // Still update local storage
-      setErrorLog(prev => [...prev, { empId: employeeId, error: err.message }]);
+      setErrorLog((prev) => [
+        ...prev,
+        { empId: employeeId, error: err.message },
+      ]);
     }
   };
 
-  // Save bonus value
+  // Update handleSaveBonus function
   const handleSaveBonus = async (employeeId) => {
     const val = parseFloat(editBonusValue) || 0;
     const updatedBonusOverride = { ...bonusOverride, [employeeId]: val };
@@ -493,11 +485,9 @@ const FinanceProvision = () => {
         });
 
         if (response.data) {
-          // Save to CalculatedTax model
+          // Save to CalculatedTax model - NO MONTH/YEAR
           await financeAPI.tax.saveCalculatedTax({
             employee_id: employeeId,
-            month: currentMonth,
-            year: currentYear,
             calculation_data: response.data,
             source_other: sourceOther[employeeId] || 0,
             bonus: val,
@@ -505,18 +495,21 @@ const FinanceProvision = () => {
           });
 
           // Update tax results
-          setTaxResults(prev => ({
+          setTaxResults((prev) => ({
             ...prev,
-            [employeeId]: response.data
+            [employeeId]: response.data,
           }));
           financeAPI.storage.setTaxResultsByEmployee(employeeId, response.data);
-          
+
           console.log("✅ Bonus saved to CalculatedTax model");
         }
       }
     } catch (err) {
       console.error("Failed to save bonus:", err);
-      setErrorLog(prev => [...prev, { empId: employeeId, error: err.message }]);
+      setErrorLog((prev) => [
+        ...prev,
+        { empId: employeeId, error: err.message },
+      ]);
     }
   };
 
@@ -564,18 +557,74 @@ const FinanceProvision = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  // Clear and recalculate all
+  // Update handleSyncData function
+  const handleSyncData = async () => {
+    try {
+      const employeeIds = employees.map((emp) => emp.employee_id);
+
+      // Load fresh from CalculatedTax model - NO MONTH/YEAR
+      const savedResponse = await financeAPI.tax.getCalculatedTaxes({
+        employee_ids: employeeIds,
+      });
+
+      if (savedResponse.data.success && savedResponse.data.results) {
+        const savedResults = savedResponse.data.results;
+        const databaseResults = {};
+        const newSourceOther = {};
+        const newBonusOverride = {};
+        let dbCount = 0;
+
+        Object.keys(savedResults).forEach((empId) => {
+          const savedData = savedResults[empId];
+
+          // Get source_other and bonus
+          if (savedData.source_other !== undefined) {
+            newSourceOther[empId] = savedData.source_other || 0;
+          }
+          if (savedData.bonus !== undefined) {
+            newBonusOverride[empId] = savedData.bonus || 0;
+          }
+
+          if (savedData.calculation_data) {
+            databaseResults[empId] = savedData.calculation_data;
+            dbCount++;
+            financeAPI.storage.setTaxResultsByEmployee(
+              empId,
+              savedData.calculation_data,
+            );
+          }
+        });
+
+        setSourceOther(newSourceOther);
+        setBonusOverride(newBonusOverride);
+        setTaxResults(databaseResults);
+        setCacheStats((prev) => ({
+          ...prev,
+          fromDatabase: dbCount,
+          valid: dbCount,
+        }));
+        setLastCalculated(
+          `Synced from database (${new Date().toLocaleTimeString()})`,
+        );
+
+        alert(`Synced ${dbCount} calculations from database!`);
+      }
+    } catch (error) {
+      console.error("Sync failed:", error);
+      alert("Failed to sync from database. Please try again.");
+    }
+  };
+
   const handleRefreshCalculations = async () => {
     if (
       window.confirm(
-        "Clear all cached tax calculations and recalculate for all employees?"
+        "Clear all cached tax calculations and recalculate for all employees?",
       )
     ) {
       try {
-        // Clear backend calculations
+        // Clear backend calculations - NO MONTH/YEAR
         await financeAPI.tax.clearCalculatedTaxes({
-          month: currentMonth,
-          year: currentYear,
+          employee_id: null, // This will clear all
         });
       } catch (err) {
         console.warn("Could not clear backend:", err);
@@ -592,71 +641,71 @@ const FinanceProvision = () => {
     }
   };
 
-  // Sync data from backend
-  const handleSyncData = async () => {
-    try {
-      const employeeIds = employees.map((emp) => emp.employee_id);
+  // // Sync data from backend
+  // const handleSyncData = async () => {
+  //   try {
+  //     const employeeIds = employees.map((emp) => emp.employee_id);
 
-      // Load fresh from CalculatedTax model
-      const savedResponse = await financeAPI.tax.getCalculatedTaxes({
-        employee_ids: employeeIds,
-        month: currentMonth,
-        year: currentYear,
-      });
+  //     // Load fresh from CalculatedTax model
+  //     const savedResponse = await financeAPI.tax.getCalculatedTaxes({
+  //       employee_ids: employeeIds,
+  //       month: currentMonth,
+  //       year: currentYear,
+  //     });
 
-      if (savedResponse.data.success && savedResponse.data.results) {
-        const savedResults = savedResponse.data.results;
-        const databaseResults = {};
-        const newSourceOther = {};
-        const newBonusOverride = {};
-        let dbCount = 0;
+  //     if (savedResponse.data.success && savedResponse.data.results) {
+  //       const savedResults = savedResponse.data.results;
+  //       const databaseResults = {};
+  //       const newSourceOther = {};
+  //       const newBonusOverride = {};
+  //       let dbCount = 0;
 
-        Object.keys(savedResults).forEach((empId) => {
-          const savedData = savedResults[empId];
-          
-          // Get source_other and bonus from CalculatedTax model
-          if (savedData.source_other !== undefined) {
-            newSourceOther[empId] = savedData.source_other || 0;
-          }
-          if (savedData.bonus !== undefined) {
-            newBonusOverride[empId] = savedData.bonus || 0;
-          }
-          
-          if (savedData.calculation_data) {
-            databaseResults[empId] = savedData.calculation_data;
-            dbCount++;
-            financeAPI.storage.setTaxResultsByEmployee(
-              empId,
-              savedData.calculation_data
-            );
-          }
-        });
+  //       Object.keys(savedResults).forEach((empId) => {
+  //         const savedData = savedResults[empId];
 
-        setSourceOther(newSourceOther);
-        setBonusOverride(newBonusOverride);
-        setTaxResults(databaseResults);
-        setCacheStats((prev) => ({
-          ...prev,
-          fromDatabase: dbCount,
-          valid: dbCount,
-        }));
-        setLastCalculated(
-          `Synced from database (${new Date().toLocaleTimeString()})`
-        );
+  //         // Get source_other and bonus from CalculatedTax model
+  //         if (savedData.source_other !== undefined) {
+  //           newSourceOther[empId] = savedData.source_other || 0;
+  //         }
+  //         if (savedData.bonus !== undefined) {
+  //           newBonusOverride[empId] = savedData.bonus || 0;
+  //         }
 
-        alert(`Synced ${dbCount} calculations from database!`);
-      }
-    } catch (error) {
-      console.error("Sync failed:", error);
-      alert("Failed to sync from database. Please try again.");
-    }
-  };
+  //         if (savedData.calculation_data) {
+  //           databaseResults[empId] = savedData.calculation_data;
+  //           dbCount++;
+  //           financeAPI.storage.setTaxResultsByEmployee(
+  //             empId,
+  //             savedData.calculation_data
+  //           );
+  //         }
+  //       });
+
+  //       setSourceOther(newSourceOther);
+  //       setBonusOverride(newBonusOverride);
+  //       setTaxResults(databaseResults);
+  //       setCacheStats((prev) => ({
+  //         ...prev,
+  //         fromDatabase: dbCount,
+  //         valid: dbCount,
+  //       }));
+  //       setLastCalculated(
+  //         `Synced from database (${new Date().toLocaleTimeString()})`
+  //       );
+
+  //       alert(`Synced ${dbCount} calculations from database!`);
+  //     }
+  //   } catch (error) {
+  //     console.error("Sync failed:", error);
+  //     alert("Failed to sync from database. Please try again.");
+  //   }
+  // };
 
   // Filter employees based on search query
   const filtered = employees.filter(
     (emp) =>
       emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.employee_id?.toString().includes(searchQuery)
+      emp.employee_id?.toString().includes(searchQuery),
   );
 
   const handleNavigate = (empId) => {
@@ -673,10 +722,10 @@ const FinanceProvision = () => {
         return sum + (result?.tax_calculation?.monthly_tds || 0);
       }, 0),
       employeesWithTax: Object.values(taxResults).filter(
-        (result) => result?.tax_calculation?.should_deduct_tax
+        (result) => result?.tax_calculation?.should_deduct_tax,
       ).length,
     }),
-    [taxResults]
+    [taxResults],
   );
 
   // Loading state
@@ -768,13 +817,13 @@ const FinanceProvision = () => {
                 >
                   <FaSync /> Sync DB
                 </button> */}
-                <button
+                {/* <button
                   className="btn export"
                   onClick={handleExport}
                   disabled={Object.keys(taxResults).length === 0}
                 >
                   <FaDownload /> Export CSV
-                </button>
+                </button> */}
                 <button
                   className="btn refresh"
                   onClick={handleRefreshCalculations}
@@ -965,7 +1014,7 @@ const FinanceProvision = () => {
                         ) : (
                           <div className="display-value">
                             {financeAPI.utils.formatCurrency(
-                              sourceOther[emp.employee_id] || 0
+                              sourceOther[emp.employee_id] || 0,
                             )}
                             <FaEdit
                               className="edit-icon"
@@ -1003,7 +1052,7 @@ const FinanceProvision = () => {
                         ) : (
                           <div className="display-value">
                             {financeAPI.utils.formatCurrency(
-                              bonusOverride[emp.employee_id] || 0
+                              bonusOverride[emp.employee_id] || 0,
                             )}
                             <FaEdit
                               className="edit-icon"
@@ -1102,7 +1151,11 @@ const FinanceProvision = () => {
           justify-content: center;
           align-items: flex-start;
           padding: 1rem;
-          font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          font-family:
+            "Inter",
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
             sans-serif;
         }
 

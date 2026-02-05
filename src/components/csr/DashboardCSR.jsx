@@ -1,25 +1,35 @@
+
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getSuppliers } from '../../api/supplierApi'
+import { getSuppliers, getSupplierStats } from '../../api/supplierApi'
 
-const DashboardCSR = () => {
+const SupplierDashboardCSR = () => {
   const navigate = useNavigate()
   const [stats, setStats] = useState({
     totalSuppliers: 0,
-    activeSuppliers: 0,
-    pendingAgreements: 0,
-    expiredAgreements: 0,
-    approvedSuppliers: 0,
-    rejectedSuppliers: 0
+    compliantSuppliers: 0,
+    nonCompliantSuppliers: 0,
+    underReview: 0,
+    conditional: 0,
+    certifiedSuppliers: 0,
+    validLicenseSuppliers: 0,
+    activeGrievanceSuppliers: 0
   })
 
   const [recentSuppliers, setRecentSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [quickStats, setQuickStats] = useState({
-    totalInquiries: 0,
-    confirmedInquiries: 0,
-    pendingActions: 0
+  const [complianceOverview, setComplianceOverview] = useState({
+    fireSafety: { total: 0, compliant: 0 },
+    environmental: { total: 0, compliant: 0 },
+    labor: { total: 0, compliant: 0 },
+    structural: { total: 0, compliant: 0 }
+  })
+  const [certificationStats, setCertificationStats] = useState({
+    bsci: 0,
+    sedex: 0,
+    wrap: 0,
+    iso: 0
   })
 
   useEffect(() => {
@@ -31,37 +41,42 @@ const DashboardCSR = () => {
       setLoading(true)
       setError(null)
       
-      // Fetch suppliers data
-      console.log('Fetching suppliers data...')
+      console.log('Fetching supplier dashboard data...')
+      
+      // Fetch all suppliers
       const suppliersResponse = await getSuppliers()
       const suppliers = suppliersResponse.data || []
       
       console.log('Suppliers data received:', suppliers.length, 'items')
       
-      // Calculate stats from suppliers data
-      calculateStats(suppliers)
+      // Calculate comprehensive stats from suppliers data
+      calculateComprehensiveStats(suppliers)
       
       // Get recent suppliers (last 5, sorted by ID or date)
       const recent = [...suppliers]
         .sort((a, b) => {
-          // Sort by ID descending (newest first) or by created date
+          // Sort by ID descending (newest first)
           if (b.id && a.id) return b.id - a.id
           return 0
         })
         .slice(0, 5)
         .map(supplier => ({
           id: supplier.id,
-          name: supplier.name || supplier.company_name || 'Unnamed Supplier',
-          vendor_id: supplier.vendor_id || supplier.vendor_code || 'N/A',
-          email: supplier.email || supplier.contact_email || 'No email',
-          agreement_status: supplier.agreement_status || supplier.status || 'pending',
-          created_at: supplier.created_at || supplier.created_date || new Date().toISOString()
+          name: supplier.supplier_name || 'Unnamed Supplier',
+          supplier_id: supplier.supplier_id || 'N/A',
+          compliance_status: supplier.compliance_status || 'under_review',
+          certification_status: supplier.is_certification_valid || false,
+          location: supplier.location || 'Location not specified',
+          category: supplier.supplier_category || 'Not specified'
         }))
       
       setRecentSuppliers(recent)
       
-      // Calculate quick stats
-      calculateQuickStats(suppliers)
+      // Calculate compliance overview
+      calculateComplianceOverview(suppliers)
+      
+      // Calculate certification stats
+      calculateCertificationStats(suppliers)
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -71,74 +86,133 @@ const DashboardCSR = () => {
     }
   }
 
-  const calculateStats = (suppliers) => {
+  const calculateComprehensiveStats = (suppliers) => {
     try {
       const total = suppliers.length
-      const active = suppliers.filter(s => 
-        s.agreement_status === 'active' || 
-        s.status === 'active'
+      const compliant = suppliers.filter(s => 
+        s.compliance_status === 'compliant'
       ).length
       
-      const pending = suppliers.filter(s => 
-        s.agreement_status === 'pending' || 
-        s.status === 'pending'
+      const nonCompliant = suppliers.filter(s => 
+        s.compliance_status === 'non_compliant'
       ).length
       
-      const expired = suppliers.filter(s => 
-        s.agreement_status === 'expired' || 
-        s.status === 'expired'
+      const underReview = suppliers.filter(s => 
+        s.compliance_status === 'under_review' || !s.compliance_status
       ).length
       
-      const approved = suppliers.filter(s => 
-        s.agreement_doc_status === 'approved' || 
-        s.approval_status === 'approved'
+      const conditional = suppliers.filter(s => 
+        s.compliance_status === 'conditional'
       ).length
       
-      const rejected = suppliers.filter(s => 
-        s.agreement_doc_status === 'rejected' || 
-        s.approval_status === 'rejected'
+      const certified = suppliers.filter(s => 
+        s.is_certification_valid === true
       ).length
       
-      console.log('Calculated stats:', { total, active, pending, expired, approved, rejected })
+      const validLicense = suppliers.filter(s => {
+        // Check if all essential licenses are valid (days remaining > 0)
+        return (
+          (s.trade_license_days_remaining && s.trade_license_days_remaining > 0) &&
+          (s.factory_license_days_remaining && s.factory_license_days_remaining > 0) &&
+          (s.fire_license_days_remaining && s.fire_license_days_remaining > 0)
+        )
+      }).length
+      
+      const activeGrievance = suppliers.filter(s => 
+        s.grievance_mechanism === true
+      ).length
+      
+      console.log('Calculated comprehensive stats:', {
+        total, compliant, nonCompliant, underReview, conditional,
+        certified, validLicense, activeGrievance
+      })
       
       setStats({
         totalSuppliers: total,
-        activeSuppliers: active,
-        pendingAgreements: pending,
-        expiredAgreements: expired,
-        approvedSuppliers: approved,
-        rejectedSuppliers: rejected
+        compliantSuppliers: compliant,
+        nonCompliantSuppliers: nonCompliant,
+        underReview: underReview,
+        conditional: conditional,
+        certifiedSuppliers: certified,
+        validLicenseSuppliers: validLicense,
+        activeGrievanceSuppliers: activeGrievance
       })
     } catch (error) {
-      console.error('Error calculating stats:', error)
+      console.error('Error calculating comprehensive stats:', error)
     }
   }
 
-  const calculateQuickStats = (suppliers) => {
+  const calculateComplianceOverview = (suppliers) => {
     try {
-      // These are sample calculations - adjust based on your actual data structure
-      const totalInquiries = suppliers.reduce((sum, supplier) => 
-        sum + (supplier.inquiry_count || supplier.total_inquiries || 0), 0
-      )
+      const total = suppliers.length
       
-      const confirmedInquiries = suppliers.reduce((sum, supplier) => 
-        sum + (supplier.confirmed_inquiry_count || supplier.confirmed_inquiries || 0), 0
-      )
+      // Fire Safety compliance
+      const fireSafetyCompliant = suppliers.filter(s => {
+        const hasTraining = s.last_fire_training_by_fscd && new Date(s.last_fire_training_by_fscd) > new Date(Date.now() - 365*24*60*60*1000) // Within 1 year
+        const hasDrill = s.last_fire_drill_record_by_fscd && new Date(s.last_fire_drill_record_by_fscd) > new Date(Date.now() - 90*24*60*60*1000) // Within 90 days
+        const hasPersonnel = s.total_fire_fighter_rescue_first_aider_fscd && s.total_fire_fighter_rescue_first_aider_fscd > 0
+        return hasTraining && hasDrill && hasPersonnel
+      }).length
       
-      const pendingActions = suppliers.filter(s => 
-        s.agreement_vendor_action_required || 
-        s.action_required ||
-        s.agreement_status === 'pending' ||
-        s.status === 'pending'
-      ).length
+      // Environmental compliance
+      const environmentalCompliant = suppliers.filter(s => {
+        const hasWaterTest = s.water_test_report_doe && new Date(s.water_test_report_doe) > new Date(Date.now() - 365*24*60*60*1000)
+        const hasChemicalInventory = s.behive_chemical_inventory === true
+        return hasWaterTest && hasChemicalInventory
+      }).length
       
-      setQuickStats({
-        totalInquiries,
-        confirmedInquiries,
-        pendingActions
+      // Labor compliance
+      const laborCompliant = suppliers.filter(s => {
+        const paysMinWage = s.minimum_wages_paid === true
+        const hasBenefits = s.earn_leave_status === true && s.festival_bonus === true
+        return paysMinWage && hasBenefits
+      }).length
+      
+      // Structural compliance (from RSC)
+      const structuralCompliant = suppliers.filter(s => {
+        const hasProgressRate = s.progress_rate && s.progress_rate >= 80 // 80% progress rate
+        const lowFindings = s.structural_total_findings && s.structural_total_findings <= 5 // 5 or fewer findings
+        return hasProgressRate && lowFindings
+      }).length
+      
+      setComplianceOverview({
+        fireSafety: { total, compliant: fireSafetyCompliant },
+        environmental: { total, compliant: environmentalCompliant },
+        labor: { total, compliant: laborCompliant },
+        structural: { total, compliant: structuralCompliant }
       })
     } catch (error) {
-      console.error('Error calculating quick stats:', error)
+      console.error('Error calculating compliance overview:', error)
+    }
+  }
+
+  const calculateCertificationStats = (suppliers) => {
+    try {
+      const bsciCount = suppliers.filter(s => 
+        s.bsci_status === 'valid' || s.bsci_status === 'Valid'
+      ).length
+      
+      const sedexCount = suppliers.filter(s => 
+        s.sedex_status === 'valid' || s.sedex_status === 'Valid'
+      ).length
+      
+      const wrapCount = suppliers.filter(s => 
+        s.wrap_status === 'valid' || s.wrap_status === 'Valid'
+      ).length
+      
+      const isoCount = suppliers.filter(s => 
+        (s.iso_9001_status === 'valid' || s.iso_9001_status === 'Valid') ||
+        (s.iso_14001_status === 'valid' || s.iso_14001_status === 'Valid')
+      ).length
+      
+      setCertificationStats({
+        bsci: bsciCount,
+        sedex: sedexCount,
+        wrap: wrapCount,
+        iso: isoCount
+      })
+    } catch (error) {
+      console.error('Error calculating certification stats:', error)
     }
   }
 
@@ -147,55 +221,65 @@ const DashboardCSR = () => {
     
     const statusLower = status.toLowerCase()
     switch(statusLower) {
-      case 'active': 
-      case 'approved': 
+      case 'compliant': 
         return { bg: '#d4edda', text: '#155724', border: '#c3e6cb' }
-      case 'pending': 
-      case 'in_progress': 
+      case 'under_review': 
         return { bg: '#fff3cd', text: '#856404', border: '#ffeaa7' }
-      case 'expired': 
-      case 'cancelled': 
-      case 'terminated': 
+      case 'non_compliant': 
         return { bg: '#f8d7da', text: '#721c24', border: '#f5c6cb' }
-      case 'rejected': 
-      case 'declined': 
-        return { bg: '#f5c6cb', text: '#721c24', border: '#f1b0b7' }
-      case 'draft': 
-        return { bg: '#e2e3e5', text: '#383d41', border: '#d6d8db' }
+      case 'conditional':
+        return { bg: '#cfe2ff', text: '#084298', border: '#b6d4fe' }
       default: 
         return { bg: '#f8f9fa', text: '#6c757d', border: '#e9ecef' }
     }
   }
 
   const formatStatus = (status) => {
-    if (!status) return 'UNKNOWN'
+    if (!status) return 'UNDER REVIEW'
     return status.replace(/_/g, ' ').toUpperCase()
+  }
+
+  const formatNumber = (num) => {
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'k'
+    }
+    return num.toString()
+  }
+
+  const calculateComplianceRate = () => {
+    if (stats.totalSuppliers === 0) return 0
+    return Math.round((stats.compliantSuppliers / stats.totalSuppliers) * 100)
   }
 
   if (loading) {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.loadingSpinner}></div>
-        <p style={styles.loadingText}>Loading dashboard data...</p>
+        <p style={styles.loadingText}>Loading supplier dashboard...</p>
       </div>
     )
   }
 
   return (
     <div style={styles.container}>
-      {/* Header with Title and Refresh Button */}
+      {/* Header with Title and Actions */}
       <div style={styles.header}>
         <div>
-          <h1 style={styles.title}>Supplier Dashboard</h1>
-          <p style={styles.subtitle}>Overview of all supplier activities and statistics</p>
+          <h1 style={styles.title}>Supplier Compliance Dashboard</h1>
+          <p style={styles.subtitle}>Comprehensive overview of supplier compliance and certification status</p>
         </div>
-        <button 
-          onClick={fetchDashboardData} 
-          style={styles.refreshButton}
-          disabled={loading}
-        >
-          {loading ? 'Refreshing...' : '🔄 Refresh Data'}
-        </button>
+        <div style={styles.headerActions}>
+          <button 
+            onClick={fetchDashboardData} 
+            style={styles.refreshButton}
+            disabled={loading}
+          >
+            {loading ? 'Refreshing...' : '🔄 Refresh'}
+          </button>
+          <Link to="/add-supplierCSR" style={styles.addButton}>
+            ➕ Add New Supplier
+          </Link>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -215,263 +299,392 @@ const DashboardCSR = () => {
         </div>
       )}
 
-      {/* Main Stats Cards */}
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statCardHeader}>
-            <span style={{...styles.statIcon, backgroundColor: '#3498db20', color: '#3498db'}}>🏢</span>
-            <div>
-              <h3 style={styles.statNumber}>{stats.totalSuppliers}</h3>
-              <p style={styles.statLabel}>Total Suppliers</p>
-            </div>
-          </div>
+      {/* Overall Compliance Score */}
+      <div style={styles.complianceScoreCard}>
+        <div style={styles.scoreHeader}>
+          <h3 style={styles.scoreTitle}>Overall Compliance Score</h3>
+          <span style={styles.scoreUpdated}>Updated just now</span>
         </div>
-
-        <div style={styles.statCard}>
-          <div style={styles.statCardHeader}>
-            <span style={{...styles.statIcon, backgroundColor: '#28a74520', color: '#28a745'}}>✅</span>
-            <div>
-              <h3 style={styles.statNumber}>{stats.activeSuppliers}</h3>
-              <p style={styles.statLabel}>Active</p>
-            </div>
+        <div style={styles.scoreContent}>
+          <div style={styles.scoreCircle}>
+            <div style={styles.scoreValue}>{calculateComplianceRate()}%</div>
+            <div style={styles.scoreLabel}>Compliance Rate</div>
           </div>
-        </div>
-
-        <div style={styles.statCard}>
-          <div style={styles.statCardHeader}>
-            <span style={{...styles.statIcon, backgroundColor: '#ffc10720', color: '#ffc107'}}>⏳</span>
-            <div>
-              <h3 style={styles.statNumber}>{stats.pendingAgreements}</h3>
-              <p style={styles.statLabel}>Pending</p>
+          <div style={styles.scoreBreakdown}>
+            <div style={styles.breakdownItem}>
+              <span style={{...styles.breakdownDot, backgroundColor: '#28a745'}}></span>
+              <span style={styles.breakdownLabel}>Compliant</span>
+              <span style={styles.breakdownValue}>{stats.compliantSuppliers}</span>
             </div>
-          </div>
-        </div>
-
-        <div style={styles.statCard}>
-          <div style={styles.statCardHeader}>
-            <span style={{...styles.statIcon, backgroundColor: '#dc354520', color: '#dc3545'}}>📅</span>
-            <div>
-              <h3 style={styles.statNumber}>{stats.expiredAgreements}</h3>
-              <p style={styles.statLabel}>Expired</p>
+            <div style={styles.breakdownItem}>
+              <span style={{...styles.breakdownDot, backgroundColor: '#ffc107'}}></span>
+              <span style={styles.breakdownLabel}>Under Review</span>
+              <span style={styles.breakdownValue}>{stats.underReview}</span>
+            </div>
+            <div style={styles.breakdownItem}>
+              <span style={{...styles.breakdownDot, backgroundColor: '#dc3545'}}></span>
+              <span style={styles.breakdownLabel}>Non-Compliant</span>
+              <span style={styles.breakdownValue}>{stats.nonCompliantSuppliers}</span>
+            </div>
+            <div style={styles.breakdownItem}>
+              <span style={{...styles.breakdownDot, backgroundColor: '#3b82f6'}}></span>
+              <span style={styles.breakdownLabel}>Conditional</span>
+              <span style={styles.breakdownValue}>{stats.conditional}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Stats Row - Optional, show only if we have data */}
-      {(quickStats.totalInquiries > 0 || quickStats.pendingActions > 0) && (
-        <div style={styles.quickStatsGrid}>
-          <div style={styles.quickStatCard}>
-            <div style={styles.quickStatContent}>
-              <span style={styles.quickStatIcon}>📋</span>
-              <div>
-                <h4 style={styles.quickStatNumber}>{quickStats.totalInquiries}</h4>
-                <p style={styles.quickStatLabel}>Total Inquiries</p>
-              </div>
+      {/* Key Metrics Grid */}
+      <div style={styles.metricsGrid}>
+        <div style={styles.metricCard}>
+          <div style={styles.metricHeader}>
+            <span style={{...styles.metricIcon, backgroundColor: '#3498db20', color: '#3498db'}}>🏢</span>
+            <div>
+              <h3 style={styles.metricNumber}>{formatNumber(stats.totalSuppliers)}</h3>
+              <p style={styles.metricLabel}>Total Suppliers</p>
             </div>
           </div>
-
-          <div style={styles.quickStatCard}>
-            <div style={styles.quickStatContent}>
-              <span style={styles.quickStatIcon}>✅</span>
-              <div>
-                <h4 style={styles.quickStatNumber}>{quickStats.confirmedInquiries}</h4>
-                <p style={styles.quickStatLabel}>Confirmed</p>
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.quickStatCard}>
-            <div style={styles.quickStatContent}>
-              <span style={styles.quickStatIcon}>⏰</span>
-              <div>
-                <h4 style={styles.quickStatNumber}>{quickStats.pendingActions}</h4>
-                <p style={styles.quickStatLabel}>Pending Actions</p>
-              </div>
-            </div>
+          <div style={styles.metricTrend}>
+            <span style={styles.trendText}>All registered factories</span>
           </div>
         </div>
-      )}
 
-      {/* Quick Actions & Recent Suppliers Side by Side */}
+        <div style={styles.metricCard}>
+          <div style={styles.metricHeader}>
+            <span style={{...styles.metricIcon, backgroundColor: '#28a74520', color: '#28a745'}}>✅</span>
+            <div>
+              <h3 style={styles.metricNumber}>{formatNumber(stats.certifiedSuppliers)}</h3>
+              <p style={styles.metricLabel}>Certified Suppliers</p>
+            </div>
+          </div>
+          <div style={styles.metricTrend}>
+            <span style={styles.trendText}>Valid certifications</span>
+          </div>
+        </div>
+
+        <div style={styles.metricCard}>
+          <div style={styles.metricHeader}>
+            <span style={{...styles.metricIcon, backgroundColor: '#10b98120', color: '#10b981'}}>📋</span>
+            <div>
+              <h3 style={styles.metricNumber}>{formatNumber(stats.validLicenseSuppliers)}</h3>
+              <p style={styles.metricLabel}>Valid Licenses</p>
+            </div>
+          </div>
+          <div style={styles.metricTrend}>
+            <span style={styles.trendText}>All licenses current</span>
+          </div>
+        </div>
+
+        <div style={styles.metricCard}>
+          <div style={styles.metricHeader}>
+            <span style={{...styles.metricIcon, backgroundColor: '#8b5cf620', color: '#8b5cf6'}}>🛡️</span>
+            <div>
+              <h3 style={styles.metricNumber}>{formatNumber(stats.activeGrievanceSuppliers)}</h3>
+              <p style={styles.metricLabel}>Grievance Systems</p>
+            </div>
+          </div>
+          <div style={styles.metricTrend}>
+            <span style={styles.trendText}>Active mechanism</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
       <div style={styles.mainContentGrid}>
-        {/* Quick Actions */}
-        <div style={styles.quickActions}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Quick Actions</h2>
+        {/* Left Column: Compliance Areas */}
+        <div style={styles.leftColumn}>
+          <div style={styles.sectionCard}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.sectionTitle}>Compliance Areas</h3>
+            </div>
+            <div style={styles.complianceAreas}>
+              <div style={styles.complianceArea}>
+                <div style={styles.areaHeader}>
+                  <span style={{...styles.areaIcon, backgroundColor: '#dc262620', color: '#dc2626'}}>🔥</span>
+                  <div>
+                    <h4 style={styles.areaTitle}>Fire Safety</h4>
+                    <p style={styles.areaSubtitle}>Training, drills & equipment</p>
+                  </div>
+                </div>
+                <div style={styles.areaProgress}>
+                  <div style={styles.progressBar}>
+                    <div style={{
+                      ...styles.progressFill,
+                      width: `${(complianceOverview.fireSafety.compliant / complianceOverview.fireSafety.total) * 100 || 0}%`,
+                      backgroundColor: '#dc2626'
+                    }}></div>
+                  </div>
+                  <span style={styles.progressText}>
+                    {complianceOverview.fireSafety.compliant}/{complianceOverview.fireSafety.total} compliant
+                  </span>
+                </div>
+              </div>
+
+              <div style={styles.complianceArea}>
+                <div style={styles.areaHeader}>
+                  <span style={{...styles.areaIcon, backgroundColor: '#10b98120', color: '#10b981'}}>🌱</span>
+                  <div>
+                    <h4 style={styles.areaTitle}>Environmental</h4>
+                    <p style={styles.areaSubtitle}>Water tests & chemicals</p>
+                  </div>
+                </div>
+                <div style={styles.areaProgress}>
+                  <div style={styles.progressBar}>
+                    <div style={{
+                      ...styles.progressFill,
+                      width: `${(complianceOverview.environmental.compliant / complianceOverview.environmental.total) * 100 || 0}%`,
+                      backgroundColor: '#10b981'
+                    }}></div>
+                  </div>
+                  <span style={styles.progressText}>
+                    {complianceOverview.environmental.compliant}/{complianceOverview.environmental.total} compliant
+                  </span>
+                </div>
+              </div>
+
+              <div style={styles.complianceArea}>
+                <div style={styles.areaHeader}>
+                  <span style={{...styles.areaIcon, backgroundColor: '#f59e0b20', color: '#f59e0b'}}>👷</span>
+                  <div>
+                    <h4 style={styles.areaTitle}>Labor Standards</h4>
+                    <p style={styles.areaSubtitle}>Wages & benefits</p>
+                  </div>
+                </div>
+                <div style={styles.areaProgress}>
+                  <div style={styles.progressBar}>
+                    <div style={{
+                      ...styles.progressFill,
+                      width: `${(complianceOverview.labor.compliant / complianceOverview.labor.total) * 100 || 0}%`,
+                      backgroundColor: '#f59e0b'
+                    }}></div>
+                  </div>
+                  <span style={styles.progressText}>
+                    {complianceOverview.labor.compliant}/{complianceOverview.labor.total} compliant
+                  </span>
+                </div>
+              </div>
+
+              <div style={styles.complianceArea}>
+                <div style={styles.areaHeader}>
+                  <span style={{...styles.areaIcon, backgroundColor: '#3b82f620', color: '#3b82f6'}}>🏗️</span>
+                  <div>
+                    <h4 style={styles.areaTitle}>Structural Safety</h4>
+                    <p style={styles.areaSubtitle}>RSC audit results</p>
+                  </div>
+                </div>
+                <div style={styles.areaProgress}>
+                  <div style={styles.progressBar}>
+                    <div style={{
+                      ...styles.progressFill,
+                      width: `${(complianceOverview.structural.compliant / complianceOverview.structural.total) * 100 || 0}%`,
+                      backgroundColor: '#3b82f6'
+                    }}></div>
+                  </div>
+                  <span style={styles.progressText}>
+                    {complianceOverview.structural.compliant}/{complianceOverview.structural.total} compliant
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div style={styles.actionButtons}>
-            <Link to="/add-supplierCSR" style={styles.actionButton}>
-              <span style={styles.buttonIcon}>➕</span>
-              <div style={styles.actionContent}>
-                <span style={styles.actionTitle}>Add New Supplier</span>
-                <span style={styles.actionDesc}>Register a new vendor</span>
+
+          {/* Certification Distribution */}
+          <div style={styles.sectionCard}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.sectionTitle}>Certification Distribution</h3>
+            </div>
+            <div style={styles.certificationGrid}>
+              <div style={styles.certificationItem}>
+                <span style={styles.certificationBadge}>BSCI</span>
+                <div style={styles.certificationCount}>
+                  <span style={styles.certificationNumber}>{certificationStats.bsci}</span>
+                  <span style={styles.certificationLabel}>Suppliers</span>
+                </div>
               </div>
-            </Link>
-            
-            <Link to="/suppliersCSR" style={styles.actionButton}>
-              <span style={styles.buttonIcon}>📋</span>
-              <div style={styles.actionContent}>
-                <span style={styles.actionTitle}>View All Suppliers</span>
-                <span style={styles.actionDesc}>Browse complete list</span>
+              <div style={styles.certificationItem}>
+                <span style={styles.certificationBadge}>SEDEX</span>
+                <div style={styles.certificationCount}>
+                  <span style={styles.certificationNumber}>{certificationStats.sedex}</span>
+                  <span style={styles.certificationLabel}>Suppliers</span>
+                </div>
               </div>
-            </Link>
-            
-            <button 
-              onClick={() => navigate('/suppliersCSR?status=pending')} 
-              style={styles.actionButton}
-            >
-              <span style={styles.buttonIcon}>🔔</span>
-              <div style={styles.actionContent}>
-                <span style={styles.actionTitle}>Pending Reviews</span>
-                <span style={styles.actionDesc}>{stats.pendingAgreements} pending</span>
+              <div style={styles.certificationItem}>
+                <span style={styles.certificationBadge}>WRAP</span>
+                <div style={styles.certificationCount}>
+                  <span style={styles.certificationNumber}>{certificationStats.wrap}</span>
+                  <span style={styles.certificationLabel}>Suppliers</span>
+                </div>
               </div>
-            </button>
-            
-            <button 
-              onClick={() => navigate('/suppliersCSR?status=expired')} 
-              style={styles.actionButton}
-            >
-              <span style={styles.buttonIcon}>📅</span>
-              <div style={styles.actionContent}>
-                <span style={styles.actionTitle}>Expired Agreements</span>
-                <span style={styles.actionDesc}>{stats.expiredAgreements} need renewal</span>
+              <div style={styles.certificationItem}>
+                <span style={styles.certificationBadge}>ISO</span>
+                <div style={styles.certificationCount}>
+                  <span style={styles.certificationNumber}>{certificationStats.iso}</span>
+                  <span style={styles.certificationLabel}>Suppliers</span>
+                </div>
               </div>
-            </button>
+            </div>
           </div>
         </div>
 
-        {/* Recent Suppliers */}
-        <div style={styles.recentSuppliers}>
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>Recent Suppliers</h2>
-            {recentSuppliers.length > 0 && (
-              <Link to="/suppliersCSR" style={styles.viewAllLink}>
-                View All →
-              </Link>
-            )}
-          </div>
-          
-          {recentSuppliers.length > 0 ? (
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
-                <thead>
-                  <tr style={styles.tableHeader}>
-                    <th style={styles.tableHeaderCell}>Vendor ID</th>
-                    <th style={styles.tableHeaderCell}>Company</th>
-                    <th style={styles.tableHeaderCell}>Status</th>
-                    <th style={styles.tableHeaderCell}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentSuppliers.map(supplier => {
-                    const statusColors = getStatusColor(supplier.agreement_status)
-                    return (
-                      <tr key={supplier.id} style={styles.tableRow}>
-                        <td style={styles.tableCell}>
-                          <div style={styles.vendorIdCell}>
-                            <span style={styles.vendorIdBadge}>{supplier.vendor_id}</span>
-                          </div>
-                        </td>
-                        <td style={styles.tableCell}>
-                          <div style={styles.companyCell}>
-                            <strong style={styles.companyName}>{supplier.name}</strong>
-                            <span style={styles.companyEmail}>{supplier.email}</span>
-                          </div>
-                        </td>
-                        <td style={styles.tableCell}>
+        {/* Right Column: Recent Suppliers & Quick Actions */}
+        <div style={styles.rightColumn}>
+          <div style={styles.sectionCard}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.sectionTitle}>Recent Suppliers</h3>
+              {recentSuppliers.length > 0 && (
+                <Link to="/suppliersCSR" style={styles.viewAllLink}>
+                  View All →
+                </Link>
+              )}
+            </div>
+            
+            {recentSuppliers.length > 0 ? (
+              <div style={styles.suppliersList}>
+                {recentSuppliers.map(supplier => {
+                  const statusColors = getStatusColor(supplier.compliance_status)
+                  return (
+                    <div key={supplier.id} style={styles.supplierItem}>
+                      <div style={styles.supplierAvatar}>
+                        {supplier.name?.charAt(0) || 'S'}
+                      </div>
+                      <div style={styles.supplierInfo}>
+                        <div style={styles.supplierMain}>
+                          <strong style={styles.supplierName}>{supplier.name}</strong>
                           <span style={{
                             ...styles.statusBadge,
                             backgroundColor: statusColors.bg,
                             color: statusColors.text,
                             border: `1px solid ${statusColors.border}`
                           }}>
-                            {formatStatus(supplier.agreement_status)}
+                            {formatStatus(supplier.compliance_status)}
                           </span>
-                        </td>
-                        <td style={styles.tableCell}>
-                          <div style={styles.actionButtonsCell}>
-                            <button 
-                              onClick={() => navigate(`/edit-supplier/${supplier.id}`)}
-                              style={styles.editButton}
-                              title="Edit supplier"
-                            >
-                              Edit
-                            </button>
-                            <button 
-                              onClick={() => navigate(`/suppliersCSR/${supplier.id}`)}
-                              style={styles.viewButton}
-                              title="View details"
-                            >
-                              View
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={styles.emptyState}>
-              <span style={styles.emptyStateIcon}>📭</span>
-              <p style={styles.emptyStateText}>No suppliers found in the system</p>
-              <p style={styles.emptyStateSubtext}>Add your first supplier to get started</p>
-              <Link to="/add-supplierCSR" style={styles.emptyStateButton}>
-                Add Your First Supplier
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
+                        </div>
+                        <div style={styles.supplierDetails}>
+                          <span style={styles.supplierId}>ID: {supplier.supplier_id}</span>
+                          <span style={styles.supplierCategory}>{supplier.category}</span>
+                          <span style={styles.supplierLocation}>{supplier.location}</span>
+                        </div>
+                        <div style={styles.supplierActions}>
+                          <button 
+                            onClick={() => navigate(`/suppliersCSR/${supplier.id}`)}
+                            style={styles.viewButton}
+                          >
+                            View Details
+                          </button>
+                          {supplier.certification_status && (
+                            <span style={styles.certifiedBadge}>✅ Certified</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={styles.emptyState}>
+                <span style={styles.emptyStateIcon}>🏭</span>
+                <p style={styles.emptyStateText}>No suppliers found</p>
+                <p style={styles.emptyStateSubtext}>Add your first supplier to get started</p>
+                <Link to="/add-supplierCSR" style={styles.emptyStateButton}>
+                  Add First Supplier
+                </Link>
+              </div>
+            )}
+          </div>
 
-      {/* Status Summary - Only show if we have data */}
-      {stats.totalSuppliers > 0 && (
-        <div style={styles.statusSummary}>
-          <h3 style={styles.summaryTitle}>Status Summary</h3>
-          <div style={styles.statusGrid}>
-            <div style={styles.statusItem}>
-              <span style={{...styles.statusDot, backgroundColor: '#28a745'}}></span>
-              <span style={styles.statusLabel}>Active</span>
-              <span style={styles.statusCount}>{stats.activeSuppliers}</span>
-              <span style={styles.statusPercent}>
-                ({Math.round((stats.activeSuppliers / stats.totalSuppliers) * 100)}%)
-              </span>
+          {/* Quick Actions */}
+          <div style={styles.sectionCard}>
+            <div style={styles.sectionHeader}>
+              <h3 style={styles.sectionTitle}>Quick Actions</h3>
             </div>
-            <div style={styles.statusItem}>
-              <span style={{...styles.statusDot, backgroundColor: '#ffc107'}}></span>
-              <span style={styles.statusLabel}>Pending</span>
-              <span style={styles.statusCount}>{stats.pendingAgreements}</span>
-              <span style={styles.statusPercent}>
-                ({Math.round((stats.pendingAgreements / stats.totalSuppliers) * 100)}%)
-              </span>
-            </div>
-            <div style={styles.statusItem}>
-              <span style={{...styles.statusDot, backgroundColor: '#dc3545'}}></span>
-              <span style={styles.statusLabel}>Expired</span>
-              <span style={styles.statusCount}>{stats.expiredAgreements}</span>
-              <span style={styles.statusPercent}>
-                ({Math.round((stats.expiredAgreements / stats.totalSuppliers) * 100)}%)
-              </span>
-            </div>
-            <div style={styles.statusItem}>
-              <span style={{...styles.statusDot, backgroundColor: '#6c757d'}}></span>
-              <span style={styles.statusLabel}>Others</span>
-              <span style={styles.statusCount}>
-                {stats.totalSuppliers - (stats.activeSuppliers + stats.pendingAgreements + stats.expiredAgreements)}
-              </span>
+            <div style={styles.quickActions}>
+              <button 
+                onClick={() => navigate('/suppliersCSR?status=non_compliant')}
+                style={styles.quickActionButton}
+              >
+                <span style={styles.actionIcon}>🚨</span>
+                <div style={styles.actionContent}>
+                  <span style={styles.actionTitle}>Non-Compliant</span>
+                  <span style={styles.actionDesc}>{stats.nonCompliantSuppliers} need attention</span>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => navigate('/suppliersCSR?status=under_review')}
+                style={styles.quickActionButton}
+              >
+                <span style={styles.actionIcon}>⏳</span>
+                <div style={styles.actionContent}>
+                  <span style={styles.actionTitle}>Under Review</span>
+                  <span style={styles.actionDesc}>{stats.underReview} pending review</span>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => navigate('/suppliersCSR?certification=expired')}
+                style={styles.quickActionButton}
+              >
+                <span style={styles.actionIcon}>📅</span>
+                <div style={styles.actionContent}>
+                  <span style={styles.actionTitle}>Expired Certs</span>
+                  <span style={styles.actionDesc}>Check certifications</span>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => navigate('/suppliersCSR?license=expired')}
+                style={styles.quickActionButton}
+              >
+                <span style={styles.actionIcon}>📋</span>
+                <div style={styles.actionContent}>
+                  <span style={styles.actionTitle}>License Renewals</span>
+                  <span style={styles.actionDesc}>Verify licenses</span>
+                </div>
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Statistics Footer */}
+      <div style={styles.statsFooter}>
+        <div style={styles.statItem}>
+          <span style={styles.statIcon}>🏭</span>
+          <div>
+            <h4 style={styles.statNumber}>{stats.totalSuppliers}</h4>
+            <p style={styles.statLabel}>Total Factories</p>
+          </div>
+        </div>
+        <div style={styles.statItem}>
+          <span style={styles.statIcon}>✅</span>
+          <div>
+            <h4 style={styles.statNumber}>{stats.compliantSuppliers}</h4>
+            <p style={styles.statLabel}>Fully Compliant</p>
+          </div>
+        </div>
+        <div style={styles.statItem}>
+          <span style={styles.statIcon}>📊</span>
+          <div>
+            <h4 style={styles.statNumber}>{calculateComplianceRate()}%</h4>
+            <p style={styles.statLabel}>Compliance Rate</p>
+          </div>
+        </div>
+        <div style={styles.statItem}>
+          <span style={styles.statIcon}>🔄</span>
+          <div>
+            <h4 style={styles.statNumber}>{stats.underReview + stats.conditional}</h4>
+            <p style={styles.statLabel}>In Progress</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
 const styles = {
   container: {
-    padding: '2rem',
+    padding: '3rem 5rem',
     backgroundColor: '#f8fafc',
     minHeight: '100vh',
     fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -484,12 +697,17 @@ const styles = {
     flexWrap: 'wrap',
     gap: '1rem',
   },
+  headerActions: {
+    display: 'flex',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
+  },
   title: {
     fontSize: '2rem',
     fontWeight: '800',
     marginBottom: '0.5rem',
     color: '#1e293b',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
   },
@@ -500,9 +718,9 @@ const styles = {
   },
   refreshButton: {
     padding: '0.75rem 1.5rem',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    border: 'none',
+    backgroundColor: '#f1f5f9',
+    color: '#475569',
+    border: '1px solid #e2e8f0',
     borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '0.875rem',
@@ -511,15 +729,18 @@ const styles = {
     alignItems: 'center',
     gap: '0.5rem',
     transition: 'all 0.2s ease',
-    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)',
   },
-  refreshButtonHover: {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 6px rgba(59, 130, 246, 0.3)',
-  },
-  refreshButtonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
+  addButton: {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    textDecoration: 'none',
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
   },
   errorAlert: {
     backgroundColor: '#fef2f2',
@@ -558,100 +779,162 @@ const styles = {
     fontWeight: '500',
     whiteSpace: 'nowrap',
   },
-  statsGrid: {
+  complianceScoreCard: {
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '2rem',
+    marginBottom: '2rem',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+    border: '1px solid #e2e8f0',
+  },
+  scoreHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem',
+  },
+  scoreTitle: {
+    fontSize: '1.25rem',
+    fontWeight: '700',
+    color: '#1e293b',
+    margin: 0,
+  },
+  scoreUpdated: {
+    fontSize: '0.75rem',
+    color: '#94a3b8',
+    backgroundColor: '#f1f5f9',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px',
+  },
+  scoreContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4rem',
+  },
+  scoreCircle: {
+    textAlign: 'center',
+    minWidth: '120px',
+  },
+  scoreValue: {
+    fontSize: '3rem',
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: '0.5rem',
+  },
+  scoreLabel: {
+    fontSize: '0.875rem',
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  scoreBreakdown: {
+    flex: 1,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1.5rem',
+  },
+  breakdownItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  },
+  breakdownDot: {
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    flexShrink: 0,
+  },
+  breakdownLabel: {
+    flex: 1,
+    fontSize: '0.875rem',
+    color: '#475569',
+    fontWeight: '500',
+  },
+  breakdownValue: {
+    fontSize: '1.125rem',
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  metricsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
     gap: '1.5rem',
     marginBottom: '2rem',
   },
-  statCard: {
+  metricCard: {
     backgroundColor: 'white',
     borderRadius: '12px',
     padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
     border: '1px solid #e2e8f0',
-    transition: 'all 0.2s ease',
+    transition: 'transform 0.2s ease',
   },
-  statCardHover: {
+  metricCardHover: {
     transform: 'translateY(-2px)',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
   },
-  statCardHeader: {
+  metricHeader: {
     display: 'flex',
     alignItems: 'center',
     gap: '1rem',
+    marginBottom: '1rem',
   },
-  statIcon: {
-    width: '56px',
-    height: '56px',
-    borderRadius: '12px',
+  metricIcon: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '10px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '1.75rem',
+    fontSize: '1.5rem',
     flexShrink: 0,
   },
-  statNumber: {
-    fontSize: '2rem',
+  metricNumber: {
+    fontSize: '1.75rem',
     fontWeight: '800',
     color: '#1e293b',
     margin: '0 0 0.25rem 0',
     lineHeight: 1,
   },
-  statLabel: {
+  metricLabel: {
     color: '#64748b',
     fontSize: '0.875rem',
     fontWeight: '500',
     margin: 0,
   },
-  quickStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '1rem',
-    marginBottom: '2rem',
-  },
-  quickStatCard: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '1rem',
-    border: '1px solid #e2e8f0',
-  },
-  quickStatContent: {
+  metricTrend: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
+    justifyContent: 'space-between',
   },
-  quickStatIcon: {
-    fontSize: '1.5rem',
-    color: '#3b82f6',
-  },
-  quickStatNumber: {
-    fontSize: '1.25rem',
-    fontWeight: '700',
-    color: '#1e293b',
-    margin: '0 0 0.125rem 0',
-  },
-  quickStatLabel: {
+  trendText: {
     fontSize: '0.75rem',
-    color: '#64748b',
-    margin: 0,
+    color: '#94a3b8',
   },
   mainContentGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 2fr',
+    gridTemplateColumns: '1fr 1fr',
     gap: '2rem',
     marginBottom: '2rem',
   },
-  '@media (max-width: 1024px)': {
+  '@media (max-width: 1200px)': {
     mainContentGrid: {
       gridTemplateColumns: '1fr',
     },
   },
-  quickActions: {
+  leftColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2rem',
+  },
+  rightColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2rem',
+  },
+  sectionCard: {
     backgroundColor: 'white',
     borderRadius: '12px',
     padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
     border: '1px solid #e2e8f0',
   },
   sectionHeader: {
@@ -661,7 +944,7 @@ const styles = {
     marginBottom: '1.5rem',
   },
   sectionTitle: {
-    fontSize: '1.25rem',
+    fontSize: '1.125rem',
     fontWeight: '700',
     color: '#1e293b',
     margin: 0,
@@ -672,113 +955,144 @@ const styles = {
     fontSize: '0.875rem',
     fontWeight: '500',
   },
-  actionButtons: {
+  complianceAreas: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.5rem',
+  },
+  complianceArea: {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.75rem',
   },
-  actionButton: {
+  areaHeader: {
     display: 'flex',
     alignItems: 'center',
     gap: '1rem',
+  },
+  areaIcon: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '1.25rem',
+    flexShrink: 0,
+  },
+  areaTitle: {
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#1e293b',
+    margin: 0,
+  },
+  areaSubtitle: {
+    fontSize: '0.75rem',
+    color: '#94a3b8',
+    margin: 0,
+  },
+  areaProgress: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  progressBar: {
+    flex: 1,
+    height: '8px',
+    backgroundColor: '#f1f5f9',
+    borderRadius: '4px',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: '4px',
+    transition: 'width 0.3s ease',
+  },
+  progressText: {
+    fontSize: '0.75rem',
+    color: '#64748b',
+    minWidth: '120px',
+    textAlign: 'right',
+  },
+  certificationGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1rem',
+  },
+  certificationItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: '1rem',
     backgroundColor: '#f8fafc',
-    color: '#334155',
-    textDecoration: 'none',
-    border: '1px solid #e2e8f0',
     borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    textAlign: 'left',
-    width: '100%',
-  },
-  actionButtonHover: {
-    backgroundColor: '#f1f5f9',
-    borderColor: '#cbd5e1',
-  },
-  buttonIcon: {
-    fontSize: '1.25rem',
-    width: '24px',
+    border: '1px solid #e2e8f0',
     textAlign: 'center',
   },
-  actionContent: {
+  certificationBadge: {
+    display: 'inline-block',
+    padding: '0.25rem 0.75rem',
+    backgroundColor: '#f1f5f9',
+    color: '#475569',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    marginBottom: '0.5rem',
+  },
+  certificationCount: {
     display: 'flex',
     flexDirection: 'column',
   },
-  actionTitle: {
-    fontWeight: '600',
-    fontSize: '0.875rem',
+  certificationNumber: {
+    fontSize: '1.5rem',
+    fontWeight: '700',
+    color: '#1e293b',
   },
-  actionDesc: {
+  certificationLabel: {
     fontSize: '0.75rem',
     color: '#94a3b8',
   },
-  recentSuppliers: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
+  suppliersList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
   },
-  tableContainer: {
-    overflowX: 'auto',
+  supplierItem: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '1rem',
+    padding: '1rem',
+    backgroundColor: '#f8fafc',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
   },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    minWidth: '600px',
-  },
-  tableHeader: {
-    backgroundColor: '#f8fafc',
-  },
-  tableHeaderCell: {
-    padding: '1rem',
-    textAlign: 'left',
-    fontWeight: '600',
-    color: '#475569',
-    fontSize: '0.875rem',
-    borderBottom: '2px solid #e2e8f0',
-  },
-  tableRow: {
-    borderBottom: '1px solid #e2e8f0',
-    transition: 'background-color 0.2s ease',
-  },
-  tableRowHover: {
-    backgroundColor: '#f8fafc',
-  },
-  tableCell: {
-    padding: '1rem',
-    textAlign: 'left',
-    color: '#334155',
-    verticalAlign: 'middle',
-  },
-  vendorIdCell: {
+  supplierAvatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '8px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    flexShrink: 0,
   },
-  vendorIdBadge: {
-    backgroundColor: '#f1f5f9',
-    color: '#475569',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.75rem',
-    fontWeight: '500',
-    fontFamily: 'monospace',
+  supplierInfo: {
+    flex: 1,
   },
-  companyCell: {
+  supplierMain: {
     display: 'flex',
-    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.5rem',
   },
-  companyName: {
+  supplierName: {
     fontSize: '0.875rem',
     fontWeight: '600',
-    marginBottom: '0.25rem',
-  },
-  companyEmail: {
-    fontSize: '0.75rem',
-    color: '#64748b',
+    color: '#1e293b',
   },
   statusBadge: {
     padding: '0.25rem 0.75rem',
@@ -789,11 +1103,34 @@ const styles = {
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
-  actionButtonsCell: {
+  supplierDetails: {
     display: 'flex',
-    gap: '0.5rem',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
+    marginBottom: '0.75rem',
   },
-  editButton: {
+  supplierId: {
+    fontSize: '0.75rem',
+    color: '#64748b',
+    backgroundColor: '#f1f5f9',
+    padding: '0.125rem 0.5rem',
+    borderRadius: '4px',
+  },
+  supplierCategory: {
+    fontSize: '0.75rem',
+    color: '#64748b',
+  },
+  supplierLocation: {
+    fontSize: '0.75rem',
+    color: '#64748b',
+    fontStyle: 'italic',
+  },
+  supplierActions: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  viewButton: {
     padding: '0.375rem 0.75rem',
     backgroundColor: '#3b82f6',
     color: 'white',
@@ -802,18 +1139,49 @@ const styles = {
     cursor: 'pointer',
     fontSize: '0.75rem',
     fontWeight: '500',
-    transition: 'all 0.2s ease',
+    textDecoration: 'none',
   },
-  viewButton: {
-    padding: '0.375rem 0.75rem',
-    backgroundColor: '#10b981',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
+  certifiedBadge: {
     fontSize: '0.75rem',
+    color: '#10b981',
     fontWeight: '500',
+  },
+  quickActions: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  quickActionButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    padding: '1rem',
+    backgroundColor: '#f8fafc',
+    color: '#334155',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    cursor: 'pointer',
     transition: 'all 0.2s ease',
+    textAlign: 'left',
+    width: '100%',
+  },
+  actionIcon: {
+    fontSize: '1.25rem',
+    width: '24px',
+    textAlign: 'center',
+  },
+  actionContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  actionTitle: {
+    fontWeight: '600',
+    fontSize: '0.875rem',
+  },
+  actionDesc: {
+    fontSize: '0.75rem',
+    color: '#94a3b8',
   },
   emptyState: {
     textAlign: 'center',
@@ -845,55 +1213,35 @@ const styles = {
     fontWeight: '500',
     fontSize: '0.875rem',
   },
-  statusSummary: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0',
-  },
-  summaryTitle: {
-    fontSize: '1.125rem',
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: '1.5rem',
-  },
-  statusGrid: {
+  statsFooter: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: '1rem',
+    marginTop: '2rem',
   },
-  statusItem: {
+  statItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    padding: '0.75rem 1rem',
-    backgroundColor: '#f8fafc',
+    gap: '1rem',
+    padding: '1rem',
+    backgroundColor: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
   },
-  statusDot: {
-    width: '10px',
-    height: '10px',
-    borderRadius: '50%',
-    flexShrink: 0,
+  statIcon: {
+    fontSize: '1.5rem',
+    color: '#3b82f6',
   },
-  statusLabel: {
-    flex: 1,
-    fontSize: '0.875rem',
-    color: '#475569',
-    fontWeight: '500',
-  },
-  statusCount: {
-    fontSize: '1rem',
+  statNumber: {
+    fontSize: '1.25rem',
     fontWeight: '700',
     color: '#1e293b',
-    marginRight: '0.5rem',
+    margin: 0,
   },
-  statusPercent: {
+  statLabel: {
     fontSize: '0.75rem',
     color: '#64748b',
-    fontStyle: 'italic',
+    margin: 0,
   },
   loadingContainer: {
     display: 'flex',
@@ -927,4 +1275,4 @@ spinnerStyle.textContent = `
 `
 document.head.appendChild(spinnerStyle)
 
-export default DashboardCSR
+export default SupplierDashboardCSR

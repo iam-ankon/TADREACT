@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -84,7 +83,7 @@ const Sidebar = () => {
 
   // === DEPARTMENT-BASED PERMISSIONS ===
   const departmentPermissions = {
-    isAdmin:  department.includes("management"),
+    isAdmin: department.includes("management"),
     isAdminDepartment: department.includes("admin"),
     isQA: department.includes("qa") || department.includes("quality"),
     isRnD: department.includes("r&d") || department.includes("research"),
@@ -409,8 +408,8 @@ const Sidebar = () => {
   const menuItems = isLimitedHR
     ? limitedHRMenuItems
     : hasFullAccess
-    ? hrDashboardMenuItems
-    : regularEmployeeMenuItems;
+      ? hrDashboardMenuItems
+      : regularEmployeeMenuItems;
 
   // Get department display name for user info
   const getDepartmentDisplayName = () => {
@@ -458,10 +457,10 @@ const Sidebar = () => {
 
     return "Employee";
   };
-  
+
   // Determine if user should see HR sidebar style
   // Group HR Head sees HR style, but is NOT full access
-  const isHRDashboard = hasFullAccess || isLimitedHR;
+  const isHRDashboard = hasFullAccess || isLimitedHR || limitedHRMenuItems;
 
   const sidebarStyle = {
     position: "fixed",
@@ -708,7 +707,11 @@ const Sidebar = () => {
               </div>
               {isSidebarOpen && (
                 <span style={headerTextStyle}>
-                  {isHRDashboard ? "HR Portal" : "Employee Portal"}
+                  {hrDashboardMenuItems.includes(menuItems[0])
+                    ? "Management"
+                    : isLimitedHR
+                      ? "HR Portal"
+                      : "Employee Portal"}
                 </span>
               )}
             </div>

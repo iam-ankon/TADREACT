@@ -14,6 +14,7 @@ import {
   FaSync,
   FaFileExcel,
   FaEdit,
+  FaFileAlt,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -105,6 +106,7 @@ const SalaryRecords = () => {
   const [showAllColumns, setShowAllColumns] = useState(false);
   const [generatingExcel, setGeneratingExcel] = useState({});
   const [workDayHours, setWorkDayHours] = useState({}); // Store work day hours per company
+  const [generatingPaySlip, setGeneratingPaySlip] = useState({});
   const navigate = useNavigate();
 
   // Approval status states
@@ -651,106 +653,6 @@ const SalaryRecords = () => {
     }
   };
 
-  // Export company data
-  // const exportCompanyData = (companyName) => {
-  //   const records = grouped[companyName];
-  //   if (!records || records.length === 0) {
-  //     alert(`No records found for ${companyName}`);
-  //     return;
-  //   }
-
-  //   const workDayHoursValue = workDayHours[companyName] || 10;
-
-  //   const headers = [
-  //     "SL",
-  //     "Name",
-  //     "ID",
-  //     "Designation",
-  //     "DOJ",
-  //     "Basic",
-  //     "House Rent",
-  //     "Medical",
-  //     "Conveyance",
-  //     "Gross Salary",
-  //     "Total Days",
-  //     "Days Worked",
-  //     "Absent Days",
-  //     "Absent Ded.",
-  //     "Advance",
-  //     "AIT",
-  //     "Total Ded.",
-  //     "OT Hours",
-  //     "OT Pay",
-  //     "Addition",
-  //     "Cash Payment",
-  //     "Cash Salary",
-  //     "Net Pay (Bank)",
-  //     "Total Payable",
-  //     "Bank Account",
-  //     "Branch Name",
-  //     "Remarks",
-  //     "Company",
-  //     "Work Day Hours",
-  //   ];
-
-  //   const rows = records.map((record, idx) => {
-  //     const calculated = calculateDerivedValues(record);
-
-  //     return [
-  //       idx + 1,
-  //       record.name || "",
-  //       record.employee_id || "",
-  //       record.designation || "",
-  //       record.doj || "",
-  //       calculated.basic,
-  //       calculated.houseRent,
-  //       calculated.medical,
-  //       calculated.conveyance,
-  //       calculated.grossSalary,
-  //       record.total_days || 0,
-  //       calculated.daysWorked,
-  //       calculated.absentDays,
-  //       calculated.absentDeduction,
-  //       calculated.advance,
-  //       calculated.ait,
-  //       calculated.totalDeduction,
-  //       calculated.otHours,
-  //       calculated.otPay,
-  //       calculated.addition,
-  //       calculated.cashPayment,
-  //       calculated.cashSalary,
-  //       calculated.netPayBank,
-  //       calculated.totalPayable,
-  //       record.bank_account || "",
-  //       record.branch_name || "",
-  //       getEditableValue(record, "remarks") || "",
-  //       record.company_name || "",
-  //       workDayHoursValue,
-  //     ];
-  //   });
-
-  //   const wb = XLSX.utils.book_new();
-  //   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-
-  //   const colWidths = headers.map((_, i) => {
-  //     const max = Math.max(
-  //       ...rows.map((row) => (row[i] != null ? String(row[i]).length : 0)),
-  //       String(headers[i]).length,
-  //     );
-  //     return { wch: Math.min(max + 2, 50) };
-  //   });
-  //   ws["!cols"] = colWidths;
-
-  //   XLSX.utils.book_append_sheet(wb, ws, "Salary Records");
-
-  //   const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  //   const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-  //   saveAs(
-  //     blob,
-  //     `${companyName}_Salary_Records_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`,
-  //   );
-  // };
-
   const generateSalarySheetForCompany = async (companyName) => {
     try {
       setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
@@ -834,6 +736,88 @@ const SalaryRecords = () => {
       );
     } finally {
       setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
+    }
+  };
+
+  // Generate Pay Slip Template Excel for ALL companies
+  const generateAllPaySlips = async () => {
+    if (Object.keys(grouped).length === 0) {
+      alert("No company data to generate pay slips");
+      return;
+    }
+
+    try {
+      setGeneratingPaySlip((prev) => ({ ...prev, all_companies: true }));
+      console.log(`📋 Generating Pay Slip Template Excel for ALL companies...`);
+
+      const response = await financeAPI.salaryRecords.generateAllPaySlipsExcel({
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `ALL_COMPANIES_PAY_SLIPS_${
+          monthNames[selectedMonth - 1]
+        }_${selectedYear}.xlsx`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log(
+        `✅ All Companies Pay Slip Template Excel file generated and downloaded!`,
+      );
+      alert(
+        `All Companies Pay Slip Template Excel file generated successfully!`,
+      );
+    } catch (error) {
+      console.error(
+        "❌ Error generating All Companies Pay Slip Template Excel file:",
+        error,
+      );
+
+      let errorMessage = "Failed to generate All Companies Pay Slip Template.";
+      if (error.response) {
+        errorMessage = `Server error: ${error.response.status}`;
+        if (error.response.data) {
+          try {
+            const errorText = await error.response.data.text();
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.error || errorMessage;
+            } catch {
+              errorMessage = errorText;
+            }
+          } catch (e) {
+            errorMessage = error.response.data;
+          }
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert(
+        `❌ Failed to generate All Companies Pay Slip Template. Error: ${errorMessage}`,
+      );
+
+      // Fallback: Generate one by one
+      const useFallback = confirm(
+        "Consolidated generation failed. Would you like to generate individual files for each company?",
+      );
+
+      if (useFallback) {
+        Object.keys(grouped).forEach((companyName, i) => {
+          setTimeout(() => generatePaySlipForCompany(companyName), i * 1000);
+        });
+      }
+    } finally {
+      setGeneratingPaySlip((prev) => ({ ...prev, all_companies: false }));
     }
   };
 
@@ -1391,6 +1375,21 @@ const SalaryRecords = () => {
                     disabled={Object.keys(grouped).length === 0}
                   >
                     <FaFileExport /> Download All Companies
+                  </button>
+
+                  <button
+                    onClick={generateAllPaySlips}
+                    className="btn btn-all-payslips"
+                    disabled={
+                      Object.keys(grouped).length === 0 ||
+                      generatingPaySlip.all_companies
+                    }
+                    title="Generate Pay Slip Templates for all companies in one Excel file"
+                  >
+                    <FaFileAlt />
+                    {generatingPaySlip.all_companies
+                      ? "Generating..."
+                      : "All Pay Slips"}
                   </button>
 
                   <button

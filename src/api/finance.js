@@ -305,20 +305,33 @@ export const employeeAPI = {
   },
 };
 
-// Tax Calculation APIs
+// In finance.js - Update the taxAPI section
 export const taxAPI = {
   // Calculate tax (individual)
   calculate: (data) => apiClient.post("/calculate/", data),
 
-  // Save calculated tax to backend
-  saveCalculatedTax: (data) => apiClient.post("/save-calculated-tax/", data),
+  // Save calculated tax to backend - NO MONTH/YEAR
+  saveCalculatedTax: (data) =>
+    apiClient.post("/save-calculated-tax/", {
+      employee_id: data.employee_id,
+      calculation_data: data.calculation_data,
+      source_other: data.source_other || 0,
+      bonus: data.bonus || 0,
+      calculated_by: data.calculated_by || "system",
+    }),
 
-  // Get saved taxes from backend
-  getCalculatedTaxes: (data) => apiClient.post("/get-calculated-taxes/", data),
+  // Get saved taxes from backend - NO MONTH/YEAR
+  getCalculatedTaxes: (data) =>
+    apiClient.post("/get-calculated-taxes/", {
+      employee_ids: data.employee_ids,
+      // No month or year
+    }),
 
-  // Clear saved taxes
+  // Clear saved taxes - UPDATED
   clearCalculatedTaxes: (data) =>
-    apiClient.post("/clear-calculated-taxes/", data),
+    apiClient.post("/clear-calculated-taxes/", {
+      employee_id: data.employee_id || null,
+    }),
 
   // Batch calculate taxes for multiple employees
   batchCalculate: async (employeeData) => {
@@ -327,7 +340,7 @@ export const taxAPI = {
         "/batch-calculate/",
         { employees: employeeData },
         {
-          timeout: 60000, // 60 seconds for large batches
+          timeout: 60000,
         },
       );
       return response;
@@ -337,11 +350,9 @@ export const taxAPI = {
     }
   },
 
-  getAitValue: async (employeeId, month, year) => {
+  getAitValue: async (employeeId) => {
     try {
-      const response = await apiClient.get(
-        `/get-ait/${employeeId}/${year}/${month}/`,
-      );
+      const response = await apiClient.get(`/get-ait/${employeeId}/`);
       return response.data;
     } catch (error) {
       console.error(`Failed to fetch AIT for ${employeeId}:`, error);
@@ -370,13 +381,12 @@ export const taxAPI = {
   // Save tax extra data
   saveTaxExtra: (data) => apiClient.post("/save-tax-extra/", data),
 
-  // Get tax extra data - with better error handling
+  // Get tax extra data
   getTaxExtra: async (employeeId) => {
     try {
       const response = await apiClient.get(`/tax-extra/${employeeId}/`);
       return response;
     } catch (error) {
-      // If backend fails, return default values
       console.warn(
         `Failed to load tax extra for ${employeeId}, using defaults`,
       );
@@ -392,7 +402,6 @@ export const taxAPI = {
   // Batch get tax extra data for multiple employees
   getTaxExtraBatch: async (employeeIds) => {
     try {
-      // Use Promise.all to fetch multiple employees in parallel
       const promises = employeeIds.map((empId) =>
         taxAPI
           .getTaxExtra(empId)
@@ -426,7 +435,6 @@ export const taxAPI = {
     sourceOther = 0,
   ) => {
     try {
-      // Only calculate tax if salary > 41,000
       if (monthlySalary <= 41000) {
         return {
           tax_calculation: {
@@ -591,6 +599,15 @@ export const salaryRecordsAPI = {
       },
     });
   },
+
+  generateAllPaySlipsExcel: (data) => {
+    return apiClient.post("/generate-all-pay-slips-excel/", data, {
+      responseType: "blob",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
 };
 
 // In your finance API file - Update approvalAPI
@@ -602,7 +619,7 @@ export const approvalAPI = {
   getApprovalStatus: (params) => {
     // Default to current month/year if not provided
     const defaultParams = {
-      company_name: params.company_name || 'All Companies',
+      company_name: params.company_name || "All Companies",
       month: params.month || new Date().getMonth() + 1,
       year: params.year || new Date().getFullYear(),
     };
@@ -867,7 +884,7 @@ export const storageAPI = {
     localStorage.setItem("lastSyncTime", timestamp.toString()),
 };
 
-// In finance.js - Add this function
+// In finance.js - Update syncAllDataFromBackend to not use month/year
 export const syncAllDataFromBackend = async (employeeIds = []) => {
   try {
     console.log(`Full syncing data for ${employeeIds.length} employees...`);
