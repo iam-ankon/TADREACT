@@ -27,6 +27,7 @@ import {
   FaHome,
   FaUser,
   FaChartLine,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
 const EmployeeDetailPage = () => {
@@ -38,6 +39,7 @@ const EmployeeDetailPage = () => {
   const [incrementHistory, setIncrementHistory] = useState([]);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState("");
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Helper function to display gender
   const displayGender = (gender) => {
@@ -76,9 +78,17 @@ const EmployeeDetailPage = () => {
     return formatCurrency(basic + cash);
   };
 
-  // Function to send welcome email
-  const handleSendWelcomeEmail = async () => {
+  // Function to show confirmation dialog
+  const handleSendWelcomeEmailClick = () => {
     if (!employee) return;
+    setShowConfirmation(true);
+  };
+
+  // Function to send welcome email after confirmation
+  const handleConfirmSendEmail = async () => {
+    if (!employee) return;
+
+    setShowConfirmation(false); // Close confirmation dialog
 
     try {
       setSendingEmail(true);
@@ -107,6 +117,15 @@ const EmployeeDetailPage = () => {
     } finally {
       setSendingEmail(false);
     }
+  };
+
+  // Function to cancel sending email
+  const handleCancelSendEmail = () => {
+    setShowConfirmation(false);
+    setEmailStatus("❌ Email sending cancelled");
+    setTimeout(() => {
+      setEmailStatus("");
+    }, 3000);
   };
 
   // Fetch employee details
@@ -534,7 +553,7 @@ const EmployeeDetailPage = () => {
               </div>
               <div className="action-buttons">
                 <button
-                  onClick={handleSendWelcomeEmail}
+                  onClick={handleSendWelcomeEmailClick}
                   className="btn-email"
                   disabled={sendingEmail}
                 >
@@ -792,6 +811,43 @@ const EmployeeDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div className="confirmation-modal-overlay">
+          <div className="confirmation-modal">
+            <div className="modal-header">
+              <FaExclamationTriangle className="modal-icon" />
+              <h3>Confirm Email Sending</h3>
+            </div>
+            <div className="modal-body">
+              <p>
+                Are you sure you want to send welcome emails to{" "}
+                <strong>{employee.name}</strong>?
+              </p>
+              <p className="modal-warning">
+                This action will send welcome emails to the employee's registered
+                email address and cannot be undone.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                onClick={handleCancelSendEmail}
+                className="modal-btn modal-btn-cancel"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSendEmail}
+                className="modal-btn modal-btn-confirm"
+                disabled={sendingEmail}
+              >
+                {sendingEmail ? "Sending..." : "Yes, Send Email"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .employee-detail-container {
@@ -1286,6 +1342,125 @@ const EmployeeDetailPage = () => {
           font-style: italic;
         }
 
+        /* Confirmation Modal */
+        .confirmation-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+          animation: fadeIn 0.3s ease-out;
+          backdrop-filter: blur(4px);
+        }
+
+        .confirmation-modal {
+          background: white;
+          border-radius: 16px;
+          width: 90%;
+          max-width: 500px;
+          overflow: hidden;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+          animation: slideUp 0.3s ease-out;
+          border: 1px solid #e2e8f0;
+        }
+
+        .modal-header {
+          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+          padding: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          border-bottom: 1px solid #fbbf24;
+        }
+
+        .modal-icon {
+          color: #d97706;
+          font-size: 1.5rem;
+        }
+
+        .modal-header h3 {
+          margin: 0;
+          color: #92400e;
+          font-size: 1.3rem;
+          font-weight: 600;
+        }
+
+        .modal-body {
+          padding: 2rem;
+          color: #374151;
+          line-height: 1.6;
+        }
+
+        .modal-body p {
+          margin: 0 0 1rem 0;
+        }
+
+        .modal-body strong {
+          color: #1e40af;
+        }
+
+        .modal-warning {
+          background: #fef2f2;
+          padding: 1rem;
+          border-radius: 8px;
+          border-left: 4px solid #dc2626;
+          color: #7f1d1d;
+          font-size: 0.9rem;
+          margin-top: 1rem;
+        }
+
+        .modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 1rem;
+          padding: 1.5rem;
+          border-top: 1px solid #e5e7eb;
+          background: #f9fafb;
+        }
+
+        .modal-btn {
+          padding: 0.75rem 1.5rem;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 0.95rem;
+          transition: all 0.2s ease;
+          min-width: 120px;
+        }
+
+        .modal-btn-cancel {
+          background: #f3f4f6;
+          color: #374151;
+          border: 1px solid #d1d5db;
+        }
+
+        .modal-btn-cancel:hover {
+          background: #e5e7eb;
+        }
+
+        .modal-btn-confirm {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          border: 1px solid #7c3aed;
+        }
+
+        .modal-btn-confirm:hover:not(:disabled) {
+          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(123, 58, 237, 0.3);
+        }
+
+        .modal-btn-confirm:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         /* Loading State */
         .loading-overlay {
           display: flex;
@@ -1320,6 +1495,22 @@ const EmployeeDetailPage = () => {
           from {
             opacity: 0;
             transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
           }
           to {
             opacity: 1;
@@ -1385,6 +1576,19 @@ const EmployeeDetailPage = () => {
 
           .info-label {
             flex: none;
+          }
+
+          .confirmation-modal {
+            width: 95%;
+            margin: 1rem;
+          }
+
+          .modal-footer {
+            flex-direction: column;
+          }
+
+          .modal-btn {
+            width: 100%;
           }
         }
 

@@ -481,6 +481,23 @@ export const salaryAPI = {
       throw error;
     }
   },
+
+  checkSalaryRecordsExists: async (month, year, companyName = "") => {
+    try {
+      const params = { month, year };
+      if (companyName && companyName !== "All Companies") {
+        params.company_name = companyName;
+      }
+
+      const response = await apiClient.get("/check-salary-records-exists/", {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error checking salary records:", error);
+      return { exists: false, error: error.message };
+    }
+  },
 };
 
 // // Salary Records APIs

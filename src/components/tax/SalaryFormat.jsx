@@ -15,8 +15,7 @@ import {
   FaCalculator,
   FaSync,
 } from "react-icons/fa";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+
 
 // FIXED: Import the complete finance API
 import { financeAPI } from "../../api/finance";
@@ -75,7 +74,6 @@ const SalaryFormat = () => {
   const [calculatingTaxes, setCalculatingTaxes] = useState(false);
   const navigate = useNavigate();
   const [companyApprovalStatus, setCompanyApprovalStatus] = useState({});
-  const [generatingExcel, setGeneratingExcel] = useState({});
 
   // Add the new state for save lock
   const [isDataSavedForMonth, setIsDataSavedForMonth] = useState(false);
@@ -625,45 +623,7 @@ const SalaryFormat = () => {
     [taxResults, loadingAit],
   );
 
-  // MANUAL TAX RECALCULATION BUTTON (similar to FinanceProvision)
-  const handleRecalculateTaxes = async () => {
-    if (
-      window.confirm(
-        "Recalculate taxes for all employees? This may take a moment.",
-      )
-    ) {
-      // Clear existing tax results
-      setTaxResults({});
-      financeAPI.storage.clearAllTaxResults();
 
-      // Set loading states
-      filteredEmployees.forEach((emp) => {
-        setLoadingAit((prev) => ({ ...prev, [emp.employee_id]: true }));
-      });
-
-      // Clear backend calculations
-      try {
-        await financeAPI.tax.clearCalculatedTaxes({
-          month: selectedMonth,
-          year: selectedYear,
-        });
-      } catch (err) {
-        console.warn("Could not clear backend:", err);
-      }
-
-      // Recalculate for all filtered employees
-      const employeeIds = filteredEmployees.map((emp) => emp.employee_id);
-      const { sourceTaxOther, bonusOverride: bonusData } =
-        await financeAPI.storage.getSourceTaxOther();
-
-      calculateMissingTaxes(
-        filteredEmployees,
-        employeeIds,
-        sourceTaxOther,
-        bonusData,
-      );
-    }
-  };
 
   const handleSyncData = async () => {
     try {
@@ -701,12 +661,6 @@ const SalaryFormat = () => {
           setLoadingAit((prev) => ({ ...prev, [empId]: false }));
         });
 
-        // console.log(`✅ Synced ${Object.keys(databaseResults).length} records`);
-        // alert(
-        //   `✅ Data synced! Found ${
-        //     Object.keys(databaseResults).length
-        //   } records.`
-        // );
       } else {
         alert("⚠️ No data found. Calculating taxes...");
 
@@ -1002,110 +956,6 @@ const SalaryFormat = () => {
     return manualData[empId]?.[field] ?? defaultVal;
   };
 
-  const generateExcelForCompany = async (companyName) => {
-    try {
-      // Set loading state for this company
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
-
-      console.log(`📊 Generating Bank Excel file for ${companyName}...`);
-
-      // Get current month and year
-      const currentDate = new Date();
-      const month = currentDate.getMonth() + 1;
-      const year = currentDate.getFullYear();
-
-      // Call the NEW bank transfer endpoint
-      const response =
-        await financeAPI.salaryRecordsAPI.generateBankTransferExcel({
-          company_name: companyName,
-          month: month,
-          year: year,
-        });
-
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `${companyName.replace(/\s+/g, "_")}_Bank_Salary_${
-          monthNames[month - 1]
-        }_${year}.xlsx`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      console.log(`✅ Bank transfer Excel file generated and downloaded!`);
-      alert(
-        `Bank transfer Excel file generated successfully for ${companyName}!`,
-      );
-    } catch (error) {
-      console.error("❌ Error generating bank Excel file:", error);
-
-      if (error.response?.status === 404) {
-        alert(
-          `❌ No salary records found for ${companyName}. Please save salary data first by clicking "Save Data" button.`,
-        );
-      } else if (error.response?.status === 500) {
-        alert(
-          `❌ Server error while generating Excel. Please check backend logs.`,
-        );
-      } else {
-        alert(
-          `❌ Failed to generate bank Excel file for ${companyName}. Error: ${error.message}`,
-        );
-      }
-    } finally {
-      // Clear loading state
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
-    }
-  };
-
-  // Function to call backend Excel generation
-  const exportCompanyData = async (companyName) => {
-    try {
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
-
-      console.log(
-        `🔄 Requesting Excel generation from backend for ${companyName}...`,
-      );
-
-      const response = await financeAPI.salaryRecordsAPI.generateExcelNow({
-        company_name: companyName,
-        month: selectedMonth,
-        year: selectedYear,
-      });
-
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `${companyName}_SALARY_${
-          monthNames[selectedMonth - 1]
-        }_${selectedYear}.xlsx`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      console.log(`✅ Excel generated successfully from backend`);
-      alert(`✅ Excel file generated from backend and downloaded!`);
-    } catch (error) {
-      console.error("❌ Excel generation failed:", error);
-      alert(
-        `❌ Failed to generate Excel: ${
-          error.response?.data?.error || error.message
-        }`,
-      );
-    } finally {
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
-    }
-  };
 
   // FIXED: UPDATED APPROVAL FOOTER
   const renderApprovalFooter = (companyName) => {

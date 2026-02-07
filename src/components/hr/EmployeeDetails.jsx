@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { getEmployees, deleteEmployee } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
@@ -64,7 +70,7 @@ const EmployeeDetails = () => {
   const [designationSearch, setDesignationSearch] = useState("");
   const [departmentSearch, setDepartmentSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showEmployeeMenu, setShowEmployeeMenu] = useState(null);
 
@@ -72,7 +78,7 @@ const EmployeeDetails = () => {
   const employeesPerPage = 10;
   const isInitialMount = useRef(true);
   const filterTimeoutRef = useRef(null);
-  
+
   // Separate refs for each dropdown
   const designationDropdownRef = useRef(null);
   const departmentDropdownRef = useRef(null);
@@ -82,15 +88,24 @@ const EmployeeDetails = () => {
   useEffect(() => {
     try {
       const savedSearchQuery = localStorage.getItem("employeeSearchQuery");
-      const savedDesignationFilter = localStorage.getItem("employeeDesignationFilter");
-      const savedDepartmentFilter = localStorage.getItem("employeeDepartmentFilter");
-      const savedBirthdateFilter = localStorage.getItem("employeeBirthdateFilter");
+      const savedDesignationFilter = localStorage.getItem(
+        "employeeDesignationFilter",
+      );
+      const savedDepartmentFilter = localStorage.getItem(
+        "employeeDepartmentFilter",
+      );
+      const savedBirthdateFilter = localStorage.getItem(
+        "employeeBirthdateFilter",
+      );
       const savedPage = localStorage.getItem("employeeListPage");
 
       if (savedSearchQuery !== null) setSearchQuery(savedSearchQuery);
-      if (savedDesignationFilter !== null) setDesignationFilter(savedDesignationFilter);
-      if (savedDepartmentFilter !== null) setDepartmentFilter(savedDepartmentFilter);
-      if (savedBirthdateFilter !== null) setBirthdateFilter(savedBirthdateFilter);
+      if (savedDesignationFilter !== null)
+        setDesignationFilter(savedDesignationFilter);
+      if (savedDepartmentFilter !== null)
+        setDepartmentFilter(savedDepartmentFilter);
+      if (savedBirthdateFilter !== null)
+        setBirthdateFilter(savedBirthdateFilter);
       if (savedPage) setCurrentPage(parseInt(savedPage, 10) || 1);
     } catch (err) {
       console.error("Error reading from localStorage:", err);
@@ -142,23 +157,27 @@ const EmployeeDetails = () => {
 
   // Unique designations and departments
   const uniqueDesignations = useMemo(() => {
-    return [...new Set(employees.map((emp) => emp.designation).filter(Boolean))].sort();
+    return [
+      ...new Set(employees.map((emp) => emp.designation).filter(Boolean)),
+    ].sort();
   }, [employees]);
 
   const uniqueDepartments = useMemo(() => {
-    return [...new Set(employees.map((emp) => emp.department_name).filter(Boolean))].sort();
+    return [
+      ...new Set(employees.map((emp) => emp.department_name).filter(Boolean)),
+    ].sort();
   }, [employees]);
 
   // Filtered lists
   const filteredDesignations = useMemo(() => {
     return uniqueDesignations.filter((designation) =>
-      designation.toLowerCase().includes(designationSearch.toLowerCase())
+      designation.toLowerCase().includes(designationSearch.toLowerCase()),
     );
   }, [uniqueDesignations, designationSearch]);
 
   const filteredDepartments = useMemo(() => {
     return uniqueDepartments.filter((department) =>
-      department.toLowerCase().includes(departmentSearch.toLowerCase())
+      department.toLowerCase().includes(departmentSearch.toLowerCase()),
     );
   }, [uniqueDepartments, departmentSearch]);
 
@@ -169,10 +188,10 @@ const EmployeeDetails = () => {
     if (sortConfig.key) {
       sortableItems.sort((a, b) => {
         if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
+          return sortConfig.direction === "asc" ? -1 : 1;
         }
         if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
+          return sortConfig.direction === "asc" ? 1 : -1;
         }
         return 0;
       });
@@ -198,23 +217,39 @@ const EmployeeDetails = () => {
           employee.date_of_birth?.toLowerCase().includes(lowerSearchQuery);
         if (!matchesSearch) return false;
       }
-      if (designationFilter && employee.designation !== designationFilter) return false;
-      if (departmentFilter && employee.department_name !== departmentFilter) return false;
-      if (birthdateFilter && !checkBirthdateMatch(employee.date_of_birth, birthdateFilter)) return false;
+      if (designationFilter && employee.designation !== designationFilter)
+        return false;
+      if (departmentFilter && employee.department_name !== departmentFilter)
+        return false;
+      if (
+        birthdateFilter &&
+        !checkBirthdateMatch(employee.date_of_birth, birthdateFilter)
+      )
+        return false;
       return true;
     });
-  }, [sortedEmployees, searchQuery, designationFilter, departmentFilter, birthdateFilter]);
+  }, [
+    sortedEmployees,
+    searchQuery,
+    designationFilter,
+    departmentFilter,
+    birthdateFilter,
+  ]);
 
   // Pagination
   const { currentEmployees, totalPages } = useMemo(() => {
     const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
     let validatedPage = currentPage;
-    if (validatedPage > totalPages && totalPages > 0) validatedPage = totalPages;
+    if (validatedPage > totalPages && totalPages > 0)
+      validatedPage = totalPages;
     else if (filteredEmployees.length === 0) validatedPage = 1;
     if (validatedPage !== currentPage) setCurrentPage(validatedPage);
     const indexOfLastEmployee = validatedPage * employeesPerPage;
     const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
-    const currentEmployees = filteredEmployees.slice(indexOfFirstEmployee, indexOfLastEmployee);
+    const currentEmployees = filteredEmployees.slice(
+      indexOfFirstEmployee,
+      indexOfLastEmployee,
+    );
     return { currentEmployees, totalPages };
   }, [filteredEmployees, currentPage, employeesPerPage]);
 
@@ -232,22 +267,28 @@ const EmployeeDetails = () => {
 
   // Event handlers
   const handleSort = (key) => {
-    setSortConfig(prevConfig => ({
+    setSortConfig((prevConfig) => ({
       key,
-      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+      direction:
+        prevConfig.key === key && prevConfig.direction === "asc"
+          ? "desc"
+          : "asc",
     }));
   };
 
-  const handleRowClick = useCallback((id) => {
-    navigate(`/employee/${id}`);
-  }, [navigate]);
+  const handleRowClick = useCallback(
+    (id) => {
+      navigate(`/employee/${id}`);
+    },
+    [navigate],
+  );
 
   const handleDelete = useCallback(async (id, e) => {
     e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this employee?")) {
       try {
         await deleteEmployee(id);
-        setEmployees(prev => prev.filter(employee => employee.id !== id));
+        setEmployees((prev) => prev.filter((employee) => employee.id !== id));
       } catch (error) {
         console.error("Error deleting employee:", error);
         setError("Failed to delete employee. Please try again.");
@@ -255,34 +296,148 @@ const EmployeeDetails = () => {
     }
   }, []);
 
-  const handlePrint = useCallback(() => {
-    window.print();
-  }, []);
-
   const handleExport = useCallback(() => {
-    const headers = ['Employee ID', 'Name', 'Designation', 'Department', 'Company', 'Blood Group', 'Birth Date', 'Join Date'];
+    // Helper function to escape CSV values
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined || value === "") return "";
+      const stringValue = String(value);
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes('"') ||
+        stringValue.includes("\n") ||
+        stringValue.includes("\r")
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Format date for CSV
+    const formatCSVDate = (dateString) => {
+      if (!dateString) return "";
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString("en-GB");
+      } catch {
+        return "";
+      }
+    };
+
+    // Company information (you can customize this)
+    const companyName = employees[0]?.company_name || "Company Name";
+    const reportDate = new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const reportTime = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    // Create CSV content with enhanced structure
     const csvContent = [
-      headers.join(','),
-      ...filteredEmployees.map(emp => [
-        emp.employee_id,
-        `"${emp.name}"`,
-        `"${emp.designation}"`,
-        `"${emp.department_name}"`,
-        `"${emp.company_name}"`,
-        emp.blood_group,
-        formatDateForDisplay(emp.date_of_birth),
-        emp.joining_date
-      ].join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+      // Company Header
+      `${companyName}`,
+      "Employee Directory Export",
+      `Report Generated: ${reportDate} at ${reportTime}`,
+      `Total Employees: ${employees.length}`,
+      `Filtered Results: ${filteredEmployees.length}`,
+      "", // Empty line for spacing
+
+      // Summary Statistics
+      "SUMMARY STATISTICS",
+      `Total Departments: ${uniqueDepartments.length}`,
+      `Total Designations: ${uniqueDesignations.length}`,
+      `Current Filters: ${searchQuery ? "Search: " + searchQuery + "; " : ""}${designationFilter ? "Designation: " + designationFilter + "; " : ""}${departmentFilter ? "Department: " + departmentFilter + "; " : ""}${birthdateFilter ? "Birth Date: " + formatCSVDate(birthdateFilter) + "; " : ""}`,
+      "", // Empty line
+
+      // Main Data Header
+      "EMPLOYEE DETAILS",
+      "", // Empty line
+
+      // Column Headers
+      [
+        "Employee ID",
+        "Full Name",
+        "Email Address",
+        "Designation",
+        "Department",
+        "Company",
+        "Blood Group",
+
+        "Joining Date",
+      ].join(","),
+
+      // Data Rows
+      ...filteredEmployees.map((emp) => {
+        // Calculate age if date of birth exists
+        const calculateAge = (dob) => {
+          if (!dob) return "";
+          try {
+            const birthDate = new Date(dob);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (
+              monthDiff < 0 ||
+              (monthDiff === 0 && today.getDate() < birthDate.getDate())
+            ) {
+              age--;
+            }
+            return age;
+          } catch {
+            return "";
+          }
+        };
+
+        return [
+          escapeCSV(emp.employee_id),
+          escapeCSV(emp.name),
+          escapeCSV(emp.email),
+          escapeCSV(emp.designation),
+          escapeCSV(emp.department_name),
+          escapeCSV(emp.company_name),
+          escapeCSV(emp.blood_group),
+          formatCSVDate(emp.joining_date),
+        ].join(",");
+      }),
+
+      // Footer
+      "",
+      "EXPORT INFORMATION",
+      "Generated by Employee Management System",
+      `Data as of: ${new Date().toISOString().split("T")[0]}`,
+      `Records exported: ${filteredEmployees.length}`,
+    ].join("\n");
+
+    // Create and download the file
+    const blob = new Blob(["\ufeff" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `employees_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `Employee_Directory_${companyName.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-  }, [filteredEmployees]);
+
+    // Show success message (optional)
+    alert(
+      `CSV exported successfully! ${filteredEmployees.length} records downloaded.`,
+    );
+  }, [
+    employees,
+    filteredEmployees,
+    uniqueDepartments.length,
+    uniqueDesignations.length,
+    searchQuery,
+    designationFilter,
+    departmentFilter,
+  ]);
 
   const clearAllFilters = useCallback(() => {
     setSearchQuery("");
@@ -304,25 +459,25 @@ const EmployeeDetails = () => {
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      const isOutsideDesignation = 
-        designationDropdownRef.current && 
+      const isOutsideDesignation =
+        designationDropdownRef.current &&
         !designationDropdownRef.current.contains(event.target);
-      
-      const isOutsideDepartment = 
-        departmentDropdownRef.current && 
+
+      const isOutsideDepartment =
+        departmentDropdownRef.current &&
         !departmentDropdownRef.current.contains(event.target);
-      
-      const isOutsideBirthdate = 
-        birthdateDropdownRef.current && 
+
+      const isOutsideBirthdate =
+        birthdateDropdownRef.current &&
         !birthdateDropdownRef.current.contains(event.target);
 
       if (isOutsideDesignation && isOutsideDepartment && isOutsideBirthdate) {
         closeDropdowns();
       }
     };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [closeDropdowns]);
 
   // Loading and error states
@@ -349,7 +504,10 @@ const EmployeeDetails = () => {
             <div className="error-icon">!</div>
             <h3>Something went wrong</h3>
             <p>{error}</p>
-            <button onClick={() => window.location.reload()} className="btn-primary">
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-primary"
+            >
               Retry
             </button>
           </div>
@@ -367,7 +525,9 @@ const EmployeeDetails = () => {
           <div className="dashboard-header">
             <div className="header-content">
               <h1>Employee Directory</h1>
-              <p className="subtitle">Manage and organize your employee database</p>
+              <p className="subtitle">
+                Manage and organize your employee database
+              </p>
             </div>
             <div className="header-actions">
               <button className="btn-export" onClick={handleExport}>
@@ -376,7 +536,10 @@ const EmployeeDetails = () => {
               {/* <button className="btn-print" onClick={handlePrint}>
                 <FaPrint /> Print
               </button> */}
-              <button className="btn-primary" onClick={() => navigate("/add-employee")}>
+              <button
+                className="btn-primary"
+                onClick={() => navigate("/add-employee")}
+              >
                 <FaPlus /> Add Employee
               </button>
             </div>
@@ -429,7 +592,10 @@ const EmployeeDetails = () => {
             <div className="filters-header">
               <h3>Filters</h3>
               <div className="filter-actions">
-                {(searchQuery || designationFilter || departmentFilter || birthdateFilter) && (
+                {(searchQuery ||
+                  designationFilter ||
+                  departmentFilter ||
+                  birthdateFilter) && (
                   <button className="btn-clear-all" onClick={clearAllFilters}>
                     <IoMdClose /> Clear All
                   </button>
@@ -448,7 +614,10 @@ const EmployeeDetails = () => {
                   className="search-input"
                 />
                 {searchQuery && (
-                  <button className="clear-search" onClick={() => setSearchQuery("")}>
+                  <button
+                    className="clear-search"
+                    onClick={() => setSearchQuery("")}
+                  >
                     <FaTimes />
                   </button>
                 )}
@@ -459,9 +628,12 @@ const EmployeeDetails = () => {
               {/* Designation Filter */}
               <div className="filter-group">
                 <label>Designation</label>
-                <div className="custom-select-wrapper" ref={designationDropdownRef}>
+                <div
+                  className="custom-select-wrapper"
+                  ref={designationDropdownRef}
+                >
                   <div
-                    className={`custom-select ${showDesignationDropdown ? 'open' : ''}`}
+                    className={`custom-select ${showDesignationDropdown ? "open" : ""}`}
                     onClick={() => {
                       setShowDesignationDropdown(!showDesignationDropdown);
                       setShowDepartmentDropdown(false);
@@ -484,7 +656,7 @@ const EmployeeDetails = () => {
                       </div>
                       <div className="dropdown-list">
                         <div
-                          className={`dropdown-item ${!designationFilter ? 'selected' : ''}`}
+                          className={`dropdown-item ${!designationFilter ? "selected" : ""}`}
                           onClick={() => setDesignationFilter("")}
                         >
                           All Designations
@@ -492,7 +664,7 @@ const EmployeeDetails = () => {
                         {filteredDesignations.map((designation) => (
                           <div
                             key={designation}
-                            className={`dropdown-item ${designationFilter === designation ? 'selected' : ''}`}
+                            className={`dropdown-item ${designationFilter === designation ? "selected" : ""}`}
                             onClick={() => setDesignationFilter(designation)}
                           >
                             {designation}
@@ -507,9 +679,12 @@ const EmployeeDetails = () => {
               {/* Department Filter */}
               <div className="filter-group">
                 <label>Department</label>
-                <div className="custom-select-wrapper" ref={departmentDropdownRef}>
+                <div
+                  className="custom-select-wrapper"
+                  ref={departmentDropdownRef}
+                >
                   <div
-                    className={`custom-select ${showDepartmentDropdown ? 'open' : ''}`}
+                    className={`custom-select ${showDepartmentDropdown ? "open" : ""}`}
                     onClick={() => {
                       setShowDepartmentDropdown(!showDepartmentDropdown);
                       setShowDesignationDropdown(false);
@@ -532,7 +707,7 @@ const EmployeeDetails = () => {
                       </div>
                       <div className="dropdown-list">
                         <div
-                          className={`dropdown-item ${!departmentFilter ? 'selected' : ''}`}
+                          className={`dropdown-item ${!departmentFilter ? "selected" : ""}`}
                           onClick={() => setDepartmentFilter("")}
                         >
                           All Departments
@@ -540,7 +715,7 @@ const EmployeeDetails = () => {
                         {filteredDepartments.map((department) => (
                           <div
                             key={department}
-                            className={`dropdown-item ${departmentFilter === department ? 'selected' : ''}`}
+                            className={`dropdown-item ${departmentFilter === department ? "selected" : ""}`}
                             onClick={() => setDepartmentFilter(department)}
                           >
                             {department}
@@ -555,9 +730,12 @@ const EmployeeDetails = () => {
               {/* Birthdate Filter */}
               <div className="filter-group">
                 <label>Birth Date</label>
-                <div className="custom-select-wrapper" ref={birthdateDropdownRef}>
+                <div
+                  className="custom-select-wrapper"
+                  ref={birthdateDropdownRef}
+                >
                   <div
-                    className={`custom-select ${showBirthdatePicker ? 'open' : ''}`}
+                    className={`custom-select ${showBirthdatePicker ? "open" : ""}`}
                     onClick={() => {
                       setShowBirthdatePicker(!showBirthdatePicker);
                       setShowDesignationDropdown(false);
@@ -565,7 +743,9 @@ const EmployeeDetails = () => {
                     }}
                   >
                     <span>
-                      {birthdateFilter ? formatDateForDisplay(birthdateFilter) : "All Birth Dates"}
+                      {birthdateFilter
+                        ? formatDateForDisplay(birthdateFilter)
+                        : "All Birth Dates"}
                     </span>
                     <div className="select-icons">
                       {birthdateFilter && (
@@ -589,7 +769,7 @@ const EmployeeDetails = () => {
                             setBirthdateFilter(e.target.value);
                             setShowBirthdatePicker(false);
                           }}
-                          max={new Date().toISOString().split('T')[0]}
+                          max={new Date().toISOString().split("T")[0]}
                         />
                       </div>
                     </div>
@@ -633,7 +813,8 @@ const EmployeeDetails = () => {
               <h3>Employees ({filteredEmployees.length})</h3>
               <div className="table-actions">
                 <span className="results-info">
-                  Showing {currentEmployees.length} of {filteredEmployees.length} employees
+                  Showing {currentEmployees.length} of{" "}
+                  {filteredEmployees.length} employees
                 </span>
               </div>
             </div>
@@ -642,25 +823,41 @@ const EmployeeDetails = () => {
               <table className="employee-table">
                 <thead>
                   <tr>
-                    <th onClick={() => handleSort('employee_id')}>
-                      ID {sortConfig.key === 'employee_id' && (
-                        sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />
-                      )}
+                    <th onClick={() => handleSort("employee_id")}>
+                      ID{" "}
+                      {sortConfig.key === "employee_id" &&
+                        (sortConfig.direction === "asc" ? (
+                          <FaSortUp />
+                        ) : (
+                          <FaSortDown />
+                        ))}
                     </th>
-                    <th onClick={() => handleSort('name')}>
-                      Employee {sortConfig.key === 'name' && (
-                        sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />
-                      )}
+                    <th onClick={() => handleSort("name")}>
+                      Employee{" "}
+                      {sortConfig.key === "name" &&
+                        (sortConfig.direction === "asc" ? (
+                          <FaSortUp />
+                        ) : (
+                          <FaSortDown />
+                        ))}
                     </th>
-                    <th onClick={() => handleSort('designation')}>
-                      Designation {sortConfig.key === 'designation' && (
-                        sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />
-                      )}
+                    <th onClick={() => handleSort("designation")}>
+                      Designation{" "}
+                      {sortConfig.key === "designation" &&
+                        (sortConfig.direction === "asc" ? (
+                          <FaSortUp />
+                        ) : (
+                          <FaSortDown />
+                        ))}
                     </th>
-                    <th onClick={() => handleSort('department_name')}>
-                      Department {sortConfig.key === 'department_name' && (
-                        sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />
-                      )}
+                    <th onClick={() => handleSort("department_name")}>
+                      Department{" "}
+                      {sortConfig.key === "department_name" &&
+                        (sortConfig.direction === "asc" ? (
+                          <FaSortUp />
+                        ) : (
+                          <FaSortDown />
+                        ))}
                     </th>
                     <th>Company</th>
                     <th>Blood Group</th>
@@ -678,25 +875,39 @@ const EmployeeDetails = () => {
                           </div>
                         </td>
                         <td>
-                          <div className="employee-info" onClick={() => handleRowClick(employee.id)}>
+                          <div
+                            className="employee-info"
+                            onClick={() => handleRowClick(employee.id)}
+                          >
                             <div className="avatar">
                               {employee.profile_picture ? (
-                                <img src={employee.profile_picture} alt={employee.name} />
+                                <img
+                                  src={employee.profile_picture}
+                                  alt={employee.name}
+                                />
                               ) : (
                                 <FaUserCircle />
                               )}
                             </div>
                             <div className="employee-details">
-                              <div className="employee-name">{employee.name}</div>
-                              <div className="employee-email">{employee.email || "No email"}</div>
+                              <div className="employee-name">
+                                {employee.name}
+                              </div>
+                              <div className="employee-email">
+                                {employee.email || "No email"}
+                              </div>
                             </div>
                           </div>
                         </td>
                         <td>
-                          <span className="designation-tag">{employee.designation}</span>
+                          <span className="designation-tag">
+                            {employee.designation}
+                          </span>
                         </td>
                         <td>
-                          <span className="department-tag">{employee.department_name || "N/A"}</span>
+                          <span className="department-tag">
+                            {employee.department_name || "N/A"}
+                          </span>
                         </td>
                         <td>
                           <div className="company-info">
@@ -704,23 +915,31 @@ const EmployeeDetails = () => {
                           </div>
                         </td>
                         <td>
-                          <div className={`blood-group ${employee.blood_group ? 'has-group' : ''}`}>
+                          <div
+                            className={`blood-group ${employee.blood_group ? "has-group" : ""}`}
+                          >
                             <FaTint /> {employee.blood_group || "N/A"}
                           </div>
                         </td>
                         <td>
                           <div className="birthdate-info">
-                            <FaBirthdayCake /> {formatDateForDisplay(employee.date_of_birth) || "N/A"}
-                            {birthdateFilter && checkBirthdateMatch(employee.date_of_birth, birthdateFilter) && (
-                              <span className="birthday-badge">🎂</span>
-                            )}
+                            <FaBirthdayCake />{" "}
+                            {formatDateForDisplay(employee.date_of_birth) ||
+                              "N/A"}
+                            {birthdateFilter &&
+                              checkBirthdateMatch(
+                                employee.date_of_birth,
+                                birthdateFilter,
+                              ) && <span className="birthday-badge">🎂</span>}
                           </div>
                         </td>
                         <td>
                           <div className="action-buttons">
                             <button
                               className="btn-action attachment"
-                              onClick={() => navigate(`/employee/${employee.id}/attachments`)}
+                              onClick={() =>
+                                navigate(`/employee/${employee.id}/attachments`)
+                              }
                               title="Attachments"
                             >
                               <FaPaperclip />
@@ -736,7 +955,10 @@ const EmployeeDetails = () => {
                           <FaUserCircle />
                           <h4>No employees found</h4>
                           <p>Try adjusting your search or filters</p>
-                          <button className="btn-primary" onClick={clearAllFilters}>
+                          <button
+                            className="btn-primary"
+                            onClick={clearAllFilters}
+                          >
                             Clear all filters
                           </button>
                         </div>
@@ -751,7 +973,7 @@ const EmployeeDetails = () => {
             {totalPages > 1 && (
               <div className="pagination">
                 <button
-                  className={`pagination-btn ${currentPage === 1 ? 'disabled' : ''}`}
+                  className={`pagination-btn ${currentPage === 1 ? "disabled" : ""}`}
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                 >
@@ -772,7 +994,7 @@ const EmployeeDetails = () => {
                     return (
                       <button
                         key={page}
-                        className={`page-number ${currentPage === page ? 'active' : ''}`}
+                        className={`page-number ${currentPage === page ? "active" : ""}`}
                         onClick={() => setCurrentPage(page)}
                       >
                         {page}
@@ -781,8 +1003,10 @@ const EmployeeDetails = () => {
                   })}
                 </div>
                 <button
-                  className={`pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`}
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  className={`pagination-btn ${currentPage === totalPages ? "disabled" : ""}`}
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
                   disabled={currentPage === totalPages}
                 >
                   Next
