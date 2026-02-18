@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getSuppliers, getSupplierStats } from '../../api/supplierApi'
@@ -19,6 +18,15 @@ const SupplierDashboardCSR = () => {
   const [recentSuppliers, setRecentSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [expirySummary, setExpirySummary] = useState({
+    bsci: { count: 0, suppliers: [] },
+    oekoTex: { count: 0, suppliers: [] },
+    gots: { count: 0, suppliers: [] },
+    fireLicense: { count: 0, suppliers: [] },
+    total_expiring: 0
+  })
+  const [sendingReminders, setSendingReminders] = useState(false)
+  const [reminderResult, setReminderResult] = useState(null)
   const [complianceOverview, setComplianceOverview] = useState({
     fireSafety: { total: 0, compliant: 0 },
     environmental: { total: 0, compliant: 0 },
@@ -34,6 +42,15 @@ const SupplierDashboardCSR = () => {
 
   useEffect(() => {
     fetchDashboardData()
+    fetchExpirySummary()
+    
+    // Auto-refresh every 30 minutes
+    const interval = setInterval(() => {
+      fetchDashboardData()
+      fetchExpirySummary()
+    }, 1800000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const fetchDashboardData = async () => {
@@ -67,7 +84,12 @@ const SupplierDashboardCSR = () => {
           compliance_status: supplier.compliance_status || 'under_review',
           certification_status: supplier.is_certification_valid || false,
           location: supplier.location || 'Location not specified',
-          category: supplier.supplier_category || 'Not specified'
+          category: supplier.supplier_category || 'Not specified',
+          // Add days remaining for quick view
+          bsci_days: supplier.bsci_validity_days_remaining,
+          oekoTex_days: supplier.oeko_tex_validity_days_remaining,
+          gots_days: supplier.gots_validity_days_remaining,
+          fireLicense_days: supplier.fire_license_days_remaining
         }))
       
       setRecentSuppliers(recent)
@@ -83,6 +105,71 @@ const SupplierDashboardCSR = () => {
       setError(`Failed to load dashboard data: ${error.message}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchExpirySummary = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://119.148.51.38:8000/api/merchandiser/api/supplier/dashboard_expiry_summary/', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setExpirySummary(data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching expiry summary:', error)
+    }
+  }
+
+  const sendBulkReminders = async () => {
+    setSendingReminders(true)
+    setReminderResult(null)
+    
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://119.148.51.38:8000/api/merchandiser/api/supplier/send_bulk_reminders/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ from_email: 'niloy@texweave.net' }),
+        credentials: 'include',
+      })
+      
+      const result = await response.json()
+      
+      if (response.ok) {
+        setReminderResult({
+          success: true,
+          message: `✅ ${result.message}`,
+          details: result.notifications
+        })
+        // Refresh expiry summary after sending
+        fetchExpirySummary()
+      } else {
+        setReminderResult({
+          success: false,
+          message: `❌ Failed to send reminders: ${result.error || 'Unknown error'}`
+        })
+      }
+    } catch (error) {
+      setReminderResult({
+        success: false,
+        message: `❌ Error: ${error.message}`
+      })
+    } finally {
+      setSendingReminders(false)
+      // Auto-hide result after 5 seconds
+      setTimeout(() => setReminderResult(null), 5000)
     }
   }
 
@@ -234,6 +321,14 @@ const SupplierDashboardCSR = () => {
     }
   }
 
+  const getDaysRemainingColor = (days) => {
+    if (!days && days !== 0) return { bg: '#6c757d', color: 'white' }
+    if (days <= 30) return { bg: '#dc3545', color: 'white' }
+    if (days <= 60) return { bg: '#ffc107', color: 'black' }
+    if (days <= 90) return { bg: '#28a745', color: 'white' }
+    return { bg: '#28a745', color: 'white' }
+  }
+
   const formatStatus = (status) => {
     if (!status) return 'UNDER REVIEW'
     return status.replace(/_/g, ' ').toUpperCase()
@@ -296,6 +391,83 @@ const SupplierDashboardCSR = () => {
           >
             Try Again
           </button>
+        </div>
+      )}
+
+      {/* Reminder Result Message */}
+      {reminderResult && (
+        <div style={reminderResult.success ? styles.successAlert : styles.errorAlert}>
+          <span style={styles.alertIcon}>{reminderResult.success ? '✅' : '❌'}</span>
+          <div style={styles.alertContent}>
+            <p style={styles.alertText}>{reminderResult.message}</p>
+            {reminderResult.details && (
+              <div style={styles.alertDetails}>
+                Sent to {reminderResult.details.length} suppliers
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Expiring Certifications Alert */}
+      {expirySummary.total_expiring > 0 && (
+        <div style={styles.expiryAlert}>
+          <div style={styles.expiryAlertHeader}>
+            <span style={styles.expiryAlertIcon}>🔔</span>
+            <h3 style={styles.expiryAlertTitle}>
+              {expirySummary.total_expiring} Certification(s) Need Attention
+            </h3>
+          </div>
+          <div style={styles.expiryAlertGrid}>
+            {expirySummary.bsci.count > 0 && (
+              <div style={styles.expiryAlertItem}>
+                <span style={styles.expiryAlertLabel}>BSCI:</span>
+                <span style={{
+                  ...styles.expiryAlertCount,
+                  backgroundColor: '#28a745'
+                }}>{expirySummary.bsci.count}</span>
+              </div>
+            )}
+            {expirySummary.oekoTex.count > 0 && (
+              <div style={styles.expiryAlertItem}>
+                <span style={styles.expiryAlertLabel}>Oeko-Tex:</span>
+                <span style={{
+                  ...styles.expiryAlertCount,
+                  backgroundColor: '#28a745'
+                }}>{expirySummary.oekoTex.count}</span>
+              </div>
+            )}
+            {expirySummary.gots.count > 0 && (
+              <div style={styles.expiryAlertItem}>
+                <span style={styles.expiryAlertLabel}>GOTS:</span>
+                <span style={{
+                  ...styles.expiryAlertCount,
+                  backgroundColor: '#28a745'
+                }}>{expirySummary.gots.count}</span>
+              </div>
+            )}
+            {expirySummary.fireLicense.count > 0 && (
+              <div style={styles.expiryAlertItem}>
+                <span style={styles.expiryAlertLabel}>Fire License:</span>
+                <span style={{
+                  ...styles.expiryAlertCount,
+                  backgroundColor: '#28a745'
+                }}>{expirySummary.fireLicense.count}</span>
+              </div>
+            )}
+          </div>
+          <div style={styles.expiryAlertActions}>
+            <button 
+              onClick={sendBulkReminders}
+              disabled={sendingReminders}
+              style={styles.expiryAlertButton}
+            >
+              {sendingReminders ? 'Sending...' : '📧 Send All Reminders'}
+            </button>
+            <Link to="/suppliersCSR?filter=expiring" style={styles.expiryAlertLink}>
+              View All Expiring →
+            </Link>
+          </div>
         </div>
       )}
 
@@ -565,6 +737,47 @@ const SupplierDashboardCSR = () => {
                           <span style={styles.supplierCategory}>{supplier.category}</span>
                           <span style={styles.supplierLocation}>{supplier.location}</span>
                         </div>
+                        
+                        {/* Days Remaining Indicators */}
+                        <div style={styles.supplierDays}>
+                          {supplier.bsci_days && (
+                            <span style={{
+                              ...styles.dayBadge,
+                              backgroundColor: getDaysRemainingColor(supplier.bsci_days).bg,
+                              color: getDaysRemainingColor(supplier.bsci_days).color
+                            }}>
+                              BSCI: {supplier.bsci_days}d
+                            </span>
+                          )}
+                          {supplier.oekoTex_days && (
+                            <span style={{
+                              ...styles.dayBadge,
+                              backgroundColor: getDaysRemainingColor(supplier.oekoTex_days).bg,
+                              color: getDaysRemainingColor(supplier.oekoTex_days).color
+                            }}>
+                              OEKO: {supplier.oekoTex_days}d
+                            </span>
+                          )}
+                          {supplier.gots_days && (
+                            <span style={{
+                              ...styles.dayBadge,
+                              backgroundColor: getDaysRemainingColor(supplier.gots_days).bg,
+                              color: getDaysRemainingColor(supplier.gots_days).color
+                            }}>
+                              GOTS: {supplier.gots_days}d
+                            </span>
+                          )}
+                          {supplier.fireLicense_days && (
+                            <span style={{
+                              ...styles.dayBadge,
+                              backgroundColor: getDaysRemainingColor(supplier.fireLicense_days).bg,
+                              color: getDaysRemainingColor(supplier.fireLicense_days).color
+                            }}>
+                              FIRE: {supplier.fireLicense_days}d
+                            </span>
+                          )}
+                        </div>
+
                         <div style={styles.supplierActions}>
                           <button 
                             onClick={() => navigate(`/suppliersCSR/${supplier.id}`)}
@@ -622,14 +835,24 @@ const SupplierDashboardCSR = () => {
               </button>
               
               <button 
-                onClick={() => navigate('/suppliersCSR?certification=expired')}
-                style={styles.quickActionButton}
+                onClick={() => navigate('/suppliersCSR?filter=expiring')}
+                style={{
+                  ...styles.quickActionButton,
+                  ...(expirySummary.total_expiring > 0 ? styles.quickActionButtonActive : {})
+                }}
               >
-                <span style={styles.actionIcon}>📅</span>
+                <span style={styles.actionIcon}>🔔</span>
                 <div style={styles.actionContent}>
-                  <span style={styles.actionTitle}>Expired Certs</span>
-                  <span style={styles.actionDesc}>Check certifications</span>
+                  <span style={styles.actionTitle}>Expiring Certifications</span>
+                  <span style={styles.actionDesc}>
+                    {expirySummary.total_expiring > 0 
+                      ? `${expirySummary.total_expiring} need attention` 
+                      : 'Check certifications'}
+                  </span>
                 </div>
+                {expirySummary.total_expiring > 0 && (
+                  <span style={styles.actionBadge}>{expirySummary.total_expiring}</span>
+                )}
               </button>
               
               <button 
@@ -753,6 +976,32 @@ const styles = {
     alignItems: 'center',
     gap: '1rem',
   },
+  successAlert: {
+    backgroundColor: '#d4edda',
+    color: '#155724',
+    padding: '1rem 1.5rem',
+    borderRadius: '8px',
+    marginBottom: '2rem',
+    border: '1px solid #c3e6cb',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  alertIcon: {
+    fontSize: '1.25rem',
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertText: {
+    margin: 0,
+    fontWeight: '500',
+  },
+  alertDetails: {
+    margin: '0.25rem 0 0 0',
+    fontSize: '0.875rem',
+    opacity: 0.8,
+  },
   errorIcon: {
     fontSize: '1.25rem',
   },
@@ -779,6 +1028,86 @@ const styles = {
     fontWeight: '500',
     whiteSpace: 'nowrap',
   },
+
+  // Expiry Alert Styles
+  expiryAlert: {
+    backgroundColor: '#fff3cd',
+    border: '1px solid #ffeaa7',
+    borderRadius: '12px',
+    padding: '1.5rem',
+    marginBottom: '2rem',
+  },
+  expiryAlertHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  expiryAlertIcon: {
+    fontSize: '1.5rem',
+  },
+  expiryAlertTitle: {
+    fontSize: '1.25rem',
+    fontWeight: '700',
+    color: '#856404',
+    margin: 0,
+  },
+  expiryAlertGrid: {
+    display: 'flex',
+    gap: '1rem',
+    flexWrap: 'wrap',
+    marginBottom: '1.5rem',
+  },
+  expiryAlertItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    backgroundColor: 'white',
+    padding: '0.5rem 1rem',
+    borderRadius: '20px',
+  },
+  expiryAlertLabel: {
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    color: '#495057',
+  },
+  expiryAlertCount: {
+    padding: '0.25rem 0.5rem',
+    borderRadius: '12px',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    color: 'white',
+  },
+  expiryAlertActions: {
+    display: 'flex',
+    gap: '1rem',
+    alignItems: 'center',
+  },
+  expiryAlertButton: {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#fd7e14',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+    transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#e06b00',
+    },
+    '&:disabled': {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+  },
+  expiryAlertLink: {
+    color: '#fd7e14',
+    textDecoration: 'none',
+    fontSize: '0.875rem',
+    fontWeight: '500',
+  },
+
   complianceScoreCard: {
     backgroundColor: 'white',
     borderRadius: '12px',
@@ -868,9 +1197,6 @@ const styles = {
     border: '1px solid #e2e8f0',
     transition: 'transform 0.2s ease',
   },
-  metricCardHover: {
-    transform: 'translateY(-2px)',
-  },
   metricHeader: {
     display: 'flex',
     alignItems: 'center',
@@ -914,11 +1240,6 @@ const styles = {
     gridTemplateColumns: '1fr 1fr',
     gap: '2rem',
     marginBottom: '2rem',
-  },
-  '@media (max-width: 1200px)': {
-    mainContentGrid: {
-      gridTemplateColumns: '1fr',
-    },
   },
   leftColumn: {
     display: 'flex',
@@ -1107,7 +1428,7 @@ const styles = {
     display: 'flex',
     gap: '0.75rem',
     flexWrap: 'wrap',
-    marginBottom: '0.75rem',
+    marginBottom: '0.5rem',
   },
   supplierId: {
     fontSize: '0.75rem',
@@ -1124,6 +1445,18 @@ const styles = {
     fontSize: '0.75rem',
     color: '#64748b',
     fontStyle: 'italic',
+  },
+  supplierDays: {
+    display: 'flex',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+    marginBottom: '0.75rem',
+  },
+  dayBadge: {
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px',
+    fontSize: '0.7rem',
+    fontWeight: '600',
   },
   supplierActions: {
     display: 'flex',
@@ -1164,6 +1497,11 @@ const styles = {
     transition: 'all 0.2s ease',
     textAlign: 'left',
     width: '100%',
+    position: 'relative',
+  },
+  quickActionButtonActive: {
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffeaa7',
   },
   actionIcon: {
     fontSize: '1.25rem',
@@ -1182,6 +1520,21 @@ const styles = {
   actionDesc: {
     fontSize: '0.75rem',
     color: '#94a3b8',
+  },
+  actionBadge: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    backgroundColor: '#dc3545',
+    color: 'white',
+    borderRadius: '50%',
+    width: '20px',
+    height: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.7rem',
+    fontWeight: 'bold',
   },
   emptyState: {
     textAlign: 'center',

@@ -1,4 +1,3 @@
-
 /* supplierApi.js – Supplier Management API wrapper */
 import axios from "axios";
 
@@ -126,7 +125,10 @@ const createSupplierInstance = () => {
   });
 
   instance.interceptors.request.use(async (config) => {
-    console.log(`🚀 Making ${config.method?.toUpperCase()} request to:`, config.url);
+    console.log(
+      `🚀 Making ${config.method?.toUpperCase()} request to:`,
+      config.url,
+    );
 
     // Add Authorization token
     const token = localStorage.getItem("token");
@@ -160,7 +162,7 @@ const createSupplierInstance = () => {
     (response) => {
       console.log(
         `✅ ${response.config.method?.toUpperCase()} ${response.config.url} success:`,
-        response.status
+        response.status,
       );
       return response;
     },
@@ -190,7 +192,7 @@ const createSupplierInstance = () => {
       }
 
       return Promise.reject(error);
-    }
+    },
   );
 
   return instance;
@@ -230,7 +232,7 @@ const formDataToObject = (formData) => {
         obj[key] = value;
       }
     }
-  } else if (typeof formData === 'object') {
+  } else if (typeof formData === "object") {
     // If it's already an object, return it
     return formData;
   }
@@ -240,37 +242,40 @@ const formDataToObject = (formData) => {
 // Create new supplier
 export const createSupplier = async (supplierData) => {
   console.log("📝 Creating new supplier:", supplierData);
-  
+
   try {
     // Convert FormData to object if needed
     const data = formDataToObject(supplierData);
-    
+
     // Special handling for email field - if empty, don't send it
-    if (data.email === '' || data.email === null || data.email === undefined) {
+    if (data.email === "" || data.email === null || data.email === undefined) {
       delete data.email;
     }
-    
+
     // Handle file fields separately
     const formDataToSend = new FormData();
     const jsonData = {};
-    
+
     // Separate files and regular data
-    Object.keys(data).forEach(key => {
+    Object.keys(data).forEach((key) => {
       const value = data[key];
-      
-      if (value instanceof File || (typeof value === 'object' && value?.type?.startsWith?.('application/'))) {
+
+      if (
+        value instanceof File ||
+        (typeof value === "object" && value?.type?.startsWith?.("application/"))
+      ) {
         // It's a file or file-like object
         formDataToSend.append(key, value);
-      } else if (value === null || value === undefined || value === '') {
+      } else if (value === null || value === undefined || value === "") {
         // Skip empty values for non-file fields
         // Don't append empty strings
-      } else if (typeof value === 'boolean') {
+      } else if (typeof value === "boolean") {
         jsonData[key] = value;
       } else {
         jsonData[key] = value;
       }
     });
-    
+
     // If there are no files, send as JSON
     if (formDataToSend.keys().next().done) {
       // No files, send as JSON
@@ -281,76 +286,68 @@ export const createSupplier = async (supplierData) => {
     } else {
       // Has files, send as FormData
       // Add JSON data as stringified JSON
-      formDataToSend.append('data', JSON.stringify(jsonData));
-      
+      formDataToSend.append("data", JSON.stringify(jsonData));
+
       console.log("📦 Sending FormData with files");
       const response = await supplierApi.post("supplier/", formDataToSend, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
       });
       console.log("✅ Supplier created successfully:", response.data);
       return response;
     }
   } catch (error) {
-    console.error("❌ Error creating supplier:", error.response?.data || error.message);
+    console.error(
+      "❌ Error creating supplier:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
 
 // Update existing supplier
 export const updateSupplier = async (id, supplierData) => {
-  console.log(`📝 Updating supplier ID: ${id}`, supplierData);
-  
+  console.log(`📝 Updating supplier ID: ${id}`);
+
   try {
-    // Convert FormData to object if needed
-    const data = formDataToObject(supplierData);
-    
-    // Special handling for email field
-    if (data.email === '' || data.email === null || data.email === undefined) {
-      delete data.email;
-    }
-    
-    // Handle file fields separately
-    const formDataToSend = new FormData();
-    const jsonData = {};
-    
-    // Separate files and regular data
-    Object.keys(data).forEach(key => {
-      const value = data[key];
-      
-      if (value instanceof File || (typeof value === 'object' && value?.type?.startsWith?.('application/'))) {
-        formDataToSend.append(key, value);
-      } else if (value === null || value === undefined || value === '') {
-        // Skip empty values for non-file fields
-      } else if (typeof value === 'boolean') {
-        jsonData[key] = value;
-      } else {
-        jsonData[key] = value;
+    // Check if supplierData is FormData
+    const isFormData = supplierData instanceof FormData;
+
+    if (isFormData) {
+      // Log FormData contents for debugging
+      console.log("📦 Sending FormData with fields:");
+      for (let pair of supplierData.entries()) {
+        if (pair[1] instanceof File) {
+          console.log(`  ${pair[0]}: File - ${pair[1].name}`);
+        } else {
+          console.log(`  ${pair[0]}: ${pair[1]}`);
+        }
       }
-    });
-    
-    // If there are no files, send as JSON
-    if (formDataToSend.keys().next().done) {
-      console.log("📦 Sending JSON data for update:", jsonData);
-      const response = await supplierApi.patch(`supplier/${id}/`, jsonData);
+
+      const response = await supplierApi.patch(
+        `supplier/${id}/`,
+        supplierData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
       console.log("✅ Supplier updated successfully:", response.data);
       return response;
     } else {
-      // Has files, send as FormData
-      formDataToSend.append('data', JSON.stringify(jsonData));
-      
-      console.log("📦 Sending FormData with files for update");
-      const response = await supplierApi.patch(`supplier/${id}/`, formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Handle regular JSON data
+      console.log("📦 Sending JSON data:", supplierData);
+      const response = await supplierApi.patch(`supplier/${id}/`, supplierData);
       console.log("✅ Supplier updated successfully:", response.data);
       return response;
     }
   } catch (error) {
-    console.error("❌ Error updating supplier:", error.response?.data || error.message);
+    console.error(
+      "❌ Error updating supplier:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
@@ -365,8 +362,8 @@ export const deleteSupplier = (id) => {
 export const searchSuppliers = (query) => {
   return supplierApi.get("supplier/", {
     params: {
-      search: query
-    }
+      search: query,
+    },
   });
 };
 
@@ -374,8 +371,8 @@ export const searchSuppliers = (query) => {
 export const getSuppliersByStatus = (status) => {
   return supplierApi.get("supplier/", {
     params: {
-      agreement_status: status
-    }
+      agreement_status: status,
+    },
   });
 };
 
@@ -384,24 +381,36 @@ export const getSupplierStats = () => {
   return supplierApi.get("supplier/dashboard_stats/");
 };
 
+// Get dashboard expiry summary
+export const getDashboardExpirySummary = () => {
+  return supplierApi.get("supplier/dashboard_expiry_summary/");
+};
+
+// Send bulk reminders
+export const sendBulkReminders = (fromEmail = "niloy@texweave.net") => {
+  return supplierApi.post("supplier/send_bulk_reminders/", {
+    from_email: fromEmail,
+  });
+};
+
 // Upload supplier attachment
 export const uploadSupplierAttachment = (supplierId, formData) => {
   console.log(`📎 Uploading attachment for supplier: ${supplierId}`);
-  
+
   // Add the supplier ID to the form data
   const fd = new FormData();
-  fd.append('supplier', supplierId);
-  
+  fd.append("supplier", supplierId);
+
   // Append all files and data from the original formData
   if (formData instanceof FormData) {
     for (let [key, value] of formData.entries()) {
       fd.append(key, value);
     }
   }
-  
+
   return supplierApi.post("supplier_attachments/", fd, {
     headers: {
-      'Content-Type': 'multipart/form-data',
+      "Content-Type": "multipart/form-data",
     },
   });
 };
@@ -409,24 +418,24 @@ export const uploadSupplierAttachment = (supplierId, formData) => {
 // Get supplier attachments
 export const getSupplierAttachments = (supplierId) => {
   return supplierApi.get("supplier_attachments/", {
-    params: { supplier: supplierId }
+    params: { supplier: supplierId },
   });
 };
 
 // Update agreement status
 export const updateAgreementStatus = (supplierId, status, data = {}) => {
   console.log(`📄 Updating agreement status for ${supplierId} to ${status}`);
-  
+
   return supplierApi.patch(`supplier/${supplierId}/update_agreement_status/`, {
     agreement_status: status,
-    ...data
+    ...data,
   });
 };
 
 // Get suppliers by vendor type
 export const getSuppliersByVendorType = (vendorType) => {
   return supplierApi.get("supplier/", {
-    params: { vendor_type: vendorType }
+    params: { vendor_type: vendorType },
   });
 };
 
@@ -436,35 +445,50 @@ export const getSuppliersByVendorType = (vendorType) => {
 const transformSupplierData = (formData) => {
   // Convert FormData to object first
   const data = formDataToObject(formData);
-  
+
   // Special handling for email - don't send empty email
-  if (data.email === '' || data.email === null || data.email === undefined) {
+  if (data.email === "" || data.email === null || data.email === undefined) {
     delete data.email;
   }
-  
+
   // Convert empty strings to null for date fields
   const dateFields = [
-    'deactivation_date', 'planned_inactivation_date', 'contract_sign_date',
-    'agreement_signature_due_date', 'agreement_expiry_date', 'agreement_accepted_on',
-    'certification_issue_date', 'certification_expiry_date', 'factory_related_since',
-    'latest_audit_date', 'latest_audit_expiry_date', 'latest_audit_report_date',
-    'shared_file_effective_from', 'shared_file_effective_to'
+    "deactivation_date",
+    "planned_inactivation_date",
+    "contract_sign_date",
+    "agreement_signature_due_date",
+    "agreement_expiry_date",
+    "agreement_accepted_on",
+    "certification_issue_date",
+    "certification_expiry_date",
+    "factory_related_since",
+    "latest_audit_date",
+    "latest_audit_expiry_date",
+    "latest_audit_report_date",
+    "shared_file_effective_from",
+    "shared_file_effective_to",
   ];
-  
-  dateFields.forEach(field => {
-    if (data[field] === '') {
+
+  dateFields.forEach((field) => {
+    if (data[field] === "") {
       data[field] = null;
     }
   });
-  
+
   // Convert empty strings to null for numeric fields
   const numericFields = [
-    'avg_lead_time_days', 'total_annual_turnover', 'export_annual_turnover',
-    'credit_limit', 'agent_payment', 'super_bonus', 'qa_score', 'year_established'
+    "avg_lead_time_days",
+    "total_annual_turnover",
+    "export_annual_turnover",
+    "credit_limit",
+    "agent_payment",
+    "super_bonus",
+    "qa_score",
+    "year_established",
   ];
-  
-  numericFields.forEach(field => {
-    if (data[field] === '') {
+
+  numericFields.forEach((field) => {
+    if (data[field] === "") {
       data[field] = null;
     } else if (data[field]) {
       // Try to convert to number
@@ -474,16 +498,16 @@ const transformSupplierData = (formData) => {
       }
     }
   });
-  
+
   // Convert string booleans to actual booleans
-  Object.keys(data).forEach(key => {
-    if (data[key] === 'true') {
+  Object.keys(data).forEach((key) => {
+    if (data[key] === "true") {
       data[key] = true;
-    } else if (data[key] === 'false') {
+    } else if (data[key] === "false") {
       data[key] = false;
     }
   });
-  
+
   return data;
 };
 
@@ -493,92 +517,92 @@ const transformSupplierData = (formData) => {
 
 // Get supplier status options
 export const getAgreementStatusOptions = () => [
-  { value: 'pending', label: 'Pending' },
-  { value: 'active', label: 'Active' },
-  { value: 'expired', label: 'Expired' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: "pending", label: "Pending" },
+  { value: "active", label: "Active" },
+  { value: "expired", label: "Expired" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 // Get document status options
 export const getDocStatusOptions = () => [
-  { value: 'draft', label: 'Draft' },
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: "draft", label: "Draft" },
+  { value: "submitted", label: "Submitted" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
 ];
 
 // Get vendor type options
 export const getVendorTypeOptions = () => [
-  { value: 'manufacturer', label: 'Manufacturer' },
-  { value: 'distributor', label: 'Distributor' },
-  { value: 'wholesaler', label: 'Wholesaler' },
-  { value: 'retailer', label: 'Retailer' },
-  { value: 'importer', label: 'Importer' },
-  { value: 'exporter', label: 'Exporter' },
-  { value: 'agent', label: 'Agent' },
-  { value: 'service_provider', label: 'Service Provider' },
+  { value: "manufacturer", label: "Manufacturer" },
+  { value: "distributor", label: "Distributor" },
+  { value: "wholesaler", label: "Wholesaler" },
+  { value: "retailer", label: "Retailer" },
+  { value: "importer", label: "Importer" },
+  { value: "exporter", label: "Exporter" },
+  { value: "agent", label: "Agent" },
+  { value: "service_provider", label: "Service Provider" },
 ];
 
 // Get business type options
 export const getBusinessTypeOptions = () => [
-  { value: 'sole_proprietorship', label: 'Sole Proprietorship' },
-  { value: 'partnership', label: 'Partnership' },
-  { value: 'corporation', label: 'Corporation' },
-  { value: 'llc', label: 'Limited Liability Company' },
-  { value: 'private_limited', label: 'Private Limited' },
-  { value: 'public_limited', label: 'Public Limited' },
+  { value: "sole_proprietorship", label: "Sole Proprietorship" },
+  { value: "partnership", label: "Partnership" },
+  { value: "corporation", label: "Corporation" },
+  { value: "llc", label: "Limited Liability Company" },
+  { value: "private_limited", label: "Private Limited" },
+  { value: "public_limited", label: "Public Limited" },
 ];
 
 // Get vendor rating options
 export const getVendorRatingOptions = () => [
-  { value: 'A', label: 'A - Excellent' },
-  { value: 'B', label: 'B - Good' },
-  { value: 'C', label: 'C - Average' },
-  { value: 'D', label: 'D - Poor' },
-  { value: 'E', label: 'E - Critical' },
+  { value: "A", label: "A - Excellent" },
+  { value: "B", label: "B - Good" },
+  { value: "C", label: "C - Average" },
+  { value: "D", label: "D - Poor" },
+  { value: "E", label: "E - Critical" },
 ];
 
 // Get payment term options
 export const getPaymentTermOptions = () => [
-  { value: 'Net 7', label: 'Net 7 Days' },
-  { value: 'Net 15', label: 'Net 15 Days' },
-  { value: 'Net 30', label: 'Net 30 Days' },
-  { value: 'Net 45', label: 'Net 45 Days' },
-  { value: 'Net 60', label: 'Net 60 Days' },
-  { value: 'Cash', label: 'Cash on Delivery' },
-  { value: 'Advance', label: 'Advance Payment' },
+  { value: "Net 7", label: "Net 7 Days" },
+  { value: "Net 15", label: "Net 15 Days" },
+  { value: "Net 30", label: "Net 30 Days" },
+  { value: "Net 45", label: "Net 45 Days" },
+  { value: "Net 60", label: "Net 60 Days" },
+  { value: "Cash", label: "Cash on Delivery" },
+  { value: "Advance", label: "Advance Payment" },
 ];
 
 // Get incoterm options
 export const getIncotermOptions = () => [
-  { value: 'EXW', label: 'EXW - Ex Works' },
-  { value: 'FCA', label: 'FCA - Free Carrier' },
-  { value: 'FOB', label: 'FOB - Free On Board' },
-  { value: 'CIF', label: 'CIF - Cost Insurance Freight' },
-  { value: 'CFR', label: 'CFR - Cost and Freight' },
-  { value: 'DAP', label: 'DAP - Delivered At Place' },
-  { value: 'DPU', label: 'DPU - Delivered At Place Unloaded' },
-  { value: 'DDP', label: 'DDP - Delivered Duty Paid' },
+  { value: "EXW", label: "EXW - Ex Works" },
+  { value: "FCA", label: "FCA - Free Carrier" },
+  { value: "FOB", label: "FOB - Free On Board" },
+  { value: "CIF", label: "CIF - Cost Insurance Freight" },
+  { value: "CFR", label: "CFR - Cost and Freight" },
+  { value: "DAP", label: "DAP - Delivered At Place" },
+  { value: "DPU", label: "DPU - Delivered At Place Unloaded" },
+  { value: "DDP", label: "DDP - Delivered Duty Paid" },
 ];
 
 // Get currency options
 export const getCurrencyOptions = () => [
-  { value: 'USD', label: 'USD - US Dollar' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound' },
-  { value: 'BDT', label: 'BDT - Bangladeshi Taka' },
-  { value: 'INR', label: 'INR - Indian Rupee' },
-  { value: 'CNY', label: 'CNY - Chinese Yuan' },
+  { value: "USD", label: "USD - US Dollar" },
+  { value: "EUR", label: "EUR - Euro" },
+  { value: "GBP", label: "GBP - British Pound" },
+  { value: "BDT", label: "BDT - Bangladeshi Taka" },
+  { value: "INR", label: "INR - Indian Rupee" },
+  { value: "CNY", label: "CNY - Chinese Yuan" },
 ];
 
 // Get language options
 export const getLanguageOptions = () => [
-  { value: 'English', label: 'English' },
-  { value: 'Bangla', label: 'Bangla' },
-  { value: 'Hindi', label: 'Hindi' },
-  { value: 'Chinese', label: 'Chinese' },
-  { value: 'Arabic', label: 'Arabic' },
-  { value: 'Spanish', label: 'Spanish' },
+  { value: "English", label: "English" },
+  { value: "Bangla", label: "Bangla" },
+  { value: "Hindi", label: "Hindi" },
+  { value: "Chinese", label: "Chinese" },
+  { value: "Arabic", label: "Arabic" },
+  { value: "Spanish", label: "Spanish" },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -595,18 +619,18 @@ export default {
   getSuppliersByStatus,
   getSupplierStats,
   getSuppliersByVendorType,
-  
+
   // Attachment functions
   uploadSupplierAttachment,
   getSupplierAttachments,
-  
+
   // Agreement functions
   updateAgreementStatus,
-  
+
   // Data transformation
   transformSupplierData,
   formDataToObject,
-  
+
   // Utility functions
   getAgreementStatusOptions,
   getDocStatusOptions,

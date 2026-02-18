@@ -880,9 +880,9 @@ const EmployeeDetails = () => {
                             onClick={() => handleRowClick(employee.id)}
                           >
                             <div className="avatar">
-                              {employee.profile_picture ? (
+                              {employee.image1 ? (
                                 <img
-                                  src={employee.profile_picture}
+                                  src={employee.image1}
                                   alt={employee.name}
                                 />
                               ) : (

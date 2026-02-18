@@ -9,6 +9,7 @@ import {
   FiDownload,
   FiShare2,
   FiExternalLink,
+  FiMapPin,
 } from "react-icons/fi";
 import {
   FaIndustry,
@@ -35,7 +36,7 @@ const DetailSupplier = () => {
     const fetchSupplier = async () => {
       try {
         const response = await axios.get(
-          `http://119.148.51.38:8000/api/merchandiser/api/supplier/${id}/`
+          `http://119.148.51.38:8000/api/merchandiser/api/supplier/${id}/`,
         );
         setSupplier(response.data);
       } catch (error) {
@@ -81,6 +82,67 @@ const DetailSupplier = () => {
     setIsFavorite(!isFavorite);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not specified";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    if (!amount && amount !== 0) return "Not specified";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const getStatusColor = (status) => {
+    if (!status) return { bg: "#f8f9fa", text: "#6c757d", border: "#e9ecef" };
+
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case "active":
+      case "approved":
+      case "valid":
+      case "compliant":
+        return { bg: "#d4edda", text: "#155724", border: "#c3e6cb" };
+      case "pending":
+      case "under_review":
+        return { bg: "#fff3cd", text: "#856404", border: "#ffeaa7" };
+      case "expired":
+      case "cancelled":
+      case "non_compliant":
+        return { bg: "#f8d7da", text: "#721c24", border: "#f5c6cb" };
+      case "conditional":
+        return { bg: "#cfe2ff", text: "#084298", border: "#b6d4fe" };
+      default:
+        return { bg: "#f8f9fa", text: "#6c757d", border: "#e9ecef" };
+    }
+  };
+
+  const getDaysRemainingColor = (days) => {
+    if (!days && days !== 0) return { bg: "#6c757d", color: "white" };
+    if (days <= 30) return { bg: "#dc3545", color: "white" };
+    if (days <= 60) return { bg: "#ffc107", color: "black" };
+    if (days <= 90) return { bg: "#28a745", color: "white" };
+    return { bg: "#28a745", color: "white" };
+  };
+
+  const getBooleanDisplay = (value) => {
+    if (value === true) return "Yes";
+    if (value === false) return "No";
+    return "Not specified";
+  };
+
   return (
     <div className="supplier-detail-container">
       <Sidebar />
@@ -106,12 +168,14 @@ const DetailSupplier = () => {
         {/* Supplier header card */}
         <div className="supplier-header-card">
           <div className="supplier-header-content">
-            <div className="supplier-avatar">{supplier.name.charAt(0)}</div>
+            <div className="supplier-avatar">
+              {supplier?.supplier_name?.charAt(0) || "?"}
+            </div>
             <div className="supplier-header-details">
               <div className="supplier-title-section">
                 <div>
-                  <h1 className="supplier-name">{supplier.name}</h1>
-                  <p className="supplier-type">{supplier.vendor_type}</p>
+                  <h1 className="supplier-name">{supplier.supplier_name}</h1>
+                  <p className="supplier-type">{supplier.supplier_category || "Category not specified"}</p>
                 </div>
                 <div className="supplier-actions">
                   <button onClick={toggleFavorite} className="favorite-button">
@@ -122,11 +186,9 @@ const DetailSupplier = () => {
                     )}
                   </button>
                   <span
-                    className={`supplier-rating rating-${
-                      supplier.vendor_rating || "none"
-                    }`}
+                    className={`supplier-rating rating-${supplier.compliance_status || "none"}`}
                   >
-                    Rating: {supplier.vendor_rating || "Not rated"}
+                    Status: {supplier.compliance_status || "Not rated"}
                   </span>
                 </div>
               </div>
@@ -134,19 +196,19 @@ const DetailSupplier = () => {
                 <div className="supplier-meta-item">
                   <FaIndustry className="meta-icon" />
                   <span>
-                    {supplier.business_type || "Business type not specified"}
+                    {supplier.production_process || "Production process not specified"}
                   </span>
                 </div>
                 <div className="supplier-meta-item">
                   <FaMapMarkerAlt className="meta-icon" />
                   <span>
-                    {supplier.town_city}, {supplier.country_region}
+                    {supplier.location || "Location not specified"}
                   </span>
                 </div>
                 <div className="supplier-meta-item">
                   <FaBuilding className="meta-icon" />
                   <span>
-                    Est. {supplier.year_established || "Year not specified"}
+                    Est. {supplier.year_of_establishment || "Year not specified"}
                   </span>
                 </div>
               </div>
@@ -185,7 +247,11 @@ const DetailSupplier = () => {
           display: flex;
           min-height: 100vh;
           background-color: #f8fafc;
-          font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+          font-family:
+            "Inter",
+            -apple-system,
+            BlinkMacSystemFont,
+            sans-serif;
         }
 
         .supplier-detail-content {
@@ -486,778 +552,597 @@ const DetailSupplier = () => {
 };
 
 // Tab Components
-const OverviewTab = ({ supplier }) => (
-  <div className="tab-content">
-    {/* Quick Stats */}
-    <div className="stats-grid">
-      <StatCard
-        title="Avg. Lead Time"
-        value={`${supplier.avg_lead_time_days || "—"} days`}
-        icon={<FaFileContract />}
-        color="#3b82f6"
-      />
-      <StatCard
-        title="Payment Terms"
-        value={supplier.payment_term || "—"}
-        icon={<FaMoneyBillWave />}
-        color="#10b981"
-      />
-      <StatCard
-        title="Incoterm"
-        value={supplier.incoterm || "—"}
-        icon={<FaIndustry />}
-        color="#8b5cf6"
-      />
-      <StatCard
-        title="Currency"
-        value={supplier.currency || "—"}
-        icon={<RiBankLine />}
-        color="#f59e0b"
-      />
+const OverviewTab = ({ supplier }) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not specified";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getBooleanDisplay = (value) => {
+    if (value === true) return "Yes";
+    if (value === false) return "No";
+    return "Not specified";
+  };
+
+  return (
+    <div className="tab-content">
+      {/* Quick Stats */}
+      <div className="stats-grid">
+        <StatCard
+          title="Total Manpower"
+          value={supplier.total_manpower || "—"}
+          icon={<FaFileContract />}
+          color="#3b82f6"
+        />
+        <StatCard
+          title="Yearly Turnover"
+          value={supplier.yearly_turnover_usd ? `$${supplier.yearly_turnover_usd.toLocaleString()}` : "—"}
+          icon={<FaMoneyBillWave />}
+          color="#10b981"
+        />
+        <StatCard
+          title="Capacity/Month"
+          value={supplier.capacity_per_month || "—"}
+          icon={<FaIndustry />}
+          color="#8b5cf6"
+        />
+        <StatCard
+          title="Sewing Lines"
+          value={supplier.number_of_sewing_line || "—"}
+          icon={<RiBankLine />}
+          color="#f59e0b"
+        />
+      </div>
+
+      {/* Company Information */}
+      <SectionCard title="Company Information" icon={<FaBuilding />}>
+        <div className="info-grid">
+          <InfoField label="Supplier ID" value={supplier.supplier_id} />
+          <InfoField label="SL No" value={supplier.sl_no} />
+          <InfoField label="Supplier Category" value={supplier.supplier_category} />
+          <InfoField label="Year of Establishment" value={supplier.year_of_establishment} />
+          <InfoField label="Location" value={supplier.location} />
+          <InfoField label="Production Process" value={supplier.production_process} />
+          <InfoField label="Manufacturing Items" value={supplier.manufacturing_item} />
+          <InfoField label="Existing Customers" value={supplier.existing_customer} fullWidth />
+        </div>
+      </SectionCard>
+
+      {/* Building Information */}
+      <SectionCard title="Building Information" icon={<FaBuilding />}>
+        <div className="info-grid">
+          <InfoField 
+            label="Building Type" 
+            value={
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {supplier.rented_building && <span className="building-tag">Rented</span>}
+                {supplier.share_building && <span className="building-tag">Shared</span>}
+                {supplier.own_property && <span className="building-tag">Owned</span>}
+                {!supplier.rented_building && !supplier.share_building && !supplier.own_property && "Not specified"}
+              </div>
+            } 
+          />
+          <InfoField label="Building Details" value={supplier.building_details} />
+          <InfoField label="Total Area" value={supplier.total_area ? `${supplier.total_area} sq ft` : "—"} />
+          <InfoField label="Ownership Details" value={supplier.ownership_details} />
+        </div>
+      </SectionCard>
+
+      {/* Contact Details */}
+      <SectionCard title="Contact Details" icon={<BsPersonLinesFill />}>
+        <div className="info-grid">
+          <InfoField label="Factory Main Contact" value={supplier.factory_main_contact} />
+          <InfoField label="Factory Merchandiser Contact" value={supplier.factory_merchandiser_contact} />
+          <InfoField label="Factory HR/Compliance Contact" value={supplier.factory_hr_compliance_contact} />
+          <InfoField label="Email" value={supplier.email} link />
+          <InfoField label="Phone" value={supplier.phone} />
+        </div>
+      </SectionCard>
+
+      {/* Address */}
+      <SectionCard title="Address" icon={<FaMapMarkerAlt />}>
+        <div className="info-grid">
+          <InfoField label="Location" value={supplier.location} fullWidth />
+        </div>
+      </SectionCard>
+
+      <style jsx>{`
+        .tab-content {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 16px;
+        }
+
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 20px;
+        }
+
+        .building-tag {
+          background-color: #e2e8f0;
+          color: #475569;
+          padding: 0.25rem 0.75rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+      `}</style>
     </div>
+  );
+};
 
-    {/* Company Information */}
-    <SectionCard title="Company Information" icon={<FaBuilding />}>
-      <div className="info-grid">
-        <InfoField label="Vendor ID" value={supplier.vendor_id} />
-        <InfoField label="Reference No." value={supplier.reference_no} />
-        <InfoField label="Short Name" value={supplier.short_name} />
-        <InfoField label="Holding Group" value={supplier.holding_group} />
-        <InfoField
-          label="Place of Incorporation"
-          value={supplier.place_of_incorporation}
-        />
-        <InfoField label="Year Established" value={supplier.year_established} />
-        <InfoField label="Business Type" value={supplier.business_type} />
-        <InfoField label="About Us" value={supplier.about_us} fullWidth />
-      </div>
-    </SectionCard>
+const FinancialTab = ({ supplier }) => {
+  const formatCurrency = (amount) => {
+    if (!amount && amount !== 0) return "Not specified";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
 
-    {/* Contact Details */}
-    <SectionCard title="Contact Details" icon={<BsPersonLinesFill />}>
-      <div className="info-grid">
-        <InfoField label="Phone" value={supplier.company_phone} />
-        <InfoField label="Email" value={supplier.email} />
-        <InfoField label="Website" value={supplier.website} link />
-        <InfoField
-          label="Preferred Language"
-          value={supplier.preferred_language}
-        />
-        <InfoField label="Contact Person" value={supplier.contact_name} />
-        <InfoField label="Contact Email" value={supplier.contact_email} />
-      </div>
-    </SectionCard>
+  return (
+    <div className="tab-content">
+      <SectionCard title="Financial Information" icon={<FaMoneyBillWave />}>
+        <div className="info-grid">
+          <InfoField
+            label="Yearly Turnover (USD)"
+            value={formatCurrency(supplier.yearly_turnover_usd)}
+          />
+          <InfoField label="Weekly Holiday" value={supplier.weekly_holiday} />
+          <InfoField label="BGMEA Number" value={supplier.bgmea_number} />
+          <InfoField label="RSC" value={supplier.rsc} />
+          <InfoField label="TAD Group Order Status" value={supplier.tad_group_order_status} />
+        </div>
+      </SectionCard>
 
-    {/* Address */}
-    <SectionCard title="Address" icon={<FaMapMarkerAlt />}>
-      <div className="info-grid">
-        <InfoField label="Address" value={supplier.address} fullWidth />
-        <InfoField label="Town/City" value={supplier.town_city} />
-        <InfoField label="Postal Code" value={supplier.postal_code} />
-        <InfoField label="Country/Region" value={supplier.country_region} />
-        <InfoField
-          label="GPS Coordinates"
-          value={
-            supplier.gps_lat && supplier.gps_lng
-              ? `${supplier.gps_lat}, ${supplier.gps_lng}`
-              : "—"
-          }
-        />
-        <InfoField
-          label="EU Country"
-          value={supplier.eu_country ? "Yes" : "No"}
-        />
-      </div>
-      {supplier.gps_lat && supplier.gps_lng && (
-        <div className="map-placeholder">
-          <div className="map-overlay">
-            <FiMapPin className="map-icon" />
-            <span>View on Map</span>
+      <style jsx>{`
+        .tab-content {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 20px;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+const ContactsTab = ({ supplier }) => {
+  const getBooleanDisplay = (value) => {
+    if (value === true) return "Yes";
+    if (value === false) return "No";
+    return "Not specified";
+  };
+
+  return (
+    <div className="tab-content">
+      <SectionCard title="Primary Contacts">
+        <div className="info-grid">
+          <InfoField label="Factory Main Contact" value={supplier.factory_main_contact} />
+          <InfoField label="Factory Merchandiser Contact" value={supplier.factory_merchandiser_contact} />
+          <InfoField label="Factory HR/Compliance Contact" value={supplier.factory_hr_compliance_contact} />
+          <InfoField label="Email" value={supplier.email} link />
+          <InfoField label="Phone" value={supplier.phone} />
+        </div>
+      </SectionCard>
+
+      <style jsx>{`
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 16px;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+const DocumentsTab = ({ supplier }) => {
+  return (
+    <div className="tab-content">
+      <SectionCard title="Certifications & Documents" icon={<FaCertificate />}>
+        {supplier.all_certificates && supplier.all_certificates.length > 0 ? (
+          <div className="documents-list">
+            {supplier.all_certificates.map((cert, index) => (
+              cert.url && (
+                <div key={index} className="document-item">
+                  <span className="document-icon">📄</span>
+                  <div className="document-info">
+                    <div className="document-name">{cert.name}</div>
+                    <a
+                      href={cert.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="document-link"
+                    >
+                      View Document
+                    </a>
+                  </div>
+                </div>
+              )
+            ))}
           </div>
-        </div>
-      )}
-    </SectionCard>
-
-    <style jsx>{`
-      .tab-content {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-      }
-
-      .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px;
-      }
-
-      .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-      }
-
-      .map-placeholder {
-        margin-top: 20px;
-        height: 200px;
-        background-color: #f1f5f9;
-        border-radius: 8px;
-        position: relative;
-        overflow: hidden;
-        background-image: linear-gradient(
-            45deg,
-            #e5e7eb 25%,
-            transparent 25%,
-            transparent 75%,
-            #e5e7eb 75%,
-            #e5e7eb
-          ),
-          linear-gradient(
-            45deg,
-            #e5e7eb 25%,
-            transparent 25%,
-            transparent 75%,
-            #e5e7eb 75%,
-            #e5e7eb
-          );
-        background-size: 20px 20px;
-        background-position: 0 0, 10px 10px;
-      }
-
-      .map-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background-color: rgba(255, 255, 255, 0.8);
-        color: #4b5563;
-        font-weight: 500;
-        gap: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .map-overlay:hover {
-        background-color: rgba(255, 255, 255, 0.9);
-        color: #3b82f6;
-      }
-
-      .map-icon {
-        font-size: 24px;
-      }
-    `}</style>
-  </div>
-);
-
-const FinancialTab = ({ supplier }) => (
-  <div className="tab-content">
-    <SectionCard title="Bank Information" icon={<RiBankLine />}>
-      <div className="info-grid">
-        <InfoField label="Account Name" value={supplier.account_name} />
-        <InfoField label="Account No." value={supplier.account_no} />
-        <InfoField label="Bank Name" value={supplier.bank_name} />
-        <InfoField label="Country of Bank" value={supplier.country_of_bank} />
-        <InfoField label="Swift Code" value={supplier.swift_code} />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Financial Details" icon={<FaMoneyBillWave />}>
-      <div className="info-grid">
-        <InfoField
-          label="Annual Turnover"
-          value={
-            supplier.total_annual_turnover
-              ? `$${supplier.total_annual_turnover.toLocaleString()}`
-              : "—"
-          }
-        />
-        <InfoField
-          label="Export Turnover"
-          value={
-            supplier.export_annual_turnover
-              ? `$${supplier.export_annual_turnover.toLocaleString()}`
-              : "—"
-          }
-        />
-        <InfoField
-          label="Credit Limit"
-          value={
-            supplier.credit_limit
-              ? `$${supplier.credit_limit.toLocaleString()}`
-              : "—"
-          }
-        />
-        <InfoField
-          label="Credit Report"
-          value={
-            supplier.credit_report
-              ? `$${supplier.credit_report.toLocaleString()}`
-              : "—"
-          }
-        />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Payment Terms" icon={<FaFileContract />}>
-      <div className="info-grid">
-        <InfoField label="Payment Method" value={supplier.payment_method} />
-        <InfoField label="Payment Term" value={supplier.payment_term} />
-        <InfoField label="Currency" value={supplier.currency} />
-        <InfoField label="Cash Discount" value={supplier.cash_discount} />
-      </div>
-    </SectionCard>
-    <style jsx>{`
-      .tab-content {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-      }
-
-      .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px;
-      }
-
-      .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-      }
-
-      .map-placeholder {
-        margin-top: 20px;
-        height: 200px;
-        background-color: #f1f5f9;
-        border-radius: 8px;
-        position: relative;
-        overflow: hidden;
-        background-image: linear-gradient(
-            45deg,
-            #e5e7eb 25%,
-            transparent 25%,
-            transparent 75%,
-            #e5e7eb 75%,
-            #e5e7eb
-          ),
-          linear-gradient(
-            45deg,
-            #e5e7eb 25%,
-            transparent 25%,
-            transparent 75%,
-            #e5e7eb 75%,
-            #e5e7eb
-          );
-        background-size: 20px 20px;
-        background-position: 0 0, 10px 10px;
-      }
-
-      .map-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background-color: rgba(255, 255, 255, 0.8);
-        color: #4b5563;
-        font-weight: 500;
-        gap: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-
-      .map-overlay:hover {
-        background-color: rgba(255, 255, 255, 0.9);
-        color: #3b82f6;
-      }
-
-      .map-icon {
-        font-size: 24px;
-      }
-    `}</style>
-  </div>
-);
-
-const ContactsTab = ({ supplier }) => (
-  <div className="tab-content">
-    <SectionCard title="Address (Default)">
-      <div className="info-grid">
-        <Info label="Address Type" value={supplier.address_type} />
-        <Info label="Country/Region" value={supplier.address_country_region} />
-        <Info label="Street" value={supplier.address_street} />
-        <Info label="Town/City" value={supplier.address_town_city} />
-        <Info label="GPS Longitude" value={supplier.address_gps_lng} />
-        <Info label="GPS Latitude" value={supplier.address_gps_lat} />
-        <Info label="Postal Code" value={supplier.address_postal_code} />
-        <Info
-          label="Port of Loading/Discharge"
-          value={supplier.address_port_of_loading_discharge}
-        />
-        <Info label="Language" value={supplier.address_language} />
-        <Info label="GPS Description" value={supplier.address_gps_text} />
-        <Info
-          label="Inactive Address"
-          value={supplier.address_inactive ? "Yes" : "No"}
-        />
-        <Info
-          label="EU Country"
-          value={supplier.address_eu_country ? "Yes" : "No"}
-        />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Primary Contact (Default)">
-      <div className="info-grid">
-        <Info label="Contact Type" value={supplier.contact1_type} />
-        <Info
-          label="Texweave Access"
-          value={supplier.contact1_texweave_access ? "Yes" : "No"}
-        />
-        <Info label="Title" value={supplier.contact1_title} />
-        <Info label="First Name" value={supplier.contact1_first_name} />
-        <Info label="Last Name" value={supplier.contact1_last_name} />
-        <Info label="Position" value={supplier.contact1_position} />
-        <Info label="Telephone" value={supplier.contact1_tel} />
-        <Info label="Mobile" value={supplier.contact1_mobile} />
-        <Info label="Email" value={supplier.contact1_email} />
-        <Info label="Department" value={supplier.contact1_department} />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Additional Contacts">
-      <div className="empty-state">
-        <div className="empty-state-icon">
-          <BsPersonLinesFill />
-        </div>
-        <h3>No additional contacts</h3>
-        <p>Add additional contacts to have more points of communication</p>
-        <button className="add-button">
-          <FiEdit2 /> Add Contact
-        </button>
-      </div>
-    </SectionCard>
-
-    <style jsx>{`
-      .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-      }
-
-      .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        padding: 32px 0;
-      }
-
-      .empty-state-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background-color: #f3f4f6;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-        color: #9ca3af;
-        font-size: 24px;
-      }
-
-      .empty-state h3 {
-        margin: 0 0 8px 0;
-        color: #111827;
-        font-size: 16px;
-        font-weight: 600;
-      }
-
-      .empty-state p {
-        margin: 0 0 16px 0;
-        color: #6b7280;
-        font-size: 14px;
-        max-width: 300px;
-      }
-
-      .add-button {
-        display: flex;
-        align-items: center;
-        padding: 8px 16px;
-        background-color: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-weight: 500;
-        font-size: 14px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-
-      .add-button:hover {
-        background-color: #2563eb;
-      }
-
-      .add-button svg {
-        margin-right: 8px;
-      }
-    `}</style>
-  </div>
-);
-
-// Helper component for displaying label + value
-const Info = ({ label, value }) => (
-  <div>
-    <div style={{ fontWeight: "600", color: "#374151" }}>{label}</div>
-    <div style={{ color: "#6b7280" }}>{value || "Not specified"}</div>
-  </div>
-);
-
-const DocumentsTab = ({ supplier }) => (
-  <div className="tab-content">
-    <SectionCard title="Certifications" icon={<FaCertificate />}>
-      {supplier.certification_name ? (
-        <div className="info-grid">
-          <InfoField
-            label="Certification Type"
-            value={supplier.certification_type}
-          />
-          <InfoField
-            label="Certification Name"
-            value={supplier.certification_name}
-          />
-          <InfoField
-            label="Certification Number"
-            value={supplier.certification_number}
-          />
-          <InfoField label="Issue Date" value={supplier.issue_date} />
-          <InfoField label="Expiry Date" value={supplier.expiry_date} />
-          <InfoField label="Status" value={supplier.status} />
-          <InfoField
-            label="Institute Country"
-            value={supplier.institute_country}
-          />
-          <InfoField label="Notes" value={supplier.notes} fullWidth />
-        </div>
-      ) : (
-        <div className="documents-empty-state">
-          <FaCertificate className="empty-icon" />
-          <h3>No certifications added</h3>
-          <p>Add certifications to showcase supplier qualifications</p>
-        </div>
-      )}
-    </SectionCard>
-
-    <SectionCard title="Agreements" icon={<FaFileContract />}>
-      {supplier.agreement_name ? (
-        <div className="info-grid">
-          <InfoField label="Agreement Code" value={supplier.agreement_code} />
-          <InfoField label="Agreement Name" value={supplier.agreement_name} />
-          <InfoField label="Agreement Type" value={supplier.agreement_type} />
-          <InfoField
-            label="Agreement Status"
-            value={supplier.agreement_status}
-          />
-          <InfoField
-            label="Signature Due Date"
-            value={supplier.agreement_signature_due_date}
-          />
-          <InfoField
-            label="Expiry Date"
-            value={supplier.agreement_expiry_date}
-          />
-          <InfoField
-            label="Accepted On"
-            value={supplier.agreement_accepted_on}
-          />
-          <InfoField
-            label="Document Status"
-            value={supplier.agreement_doc_status}
-          />
-          <InfoField
-            label="Vendor Action Required"
-            value={supplier.agreement_vendor_action_required ? "Yes" : "No"}
-          />
-          <InfoField
-            label="Instructions to Vendor"
-            value={supplier.agreement_instruction_to_vendor}
-            fullWidth
-          />
-        </div>
-      ) : (
-        <div className="documents-empty-state">
-          <FaFileContract className="empty-icon" />
-          <h3>No agreements available</h3>
-          <p>Add agreements to track contractual obligations</p>
-        </div>
-      )}
-    </SectionCard>
-
-    <style jsx>{`
-      .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-      }
-
-      .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        padding: 32px 0;
-      }
-
-      .empty-state-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background-color: #f3f4f6;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-        color: #9ca3af;
-        font-size: 24px;
-      }
-
-      .empty-state h3 {
-        margin: 0 0 8px 0;
-        color: #111827;
-        font-size: 16px;
-        font-weight: 600;
-      }
-
-      .empty-state p {
-        margin: 0 0 16px 0;
-        color: #6b7280;
-        font-size: 14px;
-        max-width: 300px;
-      }
-
-      .add-button {
-        display: flex;
-        align-items: center;
-        padding: 8px 16px;
-        background-color: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-weight: 500;
-        font-size: 14px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-
-      .add-button:hover {
-        background-color: #2563eb;
-      }
-
-      .add-button svg {
-        margin-right: 8px;
-      }
-    `}</style>
-  </div>
-);
-
-const PerformanceTab = ({ supplier }) => (
-  <div className="tab-content">
-    <SectionCard title="Quality Assessment">
-      <div className="info-grid">
-        <InfoField label="QA Rank" value={supplier.qa_rank} />
-        <InfoField
-          label="Assessment Level"
-          value={supplier.qa_assessment_level}
-        />
-        <InfoField label="Risk Level" value={supplier.qa_risk_level} />
-        <InfoField
-          label="Performance Level"
-          value={supplier.qa_performance_level}
-        />
-        <InfoField label="QA Score" value={supplier.qa_score} />
-        <InfoField
-          label="Accredited"
-          value={supplier.qa_accredited ? "Yes" : "No"}
-        />
-        <InfoField label="QA Summary" value={supplier.qa_summary} fullWidth />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Latest Audit Report">
-      {supplier.latest_audit_report_no ? (
-        <div className="info-grid">
-          <InfoField
-            label="Audit Report No."
-            value={supplier.latest_audit_report_no}
-          />
-          <InfoField
-            label="Audit Version"
-            value={supplier.latest_audit_version}
-          />
-          <InfoField
-            label="Report Type"
-            value={supplier.latest_audit_report_type}
-          />
-          <InfoField label="Customer" value={supplier.latest_audit_customer} />
-          <InfoField label="Audit Date" value={supplier.latest_audit_date} />
-          <InfoField label="Auditor" value={supplier.latest_auditor} />
-          <InfoField label="Audit Party" value={supplier.latest_audit_party} />
-          <InfoField
-            label="Audit Result"
-            value={supplier.latest_audit_result}
-          />
-          <InfoField
-            label="Expiry Date"
-            value={supplier.latest_audit_expiry_date}
-          />
-          <InfoField
-            label="Report Date"
-            value={supplier.latest_audit_report_date}
-          />
-          <InfoField label="Status" value={supplier.latest_audit_status} />
-          <InfoField
-            label="Editing Status"
-            value={supplier.latest_audit_editing_status}
-          />
-        </div>
-      ) : (
-        <div className="performance-empty-state">
-          <div className="empty-icon">
-            <IoMdCheckmarkCircle />
+        ) : (
+          <div className="empty-state">
+            <FaCertificate className="empty-icon" />
+            <h3>No documents uploaded</h3>
+            <p>Upload certificates and documents to track supplier compliance</p>
           </div>
-          <h3>No audit reports available</h3>
-          <p>Upload audit reports to track supplier compliance</p>
+        )}
+      </SectionCard>
+
+      <style jsx>{`
+        .documents-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .document-item {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          background-color: #f8fafc;
+          border-radius: 8px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .document-icon {
+          font-size: 1.5rem;
+          color: #3b82f6;
+        }
+
+        .document-info {
+          flex: 1;
+        }
+
+        .document-name {
+          font-weight: 500;
+          margin-bottom: 0.25rem;
+        }
+
+        .document-link {
+          font-size: 0.875rem;
+          color: #3b82f6;
+          text-decoration: none;
+        }
+
+        .document-link:hover {
+          text-decoration: underline;
+        }
+
+        .empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 32px 0;
+        }
+
+        .empty-icon {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background-color: #f3f4f6;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 16px;
+          color: #9ca3af;
+          font-size: 24px;
+        }
+
+        .empty-state h3 {
+          margin: 0 0 8px 0;
+          color: #111827;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .empty-state p {
+          margin: 0;
+          color: #6b7280;
+          font-size: 14px;
+          max-width: 300px;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+const PerformanceTab = ({ supplier }) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not specified";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    if (!status) return { bg: "#f8f9fa", text: "#6c757d" };
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case "active":
+      case "approved":
+      case "valid":
+      case "compliant":
+        return { bg: "#d4edda", text: "#155724" };
+      case "pending":
+      case "under_review":
+        return { bg: "#fff3cd", text: "#856404" };
+      case "expired":
+      case "cancelled":
+      case "non_compliant":
+        return { bg: "#f8d7da", text: "#721c24" };
+      default:
+        return { bg: "#f8f9fa", text: "#6c757d" };
+    }
+  };
+
+  const getDaysRemainingColor = (days) => {
+    if (!days && days !== 0) return { bg: "#6c757d", color: "white" };
+    if (days <= 30) return { bg: "#dc3545", color: "white" };
+    if (days <= 60) return { bg: "#ffc107", color: "black" };
+    if (days <= 90) return { bg: "#28a745", color: "white" };
+    return { bg: "#28a745", color: "white" };
+  };
+
+  return (
+    <div className="tab-content">
+      {/* Compliance Status */}
+      <SectionCard title="Compliance Status" icon={<IoMdCheckmarkCircle />}>
+        <div className="info-grid">
+          <InfoField
+            label="Compliance Status"
+            value={
+              <span
+                style={{
+                  ...styles.statusBadge,
+                  backgroundColor: getStatusColor(supplier.compliance_status).bg,
+                  color: getStatusColor(supplier.compliance_status).text,
+                }}
+              >
+                {supplier.compliance_status?.replace("_", " ").toUpperCase() || "N/A"}
+              </span>
+            }
+          />
+          <InfoField
+            label="Grievance Mechanism"
+            value={supplier.grievance_mechanism ? "Yes" : "No"}
+          />
+          <InfoField
+            label="Last Grievance Resolution"
+            value={formatDate(supplier.last_grievance_resolution_date)}
+          />
+          <InfoField
+            label="Grievance Resolution Rate"
+            value={supplier.grievance_resolution_rate ? `${supplier.grievance_resolution_rate}%` : "N/A"}
+          />
         </div>
+      </SectionCard>
+
+      {/* Wages & Benefits */}
+      <SectionCard title="Wages & Benefits" icon={<FaMoneyBillWave />}>
+        <div className="info-grid">
+          <InfoField label="Minimum Wages Paid" value={supplier.minimum_wages_paid ? "Yes" : "No"} />
+          <InfoField label="Earn Leave Status" value={supplier.earn_leave_status ? "Yes" : "No"} />
+          <InfoField label="Service Benefit" value={supplier.service_benefit ? "Yes" : "No"} />
+          <InfoField label="Maternity Benefit" value={supplier.maternity_benefit ? "Yes" : "No"} />
+          <InfoField label="Yearly Increment" value={supplier.yearly_increment ? "Yes" : "No"} />
+          <InfoField label="Festival Bonus" value={supplier.festival_bonus ? "Yes" : "No"} />
+          <InfoField label="Salary Due Status" value={supplier.salary_due_status ? "Yes" : "No"} />
+          <InfoField label="Due Salary Month" value={supplier.due_salary_month} />
+        </div>
+      </SectionCard>
+
+      {/* BSCI Certification */}
+      <SectionCard title="BSCI Certification" icon={<FaCertificate />}>
+        <div className="info-grid">
+          <InfoField label="Last Audit Date" value={formatDate(supplier.bsci_last_audit_date)} />
+          <InfoField label="Rating" value={supplier.bsci_rating} />
+          <InfoField label="Validity" value={formatDate(supplier.bsci_validity)} />
+          <InfoField
+            label="Days Remaining"
+            value={
+              supplier.bsci_validity_days_remaining ? (
+                <span
+                  style={{
+                    ...styles.daysRemaining,
+                    backgroundColor: getDaysRemainingColor(supplier.bsci_validity_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.bsci_validity_days_remaining).color,
+                  }}
+                >
+                  {supplier.bsci_validity_days_remaining} days
+                </span>
+              ) : "—"
+            }
+          />
+          <InfoField
+            label="Status"
+            value={
+              <span
+                style={{
+                  ...styles.statusBadge,
+                  backgroundColor: getStatusColor(supplier.bsci_status).bg,
+                  color: getStatusColor(supplier.bsci_status).text,
+                }}
+              >
+                {supplier.bsci_status?.toUpperCase() || "N/A"}
+              </span>
+            }
+          />
+        </div>
+      </SectionCard>
+
+      {/* Oeko-Tex Certification */}
+      <SectionCard title="Oeko-Tex Certification" icon={<FaCertificate />}>
+        <div className="info-grid">
+          <InfoField label="Validity" value={formatDate(supplier.oeko_tex_validity)} />
+          <InfoField
+            label="Days Remaining"
+            value={
+              supplier.oeko_tex_validity_days_remaining ? (
+                <span
+                  style={{
+                    ...styles.daysRemaining,
+                    backgroundColor: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).color,
+                  }}
+                >
+                  {supplier.oeko_tex_validity_days_remaining} days
+                </span>
+              ) : "—"
+            }
+          />
+          <InfoField
+            label="Status"
+            value={
+              <span
+                style={{
+                  ...styles.statusBadge,
+                  backgroundColor: getStatusColor(supplier.oeko_tex_status).bg,
+                  color: getStatusColor(supplier.oeko_tex_status).text,
+                }}
+              >
+                {supplier.oeko_tex_status?.toUpperCase() || "N/A"}
+              </span>
+            }
+          />
+        </div>
+      </SectionCard>
+
+      {/* GOTS Certification */}
+      <SectionCard title="GOTS Certification" icon={<FaCertificate />}>
+        <div className="info-grid">
+          <InfoField label="Validity" value={formatDate(supplier.gots_validity)} />
+          <InfoField
+            label="Days Remaining"
+            value={
+              supplier.gots_validity_days_remaining ? (
+                <span
+                  style={{
+                    ...styles.daysRemaining,
+                    backgroundColor: getDaysRemainingColor(supplier.gots_validity_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.gots_validity_days_remaining).color,
+                  }}
+                >
+                  {supplier.gots_validity_days_remaining} days
+                </span>
+              ) : "—"
+            }
+          />
+          <InfoField
+            label="Status"
+            value={
+              <span
+                style={{
+                  ...styles.statusBadge,
+                  backgroundColor: getStatusColor(supplier.gots_status).bg,
+                  color: getStatusColor(supplier.gots_status).text,
+                }}
+              >
+                {supplier.gots_status?.toUpperCase() || "N/A"}
+              </span>
+            }
+          />
+        </div>
+      </SectionCard>
+
+      {/* Fire License */}
+      <SectionCard title="Fire License" icon={<FaCertificate />}>
+        <div className="info-grid">
+          <InfoField label="Validity" value={formatDate(supplier.fire_license_validity)} />
+          <InfoField
+            label="Days Remaining"
+            value={
+              supplier.fire_license_days_remaining ? (
+                <span
+                  style={{
+                    ...styles.daysRemaining,
+                    backgroundColor: getDaysRemainingColor(supplier.fire_license_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.fire_license_days_remaining).color,
+                  }}
+                >
+                  {supplier.fire_license_days_remaining} days
+                </span>
+              ) : "—"
+            }
+          />
+        </div>
+      </SectionCard>
+
+      {/* Remarks */}
+      {supplier.compliance_remarks && (
+        <SectionCard title="Compliance Remarks" icon={<IoMdCheckmarkCircle />}>
+          <p className="remarks-text">{supplier.compliance_remarks}</p>
+        </SectionCard>
       )}
-    </SectionCard>
 
-    <SectionCard title="Audit History">
-      <div className="audit-history">
-        <AuditItem
-          title="Social Audit"
-          completed={supplier.audit_social}
-          date={supplier.latest_audit_date}
-          result={supplier.latest_audit_result}
-        />
-        <AuditItem
-          title="1st Enlistment Audit"
-          completed={supplier.audit_1st_enlistment}
-          date={null}
-          result={null}
-        />
-        <AuditItem
-          title="2nd Enlistment Audit"
-          completed={supplier.audit_2nd_enlistment}
-          date={null}
-          result={null}
-        />
-        <AuditItem
-          title="Qualification Visit"
-          completed={supplier.audit_qualification_visit}
-          date={null}
-          result={null}
-        />
-        <AuditItem
-          title="KIK CSR Audit"
-          completed={supplier.audit_kik_csr}
-          date={null}
-          result={null}
-        />
-        <AuditItem
-          title="Environmental Audit"
-          completed={supplier.audit_environmental}
-          date={null}
-          result={null}
-        />
-        <AuditItem
-          title="QC Visit"
-          completed={supplier.audit_qc_visit}
-          date={null}
-          result={null}
-        />
-      </div>
-    </SectionCard>
+      {supplier.certification_remarks && (
+        <SectionCard title="Certification Remarks" icon={<IoMdCheckmarkCircle />}>
+          <p className="remarks-text">{supplier.certification_remarks}</p>
+        </SectionCard>
+      )}
 
-    <style jsx>{`
-      .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-      }
+      {supplier.license_remarks && (
+        <SectionCard title="License Remarks" icon={<IoMdCheckmarkCircle />}>
+          <p className="remarks-text">{supplier.license_remarks}</p>
+        </SectionCard>
+      )}
 
-      .audit-history {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 16px;
-      }
+      <style jsx>{`
+        .tab-content {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
 
-      .empty-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        padding: 32px 0;
-      }
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 16px;
+        }
 
-      .empty-state-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background-color: #f3f4f6;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-        color: #9ca3af;
-        font-size: 24px;
-      }
-
-      .empty-state h3 {
-        margin: 0 0 8px 0;
-        color: #111827;
-        font-size: 16px;
-        font-weight: 600;
-      }
-
-      .empty-state p {
-        margin: 0 0 16px 0;
-        color: #6b7280;
-        font-size: 14px;
-        max-width: 300px;
-      }
-
-      .add-button {
-        display: flex;
-        align-items: center;
-        padding: 8px 16px;
-        background-color: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-weight: 500;
-        font-size: 14px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-
-      .add-button:hover {
-        background-color: #2563eb;
-      }
-
-      .add-button svg {
-        margin-right: 8px;
-      }
-    `}</style>
-  </div>
-);
+        .remarks-text {
+          margin: 0;
+          color: #334155;
+          font-size: 0.875rem;
+          line-height: 1.6;
+        }
+      `}</style>
+    </div>
+  );
+};
 
 // UI Components
 const StatCard = ({ title, value, icon, color = "#3b82f6" }) => (
@@ -1279,7 +1164,9 @@ const StatCard = ({ title, value, icon, color = "#3b82f6" }) => (
         border: 1px solid #e2e8f0;
         display: flex;
         align-items: center;
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
       }
 
       .stat-card:hover {
@@ -1425,86 +1312,21 @@ const InfoField = ({ label, value, fullWidth = false, link = false }) => (
   </div>
 );
 
-const AuditItem = ({ title, completed, date, result }) => (
-  <div className="audit-item">
-    <div
-      className="audit-status"
-      style={{ backgroundColor: completed ? "#10b981" : "#e5e7eb" }}
-    >
-      {completed && <IoMdCheckmarkCircle className="status-icon" />}
-    </div>
-    <div className="audit-details">
-      <h3 className="audit-title">{title}</h3>
-      {completed ? (
-        <div className="audit-info">
-          {date && <p className="audit-date">Date: {date}</p>}
-          {result && (
-            <p className="audit-result">
-              Result: <span className="result-value">{result}</span>
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="audit-pending">Not completed</p>
-      )}
-    </div>
-
-    <style jsx>{`
-      .audit-item {
-        display: flex;
-        align-items: flex-start;
-      }
-
-      .audit-status {
-        flex-shrink: 0;
-        height: 24px;
-        width: 24px;
-        border-radius: 50%;
-        margin-top: 2px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-      }
-
-      .status-icon {
-        font-size: 14px;
-      }
-
-      .audit-details {
-        margin-left: 12px;
-      }
-
-      .audit-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: #111827;
-        margin: 0 0 4px 0;
-      }
-
-      .audit-info {
-        font-size: 13px;
-        color: #6b7280;
-        line-height: 1.5;
-      }
-
-      .audit-date,
-      .audit-result {
-        margin: 0;
-      }
-
-      .result-value {
-        font-weight: 500;
-        color: #111827;
-      }
-
-      .audit-pending {
-        margin: 4px 0 0 0;
-        font-size: 13px;
-        color: #6b7280;
-      }
-    `}</style>
-  </div>
-);
+const styles = {
+  statusBadge: {
+    padding: "0.25rem 0.75rem",
+    borderRadius: "4px",
+    fontSize: "0.875rem",
+    fontWeight: "600",
+    display: "inline-block",
+  },
+  daysRemaining: {
+    padding: "0.25rem 0.75rem",
+    borderRadius: "4px",
+    fontSize: "0.875rem",
+    fontWeight: "600",
+    display: "inline-block",
+  },
+};
 
 export default DetailSupplier;
