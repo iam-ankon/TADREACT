@@ -253,6 +253,12 @@ const Sidebar = () => {
       badge: null,
     },
     {
+      to: "/StationeryDashboard",
+      icon: <FiBriefcase />,
+      label: "Stationery Dashboard",
+      badge: null,
+    },
+    {
       to: "/csr-dashboard",
       icon: <FiUsers />,
       label: "CSR",
