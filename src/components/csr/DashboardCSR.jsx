@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getSuppliers, getSupplierStats } from '../../api/supplierApi'
+import { getSuppliers, getDashboardExpirySummary, sendBulkReminders } from '../../api/supplierApi'
 
 const SupplierDashboardCSR = () => {
   const navigate = useNavigate()
@@ -110,58 +110,90 @@ const SupplierDashboardCSR = () => {
 
   const fetchExpirySummary = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://119.148.51.38:8000/api/merchandiser/api/supplier/dashboard_expiry_summary/', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      })
+      console.log('📊 Fetching expiry summary from API...')
+      const response = await getDashboardExpirySummary()
       
-      if (response.ok) {
-        const data = await response.json()
-        setExpirySummary(data.data)
+      console.log('📊 Expiry summary response:', response.data)
+      
+      if (response.data && response.data.success && response.data.data) {
+        setExpirySummary(response.data.data)
+        console.log('✅ Expiry summary set:', response.data.data)
+      } else if (response.data && response.data.data) {
+        // Handle case where success flag might not be present
+        setExpirySummary(response.data.data)
+      } else {
+        console.warn('⚠️ Unexpected response format:', response.data)
       }
     } catch (error) {
-      console.error('Error fetching expiry summary:', error)
+      console.error('❌ Error fetching expiry summary:', error)
+      // Fallback to calculate from local data if API fails
+      calculateLocalExpirySummary()
     }
   }
 
-  const sendBulkReminders = async () => {
+  const calculateLocalExpirySummary = () => {
+    try {
+      console.log('Calculating local expiry summary from recent suppliers...')
+      const summary = {
+        bsci: { count: 0, suppliers: [] },
+        oekoTex: { count: 0, suppliers: [] },
+        gots: { count: 0, suppliers: [] },
+        fireLicense: { count: 0, suppliers: [] },
+        total_expiring: 0
+      }
+      
+      recentSuppliers.forEach(supplier => {
+        if (supplier.bsci_days && supplier.bsci_days <= 90 && supplier.bsci_days > 0) {
+          summary.bsci.count++
+          summary.total_expiring++
+        }
+        if (supplier.oekoTex_days && supplier.oekoTex_days <= 90 && supplier.oekoTex_days > 0) {
+          summary.oekoTex.count++
+          summary.total_expiring++
+        }
+        if (supplier.gots_days && supplier.gots_days <= 90 && supplier.gots_days > 0) {
+          summary.gots.count++
+          summary.total_expiring++
+        }
+        if (supplier.fireLicense_days && supplier.fireLicense_days <= 90 && supplier.fireLicense_days > 0) {
+          summary.fireLicense.count++
+          summary.total_expiring++
+        }
+      })
+      
+      setExpirySummary(summary)
+      console.log('✅ Local expiry summary calculated:', summary)
+    } catch (error) {
+      console.error('Error calculating local expiry summary:', error)
+    }
+  }
+
+  const sendBulkRemindersHandler = async () => {
     setSendingReminders(true)
     setReminderResult(null)
     
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://119.148.51.38:8000/api/merchandiser/api/supplier/send_bulk_reminders/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ from_email: 'niloy@texweave.net' }),
-        credentials: 'include',
-      })
+      console.log('Sending bulk reminders...')
+      const response = await sendBulkReminders('compliance@texweave.net')
       
-      const result = await response.json()
+      console.log('Bulk reminders response:', response.data)
       
-      if (response.ok) {
+      if (response.data && response.data.success) {
         setReminderResult({
           success: true,
-          message: `✅ ${result.message}`,
-          details: result.notifications
+          message: `✅ ${response.data.message || 'Reminders sent successfully'}`,
+          details: response.data.notifications
         })
         // Refresh expiry summary after sending
         fetchExpirySummary()
       } else {
         setReminderResult({
           success: false,
-          message: `❌ Failed to send reminders: ${result.error || 'Unknown error'}`
+          message: `❌ Failed to send reminders: ${response.data?.error || 'Unknown error'}`
         })
       }
     } catch (error) {
+      console.error('Error sending bulk reminders:', error)
       setReminderResult({
         success: false,
         message: `❌ Error: ${error.message}`
@@ -323,10 +355,11 @@ const SupplierDashboardCSR = () => {
 
   const getDaysRemainingColor = (days) => {
     if (!days && days !== 0) return { bg: '#6c757d', color: 'white' }
-    if (days <= 30) return { bg: '#dc3545', color: 'white' }
-    if (days <= 60) return { bg: '#ffc107', color: 'black' }
-    if (days <= 90) return { bg: '#28a745', color: 'white' }
-    return { bg: '#28a745', color: 'white' }
+    if (days <= 0) return { bg: '#dc3545', color: 'white' } // Expired
+    if (days <= 30) return { bg: '#dc3545', color: 'white' } // Critical
+    if (days <= 60) return { bg: '#ffc107', color: 'black' } // Warning
+    if (days <= 90) return { bg: '#fd7e14', color: 'white' } // Approaching
+    return { bg: '#28a745', color: 'white' } // Good
   }
 
   const formatStatus = (status) => {
@@ -424,7 +457,7 @@ const SupplierDashboardCSR = () => {
                 <span style={styles.expiryAlertLabel}>BSCI:</span>
                 <span style={{
                   ...styles.expiryAlertCount,
-                  backgroundColor: '#28a745'
+                  backgroundColor: expirySummary.bsci.count > 0 ? '#dc3545' : '#28a745'
                 }}>{expirySummary.bsci.count}</span>
               </div>
             )}
@@ -433,7 +466,7 @@ const SupplierDashboardCSR = () => {
                 <span style={styles.expiryAlertLabel}>Oeko-Tex:</span>
                 <span style={{
                   ...styles.expiryAlertCount,
-                  backgroundColor: '#28a745'
+                  backgroundColor: expirySummary.oekoTex.count > 0 ? '#dc3545' : '#28a745'
                 }}>{expirySummary.oekoTex.count}</span>
               </div>
             )}
@@ -442,7 +475,7 @@ const SupplierDashboardCSR = () => {
                 <span style={styles.expiryAlertLabel}>GOTS:</span>
                 <span style={{
                   ...styles.expiryAlertCount,
-                  backgroundColor: '#28a745'
+                  backgroundColor: expirySummary.gots.count > 0 ? '#dc3545' : '#28a745'
                 }}>{expirySummary.gots.count}</span>
               </div>
             )}
@@ -451,14 +484,14 @@ const SupplierDashboardCSR = () => {
                 <span style={styles.expiryAlertLabel}>Fire License:</span>
                 <span style={{
                   ...styles.expiryAlertCount,
-                  backgroundColor: '#28a745'
+                  backgroundColor: expirySummary.fireLicense.count > 0 ? '#dc3545' : '#28a745'
                 }}>{expirySummary.fireLicense.count}</span>
               </div>
             )}
           </div>
           <div style={styles.expiryAlertActions}>
             <button 
-              onClick={sendBulkReminders}
+              onClick={sendBulkRemindersHandler}
               disabled={sendingReminders}
               style={styles.expiryAlertButton}
             >
@@ -583,7 +616,7 @@ const SupplierDashboardCSR = () => {
                   <div style={styles.progressBar}>
                     <div style={{
                       ...styles.progressFill,
-                      width: `${(complianceOverview.fireSafety.compliant / complianceOverview.fireSafety.total) * 100 || 0}%`,
+                      width: `${complianceOverview.fireSafety.total > 0 ? (complianceOverview.fireSafety.compliant / complianceOverview.fireSafety.total) * 100 : 0}%`,
                       backgroundColor: '#dc2626'
                     }}></div>
                   </div>
@@ -605,7 +638,7 @@ const SupplierDashboardCSR = () => {
                   <div style={styles.progressBar}>
                     <div style={{
                       ...styles.progressFill,
-                      width: `${(complianceOverview.environmental.compliant / complianceOverview.environmental.total) * 100 || 0}%`,
+                      width: `${complianceOverview.environmental.total > 0 ? (complianceOverview.environmental.compliant / complianceOverview.environmental.total) * 100 : 0}%`,
                       backgroundColor: '#10b981'
                     }}></div>
                   </div>
@@ -627,7 +660,7 @@ const SupplierDashboardCSR = () => {
                   <div style={styles.progressBar}>
                     <div style={{
                       ...styles.progressFill,
-                      width: `${(complianceOverview.labor.compliant / complianceOverview.labor.total) * 100 || 0}%`,
+                      width: `${complianceOverview.labor.total > 0 ? (complianceOverview.labor.compliant / complianceOverview.labor.total) * 100 : 0}%`,
                       backgroundColor: '#f59e0b'
                     }}></div>
                   </div>
@@ -649,7 +682,7 @@ const SupplierDashboardCSR = () => {
                   <div style={styles.progressBar}>
                     <div style={{
                       ...styles.progressFill,
-                      width: `${(complianceOverview.structural.compliant / complianceOverview.structural.total) * 100 || 0}%`,
+                      width: `${complianceOverview.structural.total > 0 ? (complianceOverview.structural.compliant / complianceOverview.structural.total) * 100 : 0}%`,
                       backgroundColor: '#3b82f6'
                     }}></div>
                   </div>
@@ -952,6 +985,9 @@ const styles = {
     alignItems: 'center',
     gap: '0.5rem',
     transition: 'all 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#e2e8f0',
+    },
   },
   addButton: {
     padding: '0.75rem 1.5rem',
@@ -964,6 +1000,9 @@ const styles = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.5rem',
+    '&:hover': {
+      backgroundColor: '#2563eb',
+    },
   },
   errorAlert: {
     backgroundColor: '#fef2f2',
@@ -1619,13 +1658,13 @@ const styles = {
 }
 
 // Add CSS animation for spinner
-const spinnerStyle = document.createElement('style')
-spinnerStyle.textContent = `
+const style = document.createElement('style')
+style.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
 `
-document.head.appendChild(spinnerStyle)
+document.head.appendChild(style)
 
 export default SupplierDashboardCSR

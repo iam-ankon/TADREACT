@@ -132,9 +132,10 @@ const StationeryDashboard = () => {
     <div style={{
       minHeight: "100vh",
       background: "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
-      padding: "16px",
+       padding: "24px 80px",
+
     }}>
-      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+      <div style={{  margin: "0 auto" }}>
         
         {/* Modern Header */}
         <div style={{ marginBottom: "32px" }}>

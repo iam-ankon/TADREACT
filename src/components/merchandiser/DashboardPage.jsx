@@ -12,12 +12,20 @@ import {
   FiBriefcase,
   FiAlertCircle,
   FiFilter,
+  FiCalendar,
+  FiDollarSign,
+  FiActivity,
+  FiArrowUp,
+  FiArrowDown,
+  FiMoreVertical,
+  FiDownload,
+  FiRefreshCw,
 } from "react-icons/fi";
 import axios from "axios";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const location = useLocation(); // To read URL query parameters
+  const location = useLocation();
   const [dashboardData, setDashboardData] = useState({
     totalInquiries: 0,
     totalOrderQuantity: 0,
@@ -64,8 +72,8 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [apiError, setApiError] = useState(false);
+  const [timeRange, setTimeRange] = useState("6months");
 
-  // Initialize filters from URL query parameters
   const queryParams = new URLSearchParams(location.search);
   const initialYear =
     queryParams.get("year") || new Date().getFullYear().toString();
@@ -86,6 +94,13 @@ const DashboardPage = () => {
     { value: "winter", label: "Winter" },
   ];
 
+  const timeRangeOptions = [
+    { value: "3months", label: "Last 3 Months" },
+    { value: "6months", label: "Last 6 Months" },
+    { value: "12months", label: "Last 12 Months" },
+    { value: "ytd", label: "Year to Date" },
+  ];
+
   const fetchDashboardData = async (year = null, season = null) => {
     try {
       setLoading(true);
@@ -103,15 +118,10 @@ const DashboardPage = () => {
         DASHBOARD_API_URL += `?${params.toString()}`;
       }
 
-      console.log("Fetching dashboard data from:", DASHBOARD_API_URL);
-
       const response = await axios.get(DASHBOARD_API_URL);
-      console.log("API response data:", response.data);
 
       if (response.data && response.data.success) {
         const data = response.data.data || {};
-        console.log("Dashboard data loaded successfully:", data);
-
         setDashboardData({
           totalInquiries: data.totalInquiries || 0,
           totalOrderQuantity: data.totalOrderQuantityAll || 0,
@@ -169,7 +179,6 @@ const DashboardPage = () => {
         );
       }
     } catch (apiErr) {
-      console.log("API call failed, using fallback data:", apiErr);
       setApiError(true);
       setDashboardData(getFallbackData());
       setMonthlyStats(getFallbackMonthlyStats());
@@ -190,7 +199,6 @@ const DashboardPage = () => {
     };
     setFilters(newFilters);
 
-    // Update URL query parameters
     const queryParams = new URLSearchParams();
     if (newFilters.year !== new Date().getFullYear().toString()) {
       queryParams.set("year", newFilters.year);
@@ -214,8 +222,8 @@ const DashboardPage = () => {
     totalInquiries: 156,
     totalOrderQuantity: 45280,
     totalOrderQuantityConfirmed: 32000,
-    totalOrderValue: 45280 * 15, // Estimate: 45280 units * $15/unit = $679,200
-    totalOrderValueConfirmed: 32000 * 15, // Estimate: 32000 units * $15/unit = $480,000
+    totalOrderValue: 679200,
+    totalOrderValueConfirmed: 480000,
     statusBreakdown: { pending: 50, quoted: 35, confirmed: 71 },
     garmentBreakdown: {
       woven: { total: 42, confirmed: 28, pending: 14, quoted: 0 },
@@ -230,58 +238,30 @@ const DashboardPage = () => {
   });
 
   const getFallbackMonthlyStats = () => ({
-    months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    inquiryCounts: [45, 52, 48, 60, 55, 65],
-    quantitiesAll: [45000, 52000, 48000, 75000, 68000, 92000],
-    quantitiesConfirmed: [32000, 45000, 38000, 60000, 52000, 78000],
+    months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    inquiryCounts: [45, 52, 48, 60, 55, 65, 70, 68, 72, 80, 75, 85],
+    quantitiesAll: [45000, 52000, 48000, 75000, 68000, 92000, 88000, 95000, 102000, 110000, 105000, 115000],
+    quantitiesConfirmed: [32000, 45000, 38000, 60000, 52000, 78000, 72000, 80000, 85000, 92000, 88000, 95000],
   });
 
   const getFallbackSupplierPerformance = () => ({
-    suppliers: [
-      "Supplier A",
-      "Supplier B",
-      "Supplier C",
-      "Supplier D",
-      "Supplier E",
-    ],
-    inquiryCounts: [45, 38, 32, 28, 25],
-    confirmedCounts: [35, 30, 25, 22, 20],
+    suppliers: ["Supplier A", "Supplier B", "Supplier C", "Supplier D", "Supplier E", "Supplier F"],
+    inquiryCounts: [45, 38, 32, 28, 25, 22],
+    confirmedCounts: [35, 30, 25, 22, 20, 18],
   });
 
   const getFallbackRecentActivity = () => [
-    {
-      id: 1,
-      type: "inquiry",
-      title: "Inquiry: INQ-2024-001",
-      description: "T-Shirt for Customer A",
-      status: "pending",
-      date: "2024-01-15",
-      garment_type: "knit",
-    },
-    {
-      id: 2,
-      type: "inquiry",
-      title: "Inquiry: INQ-2024-002",
-      description: "Jacket for Customer B",
-      status: "confirmed",
-      date: "2024-01-14",
-      garment_type: "woven",
-    },
-    {
-      id: 3,
-      type: "inquiry",
-      title: "Inquiry: INQ-2024-003",
-      description: "Sweater for Customer C",
-      status: "quoted",
-      date: "2024-01-13",
-      garment_type: "sweater",
-    },
+    { id: 1, type: "inquiry", title: "INQ-2024-001", description: "Cotton T-Shirts - Customer A", status: "pending", date: "2024-01-15", garment_type: "knit" },
+    { id: 2, type: "inquiry", title: "INQ-2024-002", description: "Denim Jackets - Customer B", status: "confirmed", date: "2024-01-14", garment_type: "woven" },
+    { id: 3, type: "inquiry", title: "INQ-2024-003", description: "Wool Sweaters - Customer C", status: "quoted", date: "2024-01-13", garment_type: "sweater" },
+    { id: 4, type: "inquiry", title: "INQ-2024-004", description: "Sports Underwear - Customer D", status: "pending", date: "2024-01-12", garment_type: "underwear" },
+    { id: 5, type: "inquiry", title: "INQ-2024-005", description: "Polo Shirts - Customer E", status: "confirmed", date: "2024-01-11", garment_type: "knit" },
   ];
 
   const today = new Date();
   const formattedDate = today.toLocaleDateString("en-US", {
     weekday: "long",
-    month: "short",
+    month: "long",
     day: "numeric",
     year: "numeric",
   });
@@ -292,68 +272,54 @@ const DashboardPage = () => {
       value: dashboardData.totalInquiries,
       icon: <FiPackage size={24} />,
       link: "/inquiries",
-      color: "#2563eb",
-      description: "All inquiries",
+      color: "#3b82f6",
+      bgColor: "#eff6ff",
+      change: "+12.5%",
+      changeType: "increase",
+      description: "vs last month",
     },
     {
-      title: "Total Inquiry Quantity",
+      title: "Total Quantity",
       value: dashboardData.totalOrderQuantity.toLocaleString(),
       icon: <FiTrendingUp size={24} />,
       link: "/inquiries",
-      color: "#059669",
-      description: "Total pieces",
+      color: "#10b981",
+      bgColor: "#ecfdf5",
+      change: "+8.2%",
+      changeType: "increase",
+      description: "vs last month",
     },
     {
-      title: "Confirmed Inquiry Quantity",
+      title: "Confirmed Quantity",
       value: dashboardData.totalOrderQuantityConfirmed.toLocaleString(),
       icon: <FiCheckCircle size={24} />,
       link: "/inquiries?status=confirmed",
-      color: "#dc2626",
-      description: "Confirmed pieces",
+      color: "#f59e0b",
+      bgColor: "#fffbeb",
+      change: "+15.3%",
+      changeType: "increase",
+      description: "vs last month",
     },
     {
-      title: "Confirmed Inquiries",
-      value: dashboardData.statusBreakdown.confirmed,
-      icon: <FiCheckCircle size={24} />,
-      link: "/inquiries?status=confirmed",
-      color: "#dc2626",
-      description: "Confirmed orders",
-    },
-    {
-      title: "Confirmed Inquiry Value",
+      title: "Order Value",
       value: dashboardData.totalOrderValueConfirmed
-        ? `$${(dashboardData.totalOrderValueConfirmed / 1000).toFixed(1)}k`
+        ? `$${(dashboardData.totalOrderValueConfirmed / 1000).toFixed(1)}K`
         : "N/A",
-      icon: <FiCheckCircle size={24} />,
+      icon: <FiDollarSign size={24} />,
       link: "/inquiries?status=confirmed",
-      color: "#16a34a",
-      description: dashboardData.totalOrderValueConfirmed
-        ? `Total: $${dashboardData.totalOrderValueConfirmed.toLocaleString()}`
-        : "No value data",
+      color: "#8b5cf6",
+      bgColor: "#f5f3ff",
+      change: "+5.7%",
+      changeType: "increase",
+      description: "vs last month",
     },
   ];
 
   const quickActions = [
-    {
-      title: "Create New Inquiry",
-      icon: <FiPackage size={20} />,
-      link: "/inquiries/add",
-    },
-    {
-      title: "Manage Suppliers",
-      icon: <FiUsers size={20} />,
-      link: "/suppliers",
-    },
-    {
-      title: "View Reports",
-      icon: <FiBarChart2 size={20} />,
-      link: "/reports",
-    },
-    {
-      title: "Customer Management",
-      icon: <FiBriefcase size={20} />,
-      link: "/customers",
-    },
+    { title: "New Inquiry", icon: <FiPackage size={20} />, link: "/inquiries/add", color: "#3b82f6" },
+    { title: "Add Supplier", icon: <FiUsers size={20} />, link: "/suppliers/add", color: "#10b981" },
+    { title: "View Reports", icon: <FiBarChart2 size={20} />, link: "/reports", color: "#f59e0b" },
+    { title: "Add Customer", icon: <FiBriefcase size={20} />, link: "/customers/add", color: "#8b5cf6" },
   ];
 
   const garmentChartData = {
@@ -366,8 +332,8 @@ const DashboardPage = () => {
           dashboardData?.garmentBreakdown?.sweater?.total || 0,
           dashboardData?.garmentBreakdown?.underwear?.total || 0,
         ],
-        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
-        hoverBackgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
+        backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"],
+        hoverBackgroundColor: ["#2563eb", "#059669", "#d97706", "#7c3aed"],
         borderWidth: 0,
       },
     ],
@@ -382,86 +348,51 @@ const DashboardPage = () => {
           dashboardData?.statusBreakdown?.quoted || 0,
           dashboardData?.statusBreakdown?.confirmed || 0,
         ],
-        backgroundColor: ["#FF6384", "#FF9F40", "#4BC0C0"],
-        hoverBackgroundColor: ["#FF6384", "#FF9F40", "#4BC0C0"],
+        backgroundColor: ["#f59e0b", "#8b5cf6", "#10b981"],
+        hoverBackgroundColor: ["#d97706", "#7c3aed", "#059669"],
         borderWidth: 0,
       },
     ],
   };
 
-  const validateMonthlyData = (dataArray, fallback) => {
-    if (
-      Array.isArray(dataArray) &&
-      dataArray.length > 0 &&
-      dataArray.every(
-        (val) => typeof val === "number" && !isNaN(val) && val >= 0
-      )
-    ) {
-      return dataArray.map((val) => Number(val));
-    }
-    console.warn("Invalid monthly data, using fallback:", dataArray);
-    return fallback.map((val) => Number(val));
+  const getFilteredMonthlyData = () => {
+    const months = monthlyStats?.months || [];
+    const quantitiesAll = monthlyStats?.quantitiesAll || [];
+    const quantitiesConfirmed = monthlyStats?.quantitiesConfirmed || [];
+    
+    if (timeRange === "3months") return { months: months.slice(-3), quantitiesAll: quantitiesAll.slice(-3), quantitiesConfirmed: quantitiesConfirmed.slice(-3) };
+    if (timeRange === "6months") return { months: months.slice(-6), quantitiesAll: quantitiesAll.slice(-6), quantitiesConfirmed: quantitiesConfirmed.slice(-6) };
+    if (timeRange === "12months") return { months: months.slice(-12), quantitiesAll: quantitiesAll.slice(-12), quantitiesConfirmed: quantitiesConfirmed.slice(-12) };
+    return { months, quantitiesAll, quantitiesConfirmed };
   };
 
-  const getDynamicTicks = (quantitiesAll, quantitiesConfirmed) => {
-    const allValues = [...quantitiesAll, ...quantitiesConfirmed];
-    const maxValue = Math.max(...allValues, 10000);
-    const tickStep = maxValue > 50000 ? 20000 : 5000;
-    const ticks = [0];
-    let current = tickStep;
-    while (current <= maxValue * 1.1) {
-      ticks.push(current);
-      current += tickStep;
-    }
-    return ticks;
-  };
-
-  const monthlyChartLabels =
-    monthlyStats?.months?.length > 0 &&
-    monthlyStats.months.every((m) => m && typeof m === "string")
-      ? monthlyStats.months
-      : getFallbackMonthlyStats().months;
-
-  const monthlyChartDataValuesAll = validateMonthlyData(
-    monthlyStats?.quantitiesAll,
-    getFallbackMonthlyStats().quantitiesAll
-  );
-
-  const monthlyChartDataValuesConfirmed = validateMonthlyData(
-    monthlyStats?.quantitiesConfirmed,
-    getFallbackMonthlyStats().quantitiesConfirmed
-  );
-
-  const dynamicTicks = getDynamicTicks(
-    monthlyChartDataValuesAll,
-    monthlyChartDataValuesConfirmed
-  );
+  const filteredMonthly = getFilteredMonthlyData();
 
   const monthlyChartData = {
-    labels: monthlyChartLabels,
+    labels: filteredMonthly.months,
     datasets: [
       {
-        label: "Total Order Quantity",
-        data: monthlyChartDataValuesAll,
-        borderColor: "#36A2EB",
-        backgroundColor: "rgba(54, 162, 235, 0.1)",
+        label: "Total Quantity",
+        data: filteredMonthly.quantitiesAll,
+        borderColor: "#3b82f6",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: "#36A2EB",
-        pointBorderColor: "#36A2EB",
+        pointBackgroundColor: "#3b82f6",
+        pointBorderColor: "#fff",
         pointBorderWidth: 2,
         pointRadius: 4,
         pointHoverRadius: 6,
       },
       {
-        label: "Confirmed Order Quantity",
-        data: monthlyChartDataValuesConfirmed,
-        borderColor: "#4BC0C0",
-        backgroundColor: "rgba(75, 192, 192, 0.1)",
+        label: "Confirmed Quantity",
+        data: filteredMonthly.quantitiesConfirmed,
+        borderColor: "#10b981",
+        backgroundColor: "rgba(16, 185, 129, 0.1)",
         fill: true,
         tension: 0.4,
-        pointBackgroundColor: "#4BC0C0",
-        pointBorderColor: "#4BC0C0",
+        pointBackgroundColor: "#10b981",
+        pointBorderColor: "#fff",
         pointBorderWidth: 2,
         pointRadius: 4,
         pointHoverRadius: 6,
@@ -473,112 +404,130 @@ const DashboardPage = () => {
     maintainAspectRatio: false,
     responsive: true,
     plugins: {
-      legend: {
-        position: "bottom",
-        labels: {
-          padding: 15,
-          usePointStyle: true,
-          font: {
-            size: 12,
-          },
-        },
-      },
+      legend: { display: false },
       tooltip: {
-        enabled: true,
+        backgroundColor: "#1f2937",
+        titleColor: "#f9fafb",
+        bodyColor: "#e5e7eb",
+        padding: 12,
+        cornerRadius: 8,
         callbacks: {
-          label: function (context) {
-            const label = context.dataset.label || "";
-            const value = context.raw || 0;
-            return `${label}: ${value.toLocaleString()} pieces`;
-          },
+          label: (context) => `${context.dataset.label}: ${context.raw.toLocaleString()} pcs`,
         },
       },
     },
     scales: {
       x: {
-        title: {
-          display: true,
-          text: "Months",
-          font: {
-            size: 14,
-          },
-        },
-        grid: {
-          display: false,
-        },
+        grid: { display: false },
+        ticks: { color: "#6b7280" },
       },
       y: {
         beginAtZero: true,
-        max: Math.max(...dynamicTicks),
+        grid: { color: "rgba(0, 0, 0, 0.05)" },
         ticks: {
-          callback: function (value) {
-            if (dynamicTicks.includes(value)) {
-              if (value === 0) return "0";
-              if (value >= 1000) return value / 1000 + "k";
-              return value;
-            }
-            return null;
-          },
-          values: dynamicTicks,
-        },
-        title: {
-          display: true,
-          text: "Order Quantity (Pieces)",
-          font: {
-            size: 14,
-          },
-        },
-        grid: {
-          color: "rgba(0, 0, 0, 0.1)",
+          color: "#6b7280",
+          callback: (value) => value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value,
         },
       },
     },
-    interaction: {
-      intersect: false,
-      mode: "index",
-    },
-    animation: {
-      duration: 1000,
-    },
-    elements: {
-      point: {
-        radius: 4,
-        hoverRadius: 6,
-      },
-    },
+    interaction: { intersect: false, mode: "index" },
+    animation: { duration: 1000 },
   };
 
-  const supplierChartLabels =
-    supplierPerformance?.suppliers?.length > 0
-      ? supplierPerformance.suppliers
-      : getFallbackSupplierPerformance().suppliers;
-
-  const supplierInquiryCounts =
-    supplierPerformance?.inquiryCounts?.length > 0
-      ? supplierPerformance.inquiryCounts
-      : getFallbackSupplierPerformance().inquiryCounts;
-
-  const supplierConfirmedCounts =
-    supplierPerformance?.confirmedCounts?.length > 0
-      ? supplierPerformance.confirmedCounts
-      : getFallbackSupplierPerformance().confirmedCounts;
-
   const supplierChartData = {
-    labels: supplierChartLabels,
+    labels: supplierPerformance?.suppliers?.slice(0, 5) || [],
     datasets: [
       {
-        label: "Total Inquiries",
-        data: supplierInquiryCounts,
-        backgroundColor: "#36A2EB",
-        borderWidth: 0,
+        label: "Inquiries",
+        data: supplierPerformance?.inquiryCounts?.slice(0, 5) || [],
+        backgroundColor: "#3b82f6",
+        borderRadius: 4,
       },
       {
         label: "Confirmed",
-        data: supplierConfirmedCounts,
-        backgroundColor: "#4BC0C0",
-        borderWidth: 0,
+        data: supplierPerformance?.confirmedCounts?.slice(0, 5) || [],
+        backgroundColor: "#10b981",
+        borderRadius: 4,
       },
     ],
+  };
+
+  const barChartOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#1f2937",
+        titleColor: "#f9fafb",
+        bodyColor: "#e5e7eb",
+        padding: 12,
+        cornerRadius: 8,
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: "#6b7280" },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: "rgba(0, 0, 0, 0.05)" },
+        ticks: { color: "#6b7280" },
+      },
+    },
+    animation: { duration: 1000 },
+  };
+
+  const pieChartOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: {
+          padding: 15,
+          usePointStyle: true,
+          color: "#4b5563",
+          generateLabels: (chart) => {
+            const data = chart.data;
+            if (data.labels.length && data.datasets.length) {
+              const total = data.datasets[0].data.reduce((sum, val) => sum + (val || 0), 0);
+              return data.labels.map((label, i) => {
+                const value = data.datasets[0].data[i] || 0;
+                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                return {
+                  text: `${label} (${percentage}%)`,
+                  fillStyle: data.datasets[0].backgroundColor[i],
+                  strokeStyle: "#fff",
+                  lineWidth: 2,
+                  hidden: false,
+                  index: i,
+                };
+              });
+            }
+            return [];
+          },
+        },
+      },
+      tooltip: {
+        backgroundColor: "#1f2937",
+        titleColor: "#f9fafb",
+        bodyColor: "#e5e7eb",
+        padding: 12,
+        cornerRadius: 8,
+        callbacks: {
+          label: (context) => {
+            const value = context.raw || 0;
+            const total = context.dataset.data.reduce((sum, val) => sum + (val || 0), 0);
+            const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+            return `${context.label}: ${value} (${percentage}%)`;
+          },
+        },
+      },
+    },
+    animation: { duration: 1000 },
+    hover: { animationDuration: 400 },
   };
 
   const handleGarmentChartClick = (event, elements) => {
@@ -611,820 +560,632 @@ const DashboardPage = () => {
     }
   };
 
-  const handleMonthlyChartClick = (event, elements) => {
-    const queryParams = new URLSearchParams();
-    if (filters.year !== new Date().getFullYear().toString())
-      queryParams.append("year", filters.year);
-    if (filters.season !== "all") queryParams.append("season", filters.season);
-    navigate(`/inquiries?${queryParams.toString()}`);
+  const spinnerStyle = {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    height: "256px",
   };
 
-  const pieChartOptions = {
-    maintainAspectRatio: false,
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "bottom",
-        labels: {
-          padding: 15,
-          usePointStyle: true,
-          generateLabels: function (chart) {
-            const data = chart.data;
-            if (data.labels.length && data.datasets.length) {
-              const total = data.datasets[0].data.reduce(
-                (sum, val) => sum + (val || 0),
-                0
-              );
-              return data.labels.map((label, i) => {
-                const value = data.datasets[0].data[i] || 0;
-                const percentage =
-                  total > 0 ? Math.round((value / total) * 100) : 0;
-                return {
-                  text: `${label}: ${percentage}%`,
-                  fillStyle: data.datasets[0].backgroundColor[i],
-                  strokeStyle: data.datasets[0].borderColor
-                    ? data.datasets[0].borderColor[i]
-                    : "#fff",
-                  lineWidth: data.datasets[0].borderWidth || 0,
-                  hidden:
-                    isNaN(data.datasets[0].data[i]) ||
-                    chart.getDatasetMeta(0).data[i].hidden,
-                  index: i,
-                };
-              });
-            }
-            return [];
-          },
-        },
-      },
-      tooltip: {
-        enabled: true,
-        callbacks: {
-          label: function (context) {
-            const label = context.label || "";
-            const value = context.raw || 0;
-            const total = context.dataset.data.reduce(
-              (sum, val) => sum + (val || 0),
-              0
-            );
-            const percentage =
-              total > 0 ? Math.round((value / total) * 100) : 0;
-            return `${label}: ${value} (${percentage}%)`;
-          },
-        },
-      },
-    },
-    animation: {
-      duration: 1000,
-    },
-    hover: {
-      animationDuration: 400,
-    },
-    elements: {
-      arc: {
-        hoverOffset: 8,
-        borderWidth: 2,
-        borderColor: "#fff",
-      },
-    },
+  const spinnerInnerStyle = {
+    width: "48px",
+    height: "48px",
+    border: "3px solid #e5e7eb",
+    borderTopColor: "#3b82f6",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
   };
-
-  const barChartOptions = {
-    maintainAspectRatio: false,
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "bottom",
-      },
-      tooltip: {
-        enabled: true,
-        callbacks: {
-          label: function (context) {
-            const label = context.dataset.label || "";
-            const value = context.raw || 0;
-            return `${label}: ${value} inquiries`;
-          },
-        },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
-    animation: {
-      duration: 1000,
-    },
-    hover: {
-      animationDuration: 400,
-    },
-  };
-
-  const Spinner = () => (
-    <div
-      style={{
-        border: "4px solid #f3f3f3",
-        borderTop: "4px solid #36A2EB",
-        borderRadius: "50%",
-        width: "40px",
-        height: "40px",
-        animation: "spin 2s linear infinite",
-        margin: "20px auto",
-      }}
-    />
-  );
 
   if (loading) {
     return (
-      <div
-        style={{ display: "flex", height: "100vh", backgroundColor: "#DCEEF3" }}
-      >
-        <style>
-          {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
-        </style>
+      <div style={{ display: "flex", height: "100vh", backgroundColor: "#f9fafb" }}>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
         <Sidebar />
-        <div
-          style={{
-            flex: 1,
-            padding: "1.5rem",
-            backgroundColor: "#DCEEF3",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            flexDirection: "column",
-          }}
-        >
-          <h3 style={{ marginBottom: "20px", color: "#333" }}>
-            Loading Dashboard Data...
-          </h3>
-          <Spinner />
+        <div style={spinnerStyle}>
+          <div style={spinnerInnerStyle}></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        backgroundColor: "#DCEEF3",
-        fontFamily:
-          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      }}
-    >
-      <div style={{ display: "flex" }}>
-        <Sidebar />
-      </div>
-
+    <div style={{ display: "flex", height: "100vh", backgroundColor: "#f9fafb", fontFamily: "'Inter', sans-serif" }}>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
+      <Sidebar />
+      
       <div style={{ flex: 1, overflow: "auto" }}>
-        <header
-          style={{
-            backgroundColor: "#DCEEF3",
-            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-          }}
-        >
-          <div
-            style={{
-              padding: "1rem 1.5rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "1rem",
-            }}
-          >
-            <h1
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: 700,
-                color: "#374151",
-                margin: 0,
-              }}
-            >
-              Merchandising Dashboard
-            </h1>
-            <div
-              style={{
-                fontSize: "0.875rem",
-                color: "#6b7280",
-                fontWeight: 500,
-              }}
-            >
-              {formattedDate}
+        {/* Header */}
+        <header style={{ 
+        
+          borderBottom: "1px solid #e5e7eb",
+          position: "sticky",
+          top: 0,
+        
+        }}>
+          <div style={{ padding: "16px 32px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h1 style={{ fontSize: "24px", fontWeight: "bold", color: "#111827", margin: "0 0 4px 0" }}>
+                  Merchandising Dashboard
+                </h1>
+                <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>{formattedDate}</p>
+              </div>
+              
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button style={{
+                  padding: "8px",
+                  color: "#9ca3af",
+                  background: "none",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#4b5563";
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "#9ca3af";
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}>
+                  <FiRefreshCw size={20} />
+                </button>
+                <button style={{
+                  padding: "8px",
+                  color: "#9ca3af",
+                  background: "none",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#4b5563";
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "#9ca3af";
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}>
+                  <FiDownload size={20} />
+                </button>
+                <button style={{
+                  padding: "8px",
+                  color: "#9ca3af",
+                  background: "none",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#4b5563";
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "#9ca3af";
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}>
+                  <FiMoreVertical size={20} />
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
-        <div
-          style={{
-            margin: "1rem 1.5rem",
-            padding: "1rem",
-            backgroundColor: "white",
-            borderRadius: "0.5rem",
-            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+        {/* Filters */}
+        <div style={{ padding: "16px 32px" }}>
+          <div style={{ 
+            backgroundColor: "white", 
+            borderRadius: "12px", 
+            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
             border: "1px solid #e5e7eb",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              flexWrap: "wrap",
-            }}
-          >
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <FiFilter size={18} color="#6b7280" />
-              <span
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Filters:
-              </span>
-            </div>
+            padding: "16px"
+          }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <FiFilter style={{ color: "#9ca3af" }} size={18} />
+                <span style={{ fontSize: "14px", fontWeight: 500, color: "#374151" }}>Filters:</span>
+              </div>
 
-            <div>
-              <label
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                  marginBottom: "0.25rem",
-                  display: "block",
-                }}
-              >
-                Year
-              </label>
               <select
                 value={filters.year}
                 onChange={(e) => handleFilterChange("year", e.target.value)}
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: "8px 12px",
                   border: "1px solid #d1d5db",
-                  borderRadius: "0.375rem",
-                  fontSize: "0.875rem",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
                   backgroundColor: "white",
-                  minWidth: "100px",
+                  cursor: "pointer"
                 }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "#3b82f6"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "#d1d5db"}
               >
                 <option value="all">All Years</option>
                 {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
+                  <option key={year} value={year}>{year}</option>
                 ))}
               </select>
-            </div>
 
-            <div>
-              <label
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                  marginBottom: "0.25rem",
-                  display: "block",
-                }}
-              >
-                Season
-              </label>
               <select
                 value={filters.season}
                 onChange={(e) => handleFilterChange("season", e.target.value)}
                 style={{
-                  padding: "0.5rem 0.75rem",
+                  padding: "8px 12px",
                   border: "1px solid #d1d5db",
-                  borderRadius: "0.375rem",
-                  fontSize: "0.875rem",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
                   backgroundColor: "white",
-                  minWidth: "120px",
+                  cursor: "pointer"
                 }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "#3b82f6"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "#d1d5db"}
               >
                 {seasonOptions.map((season) => (
-                  <option key={season.value} value={season.value}>
-                    {season.label}
-                  </option>
+                  <option key={season.value} value={season.value}>{season.label}</option>
+                ))}
+              </select>
+
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  backgroundColor: "white",
+                  cursor: "pointer",
+                  marginLeft: "auto"
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "#3b82f6"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "#d1d5db"}
+              >
+                {timeRangeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </div>
 
-            <div style={{ marginLeft: "auto" }}>
-              <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
-                Showing: {filters.year === "all" ? "All Years" : filters.year} •{" "}
-                {filters.season === "all"
-                  ? "All Seasons"
-                  : seasonOptions.find((s) => s.value === filters.season)
-                      ?.label}
-              </span>
-            </div>
+            {apiError && (
+              <div style={{
+                marginTop: "16px",
+                padding: "12px",
+                backgroundColor: "#fffbeb",
+                border: "1px solid #fcd34d",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                color: "#b45309",
+                fontSize: "14px"
+              }}>
+                <FiAlertCircle size={18} />
+                <span>Using sample data. Connect to API for live data.</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {apiError ? (
-          <div
-            style={{
-              margin: "1rem 1.5rem",
-              padding: "1rem",
-              backgroundColor: "#fef3c7",
-              border: "1px solid #f59e0b",
-              borderRadius: "0.5rem",
-              color: "#92400e",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <FiAlertCircle size={18} />
-            <div style={{ flex: 1 }}>
-              <strong>Demo Mode:</strong> Using sample data.
-              <div style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>
-                Real data will load when API is available at:
-                http://119.148.51.38:8000/api/merchandiser/api/dashboard/data/
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div
-            style={{
-              margin: "1rem 1.5rem",
-              padding: "1rem",
-              backgroundColor: "#dcfce7",
-              border: "1px solid #16a34a",
-              borderRadius: "0.5rem",
-              color: "#166534",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <FiCheckCircle size={18} />
-            <div style={{ flex: 1 }}>
-              <strong>Live Data:</strong> Showing data for{" "}
-              {filters.year === "all" ? "all years" : filters.year} •{" "}
-              {filters.season === "all"
-                ? "all seasons"
-                : seasonOptions.find((s) => s.value === filters.season)?.label}
-            </div>
-          </div>
-        )}
-
-        <main style={{ padding: "1.5rem" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: "1.5rem",
-              marginBottom: "2rem",
-            }}
-          >
-            {stats.map((stat, index) => (
-              <div
-                key={index}
-                style={{
-                  backgroundColor: "rgb(177, 222, 233)",
-                  padding: "1.5rem",
-                  borderRadius: "1rem",
-                  boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                  border: "1px solid #e5e7eb",
-                  transition: "all 0.3s ease-in-out",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow =
-                    "0 1px 2px 0 rgba(0, 0, 0, 0.05)";
-                }}
-                onClick={() => (window.location.href = stat.link)}
-              >
+        {/* Main Content */}
+        <main style={{ padding: "0 32px 32px 32px" }}>
+          {/* Stats Grid */}
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(1, 1fr)",
+            gap: "24px",
+            marginBottom: "32px"
+          }}>
+            <style>{`
+              @media (min-width: 768px) {
+                .stats-grid {
+                  grid-template-columns: repeat(2, 1fr) !important;
+                }
+              }
+              @media (min-width: 1024px) {
+                .stats-grid {
+                  grid-template-columns: repeat(4, 1fr) !important;
+                }
+              }
+            `}</style>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "24px" }}>
+              {stats.map((stat, index) => (
                 <div
+                  key={index}
+                  onClick={() => (window.location.href = stat.link)}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
+                    backgroundColor: "white",
+                    borderRadius: "12px",
+                    boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
+                    border: "1px solid #e5e7eb",
+                    padding: "24px",
+                    cursor: "pointer",
+                    transition: "all 0.3s"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(0,0,0,0.05)";
                   }}
                 >
-                  <div>
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        fontWeight: 500,
-                        color: "#6b7280",
-                        margin: 0,
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      {stat.title}
-                    </p>
-                    <p
-                      style={{
-                        fontSize: "1.875rem",
-                        fontWeight: 700,
-                        margin: 0,
-                        color: stat.color,
-                        lineHeight: "1.2",
-                      }}
-                    >
-                      {stat.value}
-                    </p>
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "#6b7280",
-                        margin: "0.25rem 0 0 0",
-                      }}
-                    >
-                      {stat.description}
-                    </p>
-                  </div>
-                  <div
-                    style={{
-                      padding: "0.75rem",
-                      backgroundColor: "#eff6ff",
-                      borderRadius: "0.75rem",
-                      color: stat.color,
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                    <div style={{ 
+                      padding: "12px", 
+                      borderRadius: "8px", 
+                      backgroundColor: stat.bgColor 
+                    }}>
+                      <div style={{ color: stat.color }}>{stat.icon}</div>
+                    </div>
+                    <span style={{ 
+                      fontSize: "12px", 
+                      fontWeight: 500, 
+                      color: "#9ca3af",
+                      transition: "color 0.2s"
                     }}
-                  >
-                    {stat.icon}
+                    onMouseEnter={(e) => e.currentTarget.style.color = "#4b5563"}
+                    onMouseLeave={(e) => e.currentTarget.style.color = "#9ca3af"}>
+                      View all →
+                    </span>
+                  </div>
+                  
+                  <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 4px 0" }}>{stat.title}</p>
+                  <p style={{ fontSize: "30px", fontWeight: "bold", color: "#111827", margin: "0 0 8px 0" }}>{stat.value}</p>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ 
+                      fontSize: "12px", 
+                      fontWeight: 500, 
+                      padding: "2px 8px", 
+                      borderRadius: "9999px",
+                      backgroundColor: stat.changeType === "increase" ? "#ecfdf5" : "#fef2f2",
+                      color: stat.changeType === "increase" ? "#047857" : "#b91c1c",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "2px"
+                    }}>
+                      {stat.changeType === "increase" ? <FiArrowUp size={12} /> : <FiArrowDown size={12} />}
+                      {stat.change}
+                    </span>
+                    <span style={{ fontSize: "12px", color: "#9ca3af" }}>{stat.description}</span>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          <div style={{ marginBottom: "2rem" }}>
-            <h2
-              style={{
-                fontSize: "1.125rem",
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: "1rem",
-              }}
-            >
-              Quick Actions
-            </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                gap: "1rem",
-              }}
-            >
+          {/* Quick Actions */}
+          <div style={{ marginBottom: "32px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "16px" }}>Quick Actions</h2>
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: "repeat(4, 1fr)", 
+              gap: "16px" 
+            }}>
               {quickActions.map((action, index) => (
                 <Link
                   key={index}
                   to={action.link}
                   style={{
-                    backgroundColor: "#B9D6F2",
-                    padding: "1rem",
-                    borderRadius: "1rem",
-                    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                    backgroundColor: "white",
+                    borderRadius: "12px",
+                    boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
                     border: "1px solid #e5e7eb",
-                    transition: "all 0.3s ease-in-out",
-                    display: "flex",
-                    alignItems: "center",
+                    padding: "16px",
                     textDecoration: "none",
                     color: "inherit",
+                    transition: "all 0.3s"
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "translateY(-2px)";
-                    e.currentTarget.style.boxShadow =
-                      "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+                    e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow =
-                      "0 1px 2px 0 rgba(0, 0, 0, 0.05)";
+                    e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(0,0,0,0.05)";
                   }}
                 >
-                  <div
-                    style={{
-                      marginRight: "0.75rem",
-                      padding: "0.5rem",
-                      backgroundColor: "#eff6ff",
-                      borderRadius: "0.375rem",
-                      color: "#2563eb",
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div style={{ 
+                      padding: "8px", 
+                      borderRadius: "8px", 
+                      backgroundColor: `${action.color}20`,
+                      transition: "background-color 0.2s"
+                    }}>
+                      <div style={{ color: action.color }}>{action.icon}</div>
+                    </div>
+                    <span style={{ 
+                      fontWeight: 500, 
+                      color: "#374151",
+                      transition: "color 0.2s"
                     }}
-                  >
-                    {action.icon}
+                    onMouseEnter={(e) => e.currentTarget.style.color = "#111827"}
+                    onMouseLeave={(e) => e.currentTarget.style.color = "#374151"}>
+                      {action.title}
+                    </span>
                   </div>
-                  <span style={{ fontWeight: 500, fontSize: "0.875rem" }}>
-                    {action.title}
-                  </span>
                 </Link>
               ))}
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: "1.5rem",
-              marginBottom: "2rem",
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "#A7D5E1",
-                borderRadius: "1rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
-                padding: "1.5rem",
-                overflow: "hidden",
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: "1rem",
+          {/* Charts Grid */}
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(2, 1fr)", 
+            gap: "24px",
+            marginBottom: "32px"
+          }}>
+            {/* Monthly Trends */}
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: 0 }}>Monthly Order Trends</h2>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ width: "12px", height: "12px", borderRadius: "9999px", backgroundColor: "#3b82f6" }}></span>
+                    <span style={{ fontSize: "12px", color: "#4b5563" }}>Total</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ width: "12px", height: "12px", borderRadius: "9999px", backgroundColor: "#10b981" }}></span>
+                    <span style={{ fontSize: "12px", color: "#4b5563" }}>Confirmed</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ height: "320px" }}>
+                <CChart
+                  type="line"
+                  data={monthlyChartData}
+                  options={lineChartOptions}
+                />
+              </div>
+            </div>
+
+            {/* Supplier Performance */}
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: 0 }}>Top Suppliers</h2>
+                <Link to="/suppliers" style={{ 
+                  fontSize: "14px", 
+                  color: "#3b82f6", 
+                  textDecoration: "none",
+                  fontWeight: 500
                 }}
-              >
-                Garment Type Distribution
-              </h2>
-              <div
-                style={{
-                  height: "280px",
-                  width: "100%",
-                  position: "relative",
-                }}
-                className="chart-container"
-              >
+                onMouseEnter={(e) => e.currentTarget.style.color = "#2563eb"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "#3b82f6"}>
+                  View all →
+                </Link>
+              </div>
+              <div style={{ height: "320px" }}>
+                <CChart
+                  type="bar"
+                  data={supplierChartData}
+                  options={barChartOptions}
+                />
+              </div>
+            </div>
+
+            {/* Garment Distribution */}
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "24px" }}>Garment Distribution</h2>
+              <div style={{ height: "256px" }}>
                 <CChart
                   type="doughnut"
                   data={garmentChartData}
                   options={pieChartOptions}
                   onClick={handleGarmentChartClick}
-                  style={{ maxHeight: "280px", maxWidth: "100%" }}
                 />
               </div>
             </div>
 
-            <div
-              style={{
-                backgroundColor: "#72BBCE",
-                borderRadius: "1rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
-                padding: "1.5rem",
-                overflow: "hidden",
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: "1rem",
-                }}
-              >
-                Inquiry Status
-              </h2>
-              <div
-                style={{
-                  height: "280px",
-                  width: "100%",
-                  position: "relative",
-                }}
-                className="chart-container"
-              >
+            {/* Status Distribution */}
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", marginBottom: "24px" }}>Inquiry Status</h2>
+              <div style={{ height: "256px" }}>
                 <CChart
                   type="pie"
                   data={statusChartData}
                   options={pieChartOptions}
                   onClick={handleStatusChartClick}
-                  style={{ maxHeight: "280px", maxWidth: "100%" }}
-                />
-              </div>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: "#63B0E3",
-                borderRadius: "1rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
-                padding: "1.5rem",
-                overflow: "hidden",
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: "1rem",
-                }}
-              >
-                Monthly Order Trends
-              </h2>
-              <div
-                style={{
-                  height: "280px",
-                  width: "100%",
-                  position: "relative",
-                }}
-                className="chart-container"
-              >
-                <CChart
-                  type="line"
-                  data={monthlyChartData}
-                  options={lineChartOptions}
-                  onClick={handleMonthlyChartClick}
-                  style={{ maxHeight: "280px", maxWidth: "100%" }}
                 />
               </div>
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "#72BBCE",
-                borderRadius: "1rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
-                padding: "1.5rem",
-                textAlign: "center",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                  margin: 0,
-                }}
-              >
-                Confirmation Rate
-              </h3>
-              <p
-                style={{
-                  fontSize: "2rem",
-                  fontWeight: 700,
-                  color: "#059669",
-                  margin: "0.5rem 0",
-                }}
-              >
+          {/* Bottom Stats */}
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(4, 1fr)", 
+            gap: "24px",
+            marginBottom: "32px"
+          }}>
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 8px 0" }}>Confirmation Rate</p>
+              <p style={{ fontSize: "30px", fontWeight: "bold", color: "#111827", margin: "0 0 8px 0" }}>
                 {dashboardData.totalInquiries > 0
-                  ? Math.round(
-                      (dashboardData.statusBreakdown.confirmed /
-                        dashboardData.totalInquiries) *
-                        100
-                    )
-                  : 0}
-                %
+                  ? Math.round((dashboardData.statusBreakdown.confirmed / dashboardData.totalInquiries) * 100)
+                  : 0}%
               </p>
-              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0 }}>
-                {dashboardData.statusBreakdown.confirmed} of{" "}
-                {dashboardData.totalInquiries} inquiries
-              </p>
+              <div style={{ width: "100%", backgroundColor: "#e5e7eb", borderRadius: "9999px", height: "8px" }}>
+                <div style={{ 
+                  backgroundColor: "#10b981", 
+                  borderRadius: "9999px", 
+                  height: "8px",
+                  width: `${dashboardData.totalInquiries > 0
+                    ? (dashboardData.statusBreakdown.confirmed / dashboardData.totalInquiries) * 100
+                    : 0}%`,
+                  transition: "width 0.5s"
+                }} />
+              </div>
             </div>
 
-            <div
-              style={{
-                backgroundColor: "#63B0E3",
-                borderRadius: "1rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
-                padding: "1.5rem",
-                textAlign: "center",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                  margin: 0,
-                }}
-              >
-                Active Suppliers
-              </h3>
-              <p
-                style={{
-                  fontSize: "2rem",
-                  fontWeight: 700,
-                  color: "#2563eb",
-                  margin: "0.5rem 0",
-                }}
-              >
-                {dashboardData.supplierStats.active}
-              </p>
-              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0 }}>
-                of {dashboardData.supplierStats.total} total
-              </p>
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 8px 0" }}>Active Suppliers</p>
+              <p style={{ fontSize: "30px", fontWeight: "bold", color: "#111827", margin: "0 0 4px 0" }}>{dashboardData.supplierStats.active}</p>
+              <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>of {dashboardData.supplierStats.total} total</p>
             </div>
 
-            <div
-              style={{
-                backgroundColor: "#A7D5E1",
-                borderRadius: "1rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
-                padding: "1.5rem",
-                textAlign: "center",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                  margin: 0,
-                }}
-              >
-                Recent Inquiries
-              </h3>
-              <p
-                style={{
-                  fontSize: "2rem",
-                  fontWeight: 700,
-                  color: "#d97706",
-                  margin: "0.5rem 0",
-                }}
-              >
-                {dashboardData.recentInquiries}
-              </p>
-              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0 }}>
-                Last 30 days
-              </p>
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 8px 0" }}>Recent Inquiries</p>
+              <p style={{ fontSize: "30px", fontWeight: "bold", color: "#111827", margin: "0 0 4px 0" }}>{dashboardData.recentInquiries}</p>
+              <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>Last 30 days</p>
             </div>
 
-            <div
-              style={{
-                backgroundColor: "#B9D6F2",
-                borderRadius: "1rem",
-                boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                border: "1px solid #e5e7eb",
-                padding: "1.5rem",
-                textAlign: "center",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#6b7280",
-                  margin: 0,
-                }}
-              >
-                Total Customers
-              </h3>
-              <p
-                style={{
-                  fontSize: "2rem",
-                  fontWeight: 700,
-                  color: "#7c3aed",
-                  margin: "0.5rem 0",
-                }}
-              >
-                {dashboardData.customerStats.totalCustomers}
-              </p>
-              <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0 }}>
-                {dashboardData.customerStats.totalBuyers} buyers
-              </p>
+            <div style={{ 
+              backgroundColor: "white", 
+              borderRadius: "12px", 
+              boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+              border: "1px solid #e5e7eb",
+              padding: "24px"
+            }}>
+              <p style={{ fontSize: "14px", color: "#4b5563", margin: "0 0 8px 0" }}>Total Customers</p>
+              <p style={{ fontSize: "30px", fontWeight: "bold", color: "#111827", margin: "0 0 4px 0" }}>{dashboardData.customerStats.totalCustomers}</p>
+              <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>{dashboardData.customerStats.totalBuyers} buyers</p>
             </div>
           </div>
+
+          {/* Recent Activity */}
+          {recentActivity.length > 0 && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#111827", margin: 0 }}>Recent Activity</h2>
+                <Link to="/inquiries" style={{ 
+                  fontSize: "14px", 
+                  color: "#3b82f6", 
+                  textDecoration: "none",
+                  fontWeight: 500
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = "#2563eb"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "#3b82f6"}>
+                  View all →
+                </Link>
+              </div>
+              <div style={{ 
+                backgroundColor: "white", 
+                borderRadius: "12px", 
+                boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)", 
+                border: "1px solid #e5e7eb",
+                overflow: "hidden"
+              }}>
+                {recentActivity.map((activity, index) => (
+                  <div
+                    key={activity.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "16px",
+                      borderBottom: index !== recentActivity.length - 1 ? "1px solid #f3f4f6" : "none",
+                      cursor: "pointer",
+                      transition: "background-color 0.2s"
+                    }}
+                    onClick={() => navigate(`/inquiries/${activity.id}`)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f9fafb"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <div style={{ 
+                        width: "8px", 
+                        height: "8px", 
+                        borderRadius: "9999px",
+                        backgroundColor: activity.status === "confirmed" ? "#10b981" :
+                                      activity.status === "quoted" ? "#8b5cf6" : "#f59e0b"
+                      }} />
+                      <div>
+                        <p style={{ fontWeight: 500, color: "#111827", margin: "0 0 4px 0" }}>{activity.title}</p>
+                        <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>{activity.description}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      <span style={{ 
+                        fontSize: "12px", 
+                        padding: "4px 8px", 
+                        borderRadius: "9999px",
+                        backgroundColor: activity.status === "confirmed" ? "#ecfdf5" :
+                                       activity.status === "quoted" ? "#f5f3ff" : "#fffbeb",
+                        color: activity.status === "confirmed" ? "#047857" :
+                              activity.status === "quoted" ? "#6d28d9" : "#b45309"
+                      }}>
+                        {activity.status}
+                      </span>
+                      <span style={{ fontSize: "14px", color: "#9ca3af" }}>{activity.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
       </div>
-
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          .chart-container {
-            position: relative;
-            height: 280px !important;
-            width: 100% !important;
-          }
-          .chart-container canvas {
-            max-height: 280px !important;
-            height: 280px !important;
-            width: 100% !important;
-          }
-        `}
-      </style>
     </div>
   );
 };

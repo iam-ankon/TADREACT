@@ -135,7 +135,7 @@ const SupplierDetailsCSR = () => {
         name: "BSCI Certification",
         days: supplier.bsci_validity_days_remaining,
         expiry: supplier.bsci_validity,
-        status: supplier.bsci_status
+        status: supplier.bsci_status,
       });
     }
 
@@ -149,7 +149,7 @@ const SupplierDetailsCSR = () => {
         name: "Oeko-Tex Certification",
         days: supplier.oeko_tex_validity_days_remaining,
         expiry: supplier.oeko_tex_validity,
-        status: supplier.oeko_tex_status
+        status: supplier.oeko_tex_status,
       });
     }
 
@@ -163,7 +163,7 @@ const SupplierDetailsCSR = () => {
         name: "GOTS Certification",
         days: supplier.gots_validity_days_remaining,
         expiry: supplier.gots_validity,
-        status: supplier.gots_status
+        status: supplier.gots_status,
       });
     }
 
@@ -177,7 +177,7 @@ const SupplierDetailsCSR = () => {
         name: "Fire License",
         days: supplier.fire_license_days_remaining,
         expiry: supplier.fire_license_validity,
-        status: supplier.fire_license_days_remaining > 0 ? "valid" : "expired"
+        status: supplier.fire_license_days_remaining > 0 ? "valid" : "expired",
       });
     }
 
@@ -221,9 +221,9 @@ const SupplierDetailsCSR = () => {
           credentials: "include",
           body: JSON.stringify({
             certifications: selected,
-            from_email: "niloy@texweave.net",
+            from_email: "compliance@texweave.net",
           }),
-        }
+        },
       );
 
       const result = await response.json();
@@ -341,20 +341,24 @@ const SupplierDetailsCSR = () => {
             onClick={() => setShowNotificationModal(true)}
             style={{
               ...styles.notifyButton,
-              ...(getEligibleNotifications().length > 0 ? styles.notifyButtonActive : {})
+              ...(getEligibleNotifications().length > 0
+                ? styles.notifyButtonActive
+                : {}),
             }}
             disabled={!supplier.email || supplier.email.trim() === ""}
             title={
               !supplier.email || supplier.email.trim() === ""
                 ? "Supplier has no email address"
-                : getEligibleNotifications().length > 0 
+                : getEligibleNotifications().length > 0
                   ? `${getEligibleNotifications().length} certification(s) at 90/75/60 days remaining`
                   : "No certifications at 90/75/60 days remaining"
             }
           >
             📧 Send Expiry Notifications
             {getEligibleNotifications().length > 0 && (
-              <span style={styles.notifyBadge}>{getEligibleNotifications().length}</span>
+              <span style={styles.notifyBadge}>
+                {getEligibleNotifications().length}
+              </span>
             )}
           </button>
           <button onClick={fetchSupplierDetails} style={styles.refreshButton}>
@@ -435,11 +439,17 @@ const SupplierDetailsCSR = () => {
             <div style={styles.daysCardContent}>
               {supplier.bsci_validity_days_remaining ? (
                 <>
-                  <span style={{
-                    ...styles.daysNumber,
-                    backgroundColor: getDaysRemainingColor(supplier.bsci_validity_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.bsci_validity_days_remaining).color,
-                  }}>
+                  <span
+                    style={{
+                      ...styles.daysNumber,
+                      backgroundColor: getDaysRemainingColor(
+                        supplier.bsci_validity_days_remaining,
+                      ).bg,
+                      color: getDaysRemainingColor(
+                        supplier.bsci_validity_days_remaining,
+                      ).color,
+                    }}
+                  >
                     {supplier.bsci_validity_days_remaining} days
                   </span>
                   <span style={styles.daysStatus}>
@@ -448,7 +458,9 @@ const SupplierDetailsCSR = () => {
                   <span style={styles.daysDate}>
                     Expires: {formatDate(supplier.bsci_validity)}
                   </span>
-                  {[90, 75, 60].includes(supplier.bsci_validity_days_remaining) && (
+                  {[90, 75, 60].includes(
+                    supplier.bsci_validity_days_remaining,
+                  ) && (
                     <span style={styles.reminderBadge}>🔔 Reminder Due</span>
                   )}
                 </>
@@ -467,11 +479,17 @@ const SupplierDetailsCSR = () => {
             <div style={styles.daysCardContent}>
               {supplier.oeko_tex_validity_days_remaining ? (
                 <>
-                  <span style={{
-                    ...styles.daysNumber,
-                    backgroundColor: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).color,
-                  }}>
+                  <span
+                    style={{
+                      ...styles.daysNumber,
+                      backgroundColor: getDaysRemainingColor(
+                        supplier.oeko_tex_validity_days_remaining,
+                      ).bg,
+                      color: getDaysRemainingColor(
+                        supplier.oeko_tex_validity_days_remaining,
+                      ).color,
+                    }}
+                  >
                     {supplier.oeko_tex_validity_days_remaining} days
                   </span>
                   <span style={styles.daysStatus}>
@@ -480,7 +498,9 @@ const SupplierDetailsCSR = () => {
                   <span style={styles.daysDate}>
                     Expires: {formatDate(supplier.oeko_tex_validity)}
                   </span>
-                  {[90, 75, 60].includes(supplier.oeko_tex_validity_days_remaining) && (
+                  {[90, 75, 60].includes(
+                    supplier.oeko_tex_validity_days_remaining,
+                  ) && (
                     <span style={styles.reminderBadge}>🔔 Reminder Due</span>
                   )}
                 </>
@@ -499,11 +519,17 @@ const SupplierDetailsCSR = () => {
             <div style={styles.daysCardContent}>
               {supplier.gots_validity_days_remaining ? (
                 <>
-                  <span style={{
-                    ...styles.daysNumber,
-                    backgroundColor: getDaysRemainingColor(supplier.gots_validity_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.gots_validity_days_remaining).color,
-                  }}>
+                  <span
+                    style={{
+                      ...styles.daysNumber,
+                      backgroundColor: getDaysRemainingColor(
+                        supplier.gots_validity_days_remaining,
+                      ).bg,
+                      color: getDaysRemainingColor(
+                        supplier.gots_validity_days_remaining,
+                      ).color,
+                    }}
+                  >
                     {supplier.gots_validity_days_remaining} days
                   </span>
                   <span style={styles.daysStatus}>
@@ -512,7 +538,9 @@ const SupplierDetailsCSR = () => {
                   <span style={styles.daysDate}>
                     Expires: {formatDate(supplier.gots_validity)}
                   </span>
-                  {[90, 75, 60].includes(supplier.gots_validity_days_remaining) && (
+                  {[90, 75, 60].includes(
+                    supplier.gots_validity_days_remaining,
+                  ) && (
                     <span style={styles.reminderBadge}>🔔 Reminder Due</span>
                   )}
                 </>
@@ -531,20 +559,31 @@ const SupplierDetailsCSR = () => {
             <div style={styles.daysCardContent}>
               {supplier.fire_license_days_remaining ? (
                 <>
-                  <span style={{
-                    ...styles.daysNumber,
-                    backgroundColor: getDaysRemainingColor(supplier.fire_license_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.fire_license_days_remaining).color,
-                  }}>
+                  <span
+                    style={{
+                      ...styles.daysNumber,
+                      backgroundColor: getDaysRemainingColor(
+                        supplier.fire_license_days_remaining,
+                      ).bg,
+                      color: getDaysRemainingColor(
+                        supplier.fire_license_days_remaining,
+                      ).color,
+                    }}
+                  >
                     {supplier.fire_license_days_remaining} days
                   </span>
                   <span style={styles.daysStatus}>
-                    Status: {supplier.fire_license_days_remaining > 0 ? "Valid" : "Expired"}
+                    Status:{" "}
+                    {supplier.fire_license_days_remaining > 0
+                      ? "Valid"
+                      : "Expired"}
                   </span>
                   <span style={styles.daysDate}>
                     Expires: {formatDate(supplier.fire_license_validity)}
                   </span>
-                  {[90, 75, 60].includes(supplier.fire_license_days_remaining) && (
+                  {[90, 75, 60].includes(
+                    supplier.fire_license_days_remaining,
+                  ) && (
                     <span style={styles.reminderBadge}>🔔 Reminder Due</span>
                   )}
                 </>
@@ -646,10 +685,7 @@ const SupplierDetailsCSR = () => {
                 <InfoRow
                   label="Email"
                   value={supplier.email}
-                  copyable
                   fieldName="email"
-                  copiedField={copiedField}
-                  onCopy={copyToClipboard}
                 />
                 <InfoRow
                   label="Phone"
@@ -837,16 +873,20 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(supplier.bsci_validity_days_remaining).bg,
-                        color: getDaysRemainingColor(supplier.bsci_validity_days_remaining).color,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.bsci_validity_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.bsci_validity_days_remaining,
+                        ).color,
                         padding: "0.5rem 1rem",
                         fontSize: "1rem",
                       }}
                     >
                       {supplier.bsci_validity_days_remaining} days
-                      {[90, 75, 60].includes(supplier.bsci_validity_days_remaining) && (
-                        <span style={styles.reminderIcon}> 🔔</span>
-                      )}
+                      {[90, 75, 60].includes(
+                        supplier.bsci_validity_days_remaining,
+                      ) && <span style={styles.reminderIcon}> 🔔</span>}
                     </span>
                   }
                 />
@@ -856,7 +896,8 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(supplier.bsci_status).bg,
+                        backgroundColor: getStatusColor(supplier.bsci_status)
+                          .bg,
                         color: getStatusColor(supplier.bsci_status).text,
                       }}
                     >
@@ -883,16 +924,20 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).bg,
-                        color: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).color,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.oeko_tex_validity_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.oeko_tex_validity_days_remaining,
+                        ).color,
                         padding: "0.5rem 1rem",
                         fontSize: "1rem",
                       }}
                     >
                       {supplier.oeko_tex_validity_days_remaining} days
-                      {[90, 75, 60].includes(supplier.oeko_tex_validity_days_remaining) && (
-                        <span style={styles.reminderIcon}> 🔔</span>
-                      )}
+                      {[90, 75, 60].includes(
+                        supplier.oeko_tex_validity_days_remaining,
+                      ) && <span style={styles.reminderIcon}> 🔔</span>}
                     </span>
                   }
                 />
@@ -902,7 +947,9 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(supplier.oeko_tex_status).bg,
+                        backgroundColor: getStatusColor(
+                          supplier.oeko_tex_status,
+                        ).bg,
                         color: getStatusColor(supplier.oeko_tex_status).text,
                       }}
                     >
@@ -929,16 +976,20 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(supplier.gots_validity_days_remaining).bg,
-                        color: getDaysRemainingColor(supplier.gots_validity_days_remaining).color,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.gots_validity_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.gots_validity_days_remaining,
+                        ).color,
                         padding: "0.5rem 1rem",
                         fontSize: "1rem",
                       }}
                     >
                       {supplier.gots_validity_days_remaining} days
-                      {[90, 75, 60].includes(supplier.gots_validity_days_remaining) && (
-                        <span style={styles.reminderIcon}> 🔔</span>
-                      )}
+                      {[90, 75, 60].includes(
+                        supplier.gots_validity_days_remaining,
+                      ) && <span style={styles.reminderIcon}> 🔔</span>}
                     </span>
                   }
                 />
@@ -948,7 +999,8 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(supplier.gots_status).bg,
+                        backgroundColor: getStatusColor(supplier.gots_status)
+                          .bg,
                         color: getStatusColor(supplier.gots_status).text,
                       }}
                     >
@@ -975,16 +1027,20 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(supplier.fire_license_days_remaining).bg,
-                        color: getDaysRemainingColor(supplier.fire_license_days_remaining).color,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.fire_license_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.fire_license_days_remaining,
+                        ).color,
                         padding: "0.5rem 1rem",
                         fontSize: "1rem",
                       }}
                     >
                       {supplier.fire_license_days_remaining} days
-                      {[90, 75, 60].includes(supplier.fire_license_days_remaining) && (
-                        <span style={styles.reminderIcon}> 🔔</span>
-                      )}
+                      {[90, 75, 60].includes(
+                        supplier.fire_license_days_remaining,
+                      ) && <span style={styles.reminderIcon}> 🔔</span>}
                     </span>
                   }
                 />
@@ -997,76 +1053,168 @@ const SupplierDetailsCSR = () => {
                 <span style={styles.cardIcon}>📜</span> Other Certifications
               </h3>
               <div style={styles.infoGrid}>
-                <InfoRow label="WRAP" value={
-                  <div>
-                    <div>Validity: {formatDate(supplier.wrap_validity)}</div>
-                    <div>Status: <span style={{
-                      ...styles.statusBadgeInline,
-                      backgroundColor: getStatusColor(supplier.wrap_status).bg,
-                      color: getStatusColor(supplier.wrap_status).text,
-                    }}>{supplier.wrap_status?.toUpperCase() || "N/A"}</span></div>
-                  </div>
-                } />
-                <InfoRow label="Security Audit" value={
-                  <div>
-                    <div>Validity: {formatDate(supplier.security_audit_validity)}</div>
-                    <div>Status: <span style={{
-                      ...styles.statusBadgeInline,
-                      backgroundColor: getStatusColor(supplier.security_audit_status).bg,
-                      color: getStatusColor(supplier.security_audit_status).text,
-                    }}>{supplier.security_audit_status?.toUpperCase() || "N/A"}</span></div>
-                  </div>
-                } />
-                <InfoRow label="OCS" value={
-                  <div>
-                    <div>Validity: {formatDate(supplier.ocs_validity)}</div>
-                    <div>Status: <span style={{
-                      ...styles.statusBadgeInline,
-                      backgroundColor: getStatusColor(supplier.ocs_status).bg,
-                      color: getStatusColor(supplier.ocs_status).text,
-                    }}>{supplier.ocs_status?.toUpperCase() || "N/A"}</span></div>
-                  </div>
-                } />
-                <InfoRow label="GRS" value={
-                  <div>
-                    <div>Validity: {formatDate(supplier.grs_validity)}</div>
-                    <div>Status: <span style={{
-                      ...styles.statusBadgeInline,
-                      backgroundColor: getStatusColor(supplier.grs_status).bg,
-                      color: getStatusColor(supplier.grs_status).text,
-                    }}>{supplier.grs_status?.toUpperCase() || "N/A"}</span></div>
-                  </div>
-                } />
-                <InfoRow label="RCS" value={
-                  <div>
-                    <div>Validity: {formatDate(supplier.rcs_validity)}</div>
-                    <div>Status: <span style={{
-                      ...styles.statusBadgeInline,
-                      backgroundColor: getStatusColor(supplier.rcs_status).bg,
-                      color: getStatusColor(supplier.rcs_status).text,
-                    }}>{supplier.rcs_status?.toUpperCase() || "N/A"}</span></div>
-                  </div>
-                } />
-                <InfoRow label="ISO 9001" value={
-                  <div>
-                    <div>Validity: {formatDate(supplier.iso_9001_validity)}</div>
-                    <div>Status: <span style={{
-                      ...styles.statusBadgeInline,
-                      backgroundColor: getStatusColor(supplier.iso_9001_status).bg,
-                      color: getStatusColor(supplier.iso_9001_status).text,
-                    }}>{supplier.iso_9001_status?.toUpperCase() || "N/A"}</span></div>
-                  </div>
-                } />
-                <InfoRow label="ISO 14001" value={
-                  <div>
-                    <div>Validity: {formatDate(supplier.iso_14001_validity)}</div>
-                    <div>Status: <span style={{
-                      ...styles.statusBadgeInline,
-                      backgroundColor: getStatusColor(supplier.iso_14001_status).bg,
-                      color: getStatusColor(supplier.iso_14001_status).text,
-                    }}>{supplier.iso_14001_status?.toUpperCase() || "N/A"}</span></div>
-                  </div>
-                } />
+                <InfoRow
+                  label="WRAP"
+                  value={
+                    <div>
+                      <div>Validity: {formatDate(supplier.wrap_validity)}</div>
+                      <div>
+                        Status:{" "}
+                        <span
+                          style={{
+                            ...styles.statusBadgeInline,
+                            backgroundColor: getStatusColor(
+                              supplier.wrap_status,
+                            ).bg,
+                            color: getStatusColor(supplier.wrap_status).text,
+                          }}
+                        >
+                          {supplier.wrap_status?.toUpperCase() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                />
+                <InfoRow
+                  label="Security Audit"
+                  value={
+                    <div>
+                      <div>
+                        Validity: {formatDate(supplier.security_audit_validity)}
+                      </div>
+                      <div>
+                        Status:{" "}
+                        <span
+                          style={{
+                            ...styles.statusBadgeInline,
+                            backgroundColor: getStatusColor(
+                              supplier.security_audit_status,
+                            ).bg,
+                            color: getStatusColor(
+                              supplier.security_audit_status,
+                            ).text,
+                          }}
+                        >
+                          {supplier.security_audit_status?.toUpperCase() ||
+                            "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                />
+                <InfoRow
+                  label="OCS"
+                  value={
+                    <div>
+                      <div>Validity: {formatDate(supplier.ocs_validity)}</div>
+                      <div>
+                        Status:{" "}
+                        <span
+                          style={{
+                            ...styles.statusBadgeInline,
+                            backgroundColor: getStatusColor(supplier.ocs_status)
+                              .bg,
+                            color: getStatusColor(supplier.ocs_status).text,
+                          }}
+                        >
+                          {supplier.ocs_status?.toUpperCase() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                />
+                <InfoRow
+                  label="GRS"
+                  value={
+                    <div>
+                      <div>Validity: {formatDate(supplier.grs_validity)}</div>
+                      <div>
+                        Status:{" "}
+                        <span
+                          style={{
+                            ...styles.statusBadgeInline,
+                            backgroundColor: getStatusColor(supplier.grs_status)
+                              .bg,
+                            color: getStatusColor(supplier.grs_status).text,
+                          }}
+                        >
+                          {supplier.grs_status?.toUpperCase() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                />
+                <InfoRow
+                  label="RCS"
+                  value={
+                    <div>
+                      <div>Validity: {formatDate(supplier.rcs_validity)}</div>
+                      <div>
+                        Status:{" "}
+                        <span
+                          style={{
+                            ...styles.statusBadgeInline,
+                            backgroundColor: getStatusColor(supplier.rcs_status)
+                              .bg,
+                            color: getStatusColor(supplier.rcs_status).text,
+                          }}
+                        >
+                          {supplier.rcs_status?.toUpperCase() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                />
+                <InfoRow
+                  label="ISO 9001"
+                  value={
+                    <div>
+                      <div>
+                        Validity: {formatDate(supplier.iso_9001_validity)}
+                      </div>
+                      <div>
+                        Status:{" "}
+                        <span
+                          style={{
+                            ...styles.statusBadgeInline,
+                            backgroundColor: getStatusColor(
+                              supplier.iso_9001_status,
+                            ).bg,
+                            color: getStatusColor(supplier.iso_9001_status)
+                              .text,
+                          }}
+                        >
+                          {supplier.iso_9001_status?.toUpperCase() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                />
+                <InfoRow
+                  label="ISO 14001"
+                  value={
+                    <div>
+                      <div>
+                        Validity: {formatDate(supplier.iso_14001_validity)}
+                      </div>
+                      <div>
+                        Status:{" "}
+                        <span
+                          style={{
+                            ...styles.statusBadgeInline,
+                            backgroundColor: getStatusColor(
+                              supplier.iso_14001_status,
+                            ).bg,
+                            color: getStatusColor(supplier.iso_14001_status)
+                              .text,
+                          }}
+                        >
+                          {supplier.iso_14001_status?.toUpperCase() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  }
+                />
               </div>
             </div>
 
@@ -1099,11 +1247,17 @@ const SupplierDetailsCSR = () => {
                 <InfoRow
                   label="Days Remaining"
                   value={
-                    <span style={{
-                      ...styles.daysRemaining,
-                      backgroundColor: getDaysRemainingColor(supplier.trade_license_days_remaining).bg,
-                      color: getDaysRemainingColor(supplier.trade_license_days_remaining).color,
-                    }}>
+                    <span
+                      style={{
+                        ...styles.daysRemaining,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.trade_license_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.trade_license_days_remaining,
+                        ).color,
+                      }}
+                    >
                       {supplier.trade_license_days_remaining} days
                     </span>
                   }
@@ -1124,11 +1278,17 @@ const SupplierDetailsCSR = () => {
                 <InfoRow
                   label="Days Remaining"
                   value={
-                    <span style={{
-                      ...styles.daysRemaining,
-                      backgroundColor: getDaysRemainingColor(supplier.factory_license_days_remaining).bg,
-                      color: getDaysRemainingColor(supplier.factory_license_days_remaining).color,
-                    }}>
+                    <span
+                      style={{
+                        ...styles.daysRemaining,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.factory_license_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.factory_license_days_remaining,
+                        ).color,
+                      }}
+                    >
                       {supplier.factory_license_days_remaining} days
                     </span>
                   }
@@ -1149,11 +1309,17 @@ const SupplierDetailsCSR = () => {
                 <InfoRow
                   label="Days Remaining"
                   value={
-                    <span style={{
-                      ...styles.daysRemaining,
-                      backgroundColor: getDaysRemainingColor(supplier.fire_license_days_remaining).bg,
-                      color: getDaysRemainingColor(supplier.fire_license_days_remaining).color,
-                    }}>
+                    <span
+                      style={{
+                        ...styles.daysRemaining,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.fire_license_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.fire_license_days_remaining,
+                        ).color,
+                      }}
+                    >
                       {supplier.fire_license_days_remaining} days
                     </span>
                   }
@@ -1171,8 +1337,12 @@ const SupplierDetailsCSR = () => {
                   label="Membership"
                   value={
                     <div>
-                      <div>Validity: {formatDate(supplier.membership_validity)}</div>
-                      <div>Days: {supplier.membership_days_remaining || "N/A"}</div>
+                      <div>
+                        Validity: {formatDate(supplier.membership_validity)}
+                      </div>
+                      <div>
+                        Days: {supplier.membership_days_remaining || "N/A"}
+                      </div>
                     </div>
                   }
                 />
@@ -1180,8 +1350,13 @@ const SupplierDetailsCSR = () => {
                   label="Group Insurance"
                   value={
                     <div>
-                      <div>Validity: {formatDate(supplier.group_insurance_validity)}</div>
-                      <div>Days: {supplier.group_insurance_days_remaining || "N/A"}</div>
+                      <div>
+                        Validity:{" "}
+                        {formatDate(supplier.group_insurance_validity)}
+                      </div>
+                      <div>
+                        Days: {supplier.group_insurance_days_remaining || "N/A"}
+                      </div>
                     </div>
                   }
                 />
@@ -1190,8 +1365,12 @@ const SupplierDetailsCSR = () => {
                   label="Boiler License"
                   value={
                     <div>
-                      <div>Validity: {formatDate(supplier.boiler_license_validity)}</div>
-                      <div>Days: {supplier.boiler_license_days_remaining || "N/A"}</div>
+                      <div>
+                        Validity: {formatDate(supplier.boiler_license_validity)}
+                      </div>
+                      <div>
+                        Days: {supplier.boiler_license_days_remaining || "N/A"}
+                      </div>
                     </div>
                   }
                 />
@@ -1199,8 +1378,12 @@ const SupplierDetailsCSR = () => {
                   label="BERC License"
                   value={
                     <div>
-                      <div>Validity: {formatDate(supplier.berc_license_validity)}</div>
-                      <div>Days: {supplier.berc_license_days_remaining || "N/A"}</div>
+                      <div>
+                        Validity: {formatDate(supplier.berc_license_validity)}
+                      </div>
+                      <div>
+                        Days: {supplier.berc_license_days_remaining || "N/A"}
+                      </div>
                     </div>
                   }
                 />
@@ -1276,12 +1459,16 @@ const SupplierDetailsCSR = () => {
                     <span
                       style={{
                         ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(supplier.compliance_status).bg,
+                        backgroundColor: getStatusColor(
+                          supplier.compliance_status,
+                        ).bg,
                         color: getStatusColor(supplier.compliance_status).text,
                         padding: "0.25rem 0.75rem",
                       }}
                     >
-                      {supplier.compliance_status?.replace("_", " ").toUpperCase() || "N/A"}
+                      {supplier.compliance_status
+                        ?.replace("_", " ")
+                        .toUpperCase() || "N/A"}
                     </span>
                   }
                 />
@@ -1409,11 +1596,15 @@ const SupplierDetailsCSR = () => {
               <div style={styles.infoGrid}>
                 <InfoRow
                   label="Last Safety Committee Formation"
-                  value={formatDate(supplier.last_safety_committee_formation_date)}
+                  value={formatDate(
+                    supplier.last_safety_committee_formation_date,
+                  )}
                 />
                 <InfoRow
                   label="Last Safety Committee Meeting"
-                  value={formatDate(supplier.last_safety_committee_meeting_date)}
+                  value={formatDate(
+                    supplier.last_safety_committee_meeting_date,
+                  )}
                 />
               </div>
             </div>
@@ -1425,7 +1616,8 @@ const SupplierDetailsCSR = () => {
             {/* Environmental Information */}
             <div style={styles.infoCard}>
               <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🌱</span> Environmental Information
+                <span style={styles.cardIcon}>🌱</span> Environmental
+                Information
               </h3>
               <div style={styles.infoGrid}>
                 <InfoRow
@@ -1479,13 +1671,36 @@ const SupplierDetailsCSR = () => {
                 <span style={styles.cardIcon}>🏗️</span> Structural Safety
               </h3>
               <div style={styles.infoGrid}>
-                <InfoRow label="Initial Audit Date" value={formatDate(supplier.structural_initial_audit_date)} />
-                <InfoRow label="Initial Findings" value={supplier.structural_initial_findings} />
-                <InfoRow label="Last Follow-up Audit" value={formatDate(supplier.structural_last_follow_up_audit_date)} />
-                <InfoRow label="Total Findings" value={supplier.structural_total_findings} />
-                <InfoRow label="Total Corrected" value={supplier.structural_total_corrected} />
-                <InfoRow label="Total In Progress" value={supplier.structural_total_in_progress} />
-                <InfoRow label="Total Pending Verification" value={supplier.structural_total_pending_verification} />
+                <InfoRow
+                  label="Initial Audit Date"
+                  value={formatDate(supplier.structural_initial_audit_date)}
+                />
+                <InfoRow
+                  label="Initial Findings"
+                  value={supplier.structural_initial_findings}
+                />
+                <InfoRow
+                  label="Last Follow-up Audit"
+                  value={formatDate(
+                    supplier.structural_last_follow_up_audit_date,
+                  )}
+                />
+                <InfoRow
+                  label="Total Findings"
+                  value={supplier.structural_total_findings}
+                />
+                <InfoRow
+                  label="Total Corrected"
+                  value={supplier.structural_total_corrected}
+                />
+                <InfoRow
+                  label="Total In Progress"
+                  value={supplier.structural_total_in_progress}
+                />
+                <InfoRow
+                  label="Total Pending Verification"
+                  value={supplier.structural_total_pending_verification}
+                />
               </div>
             </div>
 
@@ -1495,13 +1710,34 @@ const SupplierDetailsCSR = () => {
                 <span style={styles.cardIcon}>🔥</span> Fire Safety Audit
               </h3>
               <div style={styles.infoGrid}>
-                <InfoRow label="Initial Audit Date" value={formatDate(supplier.fire_initial_audit_date)} />
-                <InfoRow label="Initial Findings" value={supplier.fire_initial_findings} />
-                <InfoRow label="Last Follow-up Audit" value={formatDate(supplier.fire_last_follow_up_audit_date)} />
-                <InfoRow label="Total Findings" value={supplier.fire_total_findings} />
-                <InfoRow label="Total Corrected" value={supplier.fire_total_corrected} />
-                <InfoRow label="Total In Progress" value={supplier.fire_total_in_progress} />
-                <InfoRow label="Total Pending Verification" value={supplier.fire_total_pending_verification} />
+                <InfoRow
+                  label="Initial Audit Date"
+                  value={formatDate(supplier.fire_initial_audit_date)}
+                />
+                <InfoRow
+                  label="Initial Findings"
+                  value={supplier.fire_initial_findings}
+                />
+                <InfoRow
+                  label="Last Follow-up Audit"
+                  value={formatDate(supplier.fire_last_follow_up_audit_date)}
+                />
+                <InfoRow
+                  label="Total Findings"
+                  value={supplier.fire_total_findings}
+                />
+                <InfoRow
+                  label="Total Corrected"
+                  value={supplier.fire_total_corrected}
+                />
+                <InfoRow
+                  label="Total In Progress"
+                  value={supplier.fire_total_in_progress}
+                />
+                <InfoRow
+                  label="Total Pending Verification"
+                  value={supplier.fire_total_pending_verification}
+                />
               </div>
             </div>
 
@@ -1511,13 +1747,36 @@ const SupplierDetailsCSR = () => {
                 <span style={styles.cardIcon}>⚡</span> Electrical Safety
               </h3>
               <div style={styles.infoGrid}>
-                <InfoRow label="Initial Audit Date" value={formatDate(supplier.electrical_initial_audit_date)} />
-                <InfoRow label="Initial Findings" value={supplier.electrical_initial_findings} />
-                <InfoRow label="Last Follow-up Audit" value={formatDate(supplier.electrical_last_follow_up_audit_date)} />
-                <InfoRow label="Total Findings" value={supplier.electrical_total_findings} />
-                <InfoRow label="Total Corrected" value={supplier.electrical_total_corrected} />
-                <InfoRow label="Total In Progress" value={supplier.electrical_total_in_progress} />
-                <InfoRow label="Total Pending Verification" value={supplier.electrical_total_pending_verification} />
+                <InfoRow
+                  label="Initial Audit Date"
+                  value={formatDate(supplier.electrical_initial_audit_date)}
+                />
+                <InfoRow
+                  label="Initial Findings"
+                  value={supplier.electrical_initial_findings}
+                />
+                <InfoRow
+                  label="Last Follow-up Audit"
+                  value={formatDate(
+                    supplier.electrical_last_follow_up_audit_date,
+                  )}
+                />
+                <InfoRow
+                  label="Total Findings"
+                  value={supplier.electrical_total_findings}
+                />
+                <InfoRow
+                  label="Total Corrected"
+                  value={supplier.electrical_total_corrected}
+                />
+                <InfoRow
+                  label="Total In Progress"
+                  value={supplier.electrical_total_in_progress}
+                />
+                <InfoRow
+                  label="Total Pending Verification"
+                  value={supplier.electrical_total_pending_verification}
+                />
               </div>
             </div>
           </div>
@@ -1537,7 +1796,9 @@ const SupplierDetailsCSR = () => {
                 />
                 <InfoRow
                   label="Tree Plantation in Local Community"
-                  value={getBooleanDisplay(supplier.tree_plantation_local_community)}
+                  value={getBooleanDisplay(
+                    supplier.tree_plantation_local_community,
+                  )}
                 />
                 <InfoRow
                   label="Sanitary Napkin Status"
@@ -1549,7 +1810,9 @@ const SupplierDetailsCSR = () => {
                 />
                 <InfoRow
                   label="Any Gift Provided During Festival"
-                  value={getBooleanDisplay(supplier.any_gift_provided_during_festival)}
+                  value={getBooleanDisplay(
+                    supplier.any_gift_provided_during_festival,
+                  )}
                 />
               </div>
             </div>
@@ -1564,25 +1827,27 @@ const SupplierDetailsCSR = () => {
                 <span style={styles.cardIcon}>📎</span> Certificates & Documents
               </h3>
               <div style={styles.documentsList}>
-                {supplier.all_certificates && supplier.all_certificates.length > 0 ? (
-                  supplier.all_certificates.map((cert, index) => (
-                    cert.url && (
-                      <div key={index} style={styles.documentItem}>
-                        <span style={styles.documentIcon}>📄</span>
-                        <div style={styles.documentInfo}>
-                          <div style={styles.documentName}>{cert.name}</div>
-                          <a
-                            href={cert.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={styles.documentLink}
-                          >
-                            View Document
-                          </a>
+                {supplier.all_certificates &&
+                supplier.all_certificates.length > 0 ? (
+                  supplier.all_certificates.map(
+                    (cert, index) =>
+                      cert.url && (
+                        <div key={index} style={styles.documentItem}>
+                          <span style={styles.documentIcon}>📄</span>
+                          <div style={styles.documentInfo}>
+                            <div style={styles.documentName}>{cert.name}</div>
+                            <a
+                              href={cert.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={styles.documentLink}
+                            >
+                              View Document
+                            </a>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  ))
+                      ),
+                  )
                 ) : (
                   <div style={styles.noDocuments}>
                     <span style={styles.noDocumentsIcon}>📂</span>
@@ -1629,7 +1894,8 @@ const SupplierDetailsCSR = () => {
                         {notificationResult.details.notifications?.map(
                           (notif, idx) => (
                             <li key={idx}>
-                              {notif.cert_name} - {notif.days_remaining} days remaining
+                              {notif.cert_name} - {notif.days_remaining} days
+                              remaining
                             </li>
                           ),
                         )}
@@ -1657,10 +1923,11 @@ const SupplierDetailsCSR = () => {
                       {supplier.email || "No email provided"}
                     </p>
                     <p>
-                      <strong>From:</strong> niloy@texweave.net
+                      <strong>From:</strong> compliance@texweave.net
                     </p>
                     <p>
-                      <strong>Reminder Days:</strong> 90, 75, 60 days before expiry
+                      <strong>Reminder Days:</strong> 90, 75, 60 days before
+                      expiry
                     </p>
                   </div>
 
@@ -1672,7 +1939,8 @@ const SupplierDetailsCSR = () => {
                   ) : (
                     <>
                       <h4 style={styles.modalSubtitle}>
-                        Select certifications to notify (only those at 90/75/60 days shown):
+                        Select certifications to notify (only those at 90/75/60
+                        days shown):
                       </h4>
 
                       {getEligibleNotifications().map((item) => (
@@ -1693,14 +1961,17 @@ const SupplierDetailsCSR = () => {
                             <span
                               style={{
                                 ...styles.certDays,
-                                backgroundColor: getDaysRemainingColor(item.days).bg,
+                                backgroundColor: getDaysRemainingColor(
+                                  item.days,
+                                ).bg,
                                 color: getDaysRemainingColor(item.days).color,
                               }}
                             >
                               {item.days} days remaining
                             </span>
                             <span style={styles.certExpiry}>
-                              Expires: {new Date(item.expiry).toLocaleDateString()}
+                              Expires:{" "}
+                              {new Date(item.expiry).toLocaleDateString()}
                             </span>
                             <span style={styles.certStatus}>
                               Status: {item.status || "N/A"}
@@ -1731,7 +2002,10 @@ const SupplierDetailsCSR = () => {
                 </button>
                 <button
                   onClick={sendExpiryNotifications}
-                  disabled={sendingNotifications || getEligibleNotifications().length === 0}
+                  disabled={
+                    sendingNotifications ||
+                    getEligibleNotifications().length === 0
+                  }
                   style={{
                     ...styles.modalPrimaryButton,
                     ...(sendingNotifications ? styles.modalButtonDisabled : {}),
@@ -1751,7 +2025,7 @@ const SupplierDetailsCSR = () => {
           ← Back to List
         </button>
         <button
-          onClick={() => navigate(`/edit-supplierCSR/${id}`)}
+          onClick={() => navigate(`/edit-supplier/${id}`)}
           style={styles.primaryButton}
         >
           ✏️ Edit Supplier

@@ -1175,7 +1175,7 @@ const EmployeeDetails = () => {
         }
 
         .employee-dashboard {
-          max-width: 1400px;
+         
           margin: 0 auto;
           padding-bottom: 40px;
         }
@@ -1187,7 +1187,7 @@ const EmployeeDetails = () => {
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           padding: 1rem;
           margin: 0 auto;
-          max-width: 1400px;
+          
         }
 
         /* Combined header styles */

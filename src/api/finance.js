@@ -467,6 +467,8 @@ export const taxAPI = {
 };
 
 // Salary APIs
+// In finance.js - Update the salaryAPI section
+
 export const salaryAPI = {
   // Save salary data
   saveSalary: (data) => apiClient.post("/save-salary/", data),
@@ -482,6 +484,7 @@ export const salaryAPI = {
     }
   },
 
+  // NEW: Check if salary records exist for a month/year
   checkSalaryRecordsExists: async (month, year, companyName = "") => {
     try {
       const params = { month, year };
@@ -492,14 +495,13 @@ export const salaryAPI = {
       const response = await apiClient.get("/check-salary-records-exists/", {
         params,
       });
-      return response.data;
+      return response;
     } catch (error) {
       console.error("Error checking salary records:", error);
-      return { exists: false, error: error.message };
+      return { data: { exists: false, error: error.message } };
     }
   },
 };
-
 // // Salary Records APIs
 // export const salaryRecordsAPI = {
 //   // Get all salary records with optional filtering

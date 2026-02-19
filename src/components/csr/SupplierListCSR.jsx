@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { getSuppliers, deleteSupplier } from "../../api/supplierApi";
 
 const colors = {
@@ -86,17 +86,31 @@ const statusStyles = {
 };
 
 const SupplierListCSR = () => {
+  const location = useLocation();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterExpiring, setFilterExpiring] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [deletingId, setDeletingId] = useState(null);
   const itemsPerPage = 10;
 
+  // Target days for notifications
+  const NOTIFICATION_DAYS = [90, 75, 60];
+
   useEffect(() => {
+    // Parse URL parameters
+    const params = new URLSearchParams(location.search);
+    const expiringParam = params.get('filter');
+    
+    if (expiringParam === 'expiring') {
+      setFilterExpiring(true);
+      setFilterStatus('all'); // Reset status filter
+    }
+    
     fetchSuppliers();
-  }, []);
+  }, [location.search]);
 
   const fetchSuppliers = async () => {
     try {
@@ -120,8 +134,74 @@ const SupplierListCSR = () => {
     ).toLowerCase();
   };
 
+  // Check if supplier has certifications at exactly 90, 75, or 60 days
+  const hasExpiringCertifications = (supplier) => {
+    return (
+      (supplier.bsci_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.bsci_validity_days_remaining)) ||
+      (supplier.oeko_tex_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.oeko_tex_validity_days_remaining)) ||
+      (supplier.gots_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.gots_validity_days_remaining)) ||
+      (supplier.fire_license_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.fire_license_days_remaining))
+    );
+  };
+
+  // Get expiring certifications with their days
+  const getExpiringCertifications = (supplier) => {
+    const expiring = [];
+    
+    if (supplier.bsci_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.bsci_validity_days_remaining)) {
+      expiring.push({
+        type: "BSCI",
+        days: supplier.bsci_validity_days_remaining
+      });
+    }
+    
+    if (supplier.oeko_tex_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.oeko_tex_validity_days_remaining)) {
+      expiring.push({
+        type: "Oeko-Tex",
+        days: supplier.oeko_tex_validity_days_remaining
+      });
+    }
+    
+    if (supplier.gots_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.gots_validity_days_remaining)) {
+      expiring.push({
+        type: "GOTS",
+        days: supplier.gots_validity_days_remaining
+      });
+    }
+    
+    if (supplier.fire_license_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.fire_license_days_remaining)) {
+      expiring.push({
+        type: "Fire License",
+        days: supplier.fire_license_days_remaining
+      });
+    }
+    
+    return expiring;
+  };
+
+  // Format expiring text
+  const getExpiringText = (supplier) => {
+    const expiring = getExpiringCertifications(supplier);
+    if (expiring.length === 0) return null;
+    
+    return expiring.map(e => `${e.type} (${e.days}d)`).join(', ');
+  };
+
   const filteredSuppliers = suppliers.filter((supplier) => {
     if (!supplier) return false;
+
+    // Apply expiring filter first if active
+    if (filterExpiring && !hasExpiringCertifications(supplier)) {
+      return false;
+    }
 
     const name = (supplier.supplier_name || supplier.name || "").toLowerCase();
     const vendorId = (supplier.supplier_id || supplier.vendor_id || "").toLowerCase();
@@ -162,6 +242,17 @@ const SupplierListCSR = () => {
     }
   };
 
+  // Clear expiring filter
+  const clearExpiringFilter = () => {
+    setFilterExpiring(false);
+    setCurrentPage(1);
+    // Update URL to remove filter parameter
+    window.history.replaceState({}, '', '/suppliersCSR');
+  };
+
+  // Get count of suppliers with expiring certifications
+  const expiringCount = suppliers.filter(hasExpiringCertifications).length;
+
   return (
     <div style={containerStyle}>
       {/* Header */}
@@ -183,6 +274,26 @@ const SupplierListCSR = () => {
           Add New Supplier
         </Link>
       </div>
+
+      {/* Expiring Filter Banner */}
+      {filterExpiring && (
+        <div style={expiringBannerStyle}>
+          <div style={expiringBannerContent}>
+            <span style={expiringBannerIcon}>🔔</span>
+            <span>
+              <strong>Showing suppliers with certifications at 90, 75, or 60 days remaining</strong> ({expiringCount} found)
+            </span>
+          </div>
+          <button 
+            onClick={clearExpiringFilter}
+            style={expiringBannerClose}
+            onMouseOver={e => e.currentTarget.style.backgroundColor = "#ffecb5"}
+            onMouseOut={e => e.currentTarget.style.backgroundColor = "transparent"}
+          >
+            ✕ Clear Filter
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div style={loadingContainerStyle}>
@@ -220,13 +331,14 @@ const SupplierListCSR = () => {
                 <button
                   onClick={() => {
                     setFilterStatus("all");
+                    setFilterExpiring(false);
                     setCurrentPage(1);
                   }}
                   style={{
                     ...statusFilterButtonStyle,
-                    backgroundColor: filterStatus === "all" ? colors.primary : colors.lighter,
-                    color: filterStatus === "all" ? colors.lighter : colors.dark,
-                    borderColor: filterStatus === "all" ? colors.primary : colors.border,
+                    backgroundColor: filterStatus === "all" && !filterExpiring ? colors.primary : colors.lighter,
+                    color: filterStatus === "all" && !filterExpiring ? colors.lighter : colors.dark,
+                    borderColor: filterStatus === "all" && !filterExpiring ? colors.primary : colors.border,
                   }}
                 >
                   All
@@ -236,6 +348,7 @@ const SupplierListCSR = () => {
                     key={key}
                     onClick={() => {
                       setFilterStatus(key);
+                      setFilterExpiring(false);
                       setCurrentPage(1);
                     }}
                     style={{
@@ -264,6 +377,12 @@ const SupplierListCSR = () => {
               <div style={statLabelStyle}>Filtered Results</div>
             </div>
             <div style={statCardStyle}>
+              <div style={{...statNumberStyle, color: colors.warning}}>
+                {expiringCount}
+              </div>
+              <div style={statLabelStyle}>Need Attention (90/75/60d)</div>
+            </div>
+            <div style={statCardStyle}>
               <div style={{...statNumberStyle, color: colors.success}}>
                 {suppliers.filter(s => getEffectiveStatus(s) === 'active' || getEffectiveStatus(s) === 'valid').length}
               </div>
@@ -280,17 +399,30 @@ const SupplierListCSR = () => {
                   No suppliers found
                 </h3>
                 <p style={{ marginBottom: "2rem", color: colors.gray, maxWidth: "400px" }}>
-                  {searchTerm || filterStatus !== "all"
-                    ? "No suppliers match your search criteria. Try adjusting your filters."
+                  {searchTerm || filterStatus !== "all" || filterExpiring
+                    ? "No suppliers match your current filters. Try adjusting your search criteria."
                     : "Get started by adding your first supplier to the database."}
                 </p>
-                {(!searchTerm && filterStatus === "all") && (
+                {(!searchTerm && filterStatus === "all" && !filterExpiring) && (
                   <Link
                     to="/add-supplierCSR"
                     style={emptyStateButtonStyle}
                   >
                     + Add New Supplier
                   </Link>
+                )}
+                {(searchTerm || filterStatus !== "all" || filterExpiring) && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setFilterStatus("all");
+                      setFilterExpiring(false);
+                      window.history.replaceState({}, '', '/suppliersCSR');
+                    }}
+                    style={clearFiltersButtonStyle}
+                  >
+                    Clear All Filters
+                  </button>
                 )}
               </div>
             ) : (
@@ -299,6 +431,11 @@ const SupplierListCSR = () => {
                   <span style={{ fontWeight: "600", color: colors.dark }}>
                     Supplier List ({currentItems.length} of {filteredSuppliers.length})
                   </span>
+                  {filterExpiring && (
+                    <span style={expiringBadgeStyle}>
+                      🔔 {filteredSuppliers.length} need attention
+                    </span>
+                  )}
                 </div>
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -309,6 +446,7 @@ const SupplierListCSR = () => {
                         <th style={tableHeaderCellStyle}>Location</th>
                         <th style={tableHeaderCellStyle}>Category</th>
                         <th style={tableHeaderCellStyle}>Status</th>
+                        <th style={tableHeaderCellStyle}>Expiring Certifications</th>
                         <th style={tableHeaderCellStyle}>Actions</th>
                       </tr>
                     </thead>
@@ -316,13 +454,17 @@ const SupplierListCSR = () => {
                       {currentItems.map((supplier, index) => {
                         const statusKey = getEffectiveStatus(supplier);
                         const statusInfo = statusStyles[statusKey] || statusStyles.unknown;
+                        const expiring = hasExpiringCertifications(supplier);
+                        const expiringText = getExpiringText(supplier);
+                        const expiringCerts = getExpiringCertifications(supplier);
 
                         return (
                           <tr 
                             key={supplier.id} 
                             style={{
                               ...tableRowStyle,
-                              backgroundColor: index % 2 === 0 ? colors.lighter : colors.light
+                              backgroundColor: index % 2 === 0 ? colors.lighter : colors.light,
+                              ...(expiring ? { borderLeft: `4px solid ${colors.warning}` } : {})
                             }}
                           >
                             <td style={tableCellStyle}>
@@ -364,6 +506,25 @@ const SupplierListCSR = () => {
                                 <span style={{ marginRight: "6px" }}>{statusInfo.icon}</span>
                                 {statusInfo.label}
                               </div>
+                            </td>
+                            <td style={tableCellStyle}>
+                              {expiring ? (
+                                <div style={expiringDetailsStyle}>
+                                  {expiringCerts.map((cert, idx) => (
+                                    <div 
+                                      key={idx}
+                                      style={{
+                                        ...expiringBadgeSmallStyle,
+                                        backgroundColor: getDayColor(cert.days),
+                                      }}
+                                    >
+                                      {cert.type}: {cert.days}d
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ color: colors.muted, fontSize: "0.8rem" }}>—</span>
+                              )}
                             </td>
                             <td style={tableCellStyle}>
                               <div style={actionButtonsStyle}>
@@ -485,6 +646,20 @@ const SupplierListCSR = () => {
   );
 };
 
+// Helper function to get color based on days
+const getDayColor = (days) => {
+  switch(days) {
+    case 60:
+      return "#fd7e14"; // Orange
+    case 75:
+      return "#ffc107"; // Yellow
+    case 90:
+      return "#17a2b8"; // Teal
+    default:
+      return "#6c757d"; // Gray
+  }
+};
+
 // Enhanced Styles
 const containerStyle = {
   padding: "3rem 5rem",
@@ -585,6 +760,11 @@ const searchInputStyle = {
   transition: "all 0.3s",
   backgroundColor: colors.lighter,
   boxShadow: `0 1px 2px ${colors.shadow}`,
+  outline: "none",
+  ":focus": {
+    borderColor: colors.primary,
+    boxShadow: `0 0 0 3px ${colors.primaryLight}`,
+  },
 };
 
 const clearSearchStyle = {
@@ -652,6 +832,10 @@ const statCardStyle = {
   textAlign: "center",
   transition: "transform 0.2s",
   cursor: "default",
+  ":hover": {
+    transform: "translateY(-2px)",
+    boxShadow: `0 4px 12px ${colors.shadowHover}`,
+  },
 };
 
 const statNumberStyle = {
@@ -840,6 +1024,24 @@ const emptyStateButtonStyle = {
   },
 };
 
+const clearFiltersButtonStyle = {
+  display: "inline-block",
+  padding: "0.9rem 2rem",
+  backgroundColor: colors.gray,
+  color: "white",
+  textDecoration: "none",
+  borderRadius: "10px",
+  fontWeight: "600",
+  fontSize: "0.95rem",
+  border: "none",
+  cursor: "pointer",
+  transition: "all 0.3s",
+  ":hover": {
+    backgroundColor: colors.dark,
+    transform: "translateY(-2px)",
+  },
+};
+
 const paginationContainerStyle = {
   display: "flex",
   flexDirection: "column",
@@ -892,5 +1094,84 @@ const paginationButtonStyle = {
     transform: "translateY(-1px)",
   },
 };
+
+// Expiring banner styles
+const expiringBannerStyle = {
+  backgroundColor: "#fff3cd",
+  border: "1px solid #ffeaa7",
+  borderRadius: "12px",
+  padding: "1rem 1.5rem",
+  marginBottom: "1.5rem",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "1rem",
+};
+
+const expiringBannerContent = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  color: "#856404",
+  fontSize: "0.95rem",
+};
+
+const expiringBannerIcon = {
+  fontSize: "1.25rem",
+};
+
+const expiringBannerClose = {
+  padding: "0.5rem 1rem",
+  backgroundColor: "transparent",
+  color: "#856404",
+  border: "1px solid #ffeaa7",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "0.875rem",
+  fontWeight: "500",
+  transition: "all 0.2s ease",
+};
+
+const expiringBadgeStyle = {
+  backgroundColor: "#fd7e14",
+  color: "white",
+  padding: "0.25rem 0.75rem",
+  borderRadius: "20px",
+  fontSize: "0.75rem",
+  fontWeight: "600",
+};
+
+const expiringBadgeSmallStyle = {
+  padding: "0.2rem 0.5rem",
+  borderRadius: "4px",
+  fontSize: "0.7rem",
+  fontWeight: "600",
+  display: "inline-block",
+  margin: "0.2rem",
+  color: "white",
+};
+
+const expiringDetailsStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.25rem",
+};
+
+// Add CSS animation for spinner
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default SupplierListCSR;

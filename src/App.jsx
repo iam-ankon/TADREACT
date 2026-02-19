@@ -36,7 +36,7 @@ import LeaveRequestDetails from "./components/hr/LeaveRequestDetails";
 import EditLeaveRequest from "./components/hr/EditLeaveRequest";
 import LetterSend from "./components/hr/LetterSend";
 import CVAdd from "./components/hr/CVAdd";
-import ITProvision from "./components/hr/ITProvision";
+
 import AdminProvision from "./components/hr/AdminProvision";
 import FinanceProvision from "./components/tax/FinanceProvision";
 import AddLetterPage from "./components/hr/AddLetterPage";
@@ -174,7 +174,6 @@ const AppContent = () => {
           {/* Optional Routes (protect based on your needs) */}
           <Route path="/letter-send" element={<ProtectedRoute><LetterSend /></ProtectedRoute>} />
           <Route path="/cv-add" element={<ProtectedRoute><CVAdd /></ProtectedRoute>} />
-          <Route path="/it-provision" element={<ProtectedRoute><ITProvision /></ProtectedRoute>} />
           <Route path="/admin-provision" element={<ProtectedRoute><AdminProvision /></ProtectedRoute>} />
           <Route path="/finance-provision" element={<ProtectedRoute><FinanceProvision /></ProtectedRoute>} />
           <Route path="/add-letter" element={<ProtectedRoute><AddLetterPage /></ProtectedRoute>} />
