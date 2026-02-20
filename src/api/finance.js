@@ -484,7 +484,6 @@ export const salaryAPI = {
     }
   },
 
-  // NEW: Check if salary records exist for a month/year
   checkSalaryRecordsExists: async (month, year, companyName = "") => {
     try {
       const params = { month, year };
@@ -492,6 +491,7 @@ export const salaryAPI = {
         params.company_name = companyName;
       }
 
+      // You'll need to create this endpoint in your backend
       const response = await apiClient.get("/check-salary-records-exists/", {
         params,
       });
@@ -502,59 +502,7 @@ export const salaryAPI = {
     }
   },
 };
-// // Salary Records APIs
-// export const salaryRecordsAPI = {
-//   // Get all salary records with optional filtering
-//   getAllRecords: (params = {}) => apiClient.get("/salary-records/", { params }),
 
-//   // Get salary records summary grouped by month/year
-//   getSummary: () => apiClient.get("/salary-records/summary/"),
-
-//   // Get company-wise summary
-//   getCompanySummary: () => apiClient.get("/salary-records/company-summary/"),
-
-//   // Get detailed records for specific month/year
-//   getMonthlyDetails: (year, month) =>
-//     apiClient.get(`/salary-records/${year}/${month}/`),
-
-//   // Get available years
-//   getAvailableYears: () => apiClient.get("/salary-records/years/"),
-
-//   // Debug endpoint
-//   getDebugInfo: () => apiClient.get("/salary-records-debug/"),
-
-//   //   // New function for immediate Excel generation
-//   // generateExcelNow: (companyName, month, year) => {
-//   //   return apiClient.post('/api/generate-excel-now/', {
-//   //     company_name: companyName,
-//   //     month: month,
-//   //     year: year
-//   //   }, {
-//   //     responseType: 'blob', // Important for file downloads
-//   //     headers: {
-//   //       'Content-Type': 'application/json',
-//   //     }
-//   //   });
-//   // },
-
-//   generateExcelNow: (data) => {
-//     return apiClient.post("/generate-excel-now/", data, {
-//       responseType: "blob", // Important for file download
-//       headers: {
-//         "Content-Type": "application/json",
-//       },
-//     });
-//   },
-
-//   generateBankTransferExcel: (data) => {
-//     return apiClient.post("/generate-bank-transfer-excel/", data, {
-//       responseType: "blob", // Important for file download
-//       headers: {
-//         "Content-Type": "application/json",
-//       },
-//     });
-//   },
-// };
 
 // Salary Records APIs
 export const salaryRecordsAPI = {

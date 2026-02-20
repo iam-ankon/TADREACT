@@ -16,7 +16,6 @@ import {
   FaSync,
 } from "react-icons/fa";
 
-
 // FIXED: Import the complete finance API
 import { financeAPI } from "../../api/finance";
 
@@ -113,31 +112,44 @@ const SalaryFormat = () => {
     }, {});
   }, [filteredEmployees]);
 
-  // Check if data is already saved for current month
-  useEffect(() => {
-    const checkIfDataSavedForCurrentMonth = () => {
-      try {
-        const savedMonthKey = `salary_saved_${selectedYear}_${selectedMonth}`;
-        const savedData = localStorage.getItem(savedMonthKey);
+  const checkBackendDataExists = async () => {
+    try {
+      console.log(
+        `🔍 Checking backend for salary records: ${monthNames[selectedMonth - 1]} ${selectedYear}`,
+      );
 
-        if (savedData) {
-          const { isSaved } = JSON.parse(savedData);
-          if (isSaved) {
-            setIsDataSavedForMonth(true);
-            console.log(
-              `✅ Salary data already saved for ${monthNames[selectedMonth - 1]} ${selectedYear}`,
-            );
-          }
-        }
-      } catch (error) {
-        console.log("No saved data found for this month");
+      // Call backend API to check if records exist
+      const response = await financeAPI.salary.checkSalaryRecordsExists(
+        selectedMonth,
+        selectedYear,
+      );
+
+      if (response.data && response.data.exists) {
+        console.log(
+          `✅ Found ${response.data.count} salary records in backend`,
+        );
+        setIsDataSavedForMonth(true);
+      } else {
+        console.log(`❌ No salary records found in backend for this month`);
+        setIsDataSavedForMonth(false);
+      }
+    } catch (error) {
+      console.error("Error checking backend for salary records:", error);
+      // Fallback to false on error
+      setIsDataSavedForMonth(false);
+    }
+  };
+
+  // Replace the old localStorage check with backend check
+  useEffect(() => {
+    const checkDataExists = async () => {
+      if (!loading && filteredEmployees.length > 0) {
+        await checkBackendDataExists();
       }
     };
 
-    if (!loading) {
-      checkIfDataSavedForCurrentMonth();
-    }
-  }, [loading, selectedMonth, selectedYear]);
+    checkDataExists();
+  }, [loading, selectedMonth, selectedYear, filteredEmployees.length]);
 
   // FIXED: Load initial data immediately
   useEffect(() => {
@@ -623,8 +635,6 @@ const SalaryFormat = () => {
     [taxResults, loadingAit],
   );
 
-
-
   const handleSyncData = async () => {
     try {
       console.log("🔄 Syncing data...");
@@ -660,7 +670,6 @@ const SalaryFormat = () => {
         Object.keys(databaseResults).forEach((empId) => {
           setLoadingAit((prev) => ({ ...prev, [empId]: false }));
         });
-
       } else {
         alert("⚠️ No data found. Calculating taxes...");
 
@@ -852,18 +861,10 @@ const SalaryFormat = () => {
       const saved = res.data.saved || 0;
       const errors = res.data.errors || [];
 
-      // MARK: Set data as saved for this month
-      localStorage.setItem(
-        savedMonthKey,
-        JSON.stringify({
-          isSaved: true,
-          savedAt: new Date().toISOString(),
-          savedBy: currentUser || "unknown",
-          savedCount: saved,
-        }),
-      );
-
-      setIsDataSavedForMonth(true);
+      if (saved > 0) {
+        // Immediately check backend to confirm save
+        await checkBackendDataExists();
+      }
 
       if (errors.length > 0) {
         console.warn("Save errors:", errors);
@@ -886,11 +887,10 @@ const SalaryFormat = () => {
 
   // Add reset function
   const resetMonthSave = () => {
-    const savedMonthKey = `salary_saved_${selectedYear}_${selectedMonth}`;
-    localStorage.removeItem(savedMonthKey);
-    setIsDataSavedForMonth(false);
+    // This now just triggers a re-check of backend
+    checkBackendDataExists();
     alert(
-      `✅ Save button enabled for ${monthNames[selectedMonth - 1]} ${selectedYear}. You can now save data again.`,
+      `✅ Re-checked backend for ${monthNames[selectedMonth - 1]} ${selectedYear}`,
     );
   };
 
@@ -955,7 +955,6 @@ const SalaryFormat = () => {
   const getManual = (empId, field, defaultVal = 0) => {
     return manualData[empId]?.[field] ?? defaultVal;
   };
-
 
   // FIXED: UPDATED APPROVAL FOOTER
   const renderApprovalFooter = (companyName) => {
@@ -1030,20 +1029,7 @@ const SalaryFormat = () => {
                     {isDataSavedForMonth ? "✓ Saved" : "Save Data"}
                   </button>
 
-                  {isDataSavedForMonth && (
-                    <button
-                      onClick={resetMonthSave}
-                      className="btn btn-reset"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                        color: "white",
-                      }}
-                      title="Reset save lock for this month"
-                    >
-                      <FaSync /> Reset
-                    </button>
-                  )}
+
 
                   <button
                     onClick={() => navigate("/salary-records")}
@@ -1393,7 +1379,6 @@ const SalaryFormat = () => {
                                   step="1"
                                   title="Enter OT in minutes (60 = 1 hour, 120 = 2 hours)"
                                 />
-
                               </td>
                               <td className="ot-pay">
                                 {formatNumber(
