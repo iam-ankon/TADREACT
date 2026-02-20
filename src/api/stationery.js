@@ -82,7 +82,7 @@ export const stationeryAPI = {
       const response = await axios.post(
         `${API_BASE}stationery_items/`,
         itemData,
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders() },
       );
       return response.data;
     } catch (error) {
@@ -97,16 +97,32 @@ export const stationeryAPI = {
         "Update item",
         `${API_BASE}stationery_items/${itemId}/`,
         {},
-        itemData
+        itemData,
       );
       const response = await axios.put(
         `${API_BASE}stationery_items/${itemId}/`,
         itemData,
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders() },
       );
       return response.data;
     } catch (error) {
       console.error("Error updating stationery item:", error);
+      throw error;
+    }
+  },
+
+  // ADD THIS NEW METHOD
+  deleteItem: async (itemId) => {
+    try {
+      debugLog("Delete item", `${API_BASE}stationery_items/${itemId}/`);
+      const response = await axios.delete(
+        `${API_BASE}stationery_items/${itemId}/`,
+        { headers: getAuthHeaders() },
+      );
+      console.log("✅ Item deleted:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting stationery item:", error);
       throw error;
     }
   },
@@ -116,7 +132,7 @@ export const stationeryAPI = {
     console.log(
       employeeId
         ? `🔍 Fetching usage for employee ${employeeId}`
-        : "🔍 Fetching ALL usage (admin mode)"
+        : "🔍 Fetching ALL usage (admin mode)",
     );
 
     const params = employeeId ? { employee: employeeId } : {};
@@ -133,13 +149,13 @@ export const stationeryAPI = {
         dataCount: Array.isArray(response.data)
           ? response.data.length
           : response.data.results
-          ? response.data.results.length
-          : 0,
+            ? response.data.results.length
+            : 0,
         dataSample: Array.isArray(response.data)
           ? response.data.slice(0, 3)
           : response.data.results
-          ? response.data.results.slice(0, 3)
-          : response.data,
+            ? response.data.results.slice(0, 3)
+            : response.data,
       });
 
       const data = response.data.results || response.data || [];
@@ -171,7 +187,7 @@ export const stationeryAPI = {
       const response = await axios.post(
         `${API_BASE}stationery_usage/`,
         usageData,
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders() },
       );
       console.log("✅ Usage added:", response.data);
       return response.data;
@@ -185,12 +201,12 @@ export const stationeryAPI = {
     try {
       debugLog(
         "Approve usage",
-        `${API_BASE}stationery_usage/${usageId}/approve_request/`
+        `${API_BASE}stationery_usage/${usageId}/approve_request/`,
       );
       const response = await axios.post(
         `${API_BASE}stationery_usage/${usageId}/approve_request/`,
         {},
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders() },
       );
       return response.data;
     } catch (error) {
@@ -203,12 +219,12 @@ export const stationeryAPI = {
     try {
       debugLog(
         "Issue usage",
-        `${API_BASE}stationery_usage/${usageId}/issue_item/`
+        `${API_BASE}stationery_usage/${usageId}/issue_item/`,
       );
       const response = await axios.post(
         `${API_BASE}stationery_usage/${usageId}/issue_item/`,
         {},
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders() },
       );
       return response.data;
     } catch (error) {
@@ -228,12 +244,12 @@ export const stationeryAPI = {
         "Add transaction",
         `${API_BASE}stationery_transactions/`,
         {},
-        transactionData
+        transactionData,
       );
       const response = await axios.post(
         `${API_BASE}stationery_transactions/`,
         transactionData,
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders() },
       );
       return response.data;
     } catch (error) {
