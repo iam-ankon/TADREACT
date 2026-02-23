@@ -579,10 +579,9 @@ const Attendance = () => {
     document.body.removeChild(link);
   };
 
+  // FIXED: Clear date filter completely, don't set to today
   const clearDateFilter = () => {
-    // Set to today's date when clearing
-    const today = new Date();
-    setDateFilter(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`);
+    setDateFilter(""); // Clear completely, don't set to today
   };
   
   const clearCompanyFilter = () => {
@@ -601,6 +600,31 @@ const Attendance = () => {
     setDateRangeStart("");
     setDateRangeEnd("");
     setShowDateRange(false);
+  };
+
+  // FIXED: Clear all filters properly
+  const clearAllFilters = () => {
+    clearMonthFilter();
+    clearCompanyFilter();
+    clearSearch();
+    setDateFilter(""); // Clear date filter completely
+    clearDateRange();
+  };
+
+  // FIXED: Handle date toggle properly
+  const handleDateToggle = () => {
+    setShowDateRange((v) => !v);
+    if (!showDateRange) {
+      // Switching to date range mode - clear single date
+      setDateRangeStart("");
+      setDateRangeEnd("");
+      setDateFilter(""); // Clear single date when switching to range
+    } else {
+      // Switching to single date mode - clear range and set date to empty
+      setDateRangeStart("");
+      setDateRangeEnd("");
+      setDateFilter(""); // Start with empty date
+    }
   };
 
   const getUniqueCompanies = () => {
@@ -768,13 +792,7 @@ const Attendance = () => {
                   (!showDateRange && dateFilter) ||
                   (showDateRange && dateRangeStart && dateRangeEnd)) && (
                   <button
-                    onClick={() => {
-                      clearMonthFilter();
-                      clearCompanyFilter();
-                      clearSearch();
-                      clearDateFilter(); // This will reset to today
-                      clearDateRange();
-                    }}
+                    onClick={clearAllFilters}
                     style={clearAllButtonStyle}
                   >
                     Clear All
@@ -928,17 +946,7 @@ const Attendance = () => {
                     </div>
                   )}
                   <button
-                    onClick={() => {
-                      setShowDateRange((v) => !v);
-                      if (!showDateRange) {
-                        setDateRangeStart("");
-                        setDateRangeEnd("");
-                      } else {
-                        // When switching back to single date, set to today
-                        const today = new Date();
-                        setDateFilter(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`);
-                      }
-                    }}
+                    onClick={handleDateToggle}
                     style={dateToggleButtonStyle}
                   >
                     {showDateRange ? "Single Date" : "Date Range"}
