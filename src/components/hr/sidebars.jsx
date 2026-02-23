@@ -123,7 +123,7 @@ const Sidebars = () => {
   const linkStyle = (path) => ({
     display: "flex",
     alignItems: "center",
-    padding: "9px 16px",
+    padding: "10px 16px",
     borderRadius: "12px",
     background: location.pathname === path ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)" : "transparent",
     color: location.pathname === path ? "#1d4ed8" : "#475569",
