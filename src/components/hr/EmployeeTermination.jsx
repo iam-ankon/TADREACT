@@ -950,72 +950,9 @@ const EmployeeTermination = () => {
                   </motion.button>
                 </Link>
 
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    padding: "10px 16px",
-                    background: "white",
-                    border: "1px solid rgba(209, 213, 219, 0.8)",
-                    borderRadius: "12px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#374151",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.borderColor = "#D1D5DB")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.borderColor =
-                      "rgba(209, 213, 219, 0.8)")
-                  }
-                >
-                  <Download size={16} />
-                  Export
-                </motion.button>
 
-                <Link to="/add-employee" style={{ textDecoration: "none" }}>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    style={{
-                      padding: "12px 24px",
-                      background:
-                        "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "12px",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      transition: "all 0.2s ease",
-                      boxShadow: "0 4px 14px rgba(239, 68, 68, 0.4)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)";
-                      e.currentTarget.style.boxShadow =
-                        "0 6px 20px rgba(239, 68, 68, 0.6)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)";
-                      e.currentTarget.style.boxShadow =
-                        "0 4px 14px rgba(239, 68, 68, 0.4)";
-                    }}
-                  >
-                    <Plus size={18} />
-                    New Employee
-                  </motion.button>
-                </Link>
+
+
               </div>
             </div>
           </div>

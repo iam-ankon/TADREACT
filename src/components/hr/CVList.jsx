@@ -84,7 +84,7 @@ const CVList = () => {
           cv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           cv.position_for?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           cv.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          cv.phone?.includes(searchQuery)
+          cv.phone?.includes(searchQuery),
       );
     }
 
@@ -135,8 +135,8 @@ const CVList = () => {
           ? 1
           : -1
         : aValue < bValue
-        ? 1
-        : -1;
+          ? 1
+          : -1;
     });
 
     setFilteredCvs(filtered);
@@ -979,10 +979,8 @@ const CVList = () => {
                 height: "100%",
                 overflowY: "auto",
                 overflowX: "hidden",
-                // Custom scrollbar styles
-                scrollbarWidth: "thin",
-                scrollbarColor: "#c1c1c1 #f1f1f1",
               }}
+              className="cv-list-scrollarea" // Add this class
             >
               {filteredCvs.map((cv) => (
                 <CVCard
@@ -1041,11 +1039,9 @@ const CVList = () => {
                   flex: 1,
                   overflowY: "auto",
                   overflowX: "hidden",
-                  maxHeight: "calc(100vh - 400px)", // Adjust based on your header height
-                  // Custom scrollbar styles
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "#c1c1c1 #f1f1f1",
+                  maxHeight: "calc(100vh - 400px)",
                 }}
+                className="cv-list-scrollarea" // Add this class
               >
                 {filteredCvs.map((cv, index) => (
                   <CVListItem
@@ -1157,28 +1153,28 @@ const CVList = () => {
 
       {/* Add CSS for custom scrollbars */}
       <style>{`
-        /* Custom scrollbar for Webkit browsers (Chrome, Safari, Edge) */
-        ::-webkit-scrollbar {
+        /* Custom scrollbar for CVList only */
+        .cv-list-scrollarea::-webkit-scrollbar {
           width: 8px;
           height: 8px;
         }
 
-        ::-webkit-scrollbar-track {
+        .cv-list-scrollarea::-webkit-scrollbar-track {
           background: #f1f1f1;
           border-radius: 4px;
         }
 
-        ::-webkit-scrollbar-thumb {
+        .cv-list-scrollarea::-webkit-scrollbar-thumb {
           background: #c1c1c1;
           border-radius: 4px;
         }
 
-        ::-webkit-scrollbar-thumb:hover {
+        .cv-list-scrollarea::-webkit-scrollbar-thumb:hover {
           background: #a1a1a1;
         }
 
         /* For Firefox */
-        * {
+        .cv-list-scrollarea {
           scrollbar-width: thin;
           scrollbar-color: #c1c1c1 #f1f1f1;
         }
@@ -1192,6 +1188,14 @@ const CVList = () => {
         /* Smooth scrolling */
         .scroll-container {
           scroll-behavior: smooth;
+        }
+
+        /* Hardware acceleration for sidebar animation */
+        .gpu-accelerated {
+          transform: translateZ(0);
+          backface-visibility: hidden;
+          perspective: 1000px;
+          will-change: transform, width;
         }
       `}</style>
     </div>
@@ -1629,8 +1633,8 @@ const CVListItem = ({
             expandedCV === cv.id
               ? "#F9FAFB"
               : index % 2 === 0
-              ? "white"
-              : "#F9FAFB",
+                ? "white"
+                : "#F9FAFB",
         }}
         onClick={() => setExpandedCV(expandedCV === cv.id ? null : cv.id)}
       >

@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // Fixed: Added useEffect
 import { Link, useLocation } from "react-router-dom";
 import {
   FiUsers,
@@ -28,6 +27,25 @@ const Sidebars = () => {
     return stored !== null ? JSON.parse(stored) : true;
   });
 
+  // Add resize handler with useEffect
+  useEffect(() => {
+    let resizeTimer;
+    const handleResize = () => {
+      document.body.classList.add('resize-animation-stopper');
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        document.body.classList.remove('resize-animation-stopper');
+      }, 400);
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimer);
+    };
+  }, []);
+
   const toggleSidebar = () => {
     setIsOpen((prev) => {
       const newState = !prev;
@@ -43,13 +61,17 @@ const Sidebars = () => {
     display: "flex",
     flexDirection: "column",
     height: "100vh",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
     position: "relative",
     overflow: "hidden",
     flexShrink: 0,
     minWidth: "80px",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     borderRight: "1px solid rgba(203, 213, 225, 0.5)",
+    transform: "translateZ(0)",
+    backfaceVisibility: "hidden",
+    perspective: "1000px",
+    willChange: "width",
   };
 
   const headerStyle = {
@@ -101,7 +123,7 @@ const Sidebars = () => {
   const linkStyle = (path) => ({
     display: "flex",
     alignItems: "center",
-    padding: "14px 16px",
+    padding: "9px 16px",
     borderRadius: "12px",
     background: location.pathname === path ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)" : "transparent",
     color: location.pathname === path ? "#1d4ed8" : "#475569",
@@ -158,14 +180,12 @@ const Sidebars = () => {
 
   return (
     <div>
-      {/* Sidebar */}
       <div style={sidebarStyle}>
         <div style={headerStyle}>
           <div style={headerOverlayStyle} />
           <span style={headerTextStyle}>
             {isOpen ? "HR Dashboard" : "HR"}
           </span>
-          {/* Remove the header toggle button since we'll have an external one */}
         </div>
 
         <nav style={navStyle}>
@@ -212,12 +232,11 @@ const Sidebars = () => {
         </nav>
       </div>
 
-      {/* External Toggle Button (like in Sidebar.jsx) */}
       <button
         onClick={toggleSidebar}
         className="menu-btn"
         style={{
-          position: "absolute",
+          position: "fixed",
           top: "25px",
           left: isOpen ? "255px" : "85px",
           background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
@@ -226,21 +245,23 @@ const Sidebars = () => {
           padding: "10px",
           borderRadius: "50%",
           cursor: "pointer",
-          
+         
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: "left 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
           boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
           width: "36px",
           height: "36px",
+          transform: "translateZ(0)",
+          willChange: "left",
         }}
         onMouseOver={(e) => {
-          e.target.style.transform = "scale(1.1)";
+          e.target.style.transform = "scale(1.1) translateZ(0)";
           e.target.style.boxShadow = "0 6px 16px rgba(59, 130, 246, 0.4)";
         }}
         onMouseOut={(e) => {
-          e.target.style.transform = "scale(1)";
+          e.target.style.transform = "scale(1) translateZ(0)";
           e.target.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)";
         }}
       >
@@ -266,10 +287,16 @@ const Sidebars = () => {
           background: rgba(148, 163, 184, 0.7);
         }
 
-        /* For main content adjustment */
         .main-content-with-sidebar {
           margin-left: ${isOpen ? "270px" : "100px"};
-          transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transform: translateZ(0);
+          backface-visibility: hidden;
+        }
+
+        .resize-animation-stopper * {
+          transition: none !important;
+          animation: none !important;
         }
       `}</style>
     </div>

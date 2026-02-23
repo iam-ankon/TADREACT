@@ -24,37 +24,42 @@ const EmployeeLeaveBalance = () => {
   }, []);
 
   // Filter balances based on search term
-  const filteredBalances = balances.filter(balance =>
-    balance.employee_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredBalances = balances.filter((balance) =>
+    balance.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // Calculate totals
-  const totals = filteredBalances.reduce((acc, balance) => ({
-    public_festival_holiday: acc.public_festival_holiday + (parseInt(balance.public_festival_holiday) || 0),
-    casual_leave: acc.casual_leave + (parseInt(balance.casual_leave) || 0),
-    sick_leave: acc.sick_leave + (parseInt(balance.sick_leave) || 0),
-    earned_leave: acc.earned_leave + (parseInt(balance.earned_leave) || 0),
-    leave_balance: acc.leave_balance + (parseInt(balance.leave_balance) || 0)
-  }), {
-    public_festival_holiday: 0,
-    casual_leave: 0,
-    sick_leave: 0,
-    earned_leave: 0,
-    leave_balance: 0
-  });
+  const totals = filteredBalances.reduce(
+    (acc, balance) => ({
+      public_festival_holiday:
+        acc.public_festival_holiday +
+        (parseInt(balance.public_festival_holiday) || 0),
+      casual_leave: acc.casual_leave + (parseInt(balance.casual_leave) || 0),
+      sick_leave: acc.sick_leave + (parseInt(balance.sick_leave) || 0),
+      earned_leave: acc.earned_leave + (parseInt(balance.earned_leave) || 0),
+      leave_balance: acc.leave_balance + (parseInt(balance.leave_balance) || 0),
+    }),
+    {
+      public_festival_holiday: 0,
+      casual_leave: 0,
+      sick_leave: 0,
+      earned_leave: 0,
+      leave_balance: 0,
+    },
+  );
 
   const getLeaveColor = (days, type) => {
     const dayCount = parseInt(days) || 0;
-    
-    if (type === 'total') {
-      if (dayCount >= 30) return '#10b981';
-      if (dayCount >= 15) return '#f59e0b';
-      return '#ef4444';
+
+    if (type === "total") {
+      if (dayCount >= 30) return "#10b981";
+      if (dayCount >= 15) return "#f59e0b";
+      return "#ef4444";
     }
-    
-    if (dayCount >= 10) return '#10b981';
-    if (dayCount >= 5) return '#f59e0b';
-    return '#ef4444';
+
+    if (dayCount >= 10) return "#10b981";
+    if (dayCount >= 5) return "#f59e0b";
+    return "#ef4444";
   };
 
   if (loading) {
@@ -106,12 +111,14 @@ const EmployeeLeaveBalance = () => {
               </button>
             )}
           </div>
-          
+
           <div style={styles.summaryCards}>
             <div style={styles.summaryCard}>
               <div style={styles.summaryIcon}>🎉</div>
               <div>
-                <div style={styles.summaryNumber}>{totals.public_festival_holiday}</div>
+                <div style={styles.summaryNumber}>
+                  {totals.public_festival_holiday}
+                </div>
                 <div style={styles.summaryLabel}>Festival Holidays</div>
               </div>
             </div>
@@ -143,12 +150,11 @@ const EmployeeLeaveBalance = () => {
         <div style={styles.tableSection}>
           <div style={styles.tableHeader}>
             <h3 style={styles.tableTitle}>
-              Leave Balance Details {searchTerm && `(${filteredBalances.length} found)`}
+              Leave Balance Details{" "}
+              {searchTerm && `(${filteredBalances.length} found)`}
             </h3>
             <div style={styles.tableActions}>
-              <button style={styles.exportButton}>
-                📊 Export Report
-              </button>
+              <button style={styles.exportButton}>📊 Export Report</button>
             </div>
           </div>
 
@@ -197,60 +203,70 @@ const EmployeeLeaveBalance = () => {
                       <td style={styles.td}>
                         <div style={styles.employeeCell}>
                           <div style={styles.avatar}>
-                            {balance.employee_name?.charAt(0)?.toUpperCase() || 'U'}
+                            {balance.employee_name?.charAt(0)?.toUpperCase() ||
+                              "U"}
                           </div>
                           <div style={styles.employeeInfo}>
                             <div style={styles.employeeName}>
-                              {balance.employee_name || 'Unknown Employee'}
+                              {balance.employee_name || "Unknown Employee"}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <div 
+                        <div
                           style={{
                             ...styles.leaveBadge,
-                            backgroundColor: getLeaveColor(balance.public_festival_holiday)
+                            backgroundColor: getLeaveColor(
+                              balance.public_festival_holiday,
+                            ),
                           }}
                         >
                           {balance.public_festival_holiday || 0}
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <div 
+                        <div
                           style={{
                             ...styles.leaveBadge,
-                            backgroundColor: getLeaveColor(balance.casual_leave)
+                            backgroundColor: getLeaveColor(
+                              balance.casual_leave,
+                            ),
                           }}
                         >
                           {balance.casual_leave || 0}
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <div 
+                        <div
                           style={{
                             ...styles.leaveBadge,
-                            backgroundColor: getLeaveColor(balance.sick_leave)
+                            backgroundColor: getLeaveColor(balance.sick_leave),
                           }}
                         >
                           {balance.sick_leave || 0}
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <div 
+                        <div
                           style={{
                             ...styles.leaveBadge,
-                            backgroundColor: getLeaveColor(balance.earned_leave)
+                            backgroundColor: getLeaveColor(
+                              balance.earned_leave,
+                            ),
                           }}
                         >
                           {balance.earned_leave || 0}
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <div 
+                        <div
                           style={{
                             ...styles.totalBadge,
-                            backgroundColor: getLeaveColor(balance.leave_balance, 'total')
+                            backgroundColor: getLeaveColor(
+                              balance.leave_balance,
+                              "total",
+                            ),
                           }}
                         >
                           {balance.leave_balance || 0}
@@ -264,10 +280,12 @@ const EmployeeLeaveBalance = () => {
                       <div style={styles.noDataContent}>
                         <div style={styles.noDataIcon}>📊</div>
                         <div style={styles.noDataText}>
-                          {searchTerm ? 'No employees found matching your search.' : 'No leave balance records available.'}
+                          {searchTerm
+                            ? "No employees found matching your search."
+                            : "No leave balance records available."}
                         </div>
                         {searchTerm && (
-                          <button 
+                          <button
                             onClick={() => setSearchTerm("")}
                             style={styles.clearSearchButton}
                           >
@@ -335,6 +353,8 @@ const styles = {
     minHeight: "100vh",
     backgroundColor: "#f8fafc",
     overflow: "hidden",
+    fontFamily:
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   loadingContainer: {
     display: "flex",

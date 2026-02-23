@@ -872,34 +872,7 @@ const EmployeeLeave = () => {
                   Refresh
                 </motion.button>
 
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    padding: "10px 16px",
-                    background: "white",
-                    border: "1px solid rgba(209, 213, 219, 0.8)",
-                    borderRadius: "12px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#374151",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.borderColor = "#D1D5DB")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.borderColor =
-                      "rgba(209, 213, 219, 0.8)")
-                  }
-                >
-                  <Download size={16} />
-                  Export
-                </motion.button>
+
 
                 <Link
                   to="/add-leave-request"
