@@ -71,7 +71,7 @@ const HRWorkPage = () => {
             displayTime: interview.time ? formatTime(interview.time) : "--:--",
           }))
           .sort(
-            (a, b) => new Date(b.interview_date) - new Date(a.interview_date)
+            (a, b) => new Date(b.interview_date) - new Date(a.interview_date),
           );
 
         setUpcomingInterviews(sortedInterviews);
@@ -127,26 +127,56 @@ const HRWorkPage = () => {
       // based on the HOLIDAY - LOGISTICS -2026.docx file
       const holidays = [
         { date: "2026-02-04", name: "Shab-E-Barat", days: 1, day: "Wednesday" },
-        { date: "2026-02-21", name: "Shahid Day & International Mother Language Day", days: 1, day: "Saturday" },
+        {
+          date: "2026-02-21",
+          name: "Shahid Day & International Mother Language Day",
+          days: 1,
+          day: "Saturday",
+        },
         { date: "2026-03-17", name: "Shab-E-Qadir", days: 1, day: "Tuesday" },
         { date: "2026-03-19", name: "Eid-ul-Fitr", days: 5, day: "Thursday" },
-        { date: "2026-03-26", name: "Independence Day", days: 1, day: "Thursday" },
-        { date: "2026-04-14", name: "Bangla Nababarsha", days: 1, day: "Tuesday" },
-        { date: "2026-05-01", name: "May Day & Buddha Purnima", days: 1, day: "Friday" },
+        {
+          date: "2026-03-26",
+          name: "Independence Day",
+          days: 1,
+          day: "Thursday",
+        },
+        {
+          date: "2026-04-14",
+          name: "Bangla Nababarsha",
+          days: 1,
+          day: "Tuesday",
+        },
+        {
+          date: "2026-05-01",
+          name: "May Day & Buddha Purnima",
+          days: 1,
+          day: "Friday",
+        },
         { date: "2026-05-29", name: "Eid-Ul-Adha", days: 6, day: "Friday" },
         { date: "2026-06-26", name: "Ashura", days: 1, day: "Friday" },
         { date: "2026-09-04", name: "Janmashtami", days: 1, day: "Friday" },
-        { date: "2026-10-21", name: "Durga Puja (Dashami)", days: 1, day: "Wednesday" },
+        {
+          date: "2026-10-21",
+          name: "Durga Puja (Dashami)",
+          days: 1,
+          day: "Wednesday",
+        },
         { date: "2026-12-16", name: "Victory Day", days: 1, day: "Wednesday" },
-        { date: "2026-12-25", name: "Christmas & Year Ending Holidays", days: 4, day: "Friday" },
+        {
+          date: "2026-12-25",
+          name: "Christmas & Year Ending Holidays",
+          days: 4,
+          day: "Friday",
+        },
       ];
 
       // Filter holidays that are today or in the future
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const upcoming = holidays
-        .filter(holiday => {
+        .filter((holiday) => {
           const holidayDate = new Date(holiday.date);
           holidayDate.setHours(0, 0, 0, 0);
           return holidayDate >= today;
@@ -172,7 +202,6 @@ const HRWorkPage = () => {
     day: "numeric",
     year: "numeric",
   });
-
 
   const calculateOnTimeAttendancePercentage = (attendanceData) => {
     if (
@@ -230,11 +259,10 @@ const HRWorkPage = () => {
     return `${percentage}%`;
   };
 
-
   // Enhanced stats with trends and colors
   const stats = [
     {
-      title: "Total Employees",
+      title: "Employees",
       value: employeeCount,
       icon: <FiUsers size={24} />,
       link: "/employees",
@@ -350,10 +378,10 @@ const HRWorkPage = () => {
   // Format date for display
   const formatHolidayDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
@@ -363,7 +391,8 @@ const HRWorkPage = () => {
         display: "flex",
         height: "100vh",
         backgroundColor: "#f8fafc",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       {/* Sidebar */}
@@ -781,13 +810,13 @@ const HRWorkPage = () => {
                         {interview.time
                           ? formatTime(interview.time)
                           : interview.interview_datetime
-                          ? new Date(
-                              interview.interview_datetime
-                            ).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : "--:--"}
+                            ? new Date(
+                                interview.interview_datetime,
+                              ).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "--:--"}
                       </p>
                       <p
                         style={{
@@ -970,7 +999,7 @@ const HRWorkPage = () => {
                           borderRadius: "1rem",
                         }}
                       >
-                        {holiday.days} day{holiday.days > 1 ? 's' : ''}
+                        {holiday.days} day{holiday.days > 1 ? "s" : ""}
                       </span>
                     </div>
                   </div>
