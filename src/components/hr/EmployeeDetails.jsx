@@ -75,13 +75,11 @@ const EmployeeDetails = () => {
   const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
   const [designationSearch, setDesignationSearch] = useState("");
   const [departmentSearch, setDepartmentSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [selectedRows, setSelectedRows] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
 
   const navigate = useNavigate();
-  const employeesPerPage = 10;
   const isInitialMount = useRef(true);
   const filterTimeoutRef = useRef(null);
 
@@ -103,7 +101,6 @@ const EmployeeDetails = () => {
       const savedBirthdateFilter = localStorage.getItem(
         "employeeBirthdateFilter",
       );
-      const savedPage = localStorage.getItem("employeeListPage");
 
       if (savedSearchQuery !== null) setSearchQuery(savedSearchQuery);
       if (savedDesignationFilter !== null)
@@ -112,7 +109,6 @@ const EmployeeDetails = () => {
         setDepartmentFilter(savedDepartmentFilter);
       if (savedBirthdateFilter !== null)
         setBirthdateFilter(savedBirthdateFilter);
-      if (savedPage) setCurrentPage(parseInt(savedPage, 10) || 1);
     } catch (err) {
       console.error("Error reading from localStorage:", err);
     }
@@ -247,45 +243,14 @@ const EmployeeDetails = () => {
     birthdateFilter,
   ]);
 
-  // Pagination
-  const { currentEmployees, totalPages } = useMemo(() => {
-    const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
-    let validatedPage = currentPage;
-    if (validatedPage > totalPages && totalPages > 0)
-      validatedPage = totalPages;
-    else if (filteredEmployees.length === 0) validatedPage = 1;
-
-    if (validatedPage !== currentPage) setCurrentPage(validatedPage);
-
-    const indexOfLastEmployee = validatedPage * employeesPerPage;
-    const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
-    const currentEmployees = filteredEmployees.slice(
-      indexOfFirstEmployee,
-      indexOfLastEmployee,
-    );
-    return { currentEmployees, totalPages };
-  }, [filteredEmployees, currentPage, employeesPerPage]);
-
-  // Save current page
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      try {
-        localStorage.setItem("employeeListPage", currentPage.toString());
-      } catch (err) {
-        console.error("Error saving page to localStorage:", err);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [currentPage]);
-
   // Handle select all
   useEffect(() => {
     if (selectAll) {
-      setSelectedRows(currentEmployees.map((emp) => emp.id));
+      setSelectedRows(filteredEmployees.map((emp) => emp.id));
     } else {
       setSelectedRows([]);
     }
-  }, [selectAll, currentEmployees]);
+  }, [selectAll, filteredEmployees]);
 
   // Event handlers
   const handleSort = (key) => {
@@ -406,7 +371,6 @@ const EmployeeDetails = () => {
     setDesignationFilter("");
     setDepartmentFilter("");
     setBirthdateFilter("");
-    setCurrentPage(1);
   }, []);
 
   const closeDropdowns = useCallback(() => {
@@ -902,17 +866,6 @@ const EmployeeDetails = () => {
               <table style={styles.employeeTable}>
                 <thead>
                   <tr>
-                    {/* <th style={styles.checkboxCell}>
-                      <label style={styles.checkbox}>
-                        <input
-                          type="checkbox"
-                          checked={selectAll}
-                          onChange={(e) => setSelectAll(e.target.checked)}
-                          style={styles.checkboxInput}
-                        />
-                        <span style={styles.checkmark}></span>
-                      </label>
-                    </th> */}
                     <th
                       onClick={() => handleSort("employee_id")}
                       style={{ ...styles.tableHeaderCell, ...styles.sortable }}
@@ -944,8 +897,8 @@ const EmployeeDetails = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentEmployees.length > 0 ? (
-                    currentEmployees.map((employee) => (
+                  {filteredEmployees.length > 0 ? (
+                    filteredEmployees.map((employee) => (
                       <tr
                         key={employee.id}
                         style={{
@@ -955,20 +908,6 @@ const EmployeeDetails = () => {
                             : {}),
                         }}
                       >
-                        {/* <td
-                          style={styles.checkboxCell}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <label style={styles.checkbox}>
-                            <input
-                              type="checkbox"
-                              checked={selectedRows.includes(employee.id)}
-                              onChange={(e) => handleSelectRow(employee.id, e)}
-                              style={styles.checkboxInput}
-                            />
-                            <span style={styles.checkmark}></span>
-                          </label>
-                        </td> */}
                         <td style={styles.tableCell}>
                           <span style={styles.employeeId}>
                             {employee.employee_id}
@@ -1083,7 +1022,7 @@ const EmployeeDetails = () => {
                     ))
                   ) : (
                     <tr style={styles.emptyRow}>
-                      <td colSpan="9" style={{ padding: "60px 20px" }}>
+                      <td colSpan="8" style={{ padding: "60px 20px" }}>
                         <div style={styles.emptyState}>
                           <FaUsers style={styles.emptyIcon} />
                           <h4 style={{ fontSize: "18px", color: "#334155" }}>
@@ -1105,72 +1044,6 @@ const EmployeeDetails = () => {
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div style={styles.pagination}>
-                <button
-                  style={styles.paginationBtn}
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <FaChevronLeft />
-                </button>
-                <div style={styles.pageNumbers}>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((page) => {
-                      if (totalPages <= 7) return true;
-                      if (page === 1 || page === totalPages) return true;
-                      if (page >= currentPage - 2 && page <= currentPage + 2)
-                        return true;
-                      return false;
-                    })
-                    .map((page, index, array) => {
-                      if (index > 0 && array[index - 1] !== page - 1) {
-                        return (
-                          <React.Fragment key={`ellipsis-${page}`}>
-                            <span style={styles.ellipsis}>...</span>
-                            <button
-                              style={{
-                                ...styles.pageNumber,
-                                ...(currentPage === page
-                                  ? styles.pageNumberActive
-                                  : {}),
-                              }}
-                              onClick={() => setCurrentPage(page)}
-                            >
-                              {page}
-                            </button>
-                          </React.Fragment>
-                        );
-                      }
-                      return (
-                        <button
-                          key={page}
-                          style={{
-                            ...styles.pageNumber,
-                            ...(currentPage === page
-                              ? styles.pageNumberActive
-                              : {}),
-                          }}
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-                </div>
-                <button
-                  style={styles.paginationBtn}
-                  onClick={() =>
-                    setCurrentPage(Math.min(totalPages, currentPage + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                >
-                  <FaChevronRight />
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1189,12 +1062,13 @@ const styles = {
   },
   mainContent: {
     flex: 1,
-    padding: "32px",
+    
     overflowY: "auto",
     height: "100vh",
   },
   employeeDashboard: {
     margin: "0 auto",
+    maxWidth: "1550px",
   },
   pageHeader: {
     display: "flex",
@@ -1232,6 +1106,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
+    marginTop: "10px",
     padding: "10px 16px",
     borderRadius: "6px",
     fontWeight: 500,
@@ -1246,6 +1121,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
+    marginTop: "10px",
     padding: "10px 16px",
     borderRadius: "6px",
     fontWeight: 500,
@@ -1548,6 +1424,8 @@ const styles = {
   },
   tableContainer: {
     overflowX: "auto",
+    maxHeight: "calc(100vh - 400px)",
+    overflowY: "auto",
   },
   employeeTable: {
     width: "100%",
@@ -1563,6 +1441,9 @@ const styles = {
     background: "#f9fafb",
     borderBottom: "1px solid #e2e8f0",
     whiteSpace: "nowrap",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
   },
   sortable: {
     cursor: "pointer",
@@ -1727,56 +1608,6 @@ const styles = {
     fontSize: "48px",
     color: "#cbd5e1",
   },
-  pagination: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "8px",
-    padding: "20px",
-    borderTop: "1px solid #e2e8f0",
-  },
-  paginationBtn: {
-    width: "36px",
-    height: "36px",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    borderRadius: "6px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#475569",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  pageNumbers: {
-    display: "flex",
-    gap: "4px",
-  },
-  pageNumber: {
-    minWidth: "36px",
-    height: "36px",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    borderRadius: "6px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "14px",
-    color: "#475569",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  pageNumberActive: {
-    background: "#2563eb",
-    borderColor: "#2563eb",
-    color: "white",
-  },
-  ellipsis: {
-    padding: "0 4px",
-    color: "#94a3b8",
-    display: "flex",
-    alignItems: "center",
-  },
   loadingState: {
     display: "flex",
     flexDirection: "column",
@@ -1848,19 +1679,6 @@ styleSheet.textContent = `
   .action-btn.attachment:hover {
     background: #fff3cd;
     color: #f59e0b;
-  }
-  .pagination-btn:hover:not(:disabled) {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
-    color: #0f172a;
-  }
-  .pagination-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .page-number:hover {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
   }
   .filter-select:hover, .filter-select.active {
     border-color: #2563eb;
@@ -1934,6 +1752,26 @@ styleSheet.textContent = `
   }
   .table-header-cell.sortable:hover {
     color: #2563eb;
+  }
+  
+  /* Custom scrollbar styles */
+  .table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .table-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  
+  .table-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  
+  .table-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 `;
 document.head.appendChild(styleSheet);

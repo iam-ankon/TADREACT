@@ -308,6 +308,8 @@ const EmployeeLeave = () => {
           flexDirection: "column",
           overflow: "hidden",
           maxHeight: "100vh",
+          margin: "0 auto",
+          maxWidth: "1550px",
         }}
       >
         {/* Modern Header with Stats */}
@@ -707,13 +709,17 @@ const EmployeeLeave = () => {
                     paddingRight: "16px",
                   }}
                 >
-                  <Link to="/employee_leave_balance" style={{ textDecoration: "none" }}>
+                  <Link
+                    to="/employee_leave_balance"
+                    style={{ textDecoration: "none" }}
+                  >
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       style={{
                         padding: "10px 16px",
-                        background: "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
+                        background:
+                          "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
                         color: "white",
                         border: "none",
                         borderRadius: "10px",
@@ -744,13 +750,17 @@ const EmployeeLeave = () => {
                     </motion.button>
                   </Link>
 
-                  <Link to="/employee_leave_type" style={{ textDecoration: "none" }}>
+                  <Link
+                    to="/employee_leave_type"
+                    style={{ textDecoration: "none" }}
+                  >
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       style={{
                         padding: "10px 16px",
-                        background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                        background:
+                          "linear-gradient(135deg, #10B981 0%, #059669 100%)",
                         color: "white",
                         border: "none",
                         borderRadius: "10px",
@@ -871,8 +881,6 @@ const EmployeeLeave = () => {
                   <RefreshCw size={16} />
                   Refresh
                 </motion.button>
-
-
 
                 <Link
                   to="/add-leave-request"

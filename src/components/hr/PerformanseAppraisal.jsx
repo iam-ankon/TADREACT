@@ -35,7 +35,7 @@ import {
   Grid,
   List,
   TrendingDown,
-   Printer, 
+  Printer,
   Building,
 } from "lucide-react";
 import {
@@ -293,52 +293,6 @@ const PerformanceAppraisal = () => {
       setLoading(false);
     }
   }, []);
-
-  const handleExport = useCallback(() => {
-    try {
-      const data = filteredAppraisals.map((appraisal) => ({
-        Name: appraisal.name || "N/A",
-        "Employee ID": appraisal.employee_id || "N/A",
-        Department: appraisal.department_name || "N/A",
-        Designation: appraisal.designation || "N/A",
-        Rating: (appraisal.overall_rating || appraisal.rating || 0).toFixed(1),
-        Status: getRatingConfig(appraisal.overall_rating || appraisal.rating)
-          .label,
-        Date: appraisal.created_at
-          ? new Date(appraisal.created_at).toLocaleDateString()
-          : "N/A",
-      }));
-
-      // Create CSV content
-      const csvContent = [
-        Object.keys(data[0] || {}).join(","),
-        ...data.map((row) =>
-          Object.values(row)
-            .map((value) => `"${value}"`)
-            .join(","),
-        ),
-      ].join("\n");
-
-      // Create and trigger download
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `performance-appraisals-${new Date().toISOString().split("T")[0]}.csv`,
-      );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      alert("Export completed successfully!");
-    } catch (err) {
-      console.error("Export error:", err);
-      alert("Failed to export data. Please try again.");
-    }
-  }, [filteredAppraisals]); // Add filteredAppraisals as dependency
 
   // Helper function to get rating configuration
   const getRatingConfig = useCallback((rating) => {
@@ -1244,105 +1198,106 @@ const PerformanceAppraisal = () => {
     return <LoadingScreen />;
   }
 
-return (
-  <div
-    style={{
-      display: "flex",
-      minHeight: "100vh",
-      backgroundColor: "#F8FAFC",
-      overflow: "hidden",
-      fontFamily:
-        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    }}
-  >
-    <Sidebars />
-
+  return (
     <div
       style={{
-        flex: 1,
-        padding: "24px",
         display: "flex",
-        flexDirection: "column",
+        minHeight: "100vh",
+        backgroundColor: "#F8FAFC",
         overflow: "hidden",
-        maxHeight: "100vh",
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
-      {/* Modern Header with Stats */}
-      <div style={{ marginBottom: "24px", flexShrink: 0 }}>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            marginBottom: "24px",
-          }}
-        >
+      <Sidebars />
+
+      <div
+        style={{
+          flex: 1,
+          padding: "24px",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          maxHeight: "100vh",
+          margin: "0 auto",
+          maxWidth: "1550px",
+        }}
+      >
+        {/* Modern Header with Stats */}
+        <div style={{ marginBottom: "24px", flexShrink: 0 }}>
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              marginBottom: "16px",
+              flexDirection: "column",
+              marginBottom: "24px",
             }}
           >
             <div
               style={{
-                padding: "14px",
-                background:
-                  "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
-                borderRadius: "16px",
-                boxShadow: "0 4px 20px rgba(139, 92, 246, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+                marginBottom: "16px",
               }}
             >
-              <TrendingUp style={{ color: "white" }} size={28} />
-            </div>
-            <div>
-              <h2
+              <div
                 style={{
-                  fontSize: "24px",
-                  fontWeight: "700",
-                  color: "#111827",
-                  margin: "0 0 4px 0",
-                  letterSpacing: "-0.025em",
+                  padding: "14px",
+                  background:
+                    "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
+                  borderRadius: "16px",
+                  boxShadow: "0 4px 20px rgba(139, 92, 246, 0.3)",
                 }}
               >
-                Performance Appraisal
-              </h2>
-              <p
-                style={{
-                  color: "#6B7280",
-                  fontSize: "14px",
-                  margin: 0,
-                }}
-              >
-                Track and evaluate employee performance metrics
-              </p>
+                <TrendingUp style={{ color: "white" }} size={28} />
+              </div>
+              <div>
+                <h2
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: "700",
+                    color: "#111827",
+                    margin: "0 0 4px 0",
+                    letterSpacing: "-0.025em",
+                  }}
+                >
+                  Performance Appraisal
+                </h2>
+                <p
+                  style={{
+                    color: "#6B7280",
+                    fontSize: "14px",
+                    margin: 0,
+                  }}
+                >
+                  Track and evaluate employee performance metrics
+                </p>
+              </div>
             </div>
+
+            {/* Quick Stats */}
+            <StatsDisplay stats={stats} />
           </div>
 
-          {/* Quick Stats */}
-          <StatsDisplay stats={stats} />
+          {/* Action Bar - ADD handlePrintBlank prop here */}
+          <ActionBar
+            searchQuery={searchQuery}
+            handleSearchChange={handleSearchChange}
+            clearSearch={clearSearch}
+            departmentFilter={departmentFilter}
+            setDepartmentFilter={setDepartmentFilter}
+            ratingFilter={ratingFilter}
+            setRatingFilter={setRatingFilter}
+            toggleSort={toggleSort}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            refreshData={refreshData}
+            handlePrintBlank={handlePrintBlank} // Add this line
+            departments={departments}
+          />
         </div>
-
-        {/* Action Bar - ADD handlePrintBlank prop here */}
-        <ActionBar
-          searchQuery={searchQuery}
-          handleSearchChange={handleSearchChange}
-          clearSearch={clearSearch}
-          departmentFilter={departmentFilter}
-          setDepartmentFilter={setDepartmentFilter}
-          ratingFilter={ratingFilter}
-          setRatingFilter={setRatingFilter}
-          toggleSort={toggleSort}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          refreshData={refreshData}
-          handleExport={handleExport}
-          handlePrintBlank={handlePrintBlank} // Add this line
-          departments={departments}
-        />
-      </div>
 
         {/* Search Info */}
         {searchQuery && (
@@ -1575,7 +1530,7 @@ const ActionBar = ({
   viewMode,
   setViewMode,
   refreshData,
-  handleExport,
+  
   handlePrintBlank,
   departments,
 }) => (
@@ -1651,11 +1606,6 @@ const ActionBar = ({
           icon={<RefreshCw size={16} />}
           label="Refresh"
           onClick={refreshData}
-        />
-        <ActionButton
-          icon={<Download size={16} />}
-          label="Export"
-          onClick={handleExport}
         />
         <ActionButton
           icon={<Printer size={16} />}

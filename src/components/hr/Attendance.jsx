@@ -32,23 +32,26 @@ const Attendance = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
       2,
-      "0"
+      "0",
     )}`;
   });
+
+  // Set today's date as default for dateFilter
   const [dateFilter, setDateFilter] = useState(() => {
     const saved = localStorage.getItem("attendanceDateFilter");
-    return saved || "";
+    if (saved) return saved;
+    
+    // Return today's date in YYYY-MM-DD format
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   });
+
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
   const [showDateRange, setShowDateRange] = useState(false);
 
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     const savedStart = localStorage.getItem("attendanceDateRangeStart");
@@ -58,14 +61,6 @@ const Attendance = () => {
       setDateRangeEnd(savedEnd);
       setShowDateRange(true);
     }
-  }, []);
-
-  // Load pagination from localStorage
-  useEffect(() => {
-    const savedPage = localStorage.getItem("attendanceCurrentPage");
-    const savedPerPage = localStorage.getItem("attendanceRecordsPerPage");
-    if (savedPage) setCurrentPage(parseInt(savedPage, 10));
-    if (savedPerPage) setRecordsPerPage(parseInt(savedPerPage, 10));
   }, []);
 
   useEffect(() => {
@@ -108,15 +103,6 @@ const Attendance = () => {
     }
   }, [dateRangeStart, dateRangeEnd]);
 
-  // Save pagination to localStorage
-  useEffect(() => {
-    localStorage.setItem("attendanceCurrentPage", currentPage.toString());
-  }, [currentPage]);
-
-  useEffect(() => {
-    localStorage.setItem("attendanceRecordsPerPage", recordsPerPage.toString());
-  }, [recordsPerPage]);
-
   // Sort function
   const requestSort = (key) => {
     let direction = "ascending";
@@ -129,9 +115,9 @@ const Attendance = () => {
   // Sorting function
   const sortAttendance = (records) => {
     if (!records || !Array.isArray(records)) return [];
-    
+
     const sortedRecords = [...records];
-    
+
     sortedRecords.sort((a, b) => {
       if (sortConfig.key === "date") {
         const dateA = a.date ? new Date(a.date) : new Date(0);
@@ -176,7 +162,7 @@ const Attendance = () => {
       }
       return 0;
     });
-    
+
     return sortedRecords;
   };
 
@@ -216,24 +202,28 @@ const Attendance = () => {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete ALL attendance records for ${monthFilter}? This action cannot be undone!`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ALL attendance records for ${monthFilter}? This action cannot be undone!`,
+      )
+    ) {
       return;
     }
 
     setIsDeleting(true);
     setDeleteError("");
-    
+
     try {
-      const [year, month] = monthFilter.split('-');
+      const [year, month] = monthFilter.split("-");
       await deleteAttendanceByMonth(year, month);
-      
+
       // Refresh attendance data
       const attRes = await getAttendance();
       setAttendance(attRes?.data || []);
-      
+
       setDeleteSuccess(true);
       setTimeout(() => setDeleteSuccess(false), 3000);
-      
+
       // Show success message
       alert(`Successfully deleted attendance records for ${monthFilter}`);
     } catch (error) {
@@ -280,7 +270,7 @@ const Attendance = () => {
   // Check if user punched before time (green) or after time (red)
   const isEarlyPunch = (delayTime) => {
     if (!delayTime) return true; // No delay means early/on time
-    
+
     if (typeof delayTime === "number") {
       return delayTime <= 0; // Negative or zero means early/on time
     } else if (typeof delayTime === "string") {
@@ -308,7 +298,7 @@ const Attendance = () => {
       ? companies.find(
           (comp) =>
             comp &&
-            (comp.id === employee.company || comp.id === employee.company?.id)
+            (comp.id === employee.company || comp.id === employee.company?.id),
         )
       : null;
 
@@ -378,14 +368,14 @@ const Attendance = () => {
   const filterAttendanceByDate = (records) => {
     if (!records || !Array.isArray(records)) return [];
 
-    if (dateFilter) {
+    if (!showDateRange && dateFilter) {
       return records.filter((r) => {
         if (!r || !r.date) return false;
         return r.date.split("T")[0] === dateFilter;
       });
     }
 
-    if (dateRangeStart && dateRangeEnd) {
+    if (showDateRange && dateRangeStart && dateRangeEnd) {
       const start = new Date(dateRangeStart);
       const end = new Date(dateRangeEnd);
       end.setHours(23, 59, 59, 999);
@@ -408,7 +398,7 @@ const Attendance = () => {
     if (!attendance || !Array.isArray(attendance)) {
       console.warn(
         "Attendance data is not available or not an array:",
-        attendance
+        attendance,
       );
       return [];
     }
@@ -422,38 +412,11 @@ const Attendance = () => {
     return filtered;
   };
 
-  // Get paginated data
-  const getPaginatedAttendance = () => {
-    const filtered = getFilteredAttendance();
-    
-    // Calculate pagination
-    const totalPages = Math.ceil(filtered.length / recordsPerPage);
-    let validatedPage = currentPage;
-    
-    if (validatedPage > totalPages && totalPages > 0) {
-      validatedPage = totalPages;
-    } else if (filtered.length === 0) {
-      validatedPage = 1;
-    }
-    
-    if (validatedPage !== currentPage) {
-      setTimeout(() => setCurrentPage(validatedPage), 0);
-    }
-    
-    const indexOfLastRecord = validatedPage * recordsPerPage;
-    const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-    return {
-      paginatedData: filtered.slice(indexOfFirstRecord, indexOfLastRecord),
-      totalPages,
-      totalRecords: filtered.length,
-    };
-  };
-
-  const { paginatedData, totalPages, totalRecords } = getPaginatedAttendance();
+  const filteredAttendance = getFilteredAttendance();
 
   // Report generation functions
   const generateSmartReport = () => {
-    let data = getFilteredAttendance();
+    let data = filteredAttendance;
     if (!data || data.length === 0) {
       alert("No records found");
       return;
@@ -473,23 +436,23 @@ const Attendance = () => {
     const reportTitle = monthFilter
       ? `Monthly Report: ${new Date(monthFilter + "-01").toLocaleDateString(
           "en-US",
-          { month: "long", year: "numeric" }
+          { month: "long", year: "numeric" },
         )}`
       : dateRangeStart && dateRangeEnd
-      ? `Range: ${new Date(dateRangeStart).toLocaleDateString()} - ${new Date(
-          dateRangeEnd
-        ).toLocaleDateString()}`
-      : dateFilter
-      ? `Date: ${new Date(dateFilter).toLocaleDateString()}`
-      : "Full Report";
+        ? `Range: ${new Date(dateRangeStart).toLocaleDateString()} - ${new Date(
+            dateRangeEnd,
+          ).toLocaleDateString()}`
+        : dateFilter
+          ? `Date: ${new Date(dateFilter).toLocaleDateString()}`
+          : "Full Report";
 
     const filename = monthFilter
       ? `monthly_${monthFilter}.csv`
       : dateRangeStart && dateRangeEnd
-      ? `range_${dateRangeStart}_to_${dateRangeEnd}.csv`
-      : dateFilter
-      ? `date_${dateFilter}.csv`
-      : `full_${new Date().toISOString().slice(0, 10)}.csv`;
+        ? `range_${dateRangeStart}_to_${dateRangeEnd}.csv`
+        : dateFilter
+          ? `date_${dateFilter}.csv`
+          : `full_${new Date().toISOString().slice(0, 10)}.csv`;
 
     const csv = [
       reportTitle,
@@ -538,7 +501,7 @@ const Attendance = () => {
         const [year, month] = monthFilter.split("-");
         const prefix = `${year}-${month}`;
         records = records.filter(
-          (r) => r && r.date && r.date.split("T")[0].startsWith(prefix)
+          (r) => r && r.date && r.date.split("T")[0].startsWith(prefix),
         );
       }
       records.forEach((r) => allRecords.push({ ...r, selected_employee: emp }));
@@ -563,7 +526,7 @@ const Attendance = () => {
     const reportTitle = monthFilter
       ? `Monthly Report: ${new Date(monthFilter + "-01").toLocaleDateString(
           "en-US",
-          { month: "long", year: "numeric" }
+          { month: "long", year: "numeric" },
         )} (${selectedEmployees.length} employees)`
       : `Full Report (${selectedEmployees.length} employees)`;
 
@@ -617,17 +580,23 @@ const Attendance = () => {
   };
 
   const clearDateFilter = () => {
-    setDateFilter("");
+    // Set to today's date when clearing
+    const today = new Date();
+    setDateFilter(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`);
   };
+  
   const clearCompanyFilter = () => {
     setCompanyFilter("");
   };
+  
   const clearSearch = () => {
     setSearchTerm("");
   };
+  
   const clearMonthFilter = () => {
     setMonthFilter("");
   };
+  
   const clearDateRange = () => {
     setDateRangeStart("");
     setDateRangeEnd("");
@@ -681,7 +650,15 @@ const Attendance = () => {
       }}
     >
       <Sidebars />
-      <div style={{ flex: 1, padding: "24px", overflowX: "auto" }}>
+      <div
+        style={{
+          flex: 1,
+          padding: "24px",
+          overflowX: "auto",
+          margin: "0 auto",
+          maxWidth: "1550px",
+        }}
+      >
         <div style={{ maxHeight: "calc(100vh - 100px)", overflowX: "auto" }}>
           {/* Header */}
           <div style={headerStyle}>
@@ -694,17 +671,14 @@ const Attendance = () => {
             <div style={summaryStyle}>
               <div style={summaryItemStyle}>
                 <span style={summaryLabelStyle}>Total Records</span>
-                <span style={summaryValueStyle}>{totalRecords}</span>
-              </div>
-              <div style={summaryItemStyle}>
-                <span style={summaryLabelStyle}>Current Page</span>
-                <span style={summaryValueStyle}>{currentPage} / {totalPages}</span>
+                <span style={summaryValueStyle}>{filteredAttendance.length}</span>
               </div>
               <div style={summaryItemStyle}>
                 <span style={summaryLabelStyle}>Sorting</span>
                 <span style={summaryValueStyle}>
-                  {sortConfig.key === "date" 
-                    ? "Date " + (sortConfig.direction === "ascending" ? "↑" : "↓")
+                  {sortConfig.key === "date"
+                    ? "Date " +
+                      (sortConfig.direction === "ascending" ? "↑" : "↓")
                     : sortConfig.key.replace("_", " ")}
                 </span>
               </div>
@@ -713,24 +687,25 @@ const Attendance = () => {
 
           {/* Status Messages */}
           {(deleteSuccess || deleteError) && (
-            <div style={{
-              padding: "12px 16px",
-              marginBottom: "16px",
-              borderRadius: "8px",
-              backgroundColor: deleteSuccess ? "#d1fae5" : "#fee2e2",
-              border: `1px solid ${deleteSuccess ? "#10b981" : "#ef4444"}`,
-              color: deleteSuccess ? "#065f46" : "#991b1b",
-              fontSize: "14px",
-              fontWeight: "500",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}>
+            <div
+              style={{
+                padding: "12px 16px",
+                marginBottom: "16px",
+                borderRadius: "8px",
+                backgroundColor: deleteSuccess ? "#d1fae5" : "#fee2e2",
+                border: `1px solid ${deleteSuccess ? "#10b981" : "#ef4444"}`,
+                color: deleteSuccess ? "#065f46" : "#991b1b",
+                fontSize: "14px",
+                fontWeight: "500",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
               <span>{deleteSuccess ? "✅" : "❌"}</span>
-              {deleteSuccess 
-                ? `Successfully deleted attendance for ${monthFilter}` 
-                : `Error: ${deleteError}`
-              }
+              {deleteSuccess
+                ? `Successfully deleted attendance for ${monthFilter}`
+                : `Error: ${deleteError}`}
             </div>
           )}
 
@@ -770,7 +745,7 @@ const Attendance = () => {
                     </button>
                   </span>
                 )}
-                {dateFilter && (
+                {!showDateRange && dateFilter && (
                   <span style={activeFilterTagStyle}>
                     Date: {new Date(dateFilter).toLocaleDateString()}
                     <button onClick={clearDateFilter} style={tagCloseStyle}>
@@ -778,7 +753,7 @@ const Attendance = () => {
                     </button>
                   </span>
                 )}
-                {dateRangeStart && dateRangeEnd && (
+                {showDateRange && dateRangeStart && dateRangeEnd && (
                   <span style={activeFilterTagStyle}>
                     Range: {new Date(dateRangeStart).toLocaleDateString()} -{" "}
                     {new Date(dateRangeEnd).toLocaleDateString()}
@@ -790,14 +765,14 @@ const Attendance = () => {
                 {(monthFilter ||
                   companyFilter ||
                   searchTerm ||
-                  dateFilter ||
-                  (dateRangeStart && dateRangeEnd)) && (
+                  (!showDateRange && dateFilter) ||
+                  (showDateRange && dateRangeStart && dateRangeEnd)) && (
                   <button
                     onClick={() => {
                       clearMonthFilter();
                       clearCompanyFilter();
                       clearSearch();
-                      clearDateFilter();
+                      clearDateFilter(); // This will reset to today
                       clearDateRange();
                     }}
                     style={clearAllButtonStyle}
@@ -823,7 +798,6 @@ const Attendance = () => {
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
-                      setCurrentPage(1);
                     }}
                     style={modernInputStyle}
                   />
@@ -846,7 +820,6 @@ const Attendance = () => {
                     value={companyFilter}
                     onChange={(e) => {
                       setCompanyFilter(e.target.value);
-                      setCurrentPage(1);
                     }}
                     style={modernSelectStyle}
                   >
@@ -880,7 +853,6 @@ const Attendance = () => {
                     value={monthFilter}
                     onChange={(e) => {
                       setMonthFilter(e.target.value);
-                      setCurrentPage(1);
                     }}
                     style={modernInputStyle}
                   />
@@ -909,7 +881,6 @@ const Attendance = () => {
                         value={dateFilter}
                         onChange={(e) => {
                           setDateFilter(e.target.value);
-                          setCurrentPage(1);
                         }}
                         style={modernInputStyle}
                       />
@@ -930,7 +901,6 @@ const Attendance = () => {
                           value={dateRangeStart}
                           onChange={(e) => {
                             setDateRangeStart(e.target.value);
-                            setCurrentPage(1);
                           }}
                           style={modernInputStyle}
                         />
@@ -943,7 +913,6 @@ const Attendance = () => {
                           min={dateRangeStart}
                           onChange={(e) => {
                             setDateRangeEnd(e.target.value);
-                            setCurrentPage(1);
                           }}
                           style={modernInputStyle}
                         />
@@ -961,13 +930,14 @@ const Attendance = () => {
                   <button
                     onClick={() => {
                       setShowDateRange((v) => !v);
-                      if (showDateRange) {
-                        setDateFilter("");
-                      } else {
+                      if (!showDateRange) {
                         setDateRangeStart("");
                         setDateRangeEnd("");
+                      } else {
+                        // When switching back to single date, set to today
+                        const today = new Date();
+                        setDateFilter(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`);
                       }
-                      setCurrentPage(1);
                     }}
                     style={dateToggleButtonStyle}
                   >
@@ -987,15 +957,19 @@ const Attendance = () => {
                   <span style={buttonIconStyle}>📋</span>
                   Select Employees for Report
                 </button>
-                
+
                 {/* DELETE BUTTON */}
                 {monthFilter && (
                   <button
                     onClick={handleDeleteMonthlyAttendance}
-                    style={isDeleting ? deleteButtonStyleDisabled : deleteButtonStyle}
+                    style={
+                      isDeleting ? deleteButtonStyleDisabled : deleteButtonStyle
+                    }
                     disabled={isDeleting}
                   >
-                    <span style={buttonIconStyle}>{isDeleting ? "⏳" : "🗑️"}</span>
+                    <span style={buttonIconStyle}>
+                      {isDeleting ? "⏳" : "🗑️"}
+                    </span>
                     {isDeleting ? "Deleting..." : "Delete Monthly Data"}
                   </button>
                 )}
@@ -1005,24 +979,23 @@ const Attendance = () => {
                 <button
                   onClick={generateSmartReport}
                   style={primaryActionButtonStyle}
-                  disabled={!paginatedData || paginatedData.length === 0}
+                  disabled={!filteredAttendance || filteredAttendance.length === 0}
                 >
                   <span style={buttonIconStyle}>📥</span>
                   Download Current View
-                  <span style={badgeStyle}>
-                    {totalRecords}
-                  </span>
+                  <span style={badgeStyle}>{filteredAttendance.length}</span>
                 </button>
 
                 <div style={reportInfoStyle}>
                   {monthFilter
                     ? "Monthly Report"
-                    : dateRangeStart && dateRangeEnd
-                    ? "Date Range Report"
-                    : dateFilter
-                    ? "Daily Report"
-                    : "Full Report"}
-                  {sortConfig.key && ` • Sorted by ${sortConfig.key.replace("_", " ")} ${sortConfig.direction === "ascending" ? "↑" : "↓"}`}
+                    : showDateRange && dateRangeStart && dateRangeEnd
+                      ? "Date Range Report"
+                      : dateFilter
+                        ? "Daily Report"
+                        : "Full Report"}
+                  {sortConfig.key &&
+                    ` • Sorted by ${sortConfig.key.replace("_", " ")} ${sortConfig.direction === "ascending" ? "↑" : "↓"}`}
                 </div>
               </div>
             </div>
@@ -1030,9 +1003,7 @@ const Attendance = () => {
             {/* Quick Stats */}
             <div style={quickStatsStyle}>
               <div style={statItemStyle}>
-                <span style={statValueStyle}>
-                  {totalRecords}
-                </span>
+                <span style={statValueStyle}>{filteredAttendance.length}</span>
                 <span style={statLabelStyle}>Filtered Records</span>
               </div>
               <div style={statItemStyle}>
@@ -1047,12 +1018,6 @@ const Attendance = () => {
                 </span>
                 <span style={statLabelStyle}>Employees</span>
               </div>
-              <div style={statItemStyle}>
-                <span style={statValueStyle}>
-                  {paginatedData.length}
-                </span>
-                <span style={statLabelStyle}>Current Page</span>
-              </div>
             </div>
           </div>
 
@@ -1061,8 +1026,9 @@ const Attendance = () => {
             <div style={tableHeaderStyle}>
               <h3 style={tableTitleStyle}>Attendance Records</h3>
               <div style={tableSummaryStyle}>
-                Showing {paginatedData.length} of {totalRecords} records
-                {sortConfig.key && ` • Sorted by ${sortConfig.key.replace("_", " ")} ${sortConfig.direction === "ascending" ? "↑" : "↓"}`}
+                Showing {filteredAttendance.length} records
+                {sortConfig.key &&
+                  ` • Sorted by ${sortConfig.key.replace("_", " ")} ${sortConfig.direction === "ascending" ? "↑" : "↓"}`}
               </div>
             </div>
 
@@ -1081,15 +1047,39 @@ const Attendance = () => {
                       { key: "delay_time", label: "Delay Time" },
                       { key: "office_start_time", label: "Office Start" },
                     ].map((h) => (
-                      <th 
-                        style={thStyle} 
+                      <th
+                        style={thStyle}
                         key={h.key}
-                        onClick={() => ["date", "check_in", "check_out", "delay_time", "employee_name"].includes(h.key) && requestSort(h.key)}
-                        className={["date", "check_in", "check_out", "delay_time", "employee_name"].includes(h.key) ? "sortable-header" : ""}
+                        onClick={() =>
+                          [
+                            "date",
+                            "check_in",
+                            "check_out",
+                            "delay_time",
+                            "employee_name",
+                          ].includes(h.key) && requestSort(h.key)
+                        }
+                        className={
+                          [
+                            "date",
+                            "check_in",
+                            "check_out",
+                            "delay_time",
+                            "employee_name",
+                          ].includes(h.key)
+                            ? "sortable-header"
+                            : ""
+                        }
                       >
                         <div style={headerContentStyle}>
                           {h.label}
-                          {["date", "check_in", "check_out", "delay_time", "employee_name"].includes(h.key) && (
+                          {[
+                            "date",
+                            "check_in",
+                            "check_out",
+                            "delay_time",
+                            "employee_name",
+                          ].includes(h.key) && (
                             <SortIndicator columnKey={h.key} />
                           )}
                         </div>
@@ -1102,13 +1092,13 @@ const Attendance = () => {
                     Array(5)
                       .fill(0)
                       .map((_, i) => <SkeletonRow key={i} />)
-                  ) : paginatedData.length > 0 ? (
-                    paginatedData.map((a) => {
+                  ) : filteredAttendance.length > 0 ? (
+                    filteredAttendance.map((a) => {
                       if (!a) return null;
                       const emp = getEmployeeDetails(a.employee);
                       const delay = a.attendance_delay || a.delay_time;
                       const isEarly = isEarlyPunch(delay);
-                      
+
                       return (
                         <tr key={a.id} style={tableRowStyle}>
                           <td style={tdStyle}>
@@ -1176,111 +1166,6 @@ const Attendance = () => {
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination Component */}
-            {totalPages > 1 && (
-              <div style={paginationContainerStyle}>
-                <div style={paginationInfoStyle}>
-                  <span>Records per page:</span>
-                  <select
-                    value={recordsPerPage}
-                    onChange={(e) => {
-                      setRecordsPerPage(parseInt(e.target.value, 10));
-                      setCurrentPage(1);
-                    }}
-                    style={pageSizeSelectStyle}
-                  >
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
-                  <span style={resultsInfoStyle}>
-                    Showing {Math.min((currentPage - 1) * recordsPerPage + 1, totalRecords)}-
-                    {Math.min(currentPage * recordsPerPage, totalRecords)} of {totalRecords} records
-                  </span>
-                </div>
-                
-                <div style={paginationControlsStyle}>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    style={{
-                      ...paginationButtonStyle,
-                      ...(currentPage === 1 ? paginationButtonDisabledStyle : {})
-                    }}
-                  >
-                    ← Previous
-                  </button>
-                  
-                  <div style={pageNumbersStyle}>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let page;
-                      if (totalPages <= 5) {
-                        page = i + 1;
-                      } else if (currentPage <= 3) {
-                        page = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        page = totalPages - 4 + i;
-                      } else {
-                        page = currentPage - 2 + i;
-                      }
-                      
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          style={{
-                            ...pageNumberStyle,
-                            ...(currentPage === page ? activePageStyle : {})
-                          }}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-                    {totalPages > 5 && currentPage < totalPages - 2 && (
-                      <>
-                        <span style={ellipsisStyle}>...</span>
-                        <button
-                          onClick={() => setCurrentPage(totalPages)}
-                          style={pageNumberStyle}
-                        >
-                          {totalPages}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                    style={{
-                      ...paginationButtonStyle,
-                      ...(currentPage === totalPages ? paginationButtonDisabledStyle : {})
-                    }}
-                  >
-                    Next →
-                  </button>
-                  
-                  <div style={pageJumpStyle}>
-                    <span>Go to:</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max={totalPages}
-                      value={currentPage}
-                      onChange={(e) => {
-                        const page = Math.min(totalPages, Math.max(1, parseInt(e.target.value) || 1));
-                        setCurrentPage(page);
-                      }}
-                      style={pageJumpInputStyle}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1349,7 +1234,7 @@ const Attendance = () => {
                         style={{
                           ...employeeItemStyle,
                           ...(selectedEmployees.find(
-                            (e) => e && e.id === employee.id
+                            (e) => e && e.id === employee.id,
                           )
                             ? selectedEmployeeStyle
                             : {}),
@@ -1357,7 +1242,7 @@ const Attendance = () => {
                         onClick={() => {
                           setSelectedEmployees((prev) => {
                             const exists = prev.find(
-                              (e) => e && e.id === employee.id
+                              (e) => e && e.id === employee.id,
                             );
                             return exists
                               ? prev.filter((e) => e && e.id !== employee.id)
@@ -1367,7 +1252,7 @@ const Attendance = () => {
                       >
                         <div style={employeeCheckboxStyle}>
                           {selectedEmployees.find(
-                            (e) => e && e.id === employee.id
+                            (e) => e && e.id === employee.id,
                           )
                             ? "✓"
                             : ""}
@@ -1429,7 +1314,8 @@ const headerStyle = {
   marginBottom: "24px",
   flexWrap: "wrap",
   gap: "16px",
-  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  fontFamily:
+    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 const titleStyle = {
@@ -1479,7 +1365,8 @@ const filtersCardStyle = {
   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   border: "1px solid #e2e8f0",
   overflow: "hidden",
-  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  fontFamily:
+    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 const filtersHeaderStyle = {
@@ -1776,7 +1663,8 @@ const cardStyle = {
   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
   border: "1px solid #e2e8f0",
   overflow: "hidden",
-  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  fontFamily:
+    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 const tableHeaderStyle = {
@@ -1910,115 +1798,6 @@ const emptyTitleStyle = {
 const emptyTextStyle = {
   color: "#718096",
   fontSize: "14px",
-};
-
-// Pagination Styles
-const paginationContainerStyle = {
-  padding: "20px 24px",
-  borderTop: "1px solid #e2e8f0",
-  backgroundColor: "#f8fafc",
-  display: "flex",
-  flexDirection: "column",
-  gap: "16px",
-};
-
-const paginationInfoStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  fontSize: "14px",
-  color: "#4a5568",
-};
-
-const pageSizeSelectStyle = {
-  padding: "6px 12px",
-  border: "1px solid #cbd5e0",
-  borderRadius: "6px",
-  backgroundColor: "white",
-  fontSize: "14px",
-};
-
-const resultsInfoStyle = {
-  marginLeft: "auto",
-  fontWeight: "500",
-};
-
-const paginationControlsStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "12px",
-  flexWrap: "wrap",
-};
-
-const paginationButtonStyle = {
-  padding: "8px 16px",
-  border: "1px solid #cbd5e0",
-  backgroundColor: "white",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: "500",
-  transition: "all 0.2s ease",
-  color: "#4a5568",
-};
-
-const paginationButtonDisabledStyle = {
-  opacity: 0.5,
-  cursor: "not-allowed",
-  backgroundColor: "#f7fafc",
-};
-
-const pageNumbersStyle = {
-  display: "flex",
-  gap: "4px",
-};
-
-const pageNumberStyle = {
-  width: "36px",
-  height: "36px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  border: "1px solid #cbd5e0",
-  backgroundColor: "white",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: "500",
-  transition: "all 0.2s ease",
-};
-
-const activePageStyle = {
-  backgroundColor: "#4361ee",
-  color: "white",
-  borderColor: "#4361ee",
-};
-
-const ellipsisStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "36px",
-  height: "36px",
-  fontSize: "14px",
-  color: "#718096",
-};
-
-const pageJumpStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  marginLeft: "auto",
-  fontSize: "14px",
-};
-
-const pageJumpInputStyle = {
-  width: "60px",
-  padding: "6px 12px",
-  border: "1px solid #cbd5e0",
-  borderRadius: "6px",
-  textAlign: "center",
 };
 
 // Modal Styles
@@ -2189,5 +1968,30 @@ const generateButtonStyle = {
   color: "white",
   border: "none",
 };
+
+// Add global styles for scrollbar
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  /* Custom scrollbar styles */
+  .table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .table-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  
+  .table-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  
+  .table-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default Attendance;

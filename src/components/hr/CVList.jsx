@@ -274,15 +274,13 @@ const CVList = () => {
       <div
         style={{
           flex: 1,
-          padding: "24px",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          maxHeight: "100vh",
+          padding: "32px",
+          overflowY: "auto",
+          height: "100vh",
         }}
       >
         {/* Modern Header with Stats */}
-        <div style={{ marginBottom: "24px", flexShrink: 0 }}>
+        <div style={{ margin: "0 auto", maxWidth: "1550px" }}>
           <div
             style={{
               display: "flex",
@@ -727,35 +725,6 @@ const CVList = () => {
                   Refresh
                 </motion.button>
 
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    padding: "10px 16px",
-                    background: "white",
-                    border: "1px solid rgba(209, 213, 219, 0.8)",
-                    borderRadius: "12px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#374151",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.borderColor = "#D1D5DB")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.borderColor =
-                      "rgba(209, 213, 219, 0.8)")
-                  }
-                >
-                  <Download size={16} />
-                  Export
-                </motion.button>
-
                 <Link to="/cv-add" style={{ textDecoration: "none" }}>
                   <motion.button
                     whileHover={{ scale: 1.02 }}
@@ -882,6 +851,8 @@ const CVList = () => {
             overflow: "hidden",
             position: "relative",
             minHeight: "0", // Important for flex child scrolling
+            margin: "0 auto",
+            maxWidth: "1550px",
           }}
         >
           {filteredCvs.length === 0 ? (
@@ -1075,6 +1046,8 @@ const CVList = () => {
               justifyContent: "space-between",
               alignItems: "center",
               flexShrink: 0,
+              margin: "0 auto",
+              maxWidth: "1550px",
             }}
           >
             <div>
@@ -1621,7 +1594,7 @@ const CVListItem = ({
     <>
       <div
         style={{
-          padding: "16px 20px",
+          padding: "10px 10px",
           display: "grid",
           gridTemplateColumns: "2fr 2fr 1fr 1fr 1.5fr",
           gap: "16px",

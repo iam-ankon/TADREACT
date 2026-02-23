@@ -388,10 +388,17 @@ const EmployeeTermination = () => {
           flexDirection: "column",
           overflow: "hidden",
           maxHeight: "100vh",
+          margin: "0 auto",
+          maxWidth: "1550px",
         }}
       >
         {/* Modern Header with Stats */}
-        <div style={{ marginBottom: "24px", flexShrink: 0 }}>
+        <div
+          style={{
+            marginBottom: "24px",
+            flexShrink: 0,
+          }}
+        >
           <div
             style={{
               display: "flex",
@@ -949,10 +956,6 @@ const EmployeeTermination = () => {
                     View Archive
                   </motion.button>
                 </Link>
-
-
-
-
               </div>
             </div>
           </div>
@@ -1241,6 +1244,7 @@ const EmployeeTermination = () => {
               justifyContent: "space-between",
               alignItems: "center",
               flexShrink: 0,
+            
             }}
           >
             <div>
