@@ -1062,7 +1062,7 @@ const styles = {
   },
   mainContent: {
     flex: 1,
-    
+    padding: "24px",
     overflowY: "auto",
     height: "100vh",
   },
