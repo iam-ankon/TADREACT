@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   getAttendance,
   getEmployees,
@@ -8,6 +8,7 @@ import {
 import Sidebars from "./sidebars";
 
 const Attendance = () => {
+  // All useState hooks first
   const [attendance, setAttendance] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -15,53 +16,42 @@ const Attendance = () => {
   const [companyFilter, setCompanyFilter] = useState("");
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  // Sorting states
   const [sortConfig, setSortConfig] = useState({
     key: "date",
     direction: "descending",
   });
-
-  // Delete functionality states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-
   const [monthFilter, setMonthFilter] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
-
   const [dateFilter, setDateFilter] = useState(() => {
     const saved = localStorage.getItem("attendanceDateFilter");
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
     return saved || todayStr;
   });
-
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
   const [showDateRange, setShowDateRange] = useState(false);
-
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
-
-  // Add animation state for filter changes
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [availablePageSizes, setAvailablePageSizes] = useState([
+    25, 50, 100, 200, 500,
+  ]);
   const [isFiltering, setIsFiltering] = useState(false);
-
-  // Add ref for main content
   const mainContentRef = useRef(null);
 
-  // Effect to handle scrollbar position
+  // All useEffects that don't depend on filteredData
   useEffect(() => {
-    // Force scrollbar to be on viewport
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
-
     return () => {
-      // Cleanup
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
     };
@@ -86,7 +76,6 @@ const Attendance = () => {
           getEmployees(),
           getCompanies(),
         ]);
-
         setAttendance(attRes?.data || []);
         setEmployees(empRes?.data || []);
         setCompanies(compRes?.data?.results || compRes?.data || []);
@@ -116,7 +105,6 @@ const Attendance = () => {
     }
   }, [dateRangeStart, dateRangeEnd]);
 
-  // Add filter animation effect
   useEffect(() => {
     setIsFiltering(true);
     const timer = setTimeout(() => setIsFiltering(false), 300);
@@ -131,6 +119,20 @@ const Attendance = () => {
     showDateRange,
   ]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    companyFilter,
+    monthFilter,
+    dateFilter,
+    dateRangeStart,
+    dateRangeEnd,
+    showDateRange,
+    sortConfig,
+  ]);
+
+  // All function declarations
   const requestSort = (key) => {
     let direction = "ascending";
     if (sortConfig.key === key && sortConfig.direction === "ascending") {
@@ -168,9 +170,7 @@ const Attendance = () => {
 
   const sortAttendance = (records) => {
     if (!records || !Array.isArray(records)) return [];
-
     const sortedRecords = [...records];
-
     sortedRecords.sort((a, b) => {
       if (sortConfig.key === "date") {
         const dateA = a.date ? new Date(a.date) : new Date(0);
@@ -205,7 +205,6 @@ const Attendance = () => {
       }
       return 0;
     });
-
     return sortedRecords;
   };
 
@@ -214,7 +213,6 @@ const Attendance = () => {
       alert("Please select a month first");
       return;
     }
-
     if (
       !window.confirm(
         `Are you sure you want to delete ALL attendance records for ${monthFilter}? This action cannot be undone!`,
@@ -222,17 +220,13 @@ const Attendance = () => {
     ) {
       return;
     }
-
     setIsDeleting(true);
     setDeleteError("");
-
     try {
       const [year, month] = monthFilter.split("-");
       await deleteAttendanceByMonth(year, month);
-
       const attRes = await getAttendance();
       setAttendance(attRes?.data || []);
-
       setDeleteSuccess(true);
       setTimeout(() => setDeleteSuccess(false), 3000);
     } catch (error) {
@@ -244,7 +238,6 @@ const Attendance = () => {
 
   const formatTimeToAMPM = (timeStr) => {
     if (!timeStr) return "9:30 AM";
-
     try {
       const timePart = timeStr.includes("T")
         ? timeStr.split("T")[1].slice(0, 5)
@@ -276,7 +269,6 @@ const Attendance = () => {
 
   const isEarlyPunch = (delayTime) => {
     if (!delayTime) return true;
-
     if (typeof delayTime === "number") {
       return delayTime <= 0;
     } else if (typeof delayTime === "string") {
@@ -294,11 +286,9 @@ const Attendance = () => {
     if (!employeeId || !Array.isArray(employees)) {
       return { employee_id: "N/A", company: "N/A", department: "N/A" };
     }
-
     const employee = employees.find((emp) => emp && emp.id === employeeId);
     if (!employee)
       return { employee_id: "N/A", company: "N/A", department: "N/A" };
-
     const company = Array.isArray(companies)
       ? companies.find(
           (comp) =>
@@ -306,9 +296,7 @@ const Attendance = () => {
             (comp.id === employee.company || comp.id === employee.company?.id),
         )
       : null;
-
     const companyName = company ? company.name || company.company_name : "N/A";
-
     return {
       employee_id: employee.employee_id || "N/A",
       company: companyName,
@@ -319,7 +307,6 @@ const Attendance = () => {
   const filterAttendanceByNameAndId = (records) => {
     if (!records || !Array.isArray(records)) return [];
     if (!searchTerm) return records;
-
     const searchLower = searchTerm.toLowerCase();
     return records.filter((r) => {
       if (!r) return false;
@@ -336,7 +323,6 @@ const Attendance = () => {
   const filterAttendanceByCompany = (records) => {
     if (!records || !Array.isArray(records)) return [];
     if (!companyFilter) return records;
-
     return records.filter((r) => {
       if (!r) return false;
       const details = getEmployeeDetails(r.employee);
@@ -347,14 +333,11 @@ const Attendance = () => {
   const filterAttendanceByMonth = (records) => {
     if (!records || !Array.isArray(records)) return [];
     if (!monthFilter) return records;
-
     try {
       const [year, month] = monthFilter.split("-");
       const prefix = `${year}-${month}`;
-
       return records.filter((r) => {
         if (!r || !r.date) return false;
-
         try {
           const dateStr = r.date.split("T")[0];
           return dateStr.startsWith(prefix);
@@ -369,19 +352,16 @@ const Attendance = () => {
 
   const filterAttendanceByDate = (records) => {
     if (!records || !Array.isArray(records)) return [];
-
     if (!showDateRange && dateFilter) {
       return records.filter((r) => {
         if (!r || !r.date) return false;
         return r.date.split("T")[0] === dateFilter;
       });
     }
-
     if (showDateRange && dateRangeStart && dateRangeEnd) {
       const start = new Date(dateRangeStart);
       const end = new Date(dateRangeEnd);
       end.setHours(23, 59, 59, 999);
-
       return records.filter((r) => {
         if (!r || !r.date) return false;
         try {
@@ -392,7 +372,6 @@ const Attendance = () => {
         }
       });
     }
-
     return records;
   };
 
@@ -400,7 +379,6 @@ const Attendance = () => {
     if (!attendance || !Array.isArray(attendance)) {
       return [];
     }
-
     let filtered = attendance;
     filtered = filterAttendanceByNameAndId(filtered);
     filtered = filterAttendanceByCompany(filtered);
@@ -410,10 +388,51 @@ const Attendance = () => {
     return filtered;
   };
 
-  const filteredAttendance = getFilteredAttendance();
+  // Define filteredData here
+  const filteredData = getFilteredAttendance();
+
+  // Now this useEffect can safely use filteredData
+  useEffect(() => {
+    if (filteredData && filteredData.length >= 0) {
+      const total = filteredData.length;
+      const sizes = [100];
+      const validSizes = sizes.filter((size) => size <= total || size === 25);
+      if (!validSizes.includes(itemsPerPage) && validSizes.length > 0) {
+        setItemsPerPage(validSizes[0]);
+      }
+      setAvailablePageSizes(validSizes);
+    }
+  }, [filteredData.length, itemsPerPage]);
+
+  // Pagination logic
+  const totalItems = filteredData.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredData.slice(startIndex, endIndex);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    // Scroll to top of table
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handleItemsPerPageChange = (e) => {
+    const newSize = parseInt(e.target.value);
+    setItemsPerPage(newSize);
+    setCurrentPage(1);
+  };
 
   const generateSmartReport = () => {
-    let data = filteredAttendance;
+    let data = filteredData;
     if (!data || data.length === 0) {
       alert("No records found");
       return;
@@ -657,6 +676,110 @@ const Attendance = () => {
     );
   };
 
+  const Pagination = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div style={paginationContainerStyle}>
+        <div style={paginationInfoStyle}>
+          Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+          {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}{" "}
+          records
+        </div>
+
+        <div style={paginationControlsStyle}>
+          <div style={pageSizeSelectorStyle}>
+            <span style={pageSizeLabelStyle}>Show:</span>
+            <select
+              value={itemsPerPage}
+              onChange={handleItemsPerPageChange}
+              style={pageSizeSelectStyle}
+            >
+              {availablePageSizes.map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={paginationButtonsStyle}>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={paginationButtonStyle}
+            >
+              ‹
+            </button>
+
+            {startPage > 1 && (
+              <>
+                <button
+                  onClick={() => handlePageChange(1)}
+                  style={paginationButtonStyle}
+                >
+                  1
+                </button>
+                {startPage > 2 && (
+                  <span style={paginationEllipsisStyle}>...</span>
+                )}
+              </>
+            )}
+
+            {pageNumbers.map((number) => (
+              <button
+                key={number}
+                onClick={() => handlePageChange(number)}
+                style={{
+                  ...paginationButtonStyle,
+                  ...(currentPage === number
+                    ? paginationActiveButtonStyle
+                    : {}),
+                }}
+              >
+                {number}
+              </button>
+            ))}
+
+            {endPage < totalPages && (
+              <>
+                {endPage < totalPages - 1 && (
+                  <span style={paginationEllipsisStyle}>...</span>
+                )}
+                <button
+                  onClick={() => handlePageChange(totalPages)}
+                  style={paginationButtonStyle}
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={paginationButtonStyle}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       style={{
@@ -705,11 +828,15 @@ const Attendance = () => {
               <div style={summaryItemStyle}>
                 <span style={summaryLabelStyle}>Total Records</span>
                 <span style={summaryValueStyle}>
-                  {filteredAttendance.length}
+                  {filteredData.length}
                   {isFiltering && (
                     <span style={filteringIndicatorStyle}>⟳</span>
                   )}
                 </span>
+              </div>
+              <div style={summaryItemStyle}>
+                <span style={summaryLabelStyle}>Pages</span>
+                <span style={summaryValueStyle}>{totalPages}</span>
               </div>
               <div style={summaryItemStyle}>
                 <span style={summaryLabelStyle}>Sorting</span>
@@ -995,13 +1122,11 @@ const Attendance = () => {
                 <button
                   onClick={generateSmartReport}
                   style={primaryActionButtonStyle}
-                  disabled={
-                    !filteredAttendance || filteredAttendance.length === 0
-                  }
+                  disabled={!filteredData || filteredData.length === 0}
                 >
                   <span style={buttonIconStyle}>📥</span>
                   Download CSV
-                  <span style={badgeStyle}>{filteredAttendance.length}</span>
+                  <span style={badgeStyle}>{filteredData.length}</span>
                 </button>
 
                 <div style={reportInfoStyle}>
@@ -1022,7 +1147,7 @@ const Attendance = () => {
             {/* Quick Stats */}
             <div style={quickStatsStyle}>
               <div style={statItemStyle}>
-                <span style={statValueStyle}>{filteredAttendance.length}</span>
+                <span style={statValueStyle}>{filteredData.length}</span>
                 <span style={statLabelStyle}>Filtered</span>
               </div>
               <div style={statItemStyle}>
@@ -1045,7 +1170,7 @@ const Attendance = () => {
             <div style={tableHeaderStyle}>
               <h3 style={tableTitleStyle}>Attendance Records</h3>
               <div style={tableSummaryStyle}>
-                Showing {filteredAttendance.length} records
+                Showing {paginatedData.length} of {filteredData.length} records
                 {sortConfig.key &&
                   ` • Sorted by ${sortConfig.key.replace("_", " ")}`}
               </div>
@@ -1054,7 +1179,7 @@ const Attendance = () => {
             <div
               style={{
                 ...tableContainerStyle,
-                maxHeight: "calc(100vh - 350px)", // Adjust based on your layout
+                maxHeight: "calc(100vh - 450px)", // Adjusted for pagination
                 overflowY: "auto",
                 overflowX: "auto",
                 position: "relative",
@@ -1133,8 +1258,8 @@ const Attendance = () => {
                     Array(5)
                       .fill(0)
                       .map((_, i) => <SkeletonRow key={i} />)
-                  ) : filteredAttendance.length > 0 ? (
-                    filteredAttendance.map((a, index) => {
+                  ) : paginatedData.length > 0 ? (
+                    paginatedData.map((a, index) => {
                       if (!a) return null;
                       const emp = getEmployeeDetails(a.employee);
                       const delay = a.attendance_delay || a.delay_time;
@@ -1233,6 +1358,9 @@ const Attendance = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {filteredData.length > 0 && <Pagination />}
           </div>
         </div>
       </div>
@@ -1468,7 +1596,7 @@ const Attendance = () => {
   );
 };
 
-// Styles
+// Styles (keeping all existing styles and adding new pagination styles)
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
@@ -2222,6 +2350,98 @@ const generateButtonStyle = {
   background: "#4299e1",
   color: "white",
   border: "none",
+};
+
+// Pagination Styles
+const paginationContainerStyle = {
+  padding: "1px 20px",
+  borderTop: "1px solid #e2e8f0",
+  background: "#f8fafc",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "16px",
+};
+
+const paginationInfoStyle = {
+  fontSize: "14px",
+  color: "#4a5568",
+  fontWeight: "500",
+};
+
+const paginationControlsStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "24px",
+  flexWrap: "wrap",
+};
+
+const pageSizeSelectorStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+};
+
+const pageSizeLabelStyle = {
+  fontSize: "14px",
+  color: "#4a5568",
+};
+
+const pageSizeSelectStyle = {
+  padding: "6px 12px",
+  border: "1px solid #d1d5db",
+  borderRadius: "6px",
+  fontSize: "14px",
+  backgroundColor: "white",
+  cursor: "pointer",
+  outline: "none",
+};
+
+const paginationButtonsStyle = {
+  display: "flex",
+  alignItems: "center",
+  marginTop: "3px",
+  marginBottom: "-15px",
+  gap: "4px",
+};
+
+const paginationButtonStyle = {
+  padding: "8px 12px",
+  border: "1px solid #d1d5db",
+  backgroundColor: "white",
+  borderRadius: "6px",
+  fontSize: "14px",
+  fontWeight: "500",
+  color: "#4a5568",
+  cursor: "pointer",
+  transition: "all 0.2s ease",
+  minWidth: "4px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  ":hover": {
+    backgroundColor: "#f7fafc",
+  },
+  ":disabled": {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+};
+
+const paginationActiveButtonStyle = {
+  backgroundColor: "#4299e1",
+  borderColor: "#4299e1",
+  color: "white",
+  ":hover": {
+    backgroundColor: "#3182ce",
+  },
+};
+
+const paginationEllipsisStyle = {
+  padding: "8px 4px",
+  color: "#6b7280",
+  fontSize: "14px",
 };
 
 export default Attendance;

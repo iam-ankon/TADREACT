@@ -447,173 +447,49 @@ const EmployeeTermination = () => {
                   Manage employee termination and separation processes
                 </p>
               </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  marginTop: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "10px 16px",
+                    background: "#FEF2F2",
+                    border: "1px solid #FECACA",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    minWidth: "150px",
+                  }}
+                >
+                  <div style={{ color: "#EF4444" }}>
+                    <Hash size={16} />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: "600",
+                        color: "#374151",
+                        fontSize: "16px",
+                      }}
+                    >
+                      {stats.totalEmployees}
+                    </div>
+                    <div style={{ color: "#6B7280", fontSize: "12px" }}>
+                      Total Employees
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Quick Stats */}
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "12px",
-                marginTop: "8px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "#FEF2F2",
-                  border: "1px solid #FECACA",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  minWidth: "150px",
-                }}
-              >
-                <div style={{ color: "#EF4444" }}>
-                  <Hash size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "16px",
-                    }}
-                  >
-                    {stats.totalEmployees}
-                  </div>
-                  <div style={{ color: "#6B7280", fontSize: "12px" }}>
-                    Total Employees
-                  </div>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "#F0FDF4",
-                  border: "1px solid #BBF7D0",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  minWidth: "150px",
-                }}
-              >
-                <div style={{ color: "#10B981" }}>
-                  <CheckCircle size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "16px",
-                    }}
-                  >
-                    {stats.activeEmployees}
-                  </div>
-                  <div style={{ color: "#6B7280", fontSize: "12px" }}>
-                    Active
-                  </div>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "#FFFBEB",
-                  border: "1px solid #FDE68A",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  minWidth: "150px",
-                }}
-              >
-                <div style={{ color: "#F59E0B" }}>
-                  <Clock size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "16px",
-                    }}
-                  >
-                    {stats.pendingEmployees}
-                  </div>
-                  <div style={{ color: "#6B7280", fontSize: "12px" }}>
-                    Pending
-                  </div>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "#FEF2F2",
-                  border: "1px solid #FECACA",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  minWidth: "150px",
-                }}
-              >
-                <div style={{ color: "#EF4444" }}>
-                  <UserMinus size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "16px",
-                    }}
-                  >
-                    {stats.terminatedEmployees}
-                  </div>
-                  <div style={{ color: "#6B7280", fontSize: "12px" }}>
-                    Terminated
-                  </div>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "#F5F3FF",
-                  border: "1px solid #DDD6FE",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  minWidth: "150px",
-                }}
-              >
-                <div style={{ color: "#8B5CF6" }}>
-                  <TrendingDown size={16} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: "600",
-                      color: "#374151",
-                      fontSize: "16px",
-                    }}
-                  >
-                    {stats.recentTerminations}
-                  </div>
-                  <div style={{ color: "#6B7280", fontSize: "12px" }}>
-                    Recent
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Action Bar */}
@@ -1244,7 +1120,6 @@ const EmployeeTermination = () => {
               justifyContent: "space-between",
               alignItems: "center",
               flexShrink: 0,
-            
             }}
           >
             <div>

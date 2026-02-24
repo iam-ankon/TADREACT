@@ -37,6 +37,12 @@ import {
   TrendingDown,
   Printer,
   Building,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Crown,
+  Medal,
 } from "lucide-react";
 import {
   getPerformanceAppraisals,
@@ -55,6 +61,11 @@ const PerformanceAppraisal = () => {
   const [ratingFilter, setRatingFilter] = useState("all");
   const [viewMode, setViewMode] = useState("list");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(100);
+  const [paginatedAppraisals, setPaginatedAppraisals] = useState([]);
 
   const navigate = useNavigate();
 
@@ -96,42 +107,56 @@ const PerformanceAppraisal = () => {
     ];
   }, [appraisals]);
 
+  // Calculate total score for each appraisal and find top performer
+  const topPerformer = useMemo(() => {
+    if (appraisals.length === 0) return null;
+
+    // Calculate total score for each appraisal
+    const appraisalsWithScore = appraisals.map((appraisal) => {
+      // Sum up all criteria scores to get total score
+      const criteriaScores = [
+        appraisal.job_knowledge,
+        appraisal.performance_in_meetings,
+        appraisal.communication_skills,
+        appraisal.reliability,
+        appraisal.initiative,
+        appraisal.stress_management,
+        appraisal.co_operation,
+        appraisal.leadership,
+        appraisal.discipline,
+        appraisal.ethical_considerations,
+      ].filter((score) => score !== undefined && score !== null);
+
+      const totalScore =
+        criteriaScores.length > 0
+          ? criteriaScores.reduce((sum, score) => sum + score, 0)
+          : 0;
+
+      return {
+        ...appraisal,
+        totalScore,
+      };
+    });
+
+    // Find the one with highest total score
+    return appraisalsWithScore.reduce((highest, current) => {
+      return (current.totalScore || 0) > (highest.totalScore || 0)
+        ? current
+        : highest;
+    }, appraisalsWithScore[0]);
+  }, [appraisals]);
+
   const stats = useMemo(() => {
     const totalAppraisals = appraisals.length;
-    const avgRating =
-      appraisals.length > 0
-        ? appraisals.reduce(
-            (sum, a) => sum + (a.overall_rating || a.rating || 0),
-            0,
-          ) / appraisals.length
-        : 0;
-    const excellent = appraisals.filter(
-      (a) => (a.overall_rating || a.rating || 0) >= 4.5,
-    ).length;
-    const good = appraisals.filter(
-      (a) =>
-        (a.overall_rating || a.rating || 0) >= 3.5 &&
-        (a.overall_rating || a.rating || 0) < 4.5,
-    ).length;
-    const average = appraisals.filter(
-      (a) =>
-        (a.overall_rating || a.rating || 0) >= 2.5 &&
-        (a.overall_rating || a.rating || 0) < 3.5,
-    ).length;
-    const poor = appraisals.filter(
-      (a) => (a.overall_rating || a.rating || 0) < 2.5,
-    ).length;
 
     return {
       totalAppraisals,
-      avgRating: avgRating.toFixed(1),
-      excellent,
-      good,
-      average,
-      poor,
+      topPerformerName: topPerformer?.name || "N/A",
+      topPerformerScore: topPerformer?.totalScore || 0,
+      topPerformerDepartment: topPerformer?.department_name || "N/A",
       departments,
     };
-  }, [appraisals]);
+  }, [appraisals, topPerformer]);
 
   const filteredAppraisals = useMemo(() => {
     let filtered = [...appraisals];
@@ -170,7 +195,7 @@ const PerformanceAppraisal = () => {
       });
     }
 
-    // Apply sorting
+    // Apply sorting - Default sort by rating descending (highest first)
     filtered.sort((a, b) => {
       let aValue, bValue;
 
@@ -220,11 +245,25 @@ const PerformanceAppraisal = () => {
   ]);
 
   /* ------------------------------------------------------------------ *
-   *  3. Save search state
+   *  3. Handle Pagination
+   * ------------------------------------------------------------------ */
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedAppraisals(filteredAppraisals.slice(startIndex, endIndex));
+  }, [filteredAppraisals, currentPage, itemsPerPage]);
+
+  /* ------------------------------------------------------------------ *
+   *  4. Save search state
    * ------------------------------------------------------------------ */
   useEffect(() => {
     localStorage.setItem("appraisalListSearchQuery", searchQuery);
   }, [searchQuery]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, departmentFilter, ratingFilter, sortBy, sortOrder]);
 
   /* ------------------------------------------------------------------ *
    *  Handlers
@@ -269,7 +308,7 @@ const PerformanceAppraisal = () => {
         setSortOrder(sortOrder === "asc" ? "desc" : "asc");
       } else {
         setSortBy(field);
-        setSortOrder("asc");
+        setSortOrder("desc");
       }
     },
     [sortBy, sortOrder],
@@ -282,6 +321,7 @@ const PerformanceAppraisal = () => {
       const response = await getPerformanceAppraisals();
       const data = response.data || [];
       setAppraisals(data);
+      setCurrentPage(1);
     } catch (err) {
       console.error("Error refreshing appraisals:", err);
       setError({
@@ -293,6 +333,31 @@ const PerformanceAppraisal = () => {
       setLoading(false);
     }
   }, []);
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    setCurrentPage(page);
+  };
+
+  const goToFirstPage = () => {
+    setCurrentPage(1);
+  };
+
+  const goToLastPage = () => {
+    setCurrentPage(totalPages);
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   // Helper function to get rating configuration
   const getRatingConfig = useCallback((rating) => {
@@ -325,11 +390,19 @@ const PerformanceAppraisal = () => {
     };
   }, []);
 
+  // Check if employee is top performer
+  const isTopPerformer = useCallback(
+    (appraisal) => {
+      if (!topPerformer) return false;
+      return appraisal.id === topPerformer.id;
+    },
+    [topPerformer],
+  );
+
   /* ------------------------------------------------------------------ *
-   *  Print Blank Form Function - ADD THIS AFTER filteredAppraisals is defined
+   *  Print Blank Form Function
    * ------------------------------------------------------------------ */
   const handlePrintBlank = useCallback(() => {
-    // ... (your handlePrintBlank function code remains exactly the same)
     const criteria = [
       {
         name: "Job Knowledge, technical & office equipments skills",
@@ -449,7 +522,6 @@ const PerformanceAppraisal = () => {
         <meta charset="UTF-8">
         <title>Performance Appraisal</title>
         <style>
-          /* Ultra Compact Print Styles */
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
           
           * {
@@ -477,7 +549,6 @@ const PerformanceAppraisal = () => {
             background: #fff;
           }
           
-          /* Header - Ultra Compact */
           .header {
             text-align: center;
             margin-bottom: 10px;
@@ -506,7 +577,6 @@ const PerformanceAppraisal = () => {
             font-weight: 600;
           }
           
-          /* Employee Info - Ultra Compact */
           .info-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -531,7 +601,6 @@ const PerformanceAppraisal = () => {
             color: #000;
           }
           
-          /* Score Section - Ultra Compact */
           .score-section {
             background: #f0f9ff;
             padding: 8px;
@@ -600,7 +669,6 @@ const PerformanceAppraisal = () => {
             border: 1px solid #000;
           }
           
-          /* Performance Table - Ultra Compact */
           .performance-section {
             margin-bottom: 8px;
           }
@@ -674,7 +742,6 @@ const PerformanceAppraisal = () => {
             background-color: #f9f9f9;
           }
           
-          /* Recommendations - Ultra Compact */
           .recommendations {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -727,7 +794,6 @@ const PerformanceAppraisal = () => {
             color: white;
           }
           
-          /* Lists - Ultra Compact */
           .list-section {
             margin-bottom: 8px;
           }
@@ -758,7 +824,7 @@ const PerformanceAppraisal = () => {
             border-radius: 50%;
             display: flex;
             align-items: center;
-            justifyContent: center;
+            justify-content: center;
             font-weight: 700;
             font-size: 8px;
             flex-shrink: 0;
@@ -772,7 +838,6 @@ const PerformanceAppraisal = () => {
             font-weight: 500;
           }
           
-          /* Salary Comparison - Ultra Compact */
           .salary-section {
             background: #f8f9fa;
             padding: 8px;
@@ -830,7 +895,6 @@ const PerformanceAppraisal = () => {
             font-size: 10px;
           }
           
-          /* Signatures - Ultra Compact */
           .signature-section {
             margin-top: 12px;
             padding-top: 8px;
@@ -875,7 +939,6 @@ const PerformanceAppraisal = () => {
             font-weight: 600;
           }
           
-          /* Footer - Ultra Compact */
           .footer {
             margin-top: 10px;
             padding-top: 6px;
@@ -895,7 +958,6 @@ const PerformanceAppraisal = () => {
             border: 1px solid #eee;
           }
           
-          /* Print Specific Styles */
           @media print {
             body {
               padding: 0;
@@ -909,7 +971,6 @@ const PerformanceAppraisal = () => {
               margin: 0;
             }
             
-            /* Optimize page breaks */
             .performance-section {
               page-break-inside: auto;
             }
@@ -918,7 +979,6 @@ const PerformanceAppraisal = () => {
               page-break-inside: auto;
             }
             
-            /* Reduce margins for print */
             .header, .info-grid, .score-section, 
             .section-title, .recommendations, 
             .list-section, .salary-section, 
@@ -926,7 +986,6 @@ const PerformanceAppraisal = () => {
               margin-bottom: 6px;
             }
             
-            /* Force tighter spacing */
             h3, h4 {
               margin: 4px 0;
             }
@@ -936,7 +995,6 @@ const PerformanceAppraisal = () => {
             }
           }
           
-          /* Even tighter for long content */
           .compact-table .performance-table {
             font-size: 7px;
           }
@@ -946,7 +1004,6 @@ const PerformanceAppraisal = () => {
             padding: 3px 4px;
           }
           
-          /* Blank form specific styles */
           .blank-field {
             border-bottom: 1px dashed #999;
             min-height: 12px;
@@ -962,14 +1019,12 @@ const PerformanceAppraisal = () => {
       </head>
       <body>
         <div class="print-container">
-          <!-- Header -->
           <div class="header">
             <div class="appraisal-title">Performance Appraisal</div>
             <div class="employee-name">________________________________</div>
             <div class="company-name">Confidential Document - For Manual Entry</div>
           </div>
           
-          <!-- Employee Information -->
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">ID:</span>
@@ -989,7 +1044,6 @@ const PerformanceAppraisal = () => {
             </div>
           </div>
           
-          <!-- Score Section -->
           <div class="score-section">
             <div class="grade-badge">
               <span class="total-score">___/50</span>
@@ -1010,7 +1064,6 @@ const PerformanceAppraisal = () => {
             </div>
           </div>
           
-          <!-- Performance Assessment -->
           <div class="performance-section compact-table">
             <h3 class="section-title">Performance Assessment</h3>
             <table class="performance-table">
@@ -1027,7 +1080,6 @@ const PerformanceAppraisal = () => {
             </table>
           </div>
           
-          <!-- Recommendations -->
           <div class="recommendations">
             <div class="recommendation-card">
               <div class="recommendation-icon">👤</div>
@@ -1056,7 +1108,6 @@ const PerformanceAppraisal = () => {
             </div>
           </div>
           
-          <!-- Performance Notes -->
           <div class="list-section">
             <h3 class="section-title">Performance Notes</h3>
             <div class="list-container">
@@ -1064,7 +1115,6 @@ const PerformanceAppraisal = () => {
             </div>
           </div>
           
-          <!-- Expected Performance -->
           <div class="list-section">
             <h3 class="section-title">Expected Performance</h3>
             <div class="list-container">
@@ -1072,7 +1122,6 @@ const PerformanceAppraisal = () => {
             </div>
           </div>
           
-          <!-- Salary & Designation -->
           <div class="salary-section">
             <h3 class="section-title" style="text-align: center;">Salary & Designation</h3>
             <div class="comparison-grid">
@@ -1114,7 +1163,6 @@ const PerformanceAppraisal = () => {
             </div>
           </div>
           
-          <!-- Signatures -->
           <div class="signature-section">
             <h3 class="section-title" style="text-align: center;">Signatures</h3>
             <div class="signature-grid">
@@ -1148,7 +1196,6 @@ const PerformanceAppraisal = () => {
             </div>
           </div>
           
-          <!-- Footer -->
           <div class="footer">
             <div>Performance Appraisal Form • ${new Date().toLocaleDateString(
               "en-US",
@@ -1182,17 +1229,21 @@ const PerformanceAppraisal = () => {
     iframeDoc.write(printContent);
     iframeDoc.close();
 
-    // Wait for fonts to load
     setTimeout(() => {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
 
-      // Clean up after printing
       setTimeout(() => {
         document.body.removeChild(iframe);
       }, 1000);
     }, 500);
   }, []);
+
+  // Calculate pagination values
+  const totalItems = filteredAppraisals.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
 
   if (loading) {
     return <LoadingScreen />;
@@ -1273,13 +1324,13 @@ const PerformanceAppraisal = () => {
                   Track and evaluate employee performance metrics
                 </p>
               </div>
+              <StatsDisplay stats={stats} />
             </div>
 
-            {/* Quick Stats */}
-            <StatsDisplay stats={stats} />
+            {/* Quick Stats - Shows Top Performer with Score */}
           </div>
 
-          {/* Action Bar - ADD handlePrintBlank prop here */}
+          {/* Action Bar */}
           <ActionBar
             searchQuery={searchQuery}
             handleSearchChange={handleSearchChange}
@@ -1294,7 +1345,7 @@ const PerformanceAppraisal = () => {
             viewMode={viewMode}
             setViewMode={setViewMode}
             refreshData={refreshData}
-            handlePrintBlank={handlePrintBlank} // Add this line
+            handlePrintBlank={handlePrintBlank}
             departments={departments}
           />
         </div>
@@ -1358,33 +1409,136 @@ const PerformanceAppraisal = () => {
             <EmptyState searchQuery={searchQuery} />
           ) : viewMode === "grid" ? (
             <GridView
-              appraisals={filteredAppraisals}
+              appraisals={paginatedAppraisals}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onView={handleView}
               expandedAppraisal={expandedAppraisal}
               setExpandedAppraisal={setExpandedAppraisal}
               getRatingConfig={getRatingConfig}
+              isTopPerformer={isTopPerformer}
             />
           ) : (
             <ListView
-              appraisals={filteredAppraisals}
+              appraisals={paginatedAppraisals}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onView={handleView}
               getRatingConfig={getRatingConfig}
+              isTopPerformer={isTopPerformer}
             />
           )}
         </div>
 
-        {/* Summary Footer */}
+        {/* Pagination Controls */}
         {filteredAppraisals.length > 0 && (
+          <div
+            style={{
+              marginTop: "6px",
+              marginBottom: "-1px",
+              padding: "10px 16px",
+              background: "white",
+              borderRadius: "12px",
+              border: "1px solid rgba(229, 231, 235, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ fontSize: "14px", color: "#6B7280" }}>
+              Showing{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {startIndex}
+              </span>{" "}
+              to{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {endIndex}
+              </span>{" "}
+              of{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {totalItems}
+              </span>{" "}
+              results
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <PaginationButton
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                icon={<ChevronLeft size={16} />}
+                ariaLabel="Previous page"
+              />
+
+              <div style={{ display: "flex", gap: "4px" }}>
+                {getPageNumbers(currentPage, totalPages).map(
+                  (pageNum, index) =>
+                    pageNum === "..." ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        style={{
+                          padding: "8px 12px",
+                          color: "#6B7280",
+                          fontSize: "14px",
+                        }}
+                      >
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={pageNum}
+                        onClick={() => goToPage(pageNum)}
+                        style={{
+                          padding: "8px 12px",
+                          marginBottom: "-1px",
+                          minWidth: "40px",
+                          background:
+                            currentPage === pageNum ? "#8B5CF6" : "white",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "8px",
+                          color: currentPage === pageNum ? "white" : "#374151",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: currentPage === pageNum ? "600" : "400",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (currentPage !== pageNum) {
+                            e.currentTarget.style.background = "#F9FAFB";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (currentPage !== pageNum) {
+                            e.currentTarget.style.background = "white";
+                          }
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    ),
+                )}
+              </div>
+
+              <PaginationButton
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                icon={<ChevronRight size={16} />}
+                ariaLabel="Next page"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Summary Footer */}
+        {/* {filteredAppraisals.length > 0 && (
           <SummaryFooter
-            filteredAppraisals={filteredAppraisals}
+            filteredAppraisals={paginatedAppraisals}
+            currentPage={currentPage}
+            totalPages={totalPages}
             sortBy={sortBy}
             sortOrder={sortOrder}
           />
-        )}
+        )} */}
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -1398,6 +1552,38 @@ const PerformanceAppraisal = () => {
       <GlobalStyles />
     </div>
   );
+};
+
+// Helper function to generate page numbers with ellipsis
+const getPageNumbers = (currentPage, totalPages) => {
+  const delta = 2;
+  const range = [];
+  const rangeWithDots = [];
+  let l;
+
+  for (let i = 1; i <= totalPages; i++) {
+    if (
+      i === 1 ||
+      i === totalPages ||
+      (i >= currentPage - delta && i <= currentPage + delta)
+    ) {
+      range.push(i);
+    }
+  }
+
+  range.forEach((i) => {
+    if (l) {
+      if (i - l === 2) {
+        rangeWithDots.push(l + 1);
+      } else if (i - l !== 1) {
+        rangeWithDots.push("...");
+      }
+    }
+    rangeWithDots.push(i);
+    l = i;
+  });
+
+  return rangeWithDots;
 };
 
 // =================== Sub-Components ===================
@@ -1458,31 +1644,81 @@ const StatsDisplay = ({ stats }) => (
       bg="#F5F3FF"
       border="#DDD6FE"
     />
-    <StatItem
-      icon={<Star size={16} />}
-      color="#10B981"
-      value={stats.avgRating}
-      label="Avg Rating"
-      bg="#ECFDF5"
-      border="#A7F3D0"
-    />
-    <StatItem
-      icon={<Award size={16} />}
-      color="#0EA5E9"
-      value={stats.excellent}
-      label="Excellent"
-      bg="#F0F9FF"
-      border="#BAE6FD"
-    />
-    {/* <StatItem icon={<TrendingDown size={16} />} color="#EF4444" value={stats.poor} label="Needs Improvement" bg="#FEF2F2" border="#FECACA" /> */}
-    <StatItem
-      icon={<Target size={16} />}
-      color="#F59E0B"
-      value={stats.good}
-      label="Good"
-      bg="#FFFBEB"
-      border="#FDE68A"
-    />
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "16px",
+        padding: "5px 24px",
+        background: "linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)",
+        borderRadius: "12px",
+        boxShadow: "0 4px 15px rgba(251, 191, 36, 0.3)",
+        minWidth: "320px",
+      }}
+    >
+      <div
+        style={{
+          color: "white",
+          background: "rgba(255,255,255,0.2)",
+          padding: "8px",
+          borderRadius: "50%",
+        }}
+      >
+        <Crown size={24} />
+      </div>
+      <div>
+        <div
+          style={{
+            fontSize: "12px",
+            color: "rgba(255,255,255,0.9)",
+            fontWeight: "500",
+            marginBottom: "2px",
+          }}
+        >
+          🏆 TOP PERFORMER
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: "8px",
+            marginBottom: "2px",
+          }}
+        >
+          <span style={{ fontSize: "18px", fontWeight: "700", color: "white" }}>
+            {stats.topPerformerName}
+          </span>
+          <span
+            style={{
+              fontSize: "28px",
+              fontWeight: "800",
+              color: "white",
+              textShadow: "0 2px 4px rgba(0,0,0,0.2)",
+            }}
+          >
+            {stats.topPerformerScore}
+          </span>
+          <span
+            style={{
+              fontSize: "14px",
+              color: "rgba(255,255,255,0.9)",
+              fontWeight: "500",
+            }}
+          >
+            points
+          </span>
+        </div>
+        {/* <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.8)" }}>
+            {stats.topPerformerDepartment}
+          </span>
+          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>•</span>
+          <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.8)", background: "rgba(255,255,255,0.1)", padding: "2px 6px", borderRadius: "4px" }}>
+            Score: {stats.topPerformerScore}
+          </span>
+        </div> */}
+      </div>
+    </div>
   </div>
 );
 
@@ -1497,7 +1733,7 @@ const StatItem = ({ icon, color, value, label, bg, border }) => (
       border: `1px solid ${border}`,
       borderRadius: "10px",
       fontSize: "14px",
-      minWidth: "150px",
+      minWidth: "200px",
     }}
   >
     <div style={{ color }}>{icon}</div>
@@ -1530,7 +1766,6 @@ const ActionBar = ({
   viewMode,
   setViewMode,
   refreshData,
-  
   handlePrintBlank,
   departments,
 }) => (
@@ -1572,20 +1807,6 @@ const ActionBar = ({
           icon={<Building size={16} />}
           label="🏢 All Departments"
         />
-
-        {/* <FilterSelect
-          value={ratingFilter}
-          onChange={setRatingFilter}
-          options={[
-            { value: "all", label: "⭐ All Ratings" },
-            { value: "excellent", label: "⭐⭐⭐⭐⭐ Excellent (4.5+)" },
-            { value: "good", label: "⭐⭐⭐⭐ Good (3.5-4.4)" },
-            { value: "average", label: "⭐⭐⭐ Average (2.5-3.4)" },
-            { value: "poor", label: "⭐⭐ Poor (<2.5)" }
-          ]}
-          icon={<Star size={16} />}
-          label="⭐ All Ratings"
-        /> */}
 
         <SortButton
           onClick={() => toggleSort("rating")}
@@ -1753,7 +1974,7 @@ const SortButton = ({ onClick, sortOrder }) => (
     aria-label="Sort appraisals"
   >
     <ArrowUpDown size={16} />
-    Sort
+    Sort by Rating
     {sortOrder === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
   </button>
 );
@@ -1881,6 +2102,39 @@ const PrimaryButton = ({ icon, label }) => (
     {icon}
     {label}
   </motion.button>
+);
+
+const PaginationButton = ({ onClick, disabled, icon, ariaLabel }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    style={{
+      padding: "8px 12px",
+      marginBottom: "-1px",
+      background: disabled ? "#F3F4F6" : "white",
+      border: "1px solid #E5E7EB",
+      borderRadius: "8px",
+      color: disabled ? "#9CA3AF" : "#374151",
+      cursor: disabled ? "not-allowed" : "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all 0.2s ease",
+    }}
+    onMouseEnter={(e) => {
+      if (!disabled) {
+        e.currentTarget.style.background = "#F9FAFB";
+      }
+    }}
+    onMouseLeave={(e) => {
+      if (!disabled) {
+        e.currentTarget.style.background = "white";
+      }
+    }}
+    aria-label={ariaLabel}
+  >
+    {icon}
+  </button>
 );
 
 const ErrorDisplay = ({ error, refreshData }) => (
@@ -2011,6 +2265,7 @@ const GridView = ({
   expandedAppraisal,
   setExpandedAppraisal,
   getRatingConfig,
+  isTopPerformer,
 }) => (
   <div
     style={{
@@ -2033,6 +2288,7 @@ const GridView = ({
         expandedAppraisal={expandedAppraisal}
         setExpandedAppraisal={setExpandedAppraisal}
         getRatingConfig={getRatingConfig}
+        isTopPerformer={isTopPerformer(appraisal)}
       />
     ))}
   </div>
@@ -2044,149 +2300,85 @@ const ListView = ({
   onDelete,
   onView,
   getRatingConfig,
-}) => (
-  <div
-    style={{
-      background: "white",
-      borderRadius: "16px",
-      border: "1px solid rgba(229, 231, 235, 0.5)",
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-    }}
-  >
-    {/* List Header */}
+  isTopPerformer,
+}) => {
+  // Calculate available height dynamically
+  const [listHeight, setListHeight] = useState('calc(100vh - 320px)');
+  
+  useEffect(() => {
+    // Update height on resize
+    const updateHeight = () => {
+      // Adjust this value based on your actual header + footer + pagination height
+      setListHeight(`calc(100vh - 280px)`);
+    };
+    
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+
+  return (
     <div
       style={{
-        padding: "16px 20px",
-        background: "#F9FAFB",
-        borderBottom: "1px solid #E5E7EB",
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr",
-        gap: "16px",
-        fontSize: "12px",
-        fontWeight: "600",
-        color: "#6B7280",
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-        flexShrink: 0,
+        background: "white",
+        borderRadius: "16px",
+        border: "1px solid rgba(229, 231, 235, 0.5)",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%", // Take full height of parent
+        overflow: "hidden",
       }}
     >
-      <div>Employee</div>
-      <div>Department</div>
-      <div>Designation</div>
-      <div>Actions</div>
-    </div>
-
-    {/* List Content with Scroll */}
-    <div
-      style={{
-        flex: 1,
-        overflowY: "auto",
-        overflowX: "hidden",
-        maxHeight: "calc(100vh - 400px)",
-      }}
-    >
-      {appraisals.map((appraisal, index) => (
-        <AppraisalListItem
-          key={appraisal.id}
-          appraisal={appraisal}
-          index={index}
-          onEdit={() => onEdit(appraisal.id)}
-          onDelete={() => onDelete(appraisal.id)}
-          onView={() => onView(appraisal.id)}
-          getRatingConfig={getRatingConfig}
-        />
-      ))}
-    </div>
-  </div>
-);
-
-const SummaryFooter = ({ filteredAppraisals, sortBy, sortOrder }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    style={{
-      marginTop: "20px",
-      padding: "16px 20px",
-      background: "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)",
-      color: "white",
-      borderRadius: "12px",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      flexShrink: 0,
-    }}
-  >
-    <div>
+      {/* List Header */}
       <div
         style={{
-          fontSize: "14px",
-          fontWeight: "600",
-          marginBottom: "4px",
-        }}
-      >
-        Showing {filteredAppraisals.length} performance appraisals
-      </div>
-      <div
-        style={{
+          padding: "16px 20px",
+          background: "#F9FAFB",
+          borderBottom: "1px solid #E5E7EB",
+          display: "grid",
+          gridTemplateColumns: "2fr 1fr 1fr 1fr",
+          gap: "16px",
           fontSize: "12px",
-          opacity: 0.8,
+          fontWeight: "600",
+          color: "#6B7280",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          flexShrink: 0,
         }}
       >
-        Sorted by {sortBy} • {sortOrder === "asc" ? "Ascending" : "Descending"}
+        <div>Employee</div>
+        <div>Department</div>
+        <div>Designation</div>
+        <div>Actions</div>
+      </div>
+
+      {/* List Content with Scroll */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          // Use the calculated height
+          maxHeight: listHeight,
+        }}
+      >
+        {appraisals.map((appraisal, index) => (
+          <AppraisalListItem
+            key={appraisal.id}
+            appraisal={appraisal}
+            index={index}
+            onEdit={() => onEdit(appraisal.id)}
+            onDelete={() => onDelete(appraisal.id)}
+            onView={() => onView(appraisal.id)}
+            getRatingConfig={getRatingConfig}
+            isTopPerformer={isTopPerformer(appraisal)}
+          />
+        ))}
       </div>
     </div>
-    <div style={{ display: "flex", gap: "12px" }}>
-      <button
-        style={{
-          padding: "8px 16px",
-          background: "rgba(255, 255, 255, 0.1)",
-          border: "1px solid rgba(255, 255, 255, 0.2)",
-          borderRadius: "8px",
-          color: "white",
-          fontSize: "13px",
-          fontWeight: "500",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-        }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)")
-        }
-      >
-        Generate Report
-      </button>
-      <button
-        style={{
-          padding: "8px 16px",
-          background: "white",
-          color: "#1E293B",
-          border: "none",
-          borderRadius: "8px",
-          fontSize: "13px",
-          fontWeight: "600",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          transition: "all 0.2s ease",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
-      >
-        <BarChart3 size={14} />
-        View Analytics
-      </button>
-    </div>
-  </motion.div>
-);
+  );
+};
+
 
 const DeleteConfirmationModal = ({
   showDeleteConfirm,
@@ -2291,7 +2483,6 @@ const DeleteConfirmationModal = ({
 
 const GlobalStyles = () => (
   <style>{`
-    /* Custom scrollbar for Webkit browsers (Chrome, Safari, Edge) */
     ::-webkit-scrollbar {
       width: 8px;
       height: 8px;
@@ -2311,19 +2502,16 @@ const GlobalStyles = () => (
       background: #a1a1a1;
     }
 
-    /* For Firefox */
     * {
       scrollbar-width: thin;
       scrollbar-color: #c1c1c1 #f1f1f1;
     }
 
-    /* Spin animation for loading */
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
 
-    /* Smooth scrolling */
     .scroll-container {
       scroll-behavior: smooth;
     }
@@ -2339,9 +2527,29 @@ const AppraisalCard = ({
   expandedAppraisal,
   setExpandedAppraisal,
   getRatingConfig,
+  isTopPerformer,
 }) => {
   const rating = appraisal.overall_rating || appraisal.rating || 0;
   const ratingConfig = getRatingConfig(rating);
+
+  // Calculate total score
+  const criteriaScores = [
+    appraisal.job_knowledge,
+    appraisal.performance_in_meetings,
+    appraisal.communication_skills,
+    appraisal.reliability,
+    appraisal.initiative,
+    appraisal.stress_management,
+    appraisal.co_operation,
+    appraisal.leadership,
+    appraisal.discipline,
+    appraisal.ethical_considerations,
+  ].filter((score) => score !== undefined && score !== null);
+
+  const totalScore =
+    criteriaScores.length > 0
+      ? criteriaScores.reduce((sum, score) => sum + score, 0)
+      : 0;
 
   const getRatingStars = (rating) => {
     const stars = [];
@@ -2379,11 +2587,16 @@ const AppraisalCard = ({
         background: "white",
         borderRadius: "16px",
         overflow: "hidden",
-        border: "1px solid rgba(229, 231, 235, 0.5)",
+        border: isTopPerformer
+          ? "2px solid #FBBF24"
+          : "1px solid rgba(229, 231, 235, 0.5)",
         cursor: "pointer",
         transition: "all 0.3s ease",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+        boxShadow: isTopPerformer
+          ? "0 8px 20px rgba(251, 191, 36, 0.2)"
+          : "0 4px 12px rgba(0, 0, 0, 0.05)",
         height: "fit-content",
+        position: "relative",
       }}
       onClick={() =>
         setExpandedAppraisal(
@@ -2391,6 +2604,29 @@ const AppraisalCard = ({
         )
       }
     >
+      {isTopPerformer && (
+        <div
+          style={{
+            position: "absolute",
+            top: "10px",
+            right: "10px",
+            background: "#FBBF24",
+            color: "#92400E",
+            padding: "4px 8px",
+            borderRadius: "20px",
+            fontSize: "11px",
+            fontWeight: "700",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            zIndex: 10,
+          }}
+        >
+          <Crown size={12} />
+          Top Performer • Score: {totalScore}
+        </div>
+      )}
+
       {/* Card Header */}
       <div
         style={{
@@ -2791,6 +3027,9 @@ const AppraisalCard = ({
                   <strong>Designation:</strong> {appraisal.designation || "N/A"}
                 </div>
                 <div>
+                  <strong>Total Score:</strong> {totalScore}/50
+                </div>
+                <div>
                   <strong>Overall Rating:</strong> {rating.toFixed(1)}/5.0
                 </div>
                 <div>
@@ -2825,38 +3064,29 @@ const AppraisalListItem = ({
   onDelete,
   onView,
   getRatingConfig,
+  isTopPerformer,
 }) => {
   const rating = appraisal.overall_rating || appraisal.rating || 0;
   const ratingConfig = getRatingConfig(rating);
 
-  const getRatingStars = (rating) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 >= 0.5;
+  // Calculate total score
+  const criteriaScores = [
+    appraisal.job_knowledge,
+    appraisal.performance_in_meetings,
+    appraisal.communication_skills,
+    appraisal.reliability,
+    appraisal.initiative,
+    appraisal.stress_management,
+    appraisal.co_operation,
+    appraisal.leadership,
+    appraisal.discipline,
+    appraisal.ethical_considerations,
+  ].filter((score) => score !== undefined && score !== null);
 
-    for (let i = 1; i <= 5; i++) {
-      if (i <= fullStars) {
-        stars.push(
-          <span key={i} style={{ color: "#FBBF24", fontSize: "14px" }}>
-            ★
-          </span>,
-        );
-      } else if (i === fullStars + 1 && hasHalfStar) {
-        stars.push(
-          <span key={i} style={{ color: "#FBBF24", fontSize: "14px" }}>
-            ☆
-          </span>,
-        );
-      } else {
-        stars.push(
-          <span key={i} style={{ color: "#D1D5DB", fontSize: "14px" }}>
-            ★
-          </span>,
-        );
-      }
-    }
-    return <div style={{ display: "flex", gap: "2px" }}>{stars}</div>;
-  };
+  const totalScore =
+    criteriaScores.length > 0
+      ? criteriaScores.reduce((sum, score) => sum + score, 0)
+      : 0;
 
   return (
     <div
@@ -2868,8 +3098,11 @@ const AppraisalListItem = ({
         borderBottom: "1px solid #F3F4F6",
         background: index % 2 === 0 ? "white" : "#F9FAFB",
         transition: "background 0.2s ease",
+        borderLeft: isTopPerformer ? "4px solid #FBBF24" : "none",
+        position: "relative",
       }}
     >
+
       {/* Employee Column */}
       <div
         style={{ flex: 2, display: "flex", alignItems: "center", gap: "12px" }}
@@ -2886,15 +3119,61 @@ const AppraisalListItem = ({
             justifyContent: "center",
             fontWeight: "600",
             fontSize: "16px",
+            position: "relative",
           }}
         >
           {appraisal.name?.charAt(0)?.toUpperCase() || "U"}
+          {isTopPerformer && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-4px",
+                right: "-4px",
+                width: "16px",
+                height: "16px",
+                background: "#FBBF24",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "10px",
+                border: "2px solid white",
+              }}
+            >
+              👑
+            </div>
+          )}
         </div>
         <div>
           <div
-            style={{ fontSize: "14px", fontWeight: "600", color: "#111827" }}
+            style={{
+              fontSize: "14px",
+              fontWeight: "600",
+              color: "#111827",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
           >
             {appraisal.name || "Unknown Employee"}
+            {isTopPerformer && (
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  color: "#F59E0B",
+                  background: "#FEF3C7",
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <Crown size={12} />
+                Score: {totalScore}/50
+              </span>
+            )}
           </div>
           {appraisal.employee_id && (
             <div
@@ -2936,41 +3215,6 @@ const AppraisalListItem = ({
       >
         {appraisal.designation || "N/A"}
       </div>
-
-      {/* Rating Column */}
-      {/* <div
-        style={{ flex: 1, display: "flex", alignItems: "center", gap: "12px" }}
-      >
-        <div>{getRatingStars(rating)}</div>
-        <div
-          style={{
-            fontSize: "16px",
-            fontWeight: "700",
-            color: ratingConfig.color,
-          }}
-        >
-          {rating.toFixed(1)}
-        </div>
-      </div> */}
-
-      {/* Status Column */}
-      {/* <div style={{ flex: 1 }}>
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "6px 12px",
-            background: ratingConfig.light,
-            color: ratingConfig.color,
-            borderRadius: "20px",
-            fontSize: "12px",
-            fontWeight: "600",
-          }}
-        >
-          {ratingConfig.label}
-        </div>
-      </div> */}
 
       {/* Actions Column */}
       <div style={{ flex: 1, display: "flex", gap: "8px" }}>

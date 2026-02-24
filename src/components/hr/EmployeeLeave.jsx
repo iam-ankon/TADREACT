@@ -34,6 +34,10 @@ import {
   List,
   PieChart,
   Settings,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { getEmployeeLeaves, deleteEmployeeLeave } from "../../api/employeeApi";
 
@@ -49,6 +53,11 @@ const EmployeeLeave = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("list");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(100);
+  const [paginatedLeaves, setPaginatedLeaves] = useState([]);
 
   const navigate = useNavigate();
 
@@ -147,10 +156,21 @@ const EmployeeLeave = () => {
     });
 
     setFilteredLeaves(filtered);
+    // Reset to first page when filters change
+    setCurrentPage(1);
   }, [leaves, searchQuery, statusFilter, sortBy, sortOrder]);
 
   /* ------------------------------------------------------------------ *
-   *  3. Save search state
+   *  3. Handle Pagination
+   * ------------------------------------------------------------------ */
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedLeaves(filteredLeaves.slice(startIndex, endIndex));
+  }, [filteredLeaves, currentPage, itemsPerPage]);
+
+  /* ------------------------------------------------------------------ *
+   *  4. Save search state
    * ------------------------------------------------------------------ */
   useEffect(() => {
     localStorage.setItem("leaveListSearchQuery", searchQuery);
@@ -200,11 +220,37 @@ const EmployeeLeave = () => {
       const data = response.data;
       setLeaves(data);
       setFilteredLeaves(data);
+      setCurrentPage(1);
     } catch (err) {
       console.error("Error refreshing leaves:", err);
       setError("Failed to refresh leave records.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    setCurrentPage(page);
+  };
+
+  const goToFirstPage = () => {
+    setCurrentPage(1);
+  };
+
+  const goToLastPage = () => {
+    setCurrentPage(totalPages);
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
     }
   };
 
@@ -241,6 +287,12 @@ const EmployeeLeave = () => {
       recentLeaves,
     };
   };
+
+  // Calculate pagination values
+  const totalItems = filteredLeaves.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
 
   if (loading) {
     return (
@@ -1011,7 +1063,7 @@ const EmployeeLeave = () => {
             flex: 1,
             overflow: "hidden",
             position: "relative",
-            minHeight: "0", // Important for flex child scrolling
+            minHeight: "0",
           }}
         >
           {filteredLeaves.length === 0 ? (
@@ -1029,6 +1081,7 @@ const EmployeeLeave = () => {
                 justifyContent: "center",
               }}
             >
+              {/* Empty state content remains the same */}
               <div
                 style={{
                   display: "inline-flex",
@@ -1109,12 +1162,11 @@ const EmployeeLeave = () => {
                 height: "100%",
                 overflowY: "auto",
                 overflowX: "hidden",
-                // Custom scrollbar styles
                 scrollbarWidth: "thin",
                 scrollbarColor: "#c1c1c1 #f1f1f1",
               }}
             >
-              {filteredLeaves.map((leave) => (
+              {paginatedLeaves.map((leave) => (
                 <LeaveCard
                   key={leave.id}
                   leave={leave}
@@ -1152,9 +1204,6 @@ const EmployeeLeave = () => {
                   color: "#6B7280",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 10,
                   flexShrink: 0,
                 }}
               >
@@ -1166,20 +1215,18 @@ const EmployeeLeave = () => {
                 <div>Actions</div>
               </div>
 
-              {/* List Content with Scroll */}
+              {/* List Content with Scroll - Dynamic height calculation */}
               <div
                 style={{
                   flex: 1,
                   overflowY: "auto",
                   overflowX: "hidden",
-                  maxHeight: "calc(100vh - 400px)", // Adjust based on your header height
-                  // Custom scrollbar styles
-
+                  maxHeight: "calc(100vh - 320px)", // Reduced from 450px to 320px
                   scrollbarWidth: "thin",
                   scrollbarColor: "#c1c1c1 #f1f1f1",
                 }}
               >
-                {filteredLeaves.map((leave, index) => (
+                {paginatedLeaves.map((leave, index) => (
                   <LeaveListItem
                     key={leave.id}
                     leave={leave}
@@ -1196,8 +1243,153 @@ const EmployeeLeave = () => {
           )}
         </div>
 
-        {/* Summary Footer */}
+        {/* Pagination Controls */}
         {filteredLeaves.length > 0 && (
+          <div
+            style={{
+              marginTop: "6px",
+              marginBottom: "-1px",
+              padding: "10px 16px",
+              background: "white",
+              borderRadius: "12px",
+              border: "1px solid rgba(229, 231, 235, 0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ fontSize: "14px", color: "#6B7280" }}>
+              Showing{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {startIndex}
+              </span>{" "}
+              to{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {endIndex}
+              </span>{" "}
+              of{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {totalItems}
+              </span>{" "}
+              results
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <button
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                style={{
+                  padding: "8px 12px",
+                  marginBottom: "-1px",
+                  background: currentPage === 1 ? "#F3F4F6" : "white",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: "8px",
+                  color: currentPage === 1 ? "#9CA3AF" : "#374151",
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== 1) {
+                    e.currentTarget.style.background = "#F9FAFB";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 1) {
+                    e.currentTarget.style.background = "white";
+                  }
+                }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div style={{ display: "flex", gap: "4px" }}>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => goToPage(pageNum)}
+                      style={{
+                        padding: "8px 12px",
+                        marginBottom: "-1px",
+                        minWidth: "40px",
+                        background:
+                          currentPage === pageNum ? "#3B82F6" : "white",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "8px",
+                        color: currentPage === pageNum ? "white" : "#374151",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: currentPage === pageNum ? "600" : "400",
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentPage !== pageNum) {
+                          e.currentTarget.style.background = "#F9FAFB";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentPage !== pageNum) {
+                          e.currentTarget.style.background = "white";
+                        }
+                      }}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                style={{
+                  padding: "8px 12px",
+                  marginBottom: "-1px",
+                  background: currentPage === totalPages ? "#F3F4F6" : "white",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: "8px",
+                  color: currentPage === totalPages ? "#9CA3AF" : "#374151",
+                  cursor:
+                    currentPage === totalPages ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== totalPages) {
+                    e.currentTarget.style.background = "#F9FAFB";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== totalPages) {
+                    e.currentTarget.style.background = "white";
+                  }
+                }}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Summary Footer */}
+        {/* {filteredLeaves.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1221,7 +1413,7 @@ const EmployeeLeave = () => {
                   marginBottom: "4px",
                 }}
               >
-                Showing {filteredLeaves.length} leave records
+                Showing {paginatedLeaves.length} leave records on page {currentPage} of {totalPages}
               </div>
               <div
                 style={{
@@ -1284,7 +1476,7 @@ const EmployeeLeave = () => {
               </button>
             </div>
           </motion.div>
-        )}
+        )} */}
       </div>
 
       {/* Delete Confirmation Modal */}
