@@ -2645,10 +2645,7 @@ const styles = {
     color: "#1e293b",
     margin: "0 0 0.5rem 0",
   },
-  errorMessage: {
-    color: "#64748b",
-    marginBottom: "2rem",
-  },
+
   errorActions: {
     display: "flex",
     gap: "1rem",

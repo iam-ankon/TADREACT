@@ -851,7 +851,7 @@ const EditSupplierCSR = () => {
       // Log what we're sending
       console.log("Sending FormData entries:");
       for (let pair of formDataToSend.entries()) {
-        if ((!pair[1]) instanceof File) {
+        if (!(pair[1] instanceof File))  {
           console.log(pair[0] + ": " + pair[1]);
         }
       }

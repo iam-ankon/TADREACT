@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   getAttendance,
   getEmployees,
@@ -33,13 +33,11 @@ const Attendance = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  // FIXED: Always initialize with today's date
   const [dateFilter, setDateFilter] = useState(() => {
     const saved = localStorage.getItem("attendanceDateFilter");
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-    // Return saved date if exists, otherwise return today
     return saved || todayStr;
   });
 
@@ -52,6 +50,22 @@ const Attendance = () => {
 
   // Add animation state for filter changes
   const [isFiltering, setIsFiltering] = useState(false);
+
+  // Add ref for main content
+  const mainContentRef = useRef(null);
+
+  // Effect to handle scrollbar position
+  useEffect(() => {
+    // Force scrollbar to be on viewport
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      // Cleanup
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
 
   useEffect(() => {
     const savedStart = localStorage.getItem("attendanceDateRangeStart");
@@ -117,7 +131,6 @@ const Attendance = () => {
     showDateRange,
   ]);
 
-  // Rest of your helper functions remain the same...
   const requestSort = (key) => {
     let direction = "ascending";
     if (sortConfig.key === key && sortConfig.direction === "ascending") {
@@ -563,9 +576,8 @@ const Attendance = () => {
     document.body.removeChild(link);
   };
 
-  // FIXED: Clear date filter - set to empty string to show placeholder
   const clearDateFilter = () => {
-    setDateFilter(""); // Clear to show placeholder
+    setDateFilter("");
   };
 
   const clearCompanyFilter = () => {
@@ -586,30 +598,26 @@ const Attendance = () => {
     setShowDateRange(false);
   };
 
-  // FIXED: Clear all filters properly - don't reset date to today
   const clearAllFilters = () => {
     clearMonthFilter();
     clearCompanyFilter();
     clearSearch();
-    setDateFilter(""); // Clear date filter completely
+    setDateFilter("");
     clearDateRange();
   };
 
-  // FIXED: Handle date toggle properly
   const handleDateToggle = () => {
     setShowDateRange((v) => !v);
     if (!showDateRange) {
-      // Switching to date range mode - clear single date
       setDateRangeStart("");
       setDateRangeEnd("");
-      setDateFilter(""); // Clear single date when switching to range
+      setDateFilter("");
     } else {
-      // Switching to single date mode - clear range and set date to today
       setDateRangeStart("");
       setDateRangeEnd("");
       const today = new Date();
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-      setDateFilter(todayStr); // Set to today when switching to single date
+      setDateFilter(todayStr);
     }
   };
 
@@ -626,7 +634,6 @@ const Attendance = () => {
     return Array.from(set).sort();
   };
 
-  // Loading skeleton with animation
   const SkeletonRow = () => (
     <tr>
       {Array(9)
@@ -639,7 +646,6 @@ const Attendance = () => {
     </tr>
   );
 
-  // Sort indicator component
   const SortIndicator = ({ columnKey }) => {
     if (sortConfig.key !== columnKey) {
       return <span style={sortIndicatorStyle}>↕</span>;
@@ -656,26 +662,35 @@ const Attendance = () => {
       style={{
         display: "flex",
         backgroundColor: "#f8fafc",
-        minHeight: "100vh",
+        height: "100vh",
+        overflow: "hidden",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
       }}
     >
       <Sidebars />
       <div
+        ref={mainContentRef}
         style={{
           flex: 1,
-          padding: "24px 0 24px 24px", // Remove right padding
-          overflow: "visible", // Change from "hidden" to "visible"
-          margin: "0 auto",
-          maxWidth: "1650px",
+          padding: "24px",
+          overflowY: "auto",
+          overflowX: "hidden",
+          height: "100vh",
+          width: "100%",
         }}
       >
         <div
           style={{
-            maxHeight: "calc(100vh - 50px)",
-            paddingRight: "24px", // Add padding here for all content except table
+            maxWidth: "1650px",
+            margin: "0 auto",
+            width: "100%",
           }}
         >
-          {/* Header with improved design */}
+          {/* Header */}
           <div style={headerStyle}>
             <div>
               <h2 style={titleStyle}>
@@ -708,7 +723,7 @@ const Attendance = () => {
             </div>
           </div>
 
-          {/* Status Messages with improved animation */}
+          {/* Status Messages */}
           {(deleteSuccess || deleteError) && (
             <div
               style={{
@@ -727,7 +742,7 @@ const Attendance = () => {
             </div>
           )}
 
-          {/* IMPROVED FILTERS & REPORTS CARD */}
+          {/* Filters Card */}
           <div style={filtersCardStyle}>
             <div style={filtersHeaderStyle}>
               <div style={filtersTitleStyle}>
@@ -792,7 +807,7 @@ const Attendance = () => {
               </div>
             </div>
 
-            {/* Filters Grid - Improved responsive design */}
+            {/* Filters Grid */}
             <div style={filtersGridStyle}>
               {/* Search Filter */}
               <div style={filterCardStyle}>
@@ -876,7 +891,7 @@ const Attendance = () => {
                 </div>
               </div>
 
-              {/* Date Filter - Improved with better placeholder */}
+              {/* Date Filter */}
               <div style={filterCardStyle}>
                 <label style={filterLabelStyle}>
                   <span style={labelIconStyle}>📆</span>
@@ -949,7 +964,7 @@ const Attendance = () => {
               </div>
             </div>
 
-            {/* Action Buttons - Improved layout */}
+            {/* Action Buttons */}
             <div style={actionButtonsRowStyle}>
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                 <button
@@ -1036,9 +1051,25 @@ const Attendance = () => {
               </div>
             </div>
 
-            <div style={tableContainerStyle} className="table-container">
+            <div
+              style={{
+                ...tableContainerStyle,
+                maxHeight: "calc(100vh - 350px)", // Adjust based on your layout
+                overflowY: "auto",
+                overflowX: "auto",
+                position: "relative",
+              }}
+              className="table-container"
+            >
               <table style={tableStyle}>
-                <thead>
+                <thead
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 10,
+                    backgroundColor: "#f7fafc",
+                  }}
+                >
                   <tr>
                     {[
                       { key: "employee_id", label: "Employee ID" },
@@ -1052,7 +1083,13 @@ const Attendance = () => {
                       { key: "office_start_time", label: "Office Start" },
                     ].map((h) => (
                       <th
-                        style={thStyle}
+                        style={{
+                          ...thStyle,
+                          position: "sticky",
+                          top: 0,
+                          backgroundColor: "#f7fafc",
+                          zIndex: 11,
+                        }}
                         key={h.key}
                         onClick={() =>
                           [
@@ -1200,7 +1237,7 @@ const Attendance = () => {
         </div>
       </div>
 
-      {/* Employee Selection Modal - Improved */}
+      {/* Employee Selection Modal */}
       {showEmployeeSearch && (
         <div
           style={modalOverlayStyle}
@@ -1350,7 +1387,7 @@ const Attendance = () => {
         </div>
       )}
 
-      {/* Add global styles */}
+      {/* Global Styles */}
       <style>
         {`
           @keyframes fadeIn {
@@ -1364,28 +1401,66 @@ const Attendance = () => {
             }
           }
 
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translateY(-10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
+
           .sortable-header:hover {
             background-color: #e2e8f0 !important;
             transition: background-color 0.2s ease;
+            cursor: pointer;
           }
 
-          .table-container::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+          /* Scrollbar Styles - Always at edge */
+          ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
           }
           
-          .table-container::-webkit-scrollbar-track {
+          ::-webkit-scrollbar-track {
             background: #f1f5f9;
-            border-radius: 4px;
           }
           
-          .table-container::-webkit-scrollbar-thumb {
+          ::-webkit-scrollbar-thumb {
             background: #cbd5e1;
-            border-radius: 4px;
+            border-radius: 5px;
           }
           
-          .table-container::-webkit-scrollbar-thumb:hover {
+          ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
+          }
+          
+          /* Firefox scrollbar styles */
+          * {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+          }
+
+          /* Ensure body doesn't scroll */
+          body {
+            overflow: hidden !important;
+            margin: 0;
+            padding: 0;
+          }
+
+          html {
+            overflow: hidden !important;
           }
         `}
       </style>
@@ -1393,7 +1468,7 @@ const Attendance = () => {
   );
 };
 
-// Updated Styles with improvements
+// Styles
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
@@ -1812,12 +1887,8 @@ const tableSummaryStyle = {
 
 const tableContainerStyle = {
   overflowX: "auto",
-  maxHeight: "calc(100vh - 450px)",
-  overflowY: "auto",
   width: "100%",
-  // Optional: Add a subtle border to show the container edge
-  borderLeft: "none",
-  borderRight: "none",
+  // Let the main container handle vertical scrolling
 };
 
 const tableStyle = {
@@ -1839,9 +1910,6 @@ const thStyle = {
   letterSpacing: "0.05em",
   cursor: "pointer",
   userSelect: "none",
-  position: "sticky",
-  top: 0,
-  zIndex: 1,
 };
 
 const headerContentStyle = {
