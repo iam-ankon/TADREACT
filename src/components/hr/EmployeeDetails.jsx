@@ -1068,7 +1068,7 @@ const styles = {
   },
   employeeDashboard: {
     margin: "0 auto",
-    maxWidth: "1600px",
+    maxWidth: "1590px",
   },
   pageHeader: {
     display: "flex",
