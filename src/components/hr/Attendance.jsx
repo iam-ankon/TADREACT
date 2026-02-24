@@ -38,7 +38,7 @@ const Attendance = () => {
     const saved = localStorage.getItem("attendanceDateFilter");
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    
+
     // Return saved date if exists, otherwise return today
     return saved || todayStr;
   });
@@ -107,7 +107,15 @@ const Attendance = () => {
     setIsFiltering(true);
     const timer = setTimeout(() => setIsFiltering(false), 300);
     return () => clearTimeout(timer);
-  }, [searchTerm, companyFilter, monthFilter, dateFilter, dateRangeStart, dateRangeEnd, showDateRange]);
+  }, [
+    searchTerm,
+    companyFilter,
+    monthFilter,
+    dateFilter,
+    dateRangeStart,
+    dateRangeEnd,
+    showDateRange,
+  ]);
 
   // Rest of your helper functions remain the same...
   const requestSort = (key) => {
@@ -154,24 +162,32 @@ const Attendance = () => {
       if (sortConfig.key === "date") {
         const dateA = a.date ? new Date(a.date) : new Date(0);
         const dateB = b.date ? new Date(b.date) : new Date(0);
-        return sortConfig.direction === "ascending" ? dateA - dateB : dateB - dateA;
+        return sortConfig.direction === "ascending"
+          ? dateA - dateB
+          : dateB - dateA;
       } else if (sortConfig.key === "check_in") {
         const timeA = a.check_in ? getTimeValue(a.check_in) : 0;
         const timeB = b.check_in ? getTimeValue(b.check_in) : 0;
-        return sortConfig.direction === "ascending" ? timeA - timeB : timeB - timeA;
+        return sortConfig.direction === "ascending"
+          ? timeA - timeB
+          : timeB - timeA;
       } else if (sortConfig.key === "check_out") {
         const timeA = a.check_out ? getTimeValue(a.check_out) : 0;
         const timeB = b.check_out ? getTimeValue(b.check_out) : 0;
-        return sortConfig.direction === "ascending" ? timeA - timeB : timeB - timeA;
+        return sortConfig.direction === "ascending"
+          ? timeA - timeB
+          : timeB - timeA;
       } else if (sortConfig.key === "delay_time") {
         const delayA = parseDelayTime(a.attendance_delay || a.delay_time);
         const delayB = parseDelayTime(b.attendance_delay || b.delay_time);
-        return sortConfig.direction === "ascending" ? delayA - delayB : delayB - delayA;
+        return sortConfig.direction === "ascending"
+          ? delayA - delayB
+          : delayB - delayA;
       } else if (sortConfig.key === "employee_name") {
         const nameA = a.employee_name || "";
         const nameB = b.employee_name || "";
-        return sortConfig.direction === "ascending" 
-          ? nameA.localeCompare(nameB) 
+        return sortConfig.direction === "ascending"
+          ? nameA.localeCompare(nameB)
           : nameB.localeCompare(nameA);
       }
       return 0;
@@ -551,19 +567,19 @@ const Attendance = () => {
   const clearDateFilter = () => {
     setDateFilter(""); // Clear to show placeholder
   };
-  
+
   const clearCompanyFilter = () => {
     setCompanyFilter("");
   };
-  
+
   const clearSearch = () => {
     setSearchTerm("");
   };
-  
+
   const clearMonthFilter = () => {
     setMonthFilter("");
   };
-  
+
   const clearDateRange = () => {
     setDateRangeStart("");
     setDateRangeEnd("");
@@ -647,13 +663,18 @@ const Attendance = () => {
       <div
         style={{
           flex: 1,
-          padding: "24px",
-          overflowX: "auto",
+          padding: "24px 0 24px 24px", // Remove right padding
+          overflow: "visible", // Change from "hidden" to "visible"
           margin: "0 auto",
           maxWidth: "1650px",
         }}
       >
-        <div style={{ maxHeight: "calc(100vh - 50px)", overflowX: "auto" }}>
+        <div
+          style={{
+            maxHeight: "calc(100vh - 50px)",
+            paddingRight: "24px", // Add padding here for all content except table
+          }}
+        >
           {/* Header with improved design */}
           <div style={headerStyle}>
             <div>
@@ -670,7 +691,9 @@ const Attendance = () => {
                 <span style={summaryLabelStyle}>Total Records</span>
                 <span style={summaryValueStyle}>
                   {filteredAttendance.length}
-                  {isFiltering && <span style={filteringIndicatorStyle}>⟳</span>}
+                  {isFiltering && (
+                    <span style={filteringIndicatorStyle}>⟳</span>
+                  )}
                 </span>
               </div>
               <div style={summaryItemStyle}>
@@ -762,10 +785,7 @@ const Attendance = () => {
                   searchTerm ||
                   (!showDateRange && dateFilter) ||
                   (showDateRange && dateRangeStart && dateRangeEnd)) && (
-                  <button
-                    onClick={clearAllFilters}
-                    style={clearAllButtonStyle}
-                  >
+                  <button onClick={clearAllFilters} style={clearAllButtonStyle}>
                     Clear All
                   </button>
                 )}
@@ -960,7 +980,9 @@ const Attendance = () => {
                 <button
                   onClick={generateSmartReport}
                   style={primaryActionButtonStyle}
-                  disabled={!filteredAttendance || filteredAttendance.length === 0}
+                  disabled={
+                    !filteredAttendance || filteredAttendance.length === 0
+                  }
                 >
                   <span style={buttonIconStyle}>📥</span>
                   Download CSV
@@ -1082,8 +1104,8 @@ const Attendance = () => {
                       const isEarly = isEarlyPunch(delay);
 
                       return (
-                        <tr 
-                          key={a.id || index} 
+                        <tr
+                          key={a.id || index}
                           style={{
                             ...tableRowStyle,
                             animation: `fadeIn 0.3s ease ${index * 0.05}s`,
@@ -1099,11 +1121,15 @@ const Attendance = () => {
                             <span style={companyCellStyle}>{emp.company}</span>
                           </td>
                           <td style={tdStyle}>
-                            <span style={departmentCellStyle}>{emp.department}</span>
+                            <span style={departmentCellStyle}>
+                              {emp.department}
+                            </span>
                           </td>
                           <td style={tdStyle}>
                             <span style={dateStyle}>
-                              {a.date ? new Date(a.date).toLocaleDateString() : "N/A"}
+                              {a.date
+                                ? new Date(a.date).toLocaleDateString()
+                                : "N/A"}
                             </span>
                           </td>
                           <td style={tdStyle}>
@@ -1151,7 +1177,11 @@ const Attendance = () => {
                               ? "Try adjusting your filters to see more results"
                               : "No attendance data available"}
                           </p>
-                          {(monthFilter || dateFilter || dateRangeStart || companyFilter || searchTerm) && (
+                          {(monthFilter ||
+                            dateFilter ||
+                            dateRangeStart ||
+                            companyFilter ||
+                            searchTerm) && (
                             <button
                               onClick={clearAllFilters}
                               style={emptyStateButtonStyle}
@@ -1172,11 +1202,11 @@ const Attendance = () => {
 
       {/* Employee Selection Modal - Improved */}
       {showEmployeeSearch && (
-        <div style={modalOverlayStyle} onClick={() => setShowEmployeeSearch(false)}>
-          <div 
-            style={modalContentStyle} 
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div
+          style={modalOverlayStyle}
+          onClick={() => setShowEmployeeSearch(false)}
+        >
+          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
             <div style={modalHeaderStyle}>
               <h3 style={modalTitleStyle}>Select Employees for Report</h3>
               <button
@@ -1212,7 +1242,11 @@ const Attendance = () => {
 
               <div style={selectedCountStyle}>
                 <span>
-                  <strong>{Array.isArray(selectedEmployees) ? selectedEmployees.length : 0}</strong>{" "}
+                  <strong>
+                    {Array.isArray(selectedEmployees)
+                      ? selectedEmployees.length
+                      : 0}
+                  </strong>{" "}
                   employee{selectedEmployees.length !== 1 ? "s" : ""} selected
                 </span>
                 {selectedEmployees.length > 0 && (
@@ -1780,6 +1814,10 @@ const tableContainerStyle = {
   overflowX: "auto",
   maxHeight: "calc(100vh - 450px)",
   overflowY: "auto",
+  width: "100%",
+  // Optional: Add a subtle border to show the container edge
+  borderLeft: "none",
+  borderRight: "none",
 };
 
 const tableStyle = {
