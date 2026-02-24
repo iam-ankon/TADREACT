@@ -898,7 +898,7 @@ const Sidebar = () => {
           className="menu-btn"
           style={{
             position: "fixed",
-            top: "10px",
+            top: "15px",
             left: isSidebarOpen ? "300px" : "5px", // Changed this line
             background: isHRDashboard
               ? "linear-gradient(135deg, #3b82f6, #1d4ed8)"

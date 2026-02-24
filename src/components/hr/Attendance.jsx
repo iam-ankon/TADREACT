@@ -650,7 +650,7 @@ const Attendance = () => {
           padding: "24px",
           overflowX: "auto",
           margin: "0 auto",
-          maxWidth: "1550px",
+          maxWidth: "1650px",
         }}
       >
         <div style={{ maxHeight: "calc(100vh - 50px)", overflowX: "auto" }}>
