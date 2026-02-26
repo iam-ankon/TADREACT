@@ -34,8 +34,6 @@ import {
   FaBriefcase,
   FaLayerGroup,
 } from "react-icons/fa";
-import { IoMdClose } from "react-icons/io";
-import { FiDownload, FiEdit, FiEye, FiMoreVertical } from "react-icons/fi";
 
 // Utility functions
 const formatDateForDisplay = (dateString) => {
@@ -297,6 +295,28 @@ const EmployeeDetails = () => {
   };
 
   const handleExport = useCallback(() => {
+    const escapeCSVPhone = (value) => {
+      if (value === null || value === undefined || value === "") return "";
+
+      const str = String(value).trim();
+
+      // If it looks like a phone number that starts with 0 or + or contains only digits
+      if (/^0[0-9]{9,14}$|^[+][0-9]{10,15}$|^[0-9]{10,15}$/.test(str)) {
+        return `="${str}"`; // ← This is the magic
+      }
+
+      // Normal escaping for other fields
+      if (
+        str.includes(",") ||
+        str.includes('"') ||
+        str.includes("\n") ||
+        str.includes("\r")
+      ) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+
+      return str;
+    };
     const escapeCSV = (value) => {
       if (value === null || value === undefined || value === "") return "";
       const stringValue = String(value);
@@ -338,12 +358,13 @@ const EmployeeDetails = () => {
       `"Report Generated: ${reportDate}"`,
       `"Total Records: ${dataToExport.length}"`,
       "",
-      "Employee ID,Full Name,Email,Designation,Department,Company,Blood Group,Joining Date",
+      "Employee ID,Full Name,Email,Phone Number,Designation,Department,Company,Blood Group,Joining Date",
       ...dataToExport.map((emp) =>
         [
-          escapeCSV(emp.employee_id),
+          escapeCSVPhone(emp.employee_id),
           escapeCSV(emp.name),
           escapeCSV(emp.email),
+          escapeCSVPhone(emp.personal_phone),
           escapeCSV(emp.designation),
           escapeCSV(emp.department_name),
           escapeCSV(emp.company_name),

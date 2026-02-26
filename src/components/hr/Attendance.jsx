@@ -29,10 +29,9 @@ const Attendance = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [dateFilter, setDateFilter] = useState(() => {
-    const saved = localStorage.getItem("attendanceDateFilter");
+    // Remove localStorage reading from initial state
     const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    return saved || todayStr;
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   });
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
@@ -40,10 +39,8 @@ const Attendance = () => {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
-  const [availablePageSizes, setAvailablePageSizes] = useState([
-    25, 50, 100, 200, 500,
-  ]);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [availablePageSizes, setAvailablePageSizes] = useState([100]);
   const [isFiltering, setIsFiltering] = useState(false);
   const mainContentRef = useRef(null);
 
@@ -79,6 +76,11 @@ const Attendance = () => {
         setAttendance(attRes?.data || []);
         setEmployees(empRes?.data || []);
         setCompanies(compRes?.data?.results || compRes?.data || []);
+
+        // Force set to today's date when data loads, regardless of localStorage
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        setDateFilter(todayStr);
       } catch (error) {
         console.error("Error fetching data:", error);
         setAttendance([]);
@@ -89,7 +91,7 @@ const Attendance = () => {
       }
     };
     fetchData();
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
 
   useEffect(() => {
     if (dateFilter) localStorage.setItem("attendanceDateFilter", dateFilter);
