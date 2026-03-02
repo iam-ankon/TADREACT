@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createSupplier } from "../../api/supplierApi";
+import { render } from "bwip-js";
 
 const colors = {
   primary: "#2563eb",
@@ -69,6 +70,10 @@ const AddSupplierCSR = () => {
     supplier_name: "",
     supplier_id: "",
     location: "",
+    location_factory: "",
+    bank_account: "",
+    bank_branch: "",
+    bank_bin: "",
     supplier_category: "",
     year_of_establishment: "",
     rented_building: false,
@@ -82,6 +87,8 @@ const AddSupplierCSR = () => {
     total_area: "",
     manpower_workers_male: "",
     manpower_workers_female: "",
+    other_gender_workers: "",
+    disabled_workers: "",
     manpower_staff_male: "",
     manpower_staff_female: "",
     total_manpower: "",
@@ -95,6 +102,7 @@ const AddSupplierCSR = () => {
     yearly_turnover_usd: "",
     weekly_holiday: "Friday",
     bgmea_number: "",
+    bkmea_number: "",
     rsc: "",
     tad_group_order_status: "",
 
@@ -161,6 +169,8 @@ const AddSupplierCSR = () => {
     berc_license_validity: "",
     berc_days_remaining: "",
     license_remarks: "",
+    drinking_water_license_validity: "",
+    drinking_water_license_days_remaining: "",
 
     // Fire Safety
     last_fire_training_by_fscd: "",
@@ -169,6 +179,8 @@ const AddSupplierCSR = () => {
     fscd_next_drill_date: "",
     total_fire_fighter_rescue_first_aider_fscd: "",
     fire_safety_remarks: "",
+    fire_safety_detection: "",
+    fire_safety_protection: "",
 
     // Wages & Compliance
     minimum_wages_paid: false,
@@ -186,6 +198,9 @@ const AddSupplierCSR = () => {
     higg_fem_self_assessment_score: "",
     higg_fem_verification_assessment_score: "",
     behive_chemical_inventory: false,
+    co2_report: "",
+    solar_energy: "",
+    green_energy: "",
 
     // RSC Audit
     rsc_id: "",
@@ -244,6 +259,13 @@ const AddSupplierCSR = () => {
 
   // File states
   const [files, setFiles] = useState({
+    // Building images (multiple)
+    building_images: [],
+    fire_images: [],
+
+    //general
+    card_image: null,
+
     // Certificate files
     bsci_certificate: null,
     sedex_certificate: null,
@@ -267,6 +289,7 @@ const AddSupplierCSR = () => {
     group_insurance_file: null,
     boiler_license_file: null,
     berc_license_file: null,
+    drinking_water_license_file: null,
 
     // Environmental files
     environmental_compliance_certificate: null,
@@ -310,6 +333,26 @@ const AddSupplierCSR = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("basic");
   const [touchedFields, setTouchedFields] = useState({});
+  const [buildingImages, setBuildingImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+
+  const handleBuildingImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    setBuildingImages((prev) => [...prev, ...files]);
+
+    // Create preview URLs
+    const newPreviews = files.map((file) => URL.createObjectURL(file));
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+  };
+
+  // Add function to remove individual images
+  const removeBuildingImage = (index) => {
+    setBuildingImages((prev) => prev.filter((_, i) => i !== index));
+
+    // Revoke object URL to avoid memory leaks
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Add this function inside the AddSupplierCSR component
   const calculateDaysRemaining = (validityDate) => {
@@ -388,7 +431,11 @@ const AddSupplierCSR = () => {
       } else if (name === "boiler_license_validity") {
         newData.boiler_license_days_remaining = calculateDaysRemaining(value);
       } else if (name === "berc_license_validity") {
+        // Fix: Use berc_days_remaining instead of berc_license_validity_days_remaining
         newData.berc_days_remaining = calculateDaysRemaining(value);
+      } else if (name === "drinking_water_license_validity") {
+        newData.drinking_water_license_days_remaining =
+          calculateDaysRemaining(value);
       }
 
       return newData;
@@ -445,6 +492,11 @@ const AddSupplierCSR = () => {
         }
       });
 
+      // Add multiple building images
+      buildingImages.forEach((image) => {
+        formDataToSend.append("building_images", image);
+      });
+
       // Add files
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
@@ -479,6 +531,64 @@ const AddSupplierCSR = () => {
     }
   };
 
+  // Add this render function for multiple image upload
+  const renderMultipleImageUpload = (label, name) => {
+    return (
+      <div style={formGroupStyle}>
+        <label style={labelStyle}>{label}</label>
+        <div style={fileInputWrapperStyle}>
+          <input
+            type="file"
+            name={name}
+            onChange={handleBuildingImagesChange}
+            accept="image/*"
+            multiple
+            style={fileInputStyle}
+            disabled={isLoading}
+            id={`file-${name}`}
+          />
+          <label htmlFor={`file-${name}`} style={fileInputLabelStyle}>
+            Choose multiple images
+          </label>
+        </div>
+
+        {/* Image Previews */}
+        {imagePreviews.length > 0 && (
+          <div style={imageGridStyle}>
+            {imagePreviews.map((preview, index) => (
+              <div key={index} style={imagePreviewContainerStyle}>
+                <img
+                  src={preview}
+                  alt={`Building preview ${index + 1}`}
+                  style={imagePreviewStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeBuildingImage(index)}
+                  style={removeImageButtonStyle}
+                >
+                  ×
+                </button>
+                <div style={imageInfoStyle}>
+                  {buildingImages[index]?.name}
+                  <span style={fileSizeStyle}>
+                    ({(buildingImages[index]?.size / 1024).toFixed(2)} KB)
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {buildingImages.length > 0 && (
+          <div style={imageCountStyle}>
+            Total {buildingImages.length} image(s) selected
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleNext = () => {
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
     if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1].id);
@@ -497,12 +607,11 @@ const AddSupplierCSR = () => {
     { id: "certifications", label: "Certifications", icon: "📜" },
     { id: "licenses", label: "Licenses", icon: "📋" },
     { id: "safety", label: "Safety", icon: "🚨" },
-    { id: "compliance", label: "Compliance", icon: "✅" },
     { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
     { id: "environment", label: "Environment", icon: "🌱" },
     { id: "rsc", label: "RSC Audit", icon: "🔍" },
     { id: "csr", label: "CSR", icon: "🤝" },
-    { id: "documents", label: "Documents", icon: "📎" },
+    { id: "documents", label: "Additional Documents", icon: "📎" },
   ];
 
   const renderInput = (
@@ -850,8 +959,21 @@ const AddSupplierCSR = () => {
                     "text",
                     true,
                   )}
-                  {renderInput("Supplier ID", "supplier_id", "text", true)}
-                  {renderInput("Location", "location", "text", false, 3)}
+                  {renderInput("Supplier ID", "supplier_id", "text")}
+                  {renderInput(
+                    "Head Office Address",
+                    "location",
+                    "text",
+                    false,
+                    3,
+                  )}
+                  {renderInput(
+                    "Factory Location (City/Region)",
+                    "location_factory",
+                    "text",
+                    false,
+                    3,
+                  )}
                   {renderSelect(
                     "Supplier Category",
                     "supplier_category",
@@ -892,6 +1014,22 @@ const AddSupplierCSR = () => {
                   )}
                   {renderInput("Email", "email", "email")}
                   {renderInput("Phone", "phone", "tel")}
+                  {renderSelect(
+                    "Weekly Holiday",
+                    "weekly_holiday",
+                    holidayOptions,
+                  )}
+                  {renderInput("BGMEA Number", "bgmea_number")}
+                  {renderInput("BKMEA Number", "bkmea_number")}
+                  {renderInput("RSC ID", "rsc")}
+                  {renderInput("Visiting Card", "card_image", "file")}
+
+                  <div style={fullWidthStyle}>
+                    <div style={subSectionTitleStyle}>Bank Details</div>
+                  </div>
+                  {renderInput("Bank Account", "bank_account")}
+                  {renderInput("Bank Branch", "bank_branch")}
+                  {renderInput("Bank BIN", "bank_bin")}
                 </div>
               </div>
             )}
@@ -924,6 +1062,12 @@ const AddSupplierCSR = () => {
                     3,
                   )}
                   {renderInput("Total Area (sq ft)", "total_area", "number")}
+                  <div style={fullWidthStyle}>
+                    {renderMultipleImageUpload(
+                      "Building Images",
+                      "building_images",
+                    )}
+                  </div>
                 </div>
                 <div style={dividerStyle} />
                 <div>
@@ -937,6 +1081,16 @@ const AddSupplierCSR = () => {
                     {renderInput(
                       "Workers - Female",
                       "manpower_workers_female",
+                      "number",
+                    )}
+                    {renderInput(
+                      "Workers - Other Gender",
+                      "manpower_workers_other_gender",
+                      "number",
+                    )}
+                    {renderInput(
+                      "Workers - Disabled",
+                      "manpower_workers_disabled",
                       "number",
                     )}
                     {renderInput(
@@ -1005,13 +1159,6 @@ const AddSupplierCSR = () => {
                     "yearly_turnover_usd",
                     "number",
                   )}
-                  {renderSelect(
-                    "Weekly Holiday",
-                    "weekly_holiday",
-                    holidayOptions,
-                  )}
-                  {renderInput("BGMEA Number", "bgmea_number")}
-                  {renderInput("RSC", "rsc")}
                   {renderInput(
                     "TAD Group Order Status",
                     "tad_group_order_status",
@@ -1126,7 +1273,35 @@ const AddSupplierCSR = () => {
                     </div>
                   </div>
 
-                  {renderLicenseGroup("berc_license", "BERC License")}
+                  {/* BERC License - Custom section */}
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>BERC License</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderInput(
+                          "Validity",
+                          "berc_license_validity",
+                          "date",
+                        )}
+                        {renderInput(
+                          "Days Remaining",
+                          "berc_days_remaining",
+                          "number",
+                        )}
+                        {renderFileInput(
+                          "BERC License File",
+                          "berc_license_file",
+                          ".pdf,.jpg,.png",
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {renderLicenseGroup(
+                    "drinking_water_license",
+                    "Drinking Water Test License",
+                  )}
 
                   <div style={fullWidthStyle}>
                     {renderInput(
@@ -1177,6 +1352,16 @@ const AddSupplierCSR = () => {
                     "total_fire_fighter_rescue_first_aider_fscd",
                     "number",
                   )}
+                  {renderInput(
+                    "Fire Safety Detection",
+                    "fire_safety_detection",
+                    "text",
+                  )}
+                  {renderInput(
+                    "Fire Safety Protection",
+                    "fire_safety_protection",
+                    "text",
+                  )}
                 </div>
 
                 <div style={dividerStyle} />
@@ -1199,6 +1384,11 @@ const AddSupplierCSR = () => {
                       "fire_safety_audit_report",
                       ".pdf,.jpg,.png",
                     )}
+                    {renderMultipleImageUpload(
+                      "Fire Safety Images",
+                      "fire_images",
+                      ".pdf,.jpg,.png",
+                    )}
                   </div>
                 </div>
 
@@ -1212,96 +1402,6 @@ const AddSupplierCSR = () => {
                     false,
                     3,
                   )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "compliance" && (
-              <div style={formSectionStyle}>
-                <div style={sectionHeaderStyle}>
-                  <h3 style={sectionTitleStyle}>
-                    <span style={sectionIconStyle}>✅</span> Compliance &
-                    Grievance
-                  </h3>
-                  <p style={sectionDescriptionStyle}>
-                    Compliance status and grievance management
-                  </p>
-                </div>
-
-                <div style={cardsContainerStyle}>
-                  <div style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>Compliance Status</h4>
-                    </div>
-                    <div style={cardBodyStyle}>
-                      <div style={formGridStyle}>
-                        {renderSelect(
-                          "Compliance Status",
-                          "compliance_status",
-                          complianceStatusOptions,
-                        )}
-                        {renderFileInput(
-                          "Compliance Certificate",
-                          "compliance_certificate",
-                          ".pdf,.jpg,.png",
-                        )}
-                        <div style={fullWidthStyle}>
-                          {renderInput(
-                            "Compliance Remarks",
-                            "compliance_remarks",
-                            "text",
-                            false,
-                            3,
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>Grievance Management</h4>
-                    </div>
-                    <div style={cardBodyStyle}>
-                      <div style={checkboxGridStyle}>
-                        {renderCheckbox(
-                          "Grievance Mechanism Available",
-                          "grievance_mechanism",
-                        )}
-                      </div>
-                      <div style={formGridStyle}>
-                        {renderFileInput(
-                          "Grievance Policy Document",
-                          "grievance_policy_document",
-                          ".pdf",
-                        )}
-                        {renderInput(
-                          "Grievance Resolution Procedure",
-                          "grievance_resolution_procedure",
-                          "text",
-                          false,
-                          3,
-                        )}
-                        {renderInput(
-                          "Last Grievance Resolution Date",
-                          "last_grievance_resolution_date",
-                          "date",
-                        )}
-                        {renderInput(
-                          "Grievance Resolution Rate (%)",
-                          "grievance_resolution_rate",
-                          "number",
-                        )}
-                        {renderInput(
-                          "Grievance Remarks",
-                          "grievance_remarks",
-                          "text",
-                          false,
-                          3,
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -1415,6 +1515,9 @@ const AddSupplierCSR = () => {
                     "higg_fem_verification_assessment_score",
                     "number",
                   )}
+                  {renderInput("CO2 Report", "co2_report", "text")}
+                  {renderInput("Solar Energy", "solar_energy", "text")}
+                  {renderInput("Green Energy", "green_energy", "text")}
                   <div style={fullWidthStyle}>
                     {renderCheckbox(
                       "Behive Chemical Inventory",
@@ -1502,6 +1605,90 @@ const AddSupplierCSR = () => {
                     "Any Gift Provided During Festival",
                     "any_gift_provided_during_festival",
                   )}
+                </div>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>✅</span> Compliance &
+                    Grievance
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Compliance status and grievance management
+                  </p>
+                </div>
+                <div style={cardsContainerStyle}>
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Compliance Status</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderSelect(
+                          "Compliance Status",
+                          "compliance_status",
+                          complianceStatusOptions,
+                        )}
+                        {renderFileInput(
+                          "Compliance Certificate",
+                          "compliance_certificate",
+                          ".pdf,.jpg,.png",
+                        )}
+                        <div style={fullWidthStyle}>
+                          {renderInput(
+                            "Compliance Remarks",
+                            "compliance_remarks",
+                            "text",
+                            false,
+                            3,
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Grievance Management</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={checkboxGridStyle}>
+                        {renderCheckbox(
+                          "Grievance Mechanism Available",
+                          "grievance_mechanism",
+                        )}
+                      </div>
+                      <div style={formGridStyle}>
+                        {renderFileInput(
+                          "Grievance Policy Document",
+                          "grievance_policy_document",
+                          ".pdf",
+                        )}
+                        {renderInput(
+                          "Grievance Resolution Procedure",
+                          "grievance_resolution_procedure",
+                          "text",
+                          false,
+                          3,
+                        )}
+                        {renderInput(
+                          "Last Grievance Resolution Date",
+                          "last_grievance_resolution_date",
+                          "date",
+                        )}
+                        {renderInput(
+                          "Grievance Resolution Rate (%)",
+                          "grievance_resolution_rate",
+                          "number",
+                        )}
+                        {renderInput(
+                          "Grievance Remarks",
+                          "grievance_remarks",
+                          "text",
+                          false,
+                          3,
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -2201,6 +2388,63 @@ const spinnerSmallStyle = {
   borderTopColor: "white",
   borderRadius: "50%",
   animation: "spin 0.6s linear infinite",
+};
+
+const imageGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+  gap: "1rem",
+  marginTop: "1rem",
+};
+
+const imagePreviewContainerStyle = {
+  position: "relative",
+  border: `1px solid ${colors.border}`,
+  borderRadius: "8px",
+  padding: "0.5rem",
+  backgroundColor: colors.light,
+};
+
+const imagePreviewStyle = {
+  width: "100%",
+  height: "120px",
+  objectFit: "cover",
+  borderRadius: "4px",
+};
+
+const removeImageButtonStyle = {
+  position: "absolute",
+  top: "0.25rem",
+  right: "0.25rem",
+  width: "24px",
+  height: "24px",
+  borderRadius: "50%",
+  backgroundColor: colors.danger,
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "1rem",
+  fontWeight: "bold",
+  ":hover": {
+    backgroundColor: "#b91c1c",
+  },
+};
+
+const imageInfoStyle = {
+  fontSize: "0.75rem",
+  marginTop: "0.5rem",
+  color: colors.textSecondary,
+  wordBreak: "break-all",
+};
+
+const imageCountStyle = {
+  fontSize: "0.875rem",
+  color: colors.primary,
+  marginTop: "0.5rem",
+  fontWeight: "500",
 };
 
 // Add CSS animations

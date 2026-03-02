@@ -42,10 +42,11 @@ const getStatusColor = (status) => {
 
 const getDaysRemainingColor = (days) => {
   if (!days && days !== 0) return { bg: "#6c757d", color: "white" };
-  if (days <= 30) return { bg: "#dc3545", color: "white" };
-  if (days <= 60) return { bg: "#ffc107", color: "black" };
-  if (days <= 90) return { bg: "#28a745", color: "white" };
-  return { bg: "#28a745", color: "white" };
+  if (days <= 0) return { bg: "#dc3545", color: "white" }; // Expired
+  if (days <= 30) return { bg: "#dc3545", color: "white" }; // Critical
+  if (days <= 60) return { bg: "#fd7e14", color: "white" }; // Warning
+  if (days <= 90) return { bg: "#ffc107", color: "black" }; // Approaching
+  return { bg: "#28a745", color: "white" }; // Good
 };
 
 const SupplierDetailsCSR = () => {
@@ -61,12 +62,9 @@ const SupplierDetailsCSR = () => {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [sendingNotifications, setSendingNotifications] = useState(false);
   const [notificationResult, setNotificationResult] = useState(null);
-  const [selectedNotifications, setSelectedNotifications] = useState({
-    bsci: false,
-    oekoTex: false,
-    gots: false,
-    fireLicense: false,
-  });
+  const [customMessage, setCustomMessage] = useState('');
+  const [selectedItems, setSelectedItems] = useState({});
+  const [expiryItems, setExpiryItems] = useState([]);
 
   useEffect(() => {
     fetchSupplierDetails();
@@ -118,85 +116,106 @@ const SupplierDetailsCSR = () => {
     return "Not specified";
   };
 
-  // Get eligible certifications for notification (90, 75, 60 days)
-  const getEligibleNotifications = () => {
+  // Get ALL expiring items (certifications, licenses, safety items)
+  const getExpiringItems = () => {
     if (!supplier) return [];
 
-    const eligible = [];
-    const targetDays = [90, 75, 60];
+    const items = [];
+    const today = new Date();
+    const notificationDays = [90, 75, 60, 45, 30, 15];
 
-    // Check BSCI
-    if (
-      supplier.bsci_validity_days_remaining &&
-      targetDays.includes(supplier.bsci_validity_days_remaining)
-    ) {
-      eligible.push({
-        id: "bsci",
-        name: "BSCI Certification",
-        days: supplier.bsci_validity_days_remaining,
-        expiry: supplier.bsci_validity,
-        status: supplier.bsci_status,
-      });
-    }
+    // Helper function to calculate days remaining
+    const calculateDays = (dateString) => {
+      if (!dateString) return null;
+      const expiryDate = new Date(dateString);
+      const diffTime = expiryDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    };
 
-    // Check Oeko-Tex
-    if (
-      supplier.oeko_tex_validity_days_remaining &&
-      targetDays.includes(supplier.oeko_tex_validity_days_remaining)
-    ) {
-      eligible.push({
-        id: "oekoTex",
-        name: "Oeko-Tex Certification",
-        days: supplier.oeko_tex_validity_days_remaining,
-        expiry: supplier.oeko_tex_validity,
-        status: supplier.oeko_tex_status,
-      });
-    }
+    // Certifications with days remaining fields
+    const certItems = [
+      { id: 'bsci', name: 'BSCI Certification', days: supplier.bsci_validity_days_remaining, expiry: supplier.bsci_validity, status: supplier.bsci_status, icon: '📜', category: 'certification' },
+      { id: 'sedex', name: 'SEDEX Certification', days: supplier.sedex_validity_days_remaining, expiry: supplier.sedex_validity, status: supplier.sedex_status, icon: '📜', category: 'certification' },
+      { id: 'wrap', name: 'WRAP Certification', days: supplier.wrap_validity_days_remaining, expiry: supplier.wrap_validity, status: supplier.wrap_status, icon: '📜', category: 'certification' },
+      { id: 'security_audit', name: 'CTPAT Security Audit', days: supplier.security_audit_validity_days_remaining, expiry: supplier.security_audit_validity, status: supplier.security_audit_status, icon: '🛡️', category: 'certification' },
+      { id: 'oeko_tex', name: 'Oeko-Tex Certification', days: supplier.oeko_tex_validity_days_remaining, expiry: supplier.oeko_tex_validity, status: supplier.oeko_tex_status, icon: '📜', category: 'certification' },
+      { id: 'gots', name: 'GOTS Certification', days: supplier.gots_validity_days_remaining, expiry: supplier.gots_validity, status: supplier.gots_status, icon: '📜', category: 'certification' },
+      { id: 'ocs', name: 'OCS Certification', days: supplier.ocs_validity_days_remaining, expiry: supplier.ocs_validity, status: supplier.ocs_status, icon: '📜', category: 'certification' },
+      { id: 'grs', name: 'GRS Certification', days: supplier.grs_validity_days_remaining, expiry: supplier.grs_validity, status: supplier.grs_status, icon: '📜', category: 'certification' },
+      { id: 'rcs', name: 'RCS Certification', days: supplier.rcs_validity_days_remaining, expiry: supplier.rcs_validity, status: supplier.rcs_status, icon: '📜', category: 'certification' },
+      { id: 'iso_9001', name: 'ISO 9001 Certification', days: supplier.iso_9001_validity_days_remaining, expiry: supplier.iso_9001_validity, status: supplier.iso_9001_status, icon: '📜', category: 'certification' },
+      { id: 'iso_14001', name: 'ISO 14001 Certification', days: supplier.iso_14001_validity_days_remaining, expiry: supplier.iso_14001_validity, status: supplier.iso_14001_status, icon: '📜', category: 'certification' },
+      
+      // Licenses
+      { id: 'trade_license', name: 'Trade License', days: supplier.trade_license_days_remaining, expiry: supplier.trade_license_validity, status: 'License', icon: '📋', category: 'license' },
+      { id: 'factory_license', name: 'Factory License', days: supplier.factory_license_days_remaining, expiry: supplier.factory_license_validity, status: 'License', icon: '🏭', category: 'license' },
+      { id: 'fire_license', name: 'Fire License', days: supplier.fire_license_days_remaining, expiry: supplier.fire_license_validity, status: 'License', icon: '🚒', category: 'license' },
+      { id: 'membership', name: 'Membership Certificate', days: supplier.membership_days_remaining, expiry: supplier.membership_validity, status: 'License', icon: '📋', category: 'license' },
+      { id: 'group_insurance', name: 'Group Insurance', days: supplier.group_insurance_days_remaining, expiry: supplier.group_insurance_validity, status: 'License', icon: '🛡️', category: 'license' },
+      { id: 'boiler_license', name: 'Boiler License', days: supplier.boiler_license_days_remaining, expiry: supplier.boiler_license_validity, status: 'License', icon: '⚙️', category: 'license' },
+      { id: 'berc_license', name: 'BERC License', days: supplier.berc_days_remaining, expiry: supplier.berc_license_validity, status: 'License', icon: '📋', category: 'license' },
+    ];
 
-    // Check GOTS
-    if (
-      supplier.gots_validity_days_remaining &&
-      targetDays.includes(supplier.gots_validity_days_remaining)
-    ) {
-      eligible.push({
-        id: "gots",
-        name: "GOTS Certification",
-        days: supplier.gots_validity_days_remaining,
-        expiry: supplier.gots_validity,
-        status: supplier.gots_status,
-      });
-    }
+    // Date fields that need calculation
+    const dateItems = [
+      { id: 'fire_training', name: 'Fire Training (FSCD)', date: supplier.last_fire_training_by_fscd, icon: '🔥', category: 'safety' },
+      { id: 'next_fire_training', name: 'Next Fire Training', date: supplier.fscd_next_fire_training_date, icon: '🔥', category: 'safety' },
+      { id: 'fire_drill', name: 'Fire Drill Record', date: supplier.last_fire_drill_record_by_fscd, icon: '🔥', category: 'safety' },
+      { id: 'next_fire_drill', name: 'Next Fire Drill', date: supplier.fscd_next_drill_date, icon: '🔥', category: 'safety' },
+      { id: 'water_test', name: 'Water Test Report (DOE)', date: supplier.water_test_report_doe, icon: '💧', category: 'environmental' },
+      { id: 'zdhc_water', name: 'ZDHC Water Test', date: supplier.zdhc_water_test_report, icon: '💧', category: 'environmental' },
+      { id: 'safety_meeting', name: 'Safety Committee Meeting', date: supplier.last_safety_committee_meeting_date, icon: '👥', category: 'committee' },
+      { id: 'pc_meeting', name: 'PC Meeting', date: supplier.last_pc_meeting_date, icon: '👥', category: 'committee' },
+      { id: 'pc_election', name: 'PC Election', date: supplier.last_pc_election_date, icon: '🗳️', category: 'committee' },
+      { id: 'safety_formation', name: 'Safety Committee Formation', date: supplier.last_safety_committee_formation_date, icon: '👥', category: 'committee' },
+      { id: 'safety_audit', name: 'Safety Audit', date: supplier.last_safety_audit_date, icon: '🔍', category: 'safety' },
+    ];
 
-    // Check Fire License
-    if (
-      supplier.fire_license_days_remaining &&
-      targetDays.includes(supplier.fire_license_days_remaining)
-    ) {
-      eligible.push({
-        id: "fireLicense",
-        name: "Fire License",
-        days: supplier.fire_license_days_remaining,
-        expiry: supplier.fire_license_validity,
-        status: supplier.fire_license_days_remaining > 0 ? "valid" : "expired",
-      });
-    }
+    // Add items with pre-calculated days
+    certItems.forEach(item => {
+      if (item.days && notificationDays.includes(item.days)) {
+        items.push({
+          ...item,
+          days_remaining: item.days,
+          expiry_date: item.expiry,
+          eligible: true
+        });
+      }
+    });
 
-    return eligible;
+    // Add date items with calculated days
+    dateItems.forEach(item => {
+      if (item.date) {
+        const days = calculateDays(item.date);
+        if (days && notificationDays.includes(days)) {
+          items.push({
+            ...item,
+            days_remaining: days,
+            expiry_date: item.date,
+            status: 'pending',
+            eligible: true
+          });
+        }
+      }
+    });
+
+    return items.sort((a, b) => a.days_remaining - b.days_remaining);
   };
 
   // Send expiry notifications
   const sendExpiryNotifications = async () => {
-    const selected = Object.entries(selectedNotifications)
+    const selected = Object.entries(selectedItems)
       .filter(([_, isSelected]) => isSelected)
       .map(([id]) => id);
 
     if (selected.length === 0) {
-      alert("Please select at least one certification to notify");
+      alert('Please select at least one item to notify');
       return;
     }
 
     if (!supplier.email) {
-      alert("Supplier does not have an email address");
+      alert('Supplier does not have an email address');
       return;
     }
 
@@ -220,28 +239,25 @@ const SupplierDetailsCSR = () => {
           },
           credentials: "include",
           body: JSON.stringify({
-            certifications: selected,
+            items: selected,
             from_email: "compliance@texweave.net",
+            custom_message: customMessage
           }),
-        },
+        }
       );
 
       const result = await response.json();
 
-      if (response.ok) {
+      if (response.ok && result.success) {
         setNotificationResult({
           success: true,
           message: `✅ Notifications sent successfully to ${supplier.email}`,
-          details: result,
+          details: result.notifications,
         });
 
         // Reset selections
-        setSelectedNotifications({
-          bsci: false,
-          oekoTex: false,
-          gots: false,
-          fireLicense: false,
-        });
+        setSelectedItems({});
+        setCustomMessage('');
       } else {
         setNotificationResult({
           success: false,
@@ -257,6 +273,11 @@ const SupplierDetailsCSR = () => {
     } finally {
       setSendingNotifications(false);
     }
+  };
+
+  // Get notification badge count
+  const getNotificationCount = () => {
+    return getExpiringItems().length;
   };
 
   const tabs = [
@@ -341,23 +362,21 @@ const SupplierDetailsCSR = () => {
             onClick={() => setShowNotificationModal(true)}
             style={{
               ...styles.notifyButton,
-              ...(getEligibleNotifications().length > 0
-                ? styles.notifyButtonActive
-                : {}),
+              ...(getNotificationCount() > 0 ? styles.notifyButtonActive : {}),
             }}
             disabled={!supplier.email || supplier.email.trim() === ""}
             title={
               !supplier.email || supplier.email.trim() === ""
                 ? "Supplier has no email address"
-                : getEligibleNotifications().length > 0
-                  ? `${getEligibleNotifications().length} certification(s) at 90/75/60 days remaining`
-                  : "No certifications at 90/75/60 days remaining"
+                : getNotificationCount() > 0
+                  ? `${getNotificationCount()} item(s) at notification days`
+                  : "No items at notification days"
             }
           >
             📧 Send Expiry Notifications
-            {getEligibleNotifications().length > 0 && (
+            {getNotificationCount() > 0 && (
               <span style={styles.notifyBadge}>
-                {getEligibleNotifications().length}
+                {getNotificationCount()}
               </span>
             )}
           </button>
@@ -426,169 +445,170 @@ const SupplierDetailsCSR = () => {
         </div>
       </div>
 
-      {/* Days Remaining Summary Cards */}
+      {/* Days Remaining Summary Cards - Enhanced */}
       <div style={styles.daysSummary}>
         <h3 style={styles.daysSummaryTitle}>📅 Days Remaining Summary</h3>
         <div style={styles.daysGrid}>
-          {/* BSCI Days */}
+          {/* Certifications */}
           <div style={styles.daysCard}>
             <div style={styles.daysCardHeader}>
               <span style={styles.daysCardIcon}>📜</span>
-              <span style={styles.daysCardTitle}>BSCI</span>
+              <span style={styles.daysCardTitle}>Certifications</span>
             </div>
             <div style={styles.daysCardContent}>
-              {supplier.bsci_validity_days_remaining ? (
-                <>
-                  <span
-                    style={{
-                      ...styles.daysNumber,
-                      backgroundColor: getDaysRemainingColor(
-                        supplier.bsci_validity_days_remaining,
-                      ).bg,
-                      color: getDaysRemainingColor(
-                        supplier.bsci_validity_days_remaining,
-                      ).color,
-                    }}
-                  >
-                    {supplier.bsci_validity_days_remaining} days
+              {supplier.bsci_validity_days_remaining && (
+                <div style={styles.daysCardItem}>
+                  <span>BSCI:</span>
+                  <span style={{
+                    ...styles.daysCardBadge,
+                    backgroundColor: getDaysRemainingColor(supplier.bsci_validity_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.bsci_validity_days_remaining).color,
+                  }}>
+                    {supplier.bsci_validity_days_remaining}d
                   </span>
-                  <span style={styles.daysStatus}>
-                    Status: {supplier.bsci_status || "N/A"}
+                </div>
+              )}
+              {supplier.oeko_tex_validity_days_remaining && (
+                <div style={styles.daysCardItem}>
+                  <span>Oeko-Tex:</span>
+                  <span style={{
+                    ...styles.daysCardBadge,
+                    backgroundColor: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).color,
+                  }}>
+                    {supplier.oeko_tex_validity_days_remaining}d
                   </span>
-                  <span style={styles.daysDate}>
-                    Expires: {formatDate(supplier.bsci_validity)}
+                </div>
+              )}
+              {supplier.gots_validity_days_remaining && (
+                <div style={styles.daysCardItem}>
+                  <span>GOTS:</span>
+                  <span style={{
+                    ...styles.daysCardBadge,
+                    backgroundColor: getDaysRemainingColor(supplier.gots_validity_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.gots_validity_days_remaining).color,
+                  }}>
+                    {supplier.gots_validity_days_remaining}d
                   </span>
-                  {[90, 75, 60].includes(
-                    supplier.bsci_validity_days_remaining,
-                  ) && (
-                    <span style={styles.reminderBadge}>🔔 Reminder Due</span>
-                  )}
-                </>
-              ) : (
-                <span style={styles.daysNotAvailable}>Not Available</span>
+                </div>
+              )}
+              {supplier.wrap_validity_days_remaining && (
+                <div style={styles.daysCardItem}>
+                  <span>WRAP:</span>
+                  <span style={{
+                    ...styles.daysCardBadge,
+                    backgroundColor: getDaysRemainingColor(supplier.wrap_validity_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.wrap_validity_days_remaining).color,
+                  }}>
+                    {supplier.wrap_validity_days_remaining}d
+                  </span>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Oeko-Tex Days */}
+          {/* Licenses */}
           <div style={styles.daysCard}>
             <div style={styles.daysCardHeader}>
-              <span style={styles.daysCardIcon}>📜</span>
-              <span style={styles.daysCardTitle}>Oeko-Tex</span>
+              <span style={styles.daysCardIcon}>📋</span>
+              <span style={styles.daysCardTitle}>Licenses</span>
             </div>
             <div style={styles.daysCardContent}>
-              {supplier.oeko_tex_validity_days_remaining ? (
-                <>
-                  <span
-                    style={{
-                      ...styles.daysNumber,
-                      backgroundColor: getDaysRemainingColor(
-                        supplier.oeko_tex_validity_days_remaining,
-                      ).bg,
-                      color: getDaysRemainingColor(
-                        supplier.oeko_tex_validity_days_remaining,
-                      ).color,
-                    }}
-                  >
-                    {supplier.oeko_tex_validity_days_remaining} days
+              {supplier.trade_license_days_remaining && (
+                <div style={styles.daysCardItem}>
+                  <span>Trade:</span>
+                  <span style={{
+                    ...styles.daysCardBadge,
+                    backgroundColor: getDaysRemainingColor(supplier.trade_license_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.trade_license_days_remaining).color,
+                  }}>
+                    {supplier.trade_license_days_remaining}d
                   </span>
-                  <span style={styles.daysStatus}>
-                    Status: {supplier.oeko_tex_status || "N/A"}
+                </div>
+              )}
+              {supplier.factory_license_days_remaining && (
+                <div style={styles.daysCardItem}>
+                  <span>Factory:</span>
+                  <span style={{
+                    ...styles.daysCardBadge,
+                    backgroundColor: getDaysRemainingColor(supplier.factory_license_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.factory_license_days_remaining).color,
+                  }}>
+                    {supplier.factory_license_days_remaining}d
                   </span>
-                  <span style={styles.daysDate}>
-                    Expires: {formatDate(supplier.oeko_tex_validity)}
+                </div>
+              )}
+              {supplier.fire_license_days_remaining && (
+                <div style={styles.daysCardItem}>
+                  <span>Fire:</span>
+                  <span style={{
+                    ...styles.daysCardBadge,
+                    backgroundColor: getDaysRemainingColor(supplier.fire_license_days_remaining).bg,
+                    color: getDaysRemainingColor(supplier.fire_license_days_remaining).color,
+                  }}>
+                    {supplier.fire_license_days_remaining}d
                   </span>
-                  {[90, 75, 60].includes(
-                    supplier.oeko_tex_validity_days_remaining,
-                  ) && (
-                    <span style={styles.reminderBadge}>🔔 Reminder Due</span>
-                  )}
-                </>
-              ) : (
-                <span style={styles.daysNotAvailable}>Not Available</span>
+                </div>
               )}
             </div>
           </div>
 
-          {/* GOTS Days */}
+          {/* Safety Items */}
           <div style={styles.daysCard}>
             <div style={styles.daysCardHeader}>
-              <span style={styles.daysCardIcon}>📜</span>
-              <span style={styles.daysCardTitle}>GOTS</span>
+              <span style={styles.daysCardIcon}>🔥</span>
+              <span style={styles.daysCardTitle}>Safety</span>
             </div>
             <div style={styles.daysCardContent}>
-              {supplier.gots_validity_days_remaining ? (
-                <>
-                  <span
-                    style={{
-                      ...styles.daysNumber,
-                      backgroundColor: getDaysRemainingColor(
-                        supplier.gots_validity_days_remaining,
-                      ).bg,
-                      color: getDaysRemainingColor(
-                        supplier.gots_validity_days_remaining,
-                      ).color,
-                    }}
-                  >
-                    {supplier.gots_validity_days_remaining} days
+              {supplier.last_fire_training_by_fscd && (
+                <div style={styles.daysCardItem}>
+                  <span>Last Training:</span>
+                  <span style={styles.daysCardDate}>
+                    {formatDate(supplier.last_fire_training_by_fscd)}
                   </span>
-                  <span style={styles.daysStatus}>
-                    Status: {supplier.gots_status || "N/A"}
+                </div>
+              )}
+              {supplier.fscd_next_fire_training_date && (
+                <div style={styles.daysCardItem}>
+                  <span>Next Training:</span>
+                  <span style={styles.daysCardDate}>
+                    {formatDate(supplier.fscd_next_fire_training_date)}
                   </span>
-                  <span style={styles.daysDate}>
-                    Expires: {formatDate(supplier.gots_validity)}
+                </div>
+              )}
+              {supplier.last_fire_drill_record_by_fscd && (
+                <div style={styles.daysCardItem}>
+                  <span>Last Drill:</span>
+                  <span style={styles.daysCardDate}>
+                    {formatDate(supplier.last_fire_drill_record_by_fscd)}
                   </span>
-                  {[90, 75, 60].includes(
-                    supplier.gots_validity_days_remaining,
-                  ) && (
-                    <span style={styles.reminderBadge}>🔔 Reminder Due</span>
-                  )}
-                </>
-              ) : (
-                <span style={styles.daysNotAvailable}>Not Available</span>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Fire License Days */}
+          {/* Environmental */}
           <div style={styles.daysCard}>
             <div style={styles.daysCardHeader}>
-              <span style={styles.daysCardIcon}>🚒</span>
-              <span style={styles.daysCardTitle}>Fire License</span>
+              <span style={styles.daysCardIcon}>💧</span>
+              <span style={styles.daysCardTitle}>Environmental</span>
             </div>
             <div style={styles.daysCardContent}>
-              {supplier.fire_license_days_remaining ? (
-                <>
-                  <span
-                    style={{
-                      ...styles.daysNumber,
-                      backgroundColor: getDaysRemainingColor(
-                        supplier.fire_license_days_remaining,
-                      ).bg,
-                      color: getDaysRemainingColor(
-                        supplier.fire_license_days_remaining,
-                      ).color,
-                    }}
-                  >
-                    {supplier.fire_license_days_remaining} days
+              {supplier.water_test_report_doe && (
+                <div style={styles.daysCardItem}>
+                  <span>Water Test:</span>
+                  <span style={styles.daysCardDate}>
+                    {formatDate(supplier.water_test_report_doe)}
                   </span>
-                  <span style={styles.daysStatus}>
-                    Status:{" "}
-                    {supplier.fire_license_days_remaining > 0
-                      ? "Valid"
-                      : "Expired"}
+                </div>
+              )}
+              {supplier.zdhc_water_test_report && (
+                <div style={styles.daysCardItem}>
+                  <span>ZDHC:</span>
+                  <span style={styles.daysCardDate}>
+                    {formatDate(supplier.zdhc_water_test_report)}
                   </span>
-                  <span style={styles.daysDate}>
-                    Expires: {formatDate(supplier.fire_license_validity)}
-                  </span>
-                  {[90, 75, 60].includes(
-                    supplier.fire_license_days_remaining,
-                  ) && (
-                    <span style={styles.reminderBadge}>🔔 Reminder Due</span>
-                  )}
-                </>
-              ) : (
-                <span style={styles.daysNotAvailable}>Not Available</span>
+                </div>
               )}
             </div>
           </div>
@@ -753,6 +773,14 @@ const SupplierDetailsCSR = () => {
                   label="Total Manpower"
                   value={supplier.total_manpower}
                 />
+                <InfoRow
+                  label="Disabled Workers"
+                  value={supplier.disabled_workers}
+                />
+                <InfoRow
+                  label="Other Gender Workers"
+                  value={supplier.other_gender_workers}
+                />
               </div>
             </div>
 
@@ -840,6 +868,7 @@ const SupplierDetailsCSR = () => {
                   value={supplier.weekly_holiday}
                 />
                 <InfoRow label="BGMEA Number" value={supplier.bgmea_number} />
+                <InfoRow label="BKMEA Number" value={supplier.bkmea_number} />
                 <InfoRow label="RSC" value={supplier.rsc} />
                 <InfoRow
                   label="TAD Group Order Status"
@@ -884,7 +913,7 @@ const SupplierDetailsCSR = () => {
                       }}
                     >
                       {supplier.bsci_validity_days_remaining} days
-                      {[90, 75, 60].includes(
+                      {[90, 75, 60, 45, 30, 15].includes(
                         supplier.bsci_validity_days_remaining,
                       ) && <span style={styles.reminderIcon}> 🔔</span>}
                     </span>
@@ -935,7 +964,7 @@ const SupplierDetailsCSR = () => {
                       }}
                     >
                       {supplier.oeko_tex_validity_days_remaining} days
-                      {[90, 75, 60].includes(
+                      {[90, 75, 60, 45, 30, 15].includes(
                         supplier.oeko_tex_validity_days_remaining,
                       ) && <span style={styles.reminderIcon}> 🔔</span>}
                     </span>
@@ -987,7 +1016,7 @@ const SupplierDetailsCSR = () => {
                       }}
                     >
                       {supplier.gots_validity_days_remaining} days
-                      {[90, 75, 60].includes(
+                      {[90, 75, 60, 45, 30, 15].includes(
                         supplier.gots_validity_days_remaining,
                       ) && <span style={styles.reminderIcon}> 🔔</span>}
                     </span>
@@ -1011,15 +1040,20 @@ const SupplierDetailsCSR = () => {
               </div>
             </div>
 
-            {/* Fire License */}
+            {/* WRAP Certification */}
             <div style={styles.infoCard}>
               <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🚒</span> Fire License
+                <span style={styles.cardIcon}>📜</span> WRAP Certification
               </h3>
               <div style={styles.infoGrid}>
                 <InfoRow
+                  label="Last Audit Date"
+                  value={formatDate(supplier.wrap_last_audit_date)}
+                />
+                <InfoRow label="Rating" value={supplier.wrap_rating} />
+                <InfoRow
                   label="Validity"
-                  value={formatDate(supplier.fire_license_validity)}
+                  value={formatDate(supplier.wrap_validity)}
                 />
                 <InfoRow
                   label="Days Remaining"
@@ -1028,195 +1062,389 @@ const SupplierDetailsCSR = () => {
                       style={{
                         ...styles.daysRemaining,
                         backgroundColor: getDaysRemainingColor(
-                          supplier.fire_license_days_remaining,
+                          supplier.wrap_validity_days_remaining,
                         ).bg,
                         color: getDaysRemainingColor(
-                          supplier.fire_license_days_remaining,
+                          supplier.wrap_validity_days_remaining,
                         ).color,
                         padding: "0.5rem 1rem",
                         fontSize: "1rem",
                       }}
                     >
-                      {supplier.fire_license_days_remaining} days
-                      {[90, 75, 60].includes(
-                        supplier.fire_license_days_remaining,
-                      ) && <span style={styles.reminderIcon}> 🔔</span>}
+                      {supplier.wrap_validity_days_remaining} days
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Status"
+                  value={
+                    <span
+                      style={{
+                        ...styles.statusBadgeInline,
+                        backgroundColor: getStatusColor(supplier.wrap_status)
+                          .bg,
+                        color: getStatusColor(supplier.wrap_status).text,
+                      }}
+                    >
+                      {supplier.wrap_status?.toUpperCase() || "N/A"}
                     </span>
                   }
                 />
               </div>
             </div>
 
-            {/* Other Certifications */}
+            {/* CTPAT Security Audit */}
             <div style={styles.infoCard}>
               <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📜</span> Other Certifications
+                <span style={styles.cardIcon}>🛡️</span> CTPAT Security Audit
               </h3>
               <div style={styles.infoGrid}>
                 <InfoRow
-                  label="WRAP"
+                  label="Last Audit Date"
+                  value={formatDate(supplier.security_audit_last_date)}
+                />
+                <InfoRow
+                  label="Rating"
+                  value={supplier.security_audit_rating}
+                />
+                <InfoRow
+                  label="Validity"
+                  value={formatDate(supplier.security_audit_validity)}
+                />
+                <InfoRow
+                  label="Days Remaining"
                   value={
-                    <div>
-                      <div>Validity: {formatDate(supplier.wrap_validity)}</div>
-                      <div>
-                        Status:{" "}
-                        <span
-                          style={{
-                            ...styles.statusBadgeInline,
-                            backgroundColor: getStatusColor(
-                              supplier.wrap_status,
-                            ).bg,
-                            color: getStatusColor(supplier.wrap_status).text,
-                          }}
-                        >
-                          {supplier.wrap_status?.toUpperCase() || "N/A"}
-                        </span>
-                      </div>
-                    </div>
+                    <span
+                      style={{
+                        ...styles.daysRemaining,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.security_audit_validity_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.security_audit_validity_days_remaining,
+                        ).color,
+                        padding: "0.5rem 1rem",
+                        fontSize: "1rem",
+                      }}
+                    >
+                      {supplier.security_audit_validity_days_remaining} days
+                    </span>
                   }
                 />
                 <InfoRow
-                  label="Security Audit"
+                  label="Status"
                   value={
-                    <div>
-                      <div>
-                        Validity: {formatDate(supplier.security_audit_validity)}
-                      </div>
-                      <div>
-                        Status:{" "}
-                        <span
-                          style={{
-                            ...styles.statusBadgeInline,
-                            backgroundColor: getStatusColor(
-                              supplier.security_audit_status,
-                            ).bg,
-                            color: getStatusColor(
-                              supplier.security_audit_status,
-                            ).text,
-                          }}
-                        >
-                          {supplier.security_audit_status?.toUpperCase() ||
-                            "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="OCS"
-                  value={
-                    <div>
-                      <div>Validity: {formatDate(supplier.ocs_validity)}</div>
-                      <div>
-                        Status:{" "}
-                        <span
-                          style={{
-                            ...styles.statusBadgeInline,
-                            backgroundColor: getStatusColor(supplier.ocs_status)
-                              .bg,
-                            color: getStatusColor(supplier.ocs_status).text,
-                          }}
-                        >
-                          {supplier.ocs_status?.toUpperCase() || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="GRS"
-                  value={
-                    <div>
-                      <div>Validity: {formatDate(supplier.grs_validity)}</div>
-                      <div>
-                        Status:{" "}
-                        <span
-                          style={{
-                            ...styles.statusBadgeInline,
-                            backgroundColor: getStatusColor(supplier.grs_status)
-                              .bg,
-                            color: getStatusColor(supplier.grs_status).text,
-                          }}
-                        >
-                          {supplier.grs_status?.toUpperCase() || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="RCS"
-                  value={
-                    <div>
-                      <div>Validity: {formatDate(supplier.rcs_validity)}</div>
-                      <div>
-                        Status:{" "}
-                        <span
-                          style={{
-                            ...styles.statusBadgeInline,
-                            backgroundColor: getStatusColor(supplier.rcs_status)
-                              .bg,
-                            color: getStatusColor(supplier.rcs_status).text,
-                          }}
-                        >
-                          {supplier.rcs_status?.toUpperCase() || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="ISO 9001"
-                  value={
-                    <div>
-                      <div>
-                        Validity: {formatDate(supplier.iso_9001_validity)}
-                      </div>
-                      <div>
-                        Status:{" "}
-                        <span
-                          style={{
-                            ...styles.statusBadgeInline,
-                            backgroundColor: getStatusColor(
-                              supplier.iso_9001_status,
-                            ).bg,
-                            color: getStatusColor(supplier.iso_9001_status)
-                              .text,
-                          }}
-                        >
-                          {supplier.iso_9001_status?.toUpperCase() || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="ISO 14001"
-                  value={
-                    <div>
-                      <div>
-                        Validity: {formatDate(supplier.iso_14001_validity)}
-                      </div>
-                      <div>
-                        Status:{" "}
-                        <span
-                          style={{
-                            ...styles.statusBadgeInline,
-                            backgroundColor: getStatusColor(
-                              supplier.iso_14001_status,
-                            ).bg,
-                            color: getStatusColor(supplier.iso_14001_status)
-                              .text,
-                          }}
-                        >
-                          {supplier.iso_14001_status?.toUpperCase() || "N/A"}
-                        </span>
-                      </div>
-                    </div>
+                    <span
+                      style={{
+                        ...styles.statusBadgeInline,
+                        backgroundColor: getStatusColor(
+                          supplier.security_audit_status,
+                        ).bg,
+                        color: getStatusColor(supplier.security_audit_status)
+                          .text,
+                      }}
+                    >
+                      {supplier.security_audit_status?.toUpperCase() || "N/A"}
+                    </span>
                   }
                 />
               </div>
             </div>
+
+            {/* ISO 9001 Certification */}
+            <div style={styles.infoCard}>
+              <h3 style={styles.cardTitle}>
+                <span style={styles.cardIcon}>📜</span> ISO 9001 Certification
+              </h3>
+              <div style={styles.infoGrid}>
+                <InfoRow
+                  label="Validity"
+                  value={formatDate(supplier.iso_9001_validity)}
+                />
+                <InfoRow
+                  label="Days Remaining"
+                  value={
+                    <span
+                      style={{
+                        ...styles.daysRemaining,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.iso_9001_validity_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.iso_9001_validity_days_remaining,
+                        ).color,
+                        padding: "0.5rem 1rem",
+                        fontSize: "1rem",
+                      }}
+                    >
+                      {supplier.iso_9001_validity_days_remaining} days
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Status"
+                  value={
+                    <span
+                      style={{
+                        ...styles.statusBadgeInline,
+                        backgroundColor: getStatusColor(
+                          supplier.iso_9001_status,
+                        ).bg,
+                        color: getStatusColor(supplier.iso_9001_status).text,
+                      }}
+                    >
+                      {supplier.iso_9001_status?.toUpperCase() || "N/A"}
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+
+            {/* ISO 14001 Certification */}
+            <div style={styles.infoCard}>
+              <h3 style={styles.cardTitle}>
+                <span style={styles.cardIcon}>📜</span> ISO 14001 Certification
+              </h3>
+              <div style={styles.infoGrid}>
+                <InfoRow
+                  label="Validity"
+                  value={formatDate(supplier.iso_14001_validity)}
+                />
+                <InfoRow
+                  label="Days Remaining"
+                  value={
+                    <span
+                      style={{
+                        ...styles.daysRemaining,
+                        backgroundColor: getDaysRemainingColor(
+                          supplier.iso_14001_validity_days_remaining,
+                        ).bg,
+                        color: getDaysRemainingColor(
+                          supplier.iso_14001_validity_days_remaining,
+                        ).color,
+                        padding: "0.5rem 1rem",
+                        fontSize: "1rem",
+                      }}
+                    >
+                      {supplier.iso_14001_validity_days_remaining} days
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Status"
+                  value={
+                    <span
+                      style={{
+                        ...styles.statusBadgeInline,
+                        backgroundColor: getStatusColor(
+                          supplier.iso_14001_status,
+                        ).bg,
+                        color: getStatusColor(supplier.iso_14001_status).text,
+                      }}
+                    >
+                      {supplier.iso_14001_status?.toUpperCase() || "N/A"}
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+
+            {/* OCS Certification */}
+            {supplier.ocs_validity && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>📜</span> OCS Certification
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.ocs_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.ocs_validity_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.ocs_validity_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.ocs_validity_days_remaining} days
+                      </span>
+                    }
+                  />
+                  <InfoRow
+                    label="Status"
+                    value={
+                      <span
+                        style={{
+                          ...styles.statusBadgeInline,
+                          backgroundColor: getStatusColor(supplier.ocs_status)
+                            .bg,
+                          color: getStatusColor(supplier.ocs_status).text,
+                        }}
+                      >
+                        {supplier.ocs_status?.toUpperCase() || "N/A"}
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* GRS Certification */}
+            {supplier.grs_validity && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>📜</span> GRS Certification
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.grs_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.grs_validity_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.grs_validity_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.grs_validity_days_remaining} days
+                      </span>
+                    }
+                  />
+                  <InfoRow
+                    label="Status"
+                    value={
+                      <span
+                        style={{
+                          ...styles.statusBadgeInline,
+                          backgroundColor: getStatusColor(supplier.grs_status)
+                            .bg,
+                          color: getStatusColor(supplier.grs_status).text,
+                        }}
+                      >
+                        {supplier.grs_status?.toUpperCase() || "N/A"}
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* RCS Certification */}
+            {supplier.rcs_validity && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>📜</span> RCS Certification
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.rcs_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.rcs_validity_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.rcs_validity_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.rcs_validity_days_remaining} days
+                      </span>
+                    }
+                  />
+                  <InfoRow
+                    label="Status"
+                    value={
+                      <span
+                        style={{
+                          ...styles.statusBadgeInline,
+                          backgroundColor: getStatusColor(supplier.rcs_status)
+                            .bg,
+                          color: getStatusColor(supplier.rcs_status).text,
+                        }}
+                      >
+                        {supplier.rcs_status?.toUpperCase() || "N/A"}
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* SEDEX Certification */}
+            {supplier.sedex_last_audit_date && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>📜</span> SEDEX Certification
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow
+                    label="Last Audit Date"
+                    value={formatDate(supplier.sedex_last_audit_date)}
+                  />
+                  <InfoRow label="Rating" value={supplier.sedex_rating} />
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.sedex_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.sedex_validity_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.sedex_validity_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.sedex_validity_days_remaining} days
+                      </span>
+                    }
+                  />
+                  <InfoRow
+                    label="Status"
+                    value={
+                      <span
+                        style={{
+                          ...styles.statusBadgeInline,
+                          backgroundColor: getStatusColor(supplier.sedex_status)
+                            .bg,
+                          color: getStatusColor(supplier.sedex_status).text,
+                        }}
+                      >
+                        {supplier.sedex_status?.toUpperCase() || "N/A"}
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Certification Remarks */}
             {supplier.certification_remarks && (
@@ -1327,68 +1555,138 @@ const SupplierDetailsCSR = () => {
               </div>
             </div>
 
-            {/* Other Licenses */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📋</span> Other Licenses
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Membership"
-                  value={
-                    <div>
-                      <div>
-                        Validity: {formatDate(supplier.membership_validity)}
-                      </div>
-                      <div>
-                        Days: {supplier.membership_days_remaining || "N/A"}
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="Group Insurance"
-                  value={
-                    <div>
-                      <div>
-                        Validity:{" "}
-                        {formatDate(supplier.group_insurance_validity)}
-                      </div>
-                      <div>
-                        Days: {supplier.group_insurance_days_remaining || "N/A"}
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow label="Boiler No" value={supplier.boiler_no} />
-                <InfoRow
-                  label="Boiler License"
-                  value={
-                    <div>
-                      <div>
-                        Validity: {formatDate(supplier.boiler_license_validity)}
-                      </div>
-                      <div>
-                        Days: {supplier.boiler_license_days_remaining || "N/A"}
-                      </div>
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="BERC License"
-                  value={
-                    <div>
-                      <div>
-                        Validity: {formatDate(supplier.berc_license_validity)}
-                      </div>
-                      <div>
-                        Days: {supplier.berc_license_days_remaining || "N/A"}
-                      </div>
-                    </div>
-                  }
-                />
+            {/* Membership Certificate */}
+            {supplier.membership_validity && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>📋</span> Membership Certificate
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.membership_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.membership_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.membership_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.membership_days_remaining} days
+                      </span>
+                    }
+                  />
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Group Insurance */}
+            {supplier.group_insurance_validity && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>🛡️</span> Group Insurance
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.group_insurance_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.group_insurance_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.group_insurance_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.group_insurance_days_remaining} days
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Boiler License */}
+            {supplier.boiler_license_validity && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>⚙️</span> Boiler License
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow label="Boiler No" value={supplier.boiler_no} />
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.boiler_license_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.boiler_license_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.boiler_license_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.boiler_license_days_remaining} days
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* BERC License */}
+            {supplier.berc_license_validity && (
+              <div style={styles.infoCard}>
+                <h3 style={styles.cardTitle}>
+                  <span style={styles.cardIcon}>📋</span> BERC License
+                </h3>
+                <div style={styles.infoGrid}>
+                  <InfoRow
+                    label="Validity"
+                    value={formatDate(supplier.berc_license_validity)}
+                  />
+                  <InfoRow
+                    label="Days Remaining"
+                    value={
+                      <span
+                        style={{
+                          ...styles.daysRemaining,
+                          backgroundColor: getDaysRemainingColor(
+                            supplier.berc_days_remaining,
+                          ).bg,
+                          color: getDaysRemainingColor(
+                            supplier.berc_days_remaining,
+                          ).color,
+                        }}
+                      >
+                        {supplier.berc_days_remaining} days
+                      </span>
+                    }
+                  />
+                </div>
+              </div>
+            )}
 
             {/* License Remarks */}
             {supplier.license_remarks && (
@@ -1863,13 +2161,15 @@ const SupplierDetailsCSR = () => {
       {/* Notification Modal */}
       {showNotificationModal && (
         <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
+          <div style={{...styles.modal, maxWidth: '600px'}}>
             <div style={styles.modalHeader}>
               <h3 style={styles.modalTitle}>Send Expiry Notifications</h3>
               <button
                 onClick={() => {
                   setShowNotificationModal(false);
                   setNotificationResult(null);
+                  setSelectedItems({});
+                  setCustomMessage('');
                 }}
                 style={styles.modalClose}
               >
@@ -1891,14 +2191,12 @@ const SupplierDetailsCSR = () => {
                     <div style={styles.notificationDetails}>
                       <h4>Sent Notifications:</h4>
                       <ul>
-                        {notificationResult.details.notifications?.map(
-                          (notif, idx) => (
-                            <li key={idx}>
-                              {notif.cert_name} - {notif.days_remaining} days
-                              remaining
-                            </li>
-                          ),
-                        )}
+                        {notificationResult.details.map((item, idx) => (
+                          <li key={idx}>
+                            <strong>{item.name}</strong> - {item.days_remaining} days remaining
+                            {item.expiry_date && ` (Expires: ${item.expiry_date})`}
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   )}
@@ -1915,75 +2213,98 @@ const SupplierDetailsCSR = () => {
               ) : (
                 <>
                   <div style={styles.modalInfo}>
-                    <p>
-                      <strong>Supplier:</strong> {supplier.supplier_name}
-                    </p>
-                    <p>
-                      <strong>Email:</strong>{" "}
-                      {supplier.email || "No email provided"}
-                    </p>
-                    <p>
-                      <strong>From:</strong> compliance@texweave.net
-                    </p>
-                    <p>
-                      <strong>Reminder Days:</strong> 90, 75, 60 days before
-                      expiry
-                    </p>
+                    <p><strong>Supplier:</strong> {supplier.supplier_name}</p>
+                    <p><strong>Email:</strong> {supplier.email || "No email provided"}</p>
+                    <p><strong>From:</strong> compliance@texweave.net</p>
+                    <p><strong>Notification Days:</strong> 90, 75, 60, 45, 30, 15 days before expiry</p>
                   </div>
 
                   {!supplier.email ? (
                     <div style={styles.warningMessage}>
-                      ⚠️ This supplier does not have an email address. Cannot
-                      send notifications.
+                      ⚠️ This supplier does not have an email address. Cannot send notifications.
                     </div>
                   ) : (
                     <>
-                      <h4 style={styles.modalSubtitle}>
-                        Select certifications to notify (only those at 90/75/60
-                        days shown):
-                      </h4>
+                      {/* Custom Message Input */}
+                      <div style={styles.messageInput}>
+                        <label style={styles.messageLabel}>Custom Message (Optional):</label>
+                        <textarea
+                          value={customMessage}
+                          onChange={(e) => setCustomMessage(e.target.value)}
+                          style={styles.messageTextarea}
+                          placeholder="Add a custom message to include in the email..."
+                          rows="3"
+                        />
+                      </div>
 
-                      {getEligibleNotifications().map((item) => (
-                        <label key={item.id} style={styles.checkboxLabel}>
-                          <input
-                            type="checkbox"
-                            checked={selectedNotifications[item.id]}
-                            onChange={(e) =>
-                              setSelectedNotifications({
-                                ...selectedNotifications,
-                                [item.id]: e.target.checked,
-                              })
-                            }
-                            style={styles.checkbox}
-                          />
-                          <div style={styles.checkboxContent}>
-                            <span style={styles.certName}>{item.name}</span>
-                            <span
-                              style={{
-                                ...styles.certDays,
-                                backgroundColor: getDaysRemainingColor(
-                                  item.days,
-                                ).bg,
-                                color: getDaysRemainingColor(item.days).color,
-                              }}
-                            >
-                              {item.days} days remaining
-                            </span>
-                            <span style={styles.certExpiry}>
-                              Expires:{" "}
-                              {new Date(item.expiry).toLocaleDateString()}
-                            </span>
-                            <span style={styles.certStatus}>
-                              Status: {item.status || "N/A"}
-                            </span>
+                      <h4 style={styles.modalSubtitle}>Select items to notify:</h4>
+
+                      {/* Group by category */}
+                      {['certification', 'license', 'safety', 'environmental', 'committee'].map(category => {
+                        const categoryItems = getExpiringItems().filter(item => item.category === category);
+                        if (categoryItems.length === 0) return null;
+                        
+                        const categoryNames = {
+                          certification: '📜 Certifications',
+                          license: '📋 Licenses',
+                          safety: '🔥 Safety Items',
+                          environmental: '💧 Environmental',
+                          committee: '👥 Committee & Meetings'
+                        };
+
+                        return (
+                          <div key={category} style={styles.categorySection}>
+                            <h5 style={styles.categorySectionTitle}>{categoryNames[category]}</h5>
+                            {categoryItems.map((item) => (
+                              <label key={item.id} style={styles.checkboxLabel}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedItems[item.id] || false}
+                                  onChange={(e) =>
+                                    setSelectedItems({
+                                      ...selectedItems,
+                                      [item.id]: e.target.checked,
+                                    })
+                                  }
+                                  style={styles.checkbox}
+                                />
+                                <div style={styles.checkboxContent}>
+                                  <div style={styles.itemHeader}>
+                                    <span style={styles.itemIcon}>{item.icon}</span>
+                                    <span style={styles.certName}>{item.name}</span>
+                                    <span
+                                      style={{
+                                        ...styles.daysBadge,
+                                        backgroundColor: getDaysRemainingColor(item.days_remaining).bg,
+                                        color: getDaysRemainingColor(item.days_remaining).color,
+                                      }}
+                                    >
+                                      {item.days_remaining} days
+                                    </span>
+                                  </div>
+                                  <div style={styles.itemDetails}>
+                                    {item.expiry_date && (
+                                      <span style={styles.itemExpiry}>
+                                        Expires: {new Date(item.expiry_date).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                    {item.status && (
+                                      <span style={styles.itemStatus}>
+                                        Status: {item.status}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </label>
+                            ))}
                           </div>
-                        </label>
-                      ))}
+                        );
+                      })}
 
-                      {getEligibleNotifications().length === 0 && (
+                      {getExpiringItems().length === 0 && (
                         <div style={styles.infoMessage}>
-                          ℹ️ No certifications are at 90, 75, or 60 days
-                          remaining. Check back later for reminders.
+                          ℹ️ No items are at notification days (90, 75, 60, 45, 30, 15 days remaining).
+                          Check back later for reminders.
                         </div>
                       )}
                     </>
@@ -1995,7 +2316,11 @@ const SupplierDetailsCSR = () => {
             {!notificationResult && supplier.email && (
               <div style={styles.modalFooter}>
                 <button
-                  onClick={() => setShowNotificationModal(false)}
+                  onClick={() => {
+                    setShowNotificationModal(false);
+                    setSelectedItems({});
+                    setCustomMessage('');
+                  }}
                   style={styles.modalSecondaryButton}
                 >
                   Cancel
@@ -2004,7 +2329,7 @@ const SupplierDetailsCSR = () => {
                   onClick={sendExpiryNotifications}
                   disabled={
                     sendingNotifications ||
-                    getEligibleNotifications().length === 0
+                    Object.values(selectedItems).filter(v => v).length === 0
                   }
                   style={{
                     ...styles.modalPrimaryButton,
@@ -2302,7 +2627,7 @@ const styles = {
     borderRadius: "4px",
   },
 
-  // Days Summary Styles
+  // Days Summary Styles - Enhanced
   daysSummary: {
     backgroundColor: "white",
     borderRadius: "12px",
@@ -2346,20 +2671,21 @@ const styles = {
     flexDirection: "column",
     gap: "0.5rem",
   },
-  daysNumber: {
-    fontSize: "1.5rem",
-    fontWeight: "700",
-    padding: "0.5rem",
-    borderRadius: "6px",
-    textAlign: "center",
-  },
-  daysStatus: {
+  daysCardItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
     fontSize: "0.875rem",
-    color: "#64748b",
   },
-  daysDate: {
-    fontSize: "0.875rem",
+  daysCardBadge: {
+    padding: "0.25rem 0.5rem",
+    borderRadius: "4px",
+    fontSize: "0.75rem",
+    fontWeight: "600",
+  },
+  daysCardDate: {
     color: "#64748b",
+    fontSize: "0.75rem",
   },
   daysNotAvailable: {
     color: "#94a3b8",
@@ -2405,6 +2731,7 @@ const styles = {
   tabButtonActive: {
     backgroundColor: "#3b82f6",
     color: "white",
+    borderColor: "#3b82f6",
   },
   tabIcon: {
     fontSize: "1rem",
@@ -2645,7 +2972,11 @@ const styles = {
     color: "#1e293b",
     margin: "0 0 0.5rem 0",
   },
-
+  errorMessage: {
+    fontSize: "1rem",
+    color: "#4b5563",
+    marginBottom: "2rem",
+  },
   errorActions: {
     display: "flex",
     gap: "1rem",
@@ -2657,6 +2988,16 @@ const styles = {
     color: "white",
     textDecoration: "none",
     borderRadius: "6px",
+    fontSize: "0.875rem",
+    fontWeight: "500",
+  },
+  retryButton: {
+    padding: "0.5rem 1rem",
+    backgroundColor: "#6c757d",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
   },
@@ -2678,7 +3019,7 @@ const styles = {
     backgroundColor: "white",
     borderRadius: "12px",
     width: "90%",
-    maxWidth: "500px",
+    maxWidth: "600px",
     maxHeight: "90vh",
     overflow: "auto",
     boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
@@ -2726,6 +3067,36 @@ const styles = {
     color: "#334155",
     marginBottom: "1rem",
   },
+  messageInput: {
+    marginBottom: "1.5rem",
+  },
+  messageLabel: {
+    display: "block",
+    fontSize: "0.875rem",
+    fontWeight: "500",
+    color: "#475569",
+    marginBottom: "0.5rem",
+  },
+  messageTextarea: {
+    width: "100%",
+    padding: "0.75rem",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "0.875rem",
+    fontFamily: "inherit",
+    resize: "vertical",
+  },
+  categorySection: {
+    marginBottom: "1.5rem",
+  },
+  categorySectionTitle: {
+    fontSize: "0.95rem",
+    fontWeight: "600",
+    color: "#2d3748",
+    marginBottom: "0.75rem",
+    paddingBottom: "0.25rem",
+    borderBottom: "1px solid #e2e8f0",
+  },
   checkboxLabel: {
     display: "flex",
     alignItems: "flex-start",
@@ -2747,29 +3118,44 @@ const styles = {
   checkboxContent: {
     flex: 1,
   },
+  itemHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    marginBottom: "0.5rem",
+    flexWrap: "wrap",
+  },
+  itemIcon: {
+    fontSize: "1.25rem",
+  },
   certName: {
-    display: "block",
     fontWeight: "600",
     color: "#1e293b",
-    marginBottom: "0.25rem",
+    flex: 1,
   },
-  certDays: {
-    display: "inline-block",
-    padding: "0.25rem 0.5rem",
-    borderRadius: "4px",
+  daysBadge: {
+    padding: "0.25rem 0.75rem",
+    borderRadius: "20px",
     fontSize: "0.75rem",
     fontWeight: "600",
-    marginRight: "0.5rem",
-    marginBottom: "0.25rem",
+    whiteSpace: "nowrap",
   },
-  certExpiry: {
+  itemDetails: {
+    display: "flex",
+    gap: "1rem",
     fontSize: "0.75rem",
     color: "#64748b",
-    marginRight: "0.5rem",
+    flexWrap: "wrap",
   },
-  certStatus: {
-    fontSize: "0.75rem",
-    color: "#64748b",
+  itemExpiry: {
+    backgroundColor: "#f1f5f9",
+    padding: "0.125rem 0.5rem",
+    borderRadius: "4px",
+  },
+  itemStatus: {
+    backgroundColor: "#f1f5f9",
+    padding: "0.125rem 0.5rem",
+    borderRadius: "4px",
   },
   successMessage: {
     backgroundColor: "#d4edda",
@@ -2842,16 +3228,6 @@ const styles = {
   modalButtonDisabled: {
     opacity: 0.5,
     cursor: "not-allowed",
-  },
-  retryButton: {
-    padding: "0.5rem 1rem",
-    backgroundColor: "#6c757d",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "0.875rem",
-    fontWeight: "500",
   },
 };
 

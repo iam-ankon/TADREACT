@@ -381,16 +381,31 @@ export const getSupplierStats = () => {
   return supplierApi.get("supplier/dashboard_stats/");
 };
 
-// Get dashboard expiry summary
+// Get dashboard expiry summary - UPDATED for all items
 export const getDashboardExpirySummary = () => {
   return supplierApi.get("supplier/dashboard_expiry_summary/");
 };
 
-// Send bulk reminders
-export const sendBulkReminders = (fromEmail = "niloy@texweave.net") => {
-  return supplierApi.post("supplier/send_bulk_reminders/", {
+// Send bulk reminders - UPDATED for all items
+export const sendBulkReminders = (fromEmail = "compliance@texweave.net", itemTypes = []) => {
+  return supplierApi.post("supplier/send-bulk-reminders/", {
     from_email: fromEmail,
+    item_types: itemTypes
   });
+};
+
+// Send expiry notifications for specific supplier - UPDATED for all items
+export const sendExpiryNotifications = (supplierId, items, fromEmail = "compliance@texweave.net", customMessage = "") => {
+  return supplierApi.post(`supplier/${supplierId}/send-expiry-notifications/`, {
+    items: items,
+    from_email: fromEmail,
+    custom_message: customMessage
+  });
+};
+
+// Recalculate all days remaining
+export const recalculateAllDays = () => {
+  return supplierApi.post("supplier/recalculate-all-days/");
 };
 
 // Upload supplier attachment
@@ -619,6 +634,12 @@ export default {
   getSuppliersByStatus,
   getSupplierStats,
   getSuppliersByVendorType,
+
+  // Expiry notification functions - NEW/UPDATED
+  getDashboardExpirySummary,
+  sendBulkReminders,
+  sendExpiryNotifications,
+  recalculateAllDays,
 
   // Attachment functions
   uploadSupplierAttachment,

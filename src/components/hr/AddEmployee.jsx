@@ -81,9 +81,9 @@ const AddEmployee = () => {
           getCustomers(),
           getDepartments(),
         ]);
-        setCompanies(compRes.data);
-        setCustomers(custRes.data);
-        setDepartments(deptRes.data);
+        setCompanies(compRes.data || []);
+        setCustomers(custRes.data || []);
+        setDepartments(deptRes.data || []);
       } catch (err) {
         console.error("Failed to load dropdowns:", err);
       }
@@ -107,16 +107,18 @@ const AddEmployee = () => {
       newErrors.date_of_birth = "Date of birth is required";
     
     // Email validation - only validate if there's content
-    if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      newErrors.email = "Invalid email format";
+    if (formData.email?.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        newErrors.email = "Invalid email format";
+      }
     }
     
     // Phone validation - only validate if there's content
     if (formData.personal_phone?.trim() && !/^[0-9+\-\s()]{10,15}$/.test(formData.personal_phone.trim())) {
-      newErrors.personal_phone = "Invalid phone number";
+      newErrors.personal_phone = "Invalid phone number (10-15 digits)";
     }
     if (formData.office_phone?.trim() && !/^[0-9+\-\s()]{10,15}$/.test(formData.office_phone.trim())) {
-      newErrors.office_phone = "Invalid phone number";
+      newErrors.office_phone = "Invalid phone number (10-15 digits)";
     }
     
     // Salary validation
@@ -163,7 +165,7 @@ const AddEmployee = () => {
 
   const compressImage = (file, maxWidth = 800, quality = 0.7) => {
     return new Promise((resolve) => {
-      if (!file.type.includes("image")) {
+      if (!file || !file.type.includes("image")) {
         resolve(file);
         return;
       }
@@ -229,101 +231,90 @@ const AddEmployee = () => {
 
       const formDataToSend = new FormData();
 
-      // First, handle required fields
-      const requiredFields = ["employee_id", "name", "designation", "joining_date", "date_of_birth"];
+      // Handle required fields
+      const requiredFields = ["employee_id", "name", "designation"];
       requiredFields.forEach(field => {
         if (formData[field]) {
-          if (["joining_date", "date_of_birth"].includes(field)) {
-            formDataToSend.append(field, new Date(formData[field]).toISOString().split('T')[0]);
-          } else {
-            formDataToSend.append(field, formData[field].trim());
-          }
+          formDataToSend.append(field, formData[field].trim());
         }
       });
 
-      // Handle other fields
-      const otherFields = [
+      // Handle date fields
+      if (formData.joining_date) {
+        formDataToSend.append("joining_date", new Date(formData.joining_date).toISOString().split('T')[0]);
+      }
+      
+      if (formData.date_of_birth) {
+        formDataToSend.append("date_of_birth", new Date(formData.date_of_birth).toISOString().split('T')[0]);
+      }
+
+      // Handle email - CRITICAL FIX: Only send if valid, otherwise don't send at all
+      if (formData.email?.trim()) {
+        const emailValue = formData.email.trim();
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+          formDataToSend.append("email", emailValue);
+        }
+        // If invalid email, skip completely - database will use NULL
+      }
+      // If no email, skip completely - database will use NULL
+
+      // Handle other text fields - only append if they have value
+      const textFields = [
         "device_user_id", "mail_address", "office_phone", "reference_phone",
         "reporting_leader", "special_skills", "remarks", "permanent_address",
         "emergency_contact", "nid_number", "blood_group", "gender",
         "bank_account", "branch_name"
       ];
 
-      otherFields.forEach(field => {
+      textFields.forEach(field => {
         if (formData[field]?.trim()) {
           formDataToSend.append(field, formData[field].trim());
-        } else {
-          // Send empty string for optional fields
-          formDataToSend.append(field, "");
         }
+        // If empty, don't append - database will use NULL
       });
-
-      // Handle email - backend expects null or valid email
-      if (formData.email?.trim()) {
-        const emailValue = formData.email.trim();
-        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-          formDataToSend.append("email", emailValue);
-        } else {
-          // Invalid email, send empty string
-          formDataToSend.append("email", "");
-        }
-      } else {
-        // No email provided, send empty string
-        formDataToSend.append("email", "");
-      }
 
       // Handle phone numbers
       if (formData.personal_phone?.trim()) {
         formDataToSend.append("personal_phone", formData.personal_phone.trim());
-      } else {
-        formDataToSend.append("personal_phone", "");
       }
+      // If empty, don't append
 
-      // Handle numeric fields
+      // Handle numeric fields - only append if they have valid values
       if (formData.department) {
         formDataToSend.append("department", Number(formData.department));
-      } else {
-        formDataToSend.append("department", "");
       }
       
       if (formData.company) {
         formDataToSend.append("company", Number(formData.company));
-      } else {
-        formDataToSend.append("company", "");
       }
       
-      if (formData.salary) {
+      if (formData.salary && !isNaN(formData.salary) && Number(formData.salary) > 0) {
         formDataToSend.append("salary", Number(formData.salary));
-      } else {
-        formDataToSend.append("salary", "");
       }
       
-      if (formData.salary_cash) {
+      if (formData.salary_cash && !isNaN(formData.salary_cash) && Number(formData.salary_cash) > 0) {
         formDataToSend.append("salary_cash", Number(formData.salary_cash));
-      } else {
-        formDataToSend.append("salary_cash", "");
       }
 
       // Append image
       if (finalImage) {
         console.log("Adding image to form data");
         formDataToSend.append("image1", finalImage);
-      } else {
-        // If no image, send empty file field
-        formDataToSend.append("image1", "");
       }
+      // If no image, don't append
 
-      // Append customers as an array
-      if (formData.customer.length > 0) {
+      // Append customers as an array - only if there are customers
+      if (formData.customer && formData.customer.length > 0) {
         console.log("Adding customers:", formData.customer);
-        const customerIds = formData.customer.map(id => parseInt(id)).filter(id => !isNaN(id));
+        const customerIds = formData.customer
+          .map(id => parseInt(id))
+          .filter(id => !isNaN(id));
+        
         customerIds.forEach(customerId => {
           formDataToSend.append("customers", customerId);
         });
-      } else {
-        // Send empty array for customers
-        formDataToSend.append("customers", "");
       }
+      // If no customers, don't append
 
       // Debug: Log all form data entries
       console.log("FormData entries:");
@@ -377,19 +368,33 @@ const AddEmployee = () => {
       console.error("Add employee failed:", error);
       
       let errorMessage = "Failed to add employee: ";
+      
+      // Better error parsing
       if (error.response?.data) {
         const errorData = error.response.data;
-        if (typeof errorData === 'object') {
-          Object.keys(errorData).forEach(key => {
-            const errorValue = errorData[key];
-            if (Array.isArray(errorValue)) {
-              errorMessage += `\n${key}: ${errorValue.join(', ')}`;
-            } else if (typeof errorValue === 'string') {
-              errorMessage += `\n${key}: ${errorValue}`;
-            }
-          });
+        
+        // Handle specific database errors
+        if (error.response.status === 400) {
+          if (errorData.email && errorData.email.includes("already exists")) {
+            errorMessage = "This email address is already registered. Please use a different email.";
+            setErrors(prev => ({ ...prev, email: "Email already exists" }));
+          } else if (errorData.employee_id && errorData.employee_id.includes("already exists")) {
+            errorMessage = "This Employee ID is already taken. Please use a different ID.";
+            setErrors(prev => ({ ...prev, employee_id: "Employee ID already exists" }));
+          } else if (typeof errorData === 'object') {
+            Object.keys(errorData).forEach(key => {
+              const errorValue = errorData[key];
+              if (Array.isArray(errorValue)) {
+                errorMessage += `\n${key}: ${errorValue.join(', ')}`;
+              } else if (typeof errorValue === 'string') {
+                errorMessage += `\n${key}: ${errorValue}`;
+              }
+            });
+          } else {
+            errorMessage += errorData;
+          }
         } else {
-          errorMessage += errorData;
+          errorMessage += error.message;
         }
       } else {
         errorMessage += error.message;
@@ -397,7 +402,12 @@ const AddEmployee = () => {
       
       setSuccessMessage(errorMessage);
       setShowPopup(true);
-      console.error("Error details:", error.response?.data || error.message);
+      
+      // Auto-hide error popup after 5 seconds
+      setTimeout(() => {
+        setShowPopup(false);
+      }, 5000);
+      
     } finally {
       setIsLoading(false);
       console.log("=== ADD EMPLOYEE SUBMIT END ===");
@@ -416,11 +426,22 @@ const AddEmployee = () => {
         { name: "gender", label: "Gender", type: "select", options: [
           { label: "Select Gender", value: "" },
           { label: "Male", value: "M" },
-          { label: "Female", value: "F" }
+          { label: "Female", value: "F" },
+          { label: "Other", value: "O" }
         ]},
         { name: "date_of_birth", label: "Date of Birth", required: true, type: "date" },
         { name: "nid_number", label: "NID Number" },
-        { name: "blood_group", label: "Blood Group" },
+        { name: "blood_group", label: "Blood Group", type: "select", options: [
+          { label: "Select Blood Group", value: "" },
+          { label: "A+", value: "A+" },
+          { label: "A-", value: "A-" },
+          { label: "B+", value: "B+" },
+          { label: "B-", value: "B-" },
+          { label: "O+", value: "O+" },
+          { label: "O-", value: "O-" },
+          { label: "AB+", value: "AB+" },
+          { label: "AB-", value: "AB-" }
+        ]},
       ],
     },
     {
@@ -469,7 +490,7 @@ const AddEmployee = () => {
           type: "select", 
           options: [
             { label: "Select Company", value: "" },
-            ...companies.map((c) => ({ label: c.company_name, value: c.id }))
+            ...(companies || []).map((c) => ({ label: c.company_name || c.name, value: c.id }))
           ]
         },
         { 
@@ -478,7 +499,7 @@ const AddEmployee = () => {
           type: "select", 
           options: [
             { label: "Select Department", value: "" },
-            ...departments.map((d) => ({ label: d.department_name, value: d.id }))
+            ...(departments || []).map((d) => ({ label: d.department_name || d.name, value: d.id }))
           ]
         },
         { name: "reporting_leader", label: "Reporting Leader", placeholder: "Optional" },
@@ -560,11 +581,13 @@ const AddEmployee = () => {
             </div>
           </div>
 
-          {/* Success Popup */}
+          {/* Success/Error Popup */}
           {showPopup && (
-            <div className="success-popup">
+            <div className={`success-popup ${successMessage.includes('Failed') ? 'error-popup' : ''}`}>
               <div className="popup-content">
-                <span className="popup-icon">✓</span>
+                <span className="popup-icon">
+                  {successMessage.includes('Failed') ? '✗' : '✓'}
+                </span>
                 <p>{successMessage}</p>
               </div>
             </div>
@@ -634,23 +657,27 @@ const AddEmployee = () => {
                         ) : field.type === "checkboxes" ? (
                           <div className="customers-section">
                             <div className="customers-grid">
-                              {customers.map((c) => {
-                                const checked = formData.customer.includes(c.id.toString());
-                                return (
-                                  <label
-                                    key={c.id}
-                                    className={`customer-checkbox ${checked ? 'checked' : ''}`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => handleCheckboxChange(c.id.toString())}
-                                      disabled={isLoading}
-                                    />
-                                    <span className="customer-name">{c.customer_name}</span>
-                                  </label>
-                                );
-                              })}
+                              {(customers || []).length > 0 ? (
+                                customers.map((c) => {
+                                  const checked = formData.customer.includes(c.id?.toString());
+                                  return (
+                                    <label
+                                      key={c.id}
+                                      className={`customer-checkbox ${checked ? 'checked' : ''}`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => handleCheckboxChange(c.id?.toString())}
+                                        disabled={isLoading}
+                                      />
+                                      <span className="customer-name">{c.customer_name || c.name}</span>
+                                    </label>
+                                  );
+                                })
+                              ) : (
+                                <p className="no-customers">No customers available</p>
+                              )}
                             </div>
                           </div>
                         ) : field.type === "textarea" ? (
@@ -817,12 +844,12 @@ const AddEmployee = () => {
           gap: 0.75rem;
         }
 
-        /* Success Popup */
+        /* Success/Error Popup */
         .success-popup {
           position: fixed;
           top: 20px;
           right: 20px;
-          background: ${successMessage.includes('Failed') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)'};
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
           color: white;
           padding: 1rem 1.5rem;
           border-radius: 10px;
@@ -833,6 +860,10 @@ const AddEmployee = () => {
           align-items: center;
           gap: 0.75rem;
           max-width: 400px;
+        }
+
+        .success-popup.error-popup {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         }
 
         .popup-icon {
@@ -1044,7 +1075,6 @@ const AddEmployee = () => {
         .select-with-icon select {
           width: 100%;
           padding: 0.75rem 1rem;
-          padding-left: 2.5rem;
           background: white;
           appearance: none;
         }
@@ -1103,6 +1133,13 @@ const AddEmployee = () => {
           font-size: 0.9rem;
           color: #374151;
           font-weight: 500;
+        }
+
+        .no-customers {
+          grid-column: 1 / -1;
+          text-align: center;
+          color: #9ca3af;
+          padding: 1rem;
         }
 
         /* Photo Upload */

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   FiUsers,
@@ -148,7 +149,7 @@ const setCachedData = (key, data) => {
   }
 };
 
-// Format time helper - keep original
+// Format time helper
 const formatTime = (timeString) => {
   if (!timeString) return "--:--";
   if (timeString.includes("T")) {
@@ -187,10 +188,6 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 const HRWorkPage = () => {
   const navigate = useNavigate();
-  
-  // Use refs to track component mounted state and abort controller
-  const isMounted = useRef(true);
-  const abortControllerRef = useRef(null);
   
   // State management with cached defaults
   const [employeeCount, setEmployeeCount] = useState(() => {
@@ -244,23 +241,15 @@ const HRWorkPage = () => {
     fetchUpcomingHolidays();
   }, []);
 
-  // Load all data with caching - optimized for speed
+  // Load all data with caching and prioritization
   useEffect(() => {
-    isMounted.current = true;
+    let isMounted = true;
 
     const loadAllData = async () => {
-      // Cancel previous request if any
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      
-      abortControllerRef.current = new AbortController();
-      const signal = abortControllerRef.current.signal;
-      
       setIsRefreshing(true);
       
       try {
-        // Load all APIs in parallel with AbortController
+        // Load all APIs in parallel for maximum speed
         const [
           employeesRes,
           leavesRes,
@@ -268,77 +257,64 @@ const HRWorkPage = () => {
           interviewsRes,
           attendanceRes
         ] = await Promise.allSettled([
-          getEmployees({ signal }),
-          getEmployeeLeaves({ signal }),
-          getCVs({ signal }),
-          getInterviews({ signal }),
-          getAttendance({ signal }),
+          getEmployees(),
+          getEmployeeLeaves(),
+          getCVs(),
+          getInterviews(),
+          getAttendance(),
         ]);
 
-        if (!isMounted.current) return;
-
-        // Batch state updates to reduce re-renders
-        const updates = {};
+        if (!isMounted) return;
 
         // Process employees
         if (employeesRes.status === 'fulfilled') {
           const employees = employeesRes.value.data;
           setCachedData(CACHE_KEYS.EMPLOYEES, employees);
-          updates.employeeCount = employees.length || 0;
-          updates.employeeData = employees;
+          setEmployeeCount(employees.length || 0);
+          setEmployeeData(employees);
         }
 
         // Process leaves
         if (leavesRes.status === 'fulfilled') {
           const leaves = leavesRes.value.data;
           setCachedData(CACHE_KEYS.LEAVES, leaves);
-          // Sort only once
-          updates.leaveRequests = leaves.sort((a, b) => 
+          const sortedRequests = leaves.sort((a, b) => 
             new Date(b.start_date) - new Date(a.start_date)
           );
+          setLeaveRequests(sortedRequests);
         }
 
         // Process CVs
         if (cvsRes.status === 'fulfilled') {
           const cvs = cvsRes.value.data;
           setCachedData(CACHE_KEYS.CVS, cvs);
-          updates.cvCount = cvs.length || 0;
+          setCvCount(cvs.length || 0);
         }
 
         // Process interviews
         if (interviewsRes.status === 'fulfilled') {
           const interviews = interviewsRes.value.data;
           setCachedData(CACHE_KEYS.INTERVIEWS, interviews);
-          // Pre-format times for better performance
-          updates.upcomingInterviews = interviews
+          const sortedInterviews = interviews
             .map((interview) => ({
               ...interview,
               displayTime: interview.time ? formatTime(interview.time) : "--:--",
             }))
             .sort((a, b) => new Date(b.interview_date) - new Date(a.interview_date));
+          setUpcomingInterviews(sortedInterviews);
         }
 
         // Process attendance
         if (attendanceRes.status === 'fulfilled') {
           const attendance = attendanceRes.value.data;
           setCachedData(CACHE_KEYS.ATTENDANCE, attendance);
-          updates.attendanceData = attendance;
+          setAttendanceData(attendance);
         }
-
-        // Apply all updates at once
-        if (updates.employeeCount !== undefined) setEmployeeCount(updates.employeeCount);
-        if (updates.employeeData !== undefined) setEmployeeData(updates.employeeData);
-        if (updates.leaveRequests !== undefined) setLeaveRequests(updates.leaveRequests);
-        if (updates.cvCount !== undefined) setCvCount(updates.cvCount);
-        if (updates.upcomingInterviews !== undefined) setUpcomingInterviews(updates.upcomingInterviews);
-        if (updates.attendanceData !== undefined) setAttendanceData(updates.attendanceData);
 
       } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.error("Error loading data:", error);
-        }
+        console.error("Error loading data:", error);
       } finally {
-        if (isMounted.current) {
+        if (isMounted) {
           setIsRefreshing(false);
         }
       }
@@ -347,10 +323,7 @@ const HRWorkPage = () => {
     loadAllData();
 
     return () => {
-      isMounted.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      isMounted = false;
     };
   }, []);
 
@@ -362,7 +335,6 @@ const HRWorkPage = () => {
     year: "numeric",
   });
 
-  // ORIGINAL FUNCTION - PRESERVED EXACTLY AS REQUESTED
   const calculateOnTimeAttendancePercentage = useCallback((attendanceData) => {
     if (
       !attendanceData ||
@@ -405,7 +377,7 @@ const HRWorkPage = () => {
     return `${percentage}%`;
   }, []);
 
-  // Memoized analytics - optimized for performance
+  // Memoized analytics
   const attendanceAnalytics = useMemo(() => {
     if (!attendanceData || attendanceData.length === 0) {
       return {
@@ -421,87 +393,38 @@ const HRWorkPage = () => {
     }
 
     const today = new Date().toISOString().split("T")[0];
-    
-    // Use a Set for faster date lookups in weekly data
-    const todayAttendance = [];
+    const todayAttendance = attendanceData.filter((record) => {
+      if (!record.date) return false;
+      const recordDate = new Date(record.date).toISOString().split("T")[0];
+      return recordDate === today;
+    });
+
     let onTime = 0;
     let late = 0;
 
-    // Single pass through attendance data for both today's stats and weekly aggregation
-    const weeklyMap = new Map();
-    
-    // Initialize last 7 days
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
-      weeklyMap.set(dateStr, {
-        day: date.toLocaleDateString("en-US", { weekday: "short" }),
-        onTime: 0,
-        late: 0,
-        date: dateStr
-      });
-    }
+    todayAttendance.forEach((record) => {
+      if (!record.check_in) {
+        late++;
+        return;
+      }
 
-    // Single pass through attendance data
-    attendanceData.forEach((record) => {
-      if (!record.date) return;
-      
-      const recordDate = new Date(record.date).toISOString().split("T")[0];
-      
-      // Today's attendance processing
-      if (recordDate === today) {
-        todayAttendance.push(record);
-        
-        if (!record.check_in) {
-          late++;
-        } else {
-          try {
-            const checkInStr = record.check_in.trim();
-            if (checkInStr.includes(":")) {
-              const timeParts = checkInStr.split(":");
-              const hours = parseInt(timeParts[0]);
-              const minutes = parseInt(timeParts[1]);
+      try {
+        const checkInStr = record.check_in.trim();
+        if (checkInStr.includes(":")) {
+          const timeParts = checkInStr.split(":");
+          const hours = parseInt(timeParts[0]);
+          const minutes = parseInt(timeParts[1]);
 
-              if (hours < 9 || (hours === 9 && minutes <= 30)) {
-                onTime++;
-              } else {
-                late++;
-              }
-            } else {
-              late++;
-            }
-          } catch (error) {
+          if (hours < 9 || (hours === 9 && minutes <= 30)) {
+            onTime++;
+          } else {
             late++;
           }
-        }
-      }
-      
-      // Weekly data processing - check if this date is in our weekly map
-      if (weeklyMap.has(recordDate)) {
-        const dayData = weeklyMap.get(recordDate);
-        if (!record.check_in) {
-          dayData.late++;
         } else {
-          try {
-            const checkInStr = record.check_in.trim();
-            if (checkInStr.includes(":")) {
-              const timeParts = checkInStr.split(":");
-              const hours = parseInt(timeParts[0]);
-              const minutes = parseInt(timeParts[1]);
-
-              if (hours < 9 || (hours === 9 && minutes <= 30)) {
-                dayData.onTime++;
-              } else {
-                dayData.late++;
-              }
-            } else {
-              dayData.late++;
-            }
-          } catch (error) {
-            dayData.late++;
-          }
+          late++;
         }
+      } catch (error) {
+        late++;
       }
     });
 
@@ -516,8 +439,38 @@ const HRWorkPage = () => {
       { name: "Absent", value: absent, color: "#ef4444" },
     ].filter(item => item.value > 0);
 
-    // Convert weekly map to array
-    const weeklyData = Array.from(weeklyMap.values());
+    // Weekly attendance data (last 7 days)
+    const weeklyData = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split("T")[0];
+      const dayAttendance = attendanceData.filter(
+        (record) => record.date && new Date(record.date).toISOString().split("T")[0] === dateStr
+      );
+      
+      weeklyData.push({
+        day: date.toLocaleDateString("en-US", { weekday: "short" }),
+        onTime: dayAttendance.filter(r => {
+          if (!r.check_in) return false;
+          const time = r.check_in.trim();
+          if (time.includes(":")) {
+            const [h] = time.split(":");
+            return parseInt(h) < 9 || (parseInt(h) === 9 && parseInt(time.split(":")[1]) <= 30);
+          }
+          return false;
+        }).length,
+        late: dayAttendance.filter(r => {
+          if (!r.check_in) return false;
+          const time = r.check_in.trim();
+          if (time.includes(":")) {
+            const [h] = time.split(":");
+            return parseInt(h) > 9 || (parseInt(h) === 9 && parseInt(time.split(":")[1]) > 30);
+          }
+          return true;
+        }).length,
+      });
+    }
 
     return {
       onTime,
@@ -673,7 +626,7 @@ const HRWorkPage = () => {
   // Get today's attendance for display
   const todayAttendance = attendanceAnalytics.todayAttendance.slice(0, 3);
 
-  // Optimized refresh indicator
+  // Subtle refresh indicator (optional)
   const refreshIndicator = isRefreshing ? (
     <div style={{
       position: 'fixed',
@@ -1255,7 +1208,7 @@ const HRWorkPage = () => {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <p style={{ fontWeight: 600, margin: 0, fontSize: "0.85rem" }}>
-                      {interview.displayTime || "--:--"}
+                      {interview.time || "TBD"}
                     </p>
                     <p style={{ fontSize: "0.7rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
                       {interview.interview_date}

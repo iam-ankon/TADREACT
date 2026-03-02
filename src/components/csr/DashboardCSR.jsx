@@ -18,15 +18,50 @@ const SupplierDashboardCSR = () => {
   const [recentSuppliers, setRecentSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  
+  // Comprehensive expiry summary for ALL items
   const [expirySummary, setExpirySummary] = useState({
-    bsci: { count: 0, suppliers: [] },
-    oekoTex: { count: 0, suppliers: [] },
-    gots: { count: 0, suppliers: [] },
-    fireLicense: { count: 0, suppliers: [] },
+    // Certifications
+    bsci: { count: 0, suppliers: [], name: 'BSCI', icon: '📜' },
+    sedex: { count: 0, suppliers: [], name: 'SEDEX', icon: '📜' },
+    wrap: { count: 0, suppliers: [], name: 'WRAP', icon: '📜' },
+    security_audit: { count: 0, suppliers: [], name: 'CTPAT', icon: '🛡️' },
+    oeko_tex: { count: 0, suppliers: [], name: 'Oeko-Tex', icon: '📜' },
+    gots: { count: 0, suppliers: [], name: 'GOTS', icon: '📜' },
+    ocs: { count: 0, suppliers: [], name: 'OCS', icon: '📜' },
+    grs: { count: 0, suppliers: [], name: 'GRS', icon: '📜' },
+    rcs: { count: 0, suppliers: [], name: 'RCS', icon: '📜' },
+    iso_9001: { count: 0, suppliers: [], name: 'ISO 9001', icon: '📜' },
+    iso_14001: { count: 0, suppliers: [], name: 'ISO 14001', icon: '📜' },
+    
+    // Licenses
+    trade_license: { count: 0, suppliers: [], name: 'Trade License', icon: '📋' },
+    factory_license: { count: 0, suppliers: [], name: 'Factory License', icon: '🏭' },
+    fire_license: { count: 0, suppliers: [], name: 'Fire License', icon: '🚒' },
+    membership: { count: 0, suppliers: [], name: 'Membership', icon: '📋' },
+    group_insurance: { count: 0, suppliers: [], name: 'Group Insurance', icon: '🛡️' },
+    boiler_license: { count: 0, suppliers: [], name: 'Boiler License', icon: '⚙️' },
+    berc_license: { count: 0, suppliers: [], name: 'BERC License', icon: '📋' },
+    
+    // Safety Items
+    fire_training: { count: 0, suppliers: [], name: 'Fire Training', icon: '🔥' },
+    next_fire_training: { count: 0, suppliers: [], name: 'Next Fire Training', icon: '🔥' },
+    fire_drill: { count: 0, suppliers: [], name: 'Fire Drill', icon: '🔥' },
+    next_fire_drill: { count: 0, suppliers: [], name: 'Next Fire Drill', icon: '🔥' },
+    water_test: { count: 0, suppliers: [], name: 'Water Test', icon: '💧' },
+    zdhc_water: { count: 0, suppliers: [], name: 'ZDHC Water', icon: '💧' },
+    safety_meeting: { count: 0, suppliers: [], name: 'Safety Meeting', icon: '👥' },
+    pc_meeting: { count: 0, suppliers: [], name: 'PC Meeting', icon: '👥' },
+    pc_election: { count: 0, suppliers: [], name: 'PC Election', icon: '🗳️' },
+    safety_formation: { count: 0, suppliers: [], name: 'Safety Formation', icon: '👥' },
+    safety_audit: { count: 0, suppliers: [], name: 'Safety Audit', icon: '🔍' },
+    
     total_expiring: 0
   })
+
   const [sendingReminders, setSendingReminders] = useState(false)
   const [reminderResult, setReminderResult] = useState(null)
+  const [showExpiryDetails, setShowExpiryDetails] = useState(false)
   const [complianceOverview, setComplianceOverview] = useState({
     fireSafety: { total: 0, compliant: 0 },
     environmental: { total: 0, compliant: 0 },
@@ -85,11 +120,20 @@ const SupplierDashboardCSR = () => {
           certification_status: supplier.is_certification_valid || false,
           location: supplier.location || 'Location not specified',
           category: supplier.supplier_category || 'Not specified',
+          email: supplier.email,
           // Add days remaining for quick view
           bsci_days: supplier.bsci_validity_days_remaining,
           oekoTex_days: supplier.oeko_tex_validity_days_remaining,
           gots_days: supplier.gots_validity_days_remaining,
-          fireLicense_days: supplier.fire_license_days_remaining
+          fireLicense_days: supplier.fire_license_days_remaining,
+          trade_license_days: supplier.trade_license_days_remaining,
+          factory_license_days: supplier.factory_license_days_remaining,
+          membership_days: supplier.membership_days_remaining,
+          insurance_days: supplier.group_insurance_days_remaining,
+          fire_training_date: supplier.last_fire_training_by_fscd,
+          fire_drill_date: supplier.last_fire_drill_record_by_fscd,
+          water_test_date: supplier.water_test_report_doe,
+          safety_meeting_date: supplier.last_safety_committee_meeting_date
         }))
       
       setRecentSuppliers(recent)
@@ -123,6 +167,8 @@ const SupplierDashboardCSR = () => {
         setExpirySummary(response.data.data)
       } else {
         console.warn('⚠️ Unexpected response format:', response.data)
+        // Fallback to calculate from local data
+        calculateLocalExpirySummary()
       }
     } catch (error) {
       console.error('❌ Error fetching expiry summary:', error)
@@ -135,20 +181,25 @@ const SupplierDashboardCSR = () => {
     try {
       console.log('Calculating local expiry summary from recent suppliers...')
       const summary = {
-        bsci: { count: 0, suppliers: [] },
-        oekoTex: { count: 0, suppliers: [] },
-        gots: { count: 0, suppliers: [] },
-        fireLicense: { count: 0, suppliers: [] },
+        ...expirySummary,
         total_expiring: 0
       }
       
+      // Reset counts
+      Object.keys(summary).forEach(key => {
+        if (key !== 'total_expiring') {
+          summary[key].count = 0
+        }
+      })
+      
       recentSuppliers.forEach(supplier => {
+        // Check certifications
         if (supplier.bsci_days && supplier.bsci_days <= 90 && supplier.bsci_days > 0) {
           summary.bsci.count++
           summary.total_expiring++
         }
         if (supplier.oekoTex_days && supplier.oekoTex_days <= 90 && supplier.oekoTex_days > 0) {
-          summary.oekoTex.count++
+          summary.oeko_tex.count++
           summary.total_expiring++
         }
         if (supplier.gots_days && supplier.gots_days <= 90 && supplier.gots_days > 0) {
@@ -156,7 +207,15 @@ const SupplierDashboardCSR = () => {
           summary.total_expiring++
         }
         if (supplier.fireLicense_days && supplier.fireLicense_days <= 90 && supplier.fireLicense_days > 0) {
-          summary.fireLicense.count++
+          summary.fire_license.count++
+          summary.total_expiring++
+        }
+        if (supplier.trade_license_days && supplier.trade_license_days <= 90 && supplier.trade_license_days > 0) {
+          summary.trade_license.count++
+          summary.total_expiring++
+        }
+        if (supplier.factory_license_days && supplier.factory_license_days <= 90 && supplier.factory_license_days > 0) {
+          summary.factory_license.count++
           summary.total_expiring++
         }
       })
@@ -357,8 +416,8 @@ const SupplierDashboardCSR = () => {
     if (!days && days !== 0) return { bg: '#6c757d', color: 'white' }
     if (days <= 0) return { bg: '#dc3545', color: 'white' } // Expired
     if (days <= 30) return { bg: '#dc3545', color: 'white' } // Critical
-    if (days <= 60) return { bg: '#ffc107', color: 'black' } // Warning
-    if (days <= 90) return { bg: '#fd7e14', color: 'white' } // Approaching
+    if (days <= 60) return { bg: '#fd7e14', color: 'white' } // Warning
+    if (days <= 90) return { bg: '#ffc107', color: 'black' } // Approaching
     return { bg: '#28a745', color: 'white' } // Good
   }
 
@@ -377,6 +436,18 @@ const SupplierDashboardCSR = () => {
   const calculateComplianceRate = () => {
     if (stats.totalSuppliers === 0) return 0
     return Math.round((stats.compliantSuppliers / stats.totalSuppliers) * 100)
+  }
+
+  const getExpiringItemsCount = () => {
+    return Object.entries(expirySummary)
+      .filter(([key]) => key !== 'total_expiring')
+      .reduce((total, [_, item]) => total + (item.count || 0), 0)
+  }
+
+  const getCriticalItemsCount = () => {
+    // This would need actual days remaining data
+    // For now, return a placeholder
+    return Math.min(5, getExpiringItemsCount())
   }
 
   if (loading) {
@@ -442,53 +513,47 @@ const SupplierDashboardCSR = () => {
         </div>
       )}
 
-      {/* Expiring Certifications Alert */}
+      {/* Expiring Items Alert - Enhanced Version */}
       {expirySummary.total_expiring > 0 && (
         <div style={styles.expiryAlert}>
           <div style={styles.expiryAlertHeader}>
             <span style={styles.expiryAlertIcon}>🔔</span>
-            <h3 style={styles.expiryAlertTitle}>
-              {expirySummary.total_expiring} Certification(s) Need Attention
-            </h3>
+            <div style={styles.expiryAlertHeaderContent}>
+              <h3 style={styles.expiryAlertTitle}>
+                {expirySummary.total_expiring} Item(s) Need Attention
+              </h3>
+              <button 
+                onClick={() => setShowExpiryDetails(!showExpiryDetails)}
+                style={styles.expiryToggleButton}
+              >
+                {showExpiryDetails ? '▼ Hide Details' : '▶ Show Details'}
+              </button>
+            </div>
           </div>
-          <div style={styles.expiryAlertGrid}>
-            {expirySummary.bsci.count > 0 && (
-              <div style={styles.expiryAlertItem}>
-                <span style={styles.expiryAlertLabel}>BSCI:</span>
-                <span style={{
-                  ...styles.expiryAlertCount,
-                  backgroundColor: expirySummary.bsci.count > 0 ? '#dc3545' : '#28a745'
-                }}>{expirySummary.bsci.count}</span>
-              </div>
-            )}
-            {expirySummary.oekoTex.count > 0 && (
-              <div style={styles.expiryAlertItem}>
-                <span style={styles.expiryAlertLabel}>Oeko-Tex:</span>
-                <span style={{
-                  ...styles.expiryAlertCount,
-                  backgroundColor: expirySummary.oekoTex.count > 0 ? '#dc3545' : '#28a745'
-                }}>{expirySummary.oekoTex.count}</span>
-              </div>
-            )}
-            {expirySummary.gots.count > 0 && (
-              <div style={styles.expiryAlertItem}>
-                <span style={styles.expiryAlertLabel}>GOTS:</span>
-                <span style={{
-                  ...styles.expiryAlertCount,
-                  backgroundColor: expirySummary.gots.count > 0 ? '#dc3545' : '#28a745'
-                }}>{expirySummary.gots.count}</span>
-              </div>
-            )}
-            {expirySummary.fireLicense.count > 0 && (
-              <div style={styles.expiryAlertItem}>
-                <span style={styles.expiryAlertLabel}>Fire License:</span>
-                <span style={{
-                  ...styles.expiryAlertCount,
-                  backgroundColor: expirySummary.fireLicense.count > 0 ? '#dc3545' : '#28a745'
-                }}>{expirySummary.fireLicense.count}</span>
-              </div>
-            )}
-          </div>
+          
+          {showExpiryDetails && (
+            <div style={styles.expiryAlertGrid}>
+              {Object.entries(expirySummary).map(([key, value]) => {
+                if (key === 'total_expiring' || !value.count) return null;
+                return (
+                  <div key={key} style={styles.expiryAlertItem}>
+                    <span style={styles.expiryAlertIcon}>{value.icon}</span>
+                    <span style={styles.expiryAlertLabel}>{value.name}:</span>
+                    <span style={{
+                      ...styles.expiryAlertCount,
+                      backgroundColor: value.count > 0 ? '#dc3545' : '#28a745'
+                    }}>{value.count}</span>
+                    {value.count > 0 && (
+                      <span style={styles.expiryAlertTooltip}>
+                        {value.count} supplier{value.count > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
           <div style={styles.expiryAlertActions}>
             <button 
               onClick={sendBulkRemindersHandler}
@@ -500,6 +565,10 @@ const SupplierDashboardCSR = () => {
             <Link to="/suppliersCSR?filter=expiring" style={styles.expiryAlertLink}>
               View All Expiring →
             </Link>
+          </div>
+          
+          <div style={styles.expiryAlertFooter}>
+            <span>Notification days: 90, 75, 60, 45, 30, 15</span>
           </div>
         </div>
       )}
@@ -809,6 +878,24 @@ const SupplierDashboardCSR = () => {
                               FIRE: {supplier.fireLicense_days}d
                             </span>
                           )}
+                          {supplier.trade_license_days && (
+                            <span style={{
+                              ...styles.dayBadge,
+                              backgroundColor: getDaysRemainingColor(supplier.trade_license_days).bg,
+                              color: getDaysRemainingColor(supplier.trade_license_days).color
+                            }}>
+                              TRADE: {supplier.trade_license_days}d
+                            </span>
+                          )}
+                          {supplier.factory_license_days && (
+                            <span style={{
+                              ...styles.dayBadge,
+                              backgroundColor: getDaysRemainingColor(supplier.factory_license_days).bg,
+                              color: getDaysRemainingColor(supplier.factory_license_days).color
+                            }}>
+                              FACT: {supplier.factory_license_days}d
+                            </span>
+                          )}
                         </div>
 
                         <div style={styles.supplierActions}>
@@ -876,11 +963,11 @@ const SupplierDashboardCSR = () => {
               >
                 <span style={styles.actionIcon}>🔔</span>
                 <div style={styles.actionContent}>
-                  <span style={styles.actionTitle}>Expiring Certifications</span>
+                  <span style={styles.actionTitle}>Expiring Items</span>
                   <span style={styles.actionDesc}>
                     {expirySummary.total_expiring > 0 
                       ? `${expirySummary.total_expiring} need attention` 
-                      : 'Check certifications'}
+                      : 'Check expiring items'}
                   </span>
                 </div>
                 {expirySummary.total_expiring > 0 && (
@@ -1068,22 +1155,30 @@ const styles = {
     whiteSpace: 'nowrap',
   },
 
-  // Expiry Alert Styles
+  // Expiry Alert Styles - Enhanced
   expiryAlert: {
     backgroundColor: '#fff3cd',
     border: '1px solid #ffeaa7',
     borderRadius: '12px',
     padding: '1.5rem',
     marginBottom: '2rem',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
   },
   expiryAlertHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
+    justifyContent: 'space-between',
     marginBottom: '1rem',
+  },
+  expiryAlertHeaderContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    flex: 1,
   },
   expiryAlertIcon: {
     fontSize: '1.5rem',
+    marginRight: '0.5rem',
   },
   expiryAlertTitle: {
     fontSize: '1.25rem',
@@ -1091,11 +1186,24 @@ const styles = {
     color: '#856404',
     margin: 0,
   },
+  expiryToggleButton: {
+    padding: '0.25rem 0.75rem',
+    backgroundColor: 'transparent',
+    border: '1px solid #856404',
+    borderRadius: '4px',
+    color: '#856404',
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+    fontWeight: '500',
+  },
   expiryAlertGrid: {
-    display: 'flex',
-    gap: '1rem',
-    flexWrap: 'wrap',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '0.75rem',
     marginBottom: '1.5rem',
+    maxHeight: '300px',
+    overflowY: 'auto',
+    padding: '0.5rem',
   },
   expiryAlertItem: {
     display: 'flex',
@@ -1104,11 +1212,14 @@ const styles = {
     backgroundColor: 'white',
     padding: '0.5rem 1rem',
     borderRadius: '20px',
+    position: 'relative',
+    cursor: 'help',
   },
   expiryAlertLabel: {
     fontSize: '0.875rem',
     fontWeight: '500',
     color: '#495057',
+    flex: 1,
   },
   expiryAlertCount: {
     padding: '0.25rem 0.5rem',
@@ -1116,11 +1227,29 @@ const styles = {
     fontSize: '0.75rem',
     fontWeight: '600',
     color: 'white',
+    minWidth: '24px',
+    textAlign: 'center',
+  },
+  expiryAlertTooltip: {
+    position: 'absolute',
+    bottom: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: '#333',
+    color: 'white',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px',
+    fontSize: '0.7rem',
+    whiteSpace: 'nowrap',
+    display: 'none',
+    zIndex: 10,
   },
   expiryAlertActions: {
     display: 'flex',
     gap: '1rem',
     alignItems: 'center',
+    borderTop: '1px solid #ffeaa7',
+    paddingTop: '1rem',
   },
   expiryAlertButton: {
     padding: '0.75rem 1.5rem',
@@ -1145,6 +1274,12 @@ const styles = {
     textDecoration: 'none',
     fontSize: '0.875rem',
     fontWeight: '500',
+  },
+  expiryAlertFooter: {
+    marginTop: '0.75rem',
+    fontSize: '0.75rem',
+    color: '#856404',
+    textAlign: 'right',
   },
 
   complianceScoreCard: {

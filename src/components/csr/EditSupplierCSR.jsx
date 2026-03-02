@@ -70,6 +70,10 @@ const EditSupplierCSR = () => {
     supplier_name: "",
     supplier_id: "",
     location: "",
+    location_factory: "",
+    bank_account: "",
+    bank_branch: "",
+    bank_bin: "",
     supplier_category: "",
     year_of_establishment: "",
     rented_building: false,
@@ -83,6 +87,8 @@ const EditSupplierCSR = () => {
     total_area: "",
     manpower_workers_male: "",
     manpower_workers_female: "",
+    other_gender_workers: "",
+    disabled_workers: "",
     manpower_staff_male: "",
     manpower_staff_female: "",
     total_manpower: "",
@@ -96,6 +102,7 @@ const EditSupplierCSR = () => {
     yearly_turnover_usd: "",
     weekly_holiday: "Friday",
     bgmea_number: "",
+    bkmea_number: "",
     rsc: "",
     tad_group_order_status: "",
 
@@ -162,6 +169,8 @@ const EditSupplierCSR = () => {
     berc_license_validity: "",
     berc_days_remaining: "",
     license_remarks: "",
+    drinking_water_license_validity: "",
+    drinking_water_license_days_remaining: "",
 
     // Fire Safety
     last_fire_training_by_fscd: "",
@@ -170,6 +179,8 @@ const EditSupplierCSR = () => {
     fscd_next_drill_date: "",
     total_fire_fighter_rescue_first_aider_fscd: "",
     fire_safety_remarks: "",
+    fire_safety_detection: "",
+    fire_safety_protection: "",
 
     // Wages & Compliance
     minimum_wages_paid: false,
@@ -187,6 +198,9 @@ const EditSupplierCSR = () => {
     higg_fem_self_assessment_score: "",
     higg_fem_verification_assessment_score: "",
     behive_chemical_inventory: false,
+    co2_report: "",
+    solar_energy: "",
+    green_energy: "",
 
     // RSC Audit
     rsc_id: "",
@@ -245,6 +259,13 @@ const EditSupplierCSR = () => {
 
   // File states
   const [files, setFiles] = useState({
+    // Building images (multiple)
+    building_images: [],
+    fire_images: [],
+
+    //general 
+    card_image: null,
+
     // Certificate files
     bsci_certificate: null,
     sedex_certificate: null,
@@ -268,6 +289,7 @@ const EditSupplierCSR = () => {
     group_insurance_file: null,
     boiler_license_file: null,
     berc_license_file: null,
+    drinking_water_license_file: null,
 
     // Environmental files
     environmental_compliance_certificate: null,
@@ -289,18 +311,18 @@ const EditSupplierCSR = () => {
     additional_document_3: null,
     additional_document_4: null,
 
-    // Fire Safety file URLs
+    // Fire Safety files
     fire_training_certificate: null,
     fire_drill_record: null,
     fire_safety_audit_report: null,
 
-    // RSC file URLs
+    // RSC files
     rsc_certificate: null,
     structural_safety_report: null,
     electrical_safety_report: null,
     fire_safety_report: null,
 
-    // PC & Safety Committee file URLs
+    // PC & Safety Committee files
     pc_election_document: null,
     pc_meeting_minutes: null,
     safety_committee_formation_document: null,
@@ -309,6 +331,10 @@ const EditSupplierCSR = () => {
 
   // Existing file URLs for display
   const [existingFiles, setExistingFiles] = useState({});
+  const [buildingImages, setBuildingImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [fireImages, setFireImages] = useState([]);
+  const [fireImagePreviews, setFireImagePreviews] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -316,6 +342,37 @@ const EditSupplierCSR = () => {
   const [activeTab, setActiveTab] = useState("basic");
   const [touchedFields, setTouchedFields] = useState({});
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
+
+  // Handle multiple image uploads
+  const handleBuildingImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    setBuildingImages((prev) => [...prev, ...files]);
+
+    // Create preview URLs
+    const newPreviews = files.map((file) => URL.createObjectURL(file));
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+  };
+
+  const handleFireImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    setFireImages((prev) => [...prev, ...files]);
+
+    // Create preview URLs
+    const newPreviews = files.map((file) => URL.createObjectURL(file));
+    setFireImagePreviews((prev) => [...prev, ...newPreviews]);
+  };
+
+  const removeBuildingImage = (index) => {
+    setBuildingImages((prev) => prev.filter((_, i) => i !== index));
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeFireImage = (index) => {
+    setFireImages((prev) => prev.filter((_, i) => i !== index));
+    URL.revokeObjectURL(fireImagePreviews[index]);
+    setFireImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Function to calculate days remaining
   const calculateDaysRemaining = (validityDate) => {
@@ -382,6 +439,10 @@ const EditSupplierCSR = () => {
         daysField: "boiler_license_days_remaining",
       },
       { field: "berc_license_validity", daysField: "berc_days_remaining" },
+      {
+        field: "drinking_water_license_validity",
+        daysField: "drinking_water_license_days_remaining",
+      },
     ];
 
     setFormData((prev) => {
@@ -480,6 +541,7 @@ const EditSupplierCSR = () => {
       "group_insurance_validity",
       "boiler_license_validity",
       "berc_license_validity",
+      "drinking_water_license_validity",
     ];
 
     // Check if any validity field was just updated
@@ -526,6 +588,7 @@ const EditSupplierCSR = () => {
         "group_insurance_validity",
         "boiler_license_validity",
         "berc_license_validity",
+        "drinking_water_license_validity",
         "last_fire_training_by_fscd",
         "fscd_next_fire_training_date",
         "last_fire_drill_record_by_fscd",
@@ -575,6 +638,7 @@ const EditSupplierCSR = () => {
         "group_insurance_days_remaining",
         "boiler_license_days_remaining",
         "berc_days_remaining",
+        "drinking_water_license_days_remaining",
       ];
 
       daysRemainingFields.forEach((field) => {
@@ -604,6 +668,8 @@ const EditSupplierCSR = () => {
         rcs_certificate: formattedData.rcs_certificate_url,
         iso_9001_certificate: formattedData.iso_9001_certificate_url,
         iso_14001_certificate: formattedData.iso_14001_certificate_url,
+        other_certificate_1: formattedData.other_certificate_1_url,
+        other_certificate_2: formattedData.other_certificate_2_url,
         trade_license_file: formattedData.trade_license_file_url,
         factory_license_file: formattedData.factory_license_file_url,
         fire_license_file: formattedData.fire_license_file_url,
@@ -611,6 +677,7 @@ const EditSupplierCSR = () => {
         group_insurance_file: formattedData.group_insurance_file_url,
         boiler_license_file: formattedData.boiler_license_file_url,
         berc_license_file: formattedData.berc_license_file_url,
+        drinking_water_license_file: formattedData.drinking_water_license_file_url,
         environmental_compliance_certificate:
           formattedData.environmental_compliance_certificate_url,
         environmental_audit_report:
@@ -623,6 +690,7 @@ const EditSupplierCSR = () => {
         risk_assessment_report: formattedData.risk_assessment_report_url,
         safety_audit_report: formattedData.safety_audit_report_url,
         profile_picture: formattedData.profile_picture_url,
+        card_image: formattedData.card_image_url,
         additional_document_1: formattedData.additional_document_1_url,
         additional_document_2: formattedData.additional_document_2_url,
         additional_document_3: formattedData.additional_document_3_url,
@@ -712,6 +780,8 @@ const EditSupplierCSR = () => {
         newData.boiler_license_days_remaining = calculateDaysRemaining(value);
       } else if (name === "berc_license_validity") {
         newData.berc_days_remaining = calculateDaysRemaining(value);
+      } else if (name === "drinking_water_license_validity") {
+        newData.drinking_water_license_days_remaining = calculateDaysRemaining(value);
       }
 
       return newData;
@@ -753,6 +823,8 @@ const EditSupplierCSR = () => {
         const total =
           (parseInt(formDataCopy.manpower_workers_male) || 0) +
           (parseInt(formDataCopy.manpower_workers_female) || 0) +
+          (parseInt(formDataCopy.other_gender_workers) || 0) +
+          (parseInt(formDataCopy.disabled_workers) || 0) +
           (parseInt(formDataCopy.manpower_staff_male) || 0) +
           (parseInt(formDataCopy.manpower_staff_female) || 0);
         formDataCopy.total_manpower = total > 0 ? total : null;
@@ -812,6 +884,10 @@ const EditSupplierCSR = () => {
           daysField: "boiler_license_days_remaining",
         },
         { field: "berc_license_validity", daysField: "berc_days_remaining" },
+        {
+          field: "drinking_water_license_validity",
+          daysField: "drinking_water_license_days_remaining",
+        },
       ];
 
       // Recalculate each days_remaining field
@@ -839,6 +915,16 @@ const EditSupplierCSR = () => {
             typeof value === "boolean" ? value.toString() : value;
           formDataToSend.append(key, finalValue);
         }
+      });
+
+      // Add multiple building images
+      buildingImages.forEach((image) => {
+        formDataToSend.append("building_images", image);
+      });
+
+      // Add multiple fire images
+      fireImages.forEach((image) => {
+        formDataToSend.append("fire_images", image);
       });
 
       // Add files
@@ -911,6 +997,64 @@ const EditSupplierCSR = () => {
     { id: "csr", label: "CSR", icon: "🤝" },
     { id: "documents", label: "Documents", icon: "📎" },
   ];
+
+  // Render functions for multiple image upload
+  const renderMultipleImageUpload = (label, name, images, previews, onRemove, onChange) => {
+    return (
+      <div style={formGroupStyle}>
+        <label style={labelStyle}>{label}</label>
+        <div style={fileInputWrapperStyle}>
+          <input
+            type="file"
+            name={name}
+            onChange={onChange}
+            accept="image/*"
+            multiple
+            style={fileInputStyle}
+            disabled={isUpdating || isLoading}
+            id={`file-${name}`}
+          />
+          <label htmlFor={`file-${name}`} style={fileInputLabelStyle}>
+            Choose multiple images
+          </label>
+        </div>
+
+        {/* Image Previews */}
+        {previews.length > 0 && (
+          <div style={imageGridStyle}>
+            {previews.map((preview, index) => (
+              <div key={index} style={imagePreviewContainerStyle}>
+                <img
+                  src={preview}
+                  alt={`Preview ${index + 1}`}
+                  style={imagePreviewStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemove(index)}
+                  style={removeImageButtonStyle}
+                >
+                  ×
+                </button>
+                <div style={imageInfoStyle}>
+                  {images[index]?.name}
+                  <span style={fileSizeStyle}>
+                    ({(images[index]?.size / 1024).toFixed(2)} KB)
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {images.length > 0 && (
+          <div style={imageCountStyle}>
+            Total {images.length} image(s) selected
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderInput = (
     label,
@@ -1246,11 +1390,11 @@ const EditSupplierCSR = () => {
             <div
               style={{
                 ...progressFillStyle,
-                width: `${
+                width: `${(
                   ((tabs.findIndex((tab) => tab.id === activeTab) + 1) /
                     tabs.length) *
                   100
-                }%`,
+                ).toFixed(0)}%`,
               }}
             />
           </div>
@@ -1312,7 +1456,20 @@ const EditSupplierCSR = () => {
                     true,
                   )}
                   {renderInput("Supplier ID", "supplier_id", "text", true)}
-                  {renderInput("Location", "location", "text", false, 3)}
+                  {renderInput(
+                    "Head Office Address",
+                    "location",
+                    "text",
+                    false,
+                    3,
+                  )}
+                  {renderInput(
+                    "Factory Location (City/Region)",
+                    "location_factory",
+                    "text",
+                    false,
+                    3,
+                  )}
                   {renderSelect(
                     "Supplier Category",
                     "supplier_category",
@@ -1353,6 +1510,22 @@ const EditSupplierCSR = () => {
                   )}
                   {renderInput("Email", "email", "email")}
                   {renderInput("Phone", "phone", "tel")}
+                  {renderSelect(
+                    "Weekly Holiday",
+                    "weekly_holiday",
+                    holidayOptions,
+                  )}
+                  {renderInput("BGMEA Number", "bgmea_number")}
+                  {renderInput("BKMEA Number", "bkmea_number")}
+                  {renderInput("RSC ID", "rsc")}
+                  {renderFileInput("Visiting Card", "card_image", "image/*")}
+
+                  <div style={fullWidthStyle}>
+                    <div style={subSectionTitleStyle}>Bank Details</div>
+                  </div>
+                  {renderInput("Bank Account", "bank_account")}
+                  {renderInput("Bank Branch", "bank_branch")}
+                  {renderInput("Bank BIN", "bank_bin")}
                 </div>
               </div>
             )}
@@ -1385,6 +1558,16 @@ const EditSupplierCSR = () => {
                     3,
                   )}
                   {renderInput("Total Area (sq ft)", "total_area", "number")}
+                  <div style={fullWidthStyle}>
+                    {renderMultipleImageUpload(
+                      "Building Images",
+                      "building_images",
+                      buildingImages,
+                      imagePreviews,
+                      removeBuildingImage,
+                      handleBuildingImagesChange,
+                    )}
+                  </div>
                 </div>
                 <div style={dividerStyle} />
                 <div>
@@ -1398,6 +1581,16 @@ const EditSupplierCSR = () => {
                     {renderInput(
                       "Workers - Female",
                       "manpower_workers_female",
+                      "number",
+                    )}
+                    {renderInput(
+                      "Workers - Other Gender",
+                      "other_gender_workers",
+                      "number",
+                    )}
+                    {renderInput(
+                      "Workers - Disabled",
+                      "disabled_workers",
                       "number",
                     )}
                     {renderInput(
@@ -1466,13 +1659,6 @@ const EditSupplierCSR = () => {
                     "yearly_turnover_usd",
                     "number",
                   )}
-                  {renderSelect(
-                    "Weekly Holiday",
-                    "weekly_holiday",
-                    holidayOptions,
-                  )}
-                  {renderInput("BGMEA Number", "bgmea_number")}
-                  {renderInput("RSC", "rsc")}
                   {renderInput(
                     "TAD Group Order Status",
                     "tad_group_order_status",
@@ -1589,7 +1775,33 @@ const EditSupplierCSR = () => {
                     </div>
                   </div>
 
-                  {renderLicenseGroup("berc_license", "BERC License")}
+                  {/* BERC License - Custom section */}
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>BERC License</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderInput("Validity", "berc_license_validity", "date")}
+                        {renderInput("Days Remaining", "berc_days_remaining", "number")}
+                        {renderFileInput("BERC License File", "berc_license_file", ".pdf,.jpg,.png")}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Drinking Water License - Custom section */}
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Drinking Water Test License</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderInput("Validity", "drinking_water_license_validity", "date")}
+                        {renderInput("Days Remaining", "drinking_water_license_days_remaining", "number")}
+                        {renderFileInput("License File", "drinking_water_license_file", ".pdf,.jpg,.png")}
+                      </div>
+                    </div>
+                  </div>
 
                   <div style={fullWidthStyle}>
                     {renderInput(
@@ -1640,6 +1852,16 @@ const EditSupplierCSR = () => {
                     "total_fire_fighter_rescue_first_aider_fscd",
                     "number",
                   )}
+                  {renderInput(
+                    "Fire Safety Detection",
+                    "fire_safety_detection",
+                    "text",
+                  )}
+                  {renderInput(
+                    "Fire Safety Protection",
+                    "fire_safety_protection",
+                    "text",
+                  )}
                 </div>
 
                 <div style={dividerStyle} />
@@ -1662,6 +1884,16 @@ const EditSupplierCSR = () => {
                       "fire_safety_audit_report",
                       ".pdf,.jpg,.png",
                     )}
+                    <div style={fullWidthStyle}>
+                      {renderMultipleImageUpload(
+                        "Fire Safety Images",
+                        "fire_images",
+                        fireImages,
+                        fireImagePreviews,
+                        removeFireImage,
+                        handleFireImagesChange,
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1877,6 +2109,21 @@ const EditSupplierCSR = () => {
                     "Higg FEM Verification Assessment Score",
                     "higg_fem_verification_assessment_score",
                     "number",
+                  )}
+                  {renderInput(
+                    "CO2 Report",
+                    "co2_report",
+                    "text",
+                  )}
+                  {renderInput(
+                    "Solar Energy",
+                    "solar_energy",
+                    "text",
+                  )}
+                  {renderInput(
+                    "Green Energy",
+                    "green_energy",
+                    "text",
                   )}
                   <div style={fullWidthStyle}>
                     {renderCheckbox(
@@ -2734,6 +2981,63 @@ const spinnerSmallStyle = {
   borderTopColor: "white",
   borderRadius: "50%",
   animation: "spin 0.6s linear infinite",
+};
+
+const imageGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+  gap: "1rem",
+  marginTop: "1rem",
+};
+
+const imagePreviewContainerStyle = {
+  position: "relative",
+  border: `1px solid ${colors.border}`,
+  borderRadius: "8px",
+  padding: "0.5rem",
+  backgroundColor: colors.light,
+};
+
+const imagePreviewStyle = {
+  width: "100%",
+  height: "120px",
+  objectFit: "cover",
+  borderRadius: "4px",
+};
+
+const removeImageButtonStyle = {
+  position: "absolute",
+  top: "0.25rem",
+  right: "0.25rem",
+  width: "24px",
+  height: "24px",
+  borderRadius: "50%",
+  backgroundColor: colors.danger,
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "1rem",
+  fontWeight: "bold",
+  ":hover": {
+    backgroundColor: "#b91c1c",
+  },
+};
+
+const imageInfoStyle = {
+  fontSize: "0.75rem",
+  marginTop: "0.5rem",
+  color: colors.textSecondary,
+  wordBreak: "break-all",
+};
+
+const imageCountStyle = {
+  fontSize: "0.875rem",
+  color: colors.primary,
+  marginTop: "0.5rem",
+  fontWeight: "500",
 };
 
 // Add CSS animations
