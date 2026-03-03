@@ -239,69 +239,55 @@ const formDataToObject = (formData) => {
   return obj;
 };
 
-// Create new supplier
+// Create new supplier - FIXED VERSION with better error handling
 export const createSupplier = async (supplierData) => {
-  console.log("📝 Creating new supplier:", supplierData);
+  console.log("📝 Creating new supplier");
 
   try {
-    // Convert FormData to object if needed
-    const data = formDataToObject(supplierData);
+    // Check if it's FormData
+    const isFormData = supplierData instanceof FormData;
 
-    // Special handling for email field - if empty, don't send it
-    if (data.email === "" || data.email === null || data.email === undefined) {
-      delete data.email;
-    }
-
-    // Handle file fields separately
-    const formDataToSend = new FormData();
-    const jsonData = {};
-
-    // Separate files and regular data
-    Object.keys(data).forEach((key) => {
-      const value = data[key];
-
-      if (
-        value instanceof File ||
-        (typeof value === "object" && value?.type?.startsWith?.("application/"))
-      ) {
-        // It's a file or file-like object
-        formDataToSend.append(key, value);
-      } else if (value === null || value === undefined || value === "") {
-        // Skip empty values for non-file fields
-        // Don't append empty strings
-      } else if (typeof value === "boolean") {
-        jsonData[key] = value;
-      } else {
-        jsonData[key] = value;
+    if (isFormData) {
+      // Log FormData contents for debugging
+      console.log("📦 Sending FormData with fields:");
+      const debugObj = {};
+      for (let pair of supplierData.entries()) {
+        if (pair[1] instanceof File) {
+          debugObj[pair[0]] = `[File] ${pair[1].name} (${pair[1].type}, ${pair[1].size} bytes)`;
+          console.log(`  ${pair[0]}: File - ${pair[1].name} (${pair[1].type})`);
+        } else {
+          debugObj[pair[0]] = pair[1];
+          console.log(`  ${pair[0]}: ${pair[1]}`);
+        }
       }
-    });
+      console.log("FormData as object:", debugObj);
 
-    // If there are no files, send as JSON
-    if (formDataToSend.keys().next().done) {
-      // No files, send as JSON
-      console.log("📦 Sending JSON data:", jsonData);
-      const response = await supplierApi.post("supplier/", jsonData);
-      console.log("✅ Supplier created successfully:", response.data);
-      return response;
-    } else {
-      // Has files, send as FormData
-      // Add JSON data as stringified JSON
-      formDataToSend.append("data", JSON.stringify(jsonData));
-
-      console.log("📦 Sending FormData with files");
-      const response = await supplierApi.post("supplier/", formDataToSend, {
+      // Send FormData directly
+      const response = await supplierApi.post("supplier/", supplierData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
       console.log("✅ Supplier created successfully:", response.data);
       return response;
+    } else {
+      // Handle regular JSON data
+      console.log("📦 Sending JSON data:", supplierData);
+      const response = await supplierApi.post("supplier/", supplierData);
+      console.log("✅ Supplier created successfully:", response.data);
+      return response;
     }
   } catch (error) {
-    console.error(
-      "❌ Error creating supplier:",
-      error.response?.data || error.message,
-    );
+    console.error("❌ Error creating supplier:");
+    if (error.response) {
+      console.error("Status:", error.response.status);
+      console.error("Data:", error.response.data);
+      console.error("Headers:", error.response.headers);
+    } else if (error.request) {
+      console.error("No response received:", error.request);
+    } else {
+      console.error("Error:", error.message);
+    }
     throw error;
   }
 };
@@ -387,19 +373,27 @@ export const getDashboardExpirySummary = () => {
 };
 
 // Send bulk reminders - UPDATED for all items
-export const sendBulkReminders = (fromEmail = "compliance@texweave.net", itemTypes = []) => {
+export const sendBulkReminders = (
+  fromEmail = "compliance@texweave.net",
+  itemTypes = [],
+) => {
   return supplierApi.post("supplier/send-bulk-reminders/", {
     from_email: fromEmail,
-    item_types: itemTypes
+    item_types: itemTypes,
   });
 };
 
 // Send expiry notifications for specific supplier - UPDATED for all items
-export const sendExpiryNotifications = (supplierId, items, fromEmail = "compliance@texweave.net", customMessage = "") => {
+export const sendExpiryNotifications = (
+  supplierId,
+  items,
+  fromEmail = "compliance@texweave.net",
+  customMessage = "",
+) => {
   return supplierApi.post(`supplier/${supplierId}/send-expiry-notifications/`, {
     items: items,
     from_email: fromEmail,
-    custom_message: customMessage
+    custom_message: customMessage,
   });
 };
 

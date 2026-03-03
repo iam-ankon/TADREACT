@@ -1,6 +1,33 @@
+// SupplierDetailsCSR.jsx - Complete Fixed Version
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getSupplierById } from "../../api/supplierApi";
+
+// Professional color palette
+const colors = {
+  primary: "#2563eb",
+  primaryDark: "#1d4ed8",
+  primaryLight: "#3b82f6",
+  success: "#059669",
+  successLight: "#d1fae5",
+  warning: "#d97706",
+  warningLight: "#fef3c7",
+  danger: "#dc2626",
+  dangerLight: "#fee2e2",
+  info: "#0891b2",
+  infoLight: "#cffafe",
+  purple: "#7c3aed",
+  purpleLight: "#ede9fe",
+  gray: "#6b7280",
+  grayLight: "#f3f4f6",
+  grayDark: "#374151",
+  border: "#e5e7eb",
+  background: "#ffffff",
+  cardBg: "#f9fafb",
+  textPrimary: "#111827",
+  textSecondary: "#6b7280",
+  textMuted: "#9ca3b3",
+};
 
 const formatDate = (dateString) => {
   if (!dateString) return "Not specified";
@@ -16,8 +43,17 @@ const formatDate = (dateString) => {
   }
 };
 
+const formatCurrency = (amount) => {
+  if (!amount && amount !== 0) return "Not specified";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(amount);
+};
+
 const getStatusColor = (status) => {
-  if (!status) return { bg: "#f8f9fa", text: "#6c757d", border: "#e9ecef" };
+  if (!status) return { bg: colors.grayLight, text: colors.gray, border: colors.border };
 
   const statusLower = status.toLowerCase();
   switch (statusLower) {
@@ -25,28 +61,245 @@ const getStatusColor = (status) => {
     case "approved":
     case "valid":
     case "compliant":
-      return { bg: "#d4edda", text: "#155724", border: "#c3e6cb" };
+      return { bg: colors.successLight, text: colors.success, border: "#c3e6cb" };
     case "pending":
     case "under_review":
-      return { bg: "#fff3cd", text: "#856404", border: "#ffeaa7" };
+    case "in progress":
+      return { bg: colors.warningLight, text: colors.warning, border: "#ffeaa7" };
     case "expired":
     case "cancelled":
     case "non_compliant":
-      return { bg: "#f8d7da", text: "#721c24", border: "#f5c6cb" };
+    case "invalid":
+      return { bg: colors.dangerLight, text: colors.danger, border: "#f5c6cb" };
     case "conditional":
-      return { bg: "#cfe2ff", text: "#084298", border: "#b6d4fe" };
+      return { bg: colors.infoLight, text: colors.info, border: "#b6d4fe" };
     default:
-      return { bg: "#f8f9fa", text: "#6c757d", border: "#e9ecef" };
+      return { bg: colors.grayLight, text: colors.gray, border: colors.border };
   }
 };
 
 const getDaysRemainingColor = (days) => {
-  if (!days && days !== 0) return { bg: "#6c757d", color: "white" };
-  if (days <= 0) return { bg: "#dc3545", color: "white" }; // Expired
-  if (days <= 30) return { bg: "#dc3545", color: "white" }; // Critical
-  if (days <= 60) return { bg: "#fd7e14", color: "white" }; // Warning
-  if (days <= 90) return { bg: "#ffc107", color: "black" }; // Approaching
-  return { bg: "#28a745", color: "white" }; // Good
+  if (!days && days !== 0) return { bg: colors.gray, color: "white" };
+  if (days <= 0) return { bg: colors.danger, color: "white" }; // Expired
+  if (days <= 30) return { bg: colors.danger, color: "white" }; // Critical
+  if (days <= 60) return { bg: colors.warning, color: "white" }; // Warning
+  if (days <= 90) return { bg: colors.warning, color: "white" }; // Approaching
+  return { bg: colors.success, color: "white" }; // Good
+};
+
+const getBooleanDisplay = (value) => {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "Not specified";
+};
+
+// Helper function for building type
+const getBuildingType = (supplier) => {
+  const types = [];
+  if (supplier?.rented_building) types.push("Rented");
+  if (supplier?.share_building) types.push("Shared");
+  if (supplier?.own_property) types.push("Owned");
+  return types.length > 0 ? types.join(", ") : null;
+};
+
+// Helper function to get correct file URL (point to Django server)
+const getCorrectFileUrl = (url) => {
+  if (!url) return null;
+  
+  const backendUrl = "http://119.148.51.38:8000";
+
+  // If the URL starts with /media/, point it to Django server
+  if (url.startsWith("/media/")) {
+    return `${backendUrl}${url}`;
+  }
+
+  // If it's a relative URL that doesn't start with http, add Django server
+  if (!url.startsWith("http")) {
+    return `${backendUrl}${url.startsWith("/") ? url : "/" + url}`;
+  }
+
+  // If it's already an absolute URL but pointing to port 3000, fix it
+  if (url.includes(":3000")) {
+    return url.replace(":3000", ":8000");
+  }
+
+  return url;
+};
+
+const InfoCard = ({ title, icon, children, colSpan = 1 }) => (
+  <div style={{ ...styles.infoCard, gridColumn: colSpan > 1 ? `span ${colSpan}` : "auto" }}>
+    <div style={styles.cardHeader}>
+      <span style={styles.cardIcon}>{icon}</span>
+      <h3 style={styles.cardTitle}>{title}</h3>
+    </div>
+    <div style={styles.cardBody}>{children}</div>
+  </div>
+);
+
+const InfoRow = ({ label, value, copyable = false, fieldName, copiedField, onCopy }) => {
+  if (value === undefined || value === null || value === "" || value === "Not specified") return null;
+
+  const displayValue = typeof value === "boolean" ? (value ? "Yes" : "No") : value;
+
+  return (
+    <div style={styles.infoRow}>
+      <span style={styles.infoLabel}>{label}:</span>
+      <div style={styles.infoValueContainer}>
+        <span style={styles.infoValue}>{displayValue}</span>
+        {copyable && onCopy && (
+          <button
+            onClick={() => onCopy(value, fieldName)}
+            style={styles.copyButton}
+            title="Copy to clipboard"
+          >
+            {copiedField === fieldName ? "✅" : "📋"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const StatusBadge = ({ status, size = "medium" }) => {
+  const { bg, text } = getStatusColor(status);
+  return (
+    <span
+      style={{
+        ...styles.statusBadge,
+        backgroundColor: bg,
+        color: text,
+        fontSize: size === "small" ? "0.75rem" : "0.875rem",
+        padding: size === "small" ? "0.25rem 0.5rem" : "0.5rem 1rem",
+      }}
+    >
+      {status?.replace(/_/g, " ").toUpperCase() || "UNKNOWN"}
+    </span>
+  );
+};
+
+const DaysRemainingBadge = ({ days }) => {
+  const { bg, color } = getDaysRemainingColor(days);
+  return (
+    <span
+      style={{
+        ...styles.daysBadge,
+        backgroundColor: bg,
+        color,
+      }}
+    >
+      {days} days {days <= 30 && "⚠️"}
+    </span>
+  );
+};
+
+const DocumentGrid = ({ documents }) => {
+  if (!documents || documents.length === 0) {
+    return (
+      <div style={styles.noDocuments}>
+        <span style={styles.noDocsIcon}>📂</span>
+        <p>No documents uploaded</p>
+      </div>
+    );
+  }
+
+  const handleViewDocument = (e, url) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const correctUrl = getCorrectFileUrl(url);
+    console.log("Opening document URL:", correctUrl);
+    
+    // Open in new tab
+    window.open(correctUrl, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <div style={styles.documentGrid}>
+      {documents.map((doc, index) => (
+        <div key={index} style={styles.documentCard}>
+          <span style={styles.docIcon}>📄</span>
+          <div style={styles.docInfo}>
+            <div style={styles.docName}>{doc.name || `Document ${index + 1}`}</div>
+            {doc.url && (
+              <a 
+                href="#" 
+                onClick={(e) => handleViewDocument(e, doc.url)} 
+                style={styles.docLink}
+              >
+                View Document →
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Image Gallery Component with improved error handling
+const ImageGallery = ({ images, title }) => {
+  if (!images || images.length === 0) return null;
+  
+  const [failedImages, setFailedImages] = useState({});
+
+  const handleImageError = (index) => {
+    setFailedImages(prev => ({ ...prev, [index]: true }));
+  };
+
+  const handleImageClick = (url) => {
+    const correctUrl = getCorrectFileUrl(url);
+    console.log("Opening image URL:", correctUrl);
+    window.open(correctUrl, '_blank');
+  };
+
+  // Generate fallback SVG
+  const FallbackImage = () => (
+    <svg width="100%" height="150" viewBox="0 0 200 150" preserveAspectRatio="none" style={styles.fallbackSvg}>
+      <rect width="200" height="150" fill={colors.grayLight} />
+      <rect x="1" y="1" width="198" height="148" fill="none" stroke={colors.border} strokeWidth="2" strokeDasharray="5,5" />
+      <text x="100" y="75" fontFamily="Arial" fontSize="40" textAnchor="middle" fill={colors.textMuted} dy=".3em">🖼️</text>
+      <text x="100" y="110" fontFamily="Arial" fontSize="12" textAnchor="middle" fill={colors.textSecondary}>Image not available</text>
+    </svg>
+  );
+
+  return (
+    <div style={styles.imageGallery}>
+      <h4 style={styles.galleryTitle}>{title} ({images.length})</h4>
+      <div style={styles.imageGrid}>
+        {images.map((imageUrl, index) => {
+          const correctUrl = getCorrectFileUrl(imageUrl);
+          const hasFailed = failedImages[index];
+          
+          return (
+            <div 
+              key={index} 
+              className="gallery-image-container"
+              style={styles.galleryImageContainer}
+              onClick={() => !hasFailed && handleImageClick(imageUrl)}
+              title={hasFailed ? "Image failed to load - Click to try opening directly" : "Click to view full size"}
+            >
+              {!hasFailed ? (
+                <img 
+                  src={correctUrl} 
+                  alt={`${title} ${index + 1}`}
+                  style={styles.galleryImage}
+                  onError={() => handleImageError(index)}
+                  loading="lazy"
+                />
+              ) : (
+                <div style={styles.fallbackContainer}>
+                  <FallbackImage />
+                </div>
+              )}
+              <div style={styles.imageOverlay}>
+                <span style={styles.imageOverlayText}>Click to enlarge</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
 
 const SupplierDetailsCSR = () => {
@@ -55,29 +308,47 @@ const SupplierDetailsCSR = () => {
   const [supplier, setSupplier] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState("overview");
   const [copiedField, setCopiedField] = useState(null);
-
-  // Notification modal states
+  
+  // Notification states
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [sendingNotifications, setSendingNotifications] = useState(false);
   const [notificationResult, setNotificationResult] = useState(null);
   const [customMessage, setCustomMessage] = useState('');
   const [selectedItems, setSelectedItems] = useState({});
-  const [expiryItems, setExpiryItems] = useState([]);
 
   useEffect(() => {
     fetchSupplierDetails();
   }, [id]);
 
+  // Debug logging for images
+  useEffect(() => {
+    if (supplier) {
+      console.log("=== Supplier Data Debug ===");
+      console.log("Building images:", supplier.building_images);
+      console.log("Fire images:", supplier.fire_images);
+      console.log("All certificates:", supplier.all_certificates);
+      
+      // Test image URLs
+      if (supplier.building_images) {
+        supplier.building_images.forEach((url, i) => {
+          console.log(`Building image ${i + 1} corrected URL:`, getCorrectFileUrl(url));
+        });
+      }
+      if (supplier.fire_images) {
+        supplier.fire_images.forEach((url, i) => {
+          console.log(`Fire image ${i + 1} corrected URL:`, getCorrectFileUrl(url));
+        });
+      }
+    }
+  }, [supplier]);
+
   const fetchSupplierDetails = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log(`Fetching supplier details for ID: ${id}`);
-
       const response = await getSupplierById(id);
-      console.log("Supplier data received:", response.data);
       setSupplier(response.data);
     } catch (error) {
       console.error("Error fetching supplier details:", error);
@@ -89,34 +360,13 @@ const SupplierDetailsCSR = () => {
 
   const copyToClipboard = (text, fieldName) => {
     if (!text) return;
-
-    navigator.clipboard
-      .writeText(text.toString())
-      .then(() => {
-        setCopiedField(fieldName);
-        setTimeout(() => setCopiedField(null), 2000);
-      })
-      .catch((err) => {
-        console.error("Failed to copy:", err);
-      });
+    navigator.clipboard.writeText(text.toString()).then(() => {
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
   };
 
-  const formatCurrency = (amount) => {
-    if (!amount && amount !== 0) return "Not specified";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const getBooleanDisplay = (value) => {
-    if (value === true) return "Yes";
-    if (value === false) return "No";
-    return "Not specified";
-  };
-
-  // Get ALL expiring items (certifications, licenses, safety items)
+  // Get ALL expiring items
   const getExpiringItems = () => {
     if (!supplier) return [];
 
@@ -124,7 +374,6 @@ const SupplierDetailsCSR = () => {
     const today = new Date();
     const notificationDays = [90, 75, 60, 45, 30, 15];
 
-    // Helper function to calculate days remaining
     const calculateDays = (dateString) => {
       if (!dateString) return null;
       const expiryDate = new Date(dateString);
@@ -133,7 +382,6 @@ const SupplierDetailsCSR = () => {
       return diffDays;
     };
 
-    // Certifications with days remaining fields
     const certItems = [
       { id: 'bsci', name: 'BSCI Certification', days: supplier.bsci_validity_days_remaining, expiry: supplier.bsci_validity, status: supplier.bsci_status, icon: '📜', category: 'certification' },
       { id: 'sedex', name: 'SEDEX Certification', days: supplier.sedex_validity_days_remaining, expiry: supplier.sedex_validity, status: supplier.sedex_status, icon: '📜', category: 'certification' },
@@ -147,7 +395,6 @@ const SupplierDetailsCSR = () => {
       { id: 'iso_9001', name: 'ISO 9001 Certification', days: supplier.iso_9001_validity_days_remaining, expiry: supplier.iso_9001_validity, status: supplier.iso_9001_status, icon: '📜', category: 'certification' },
       { id: 'iso_14001', name: 'ISO 14001 Certification', days: supplier.iso_14001_validity_days_remaining, expiry: supplier.iso_14001_validity, status: supplier.iso_14001_status, icon: '📜', category: 'certification' },
       
-      // Licenses
       { id: 'trade_license', name: 'Trade License', days: supplier.trade_license_days_remaining, expiry: supplier.trade_license_validity, status: 'License', icon: '📋', category: 'license' },
       { id: 'factory_license', name: 'Factory License', days: supplier.factory_license_days_remaining, expiry: supplier.factory_license_validity, status: 'License', icon: '🏭', category: 'license' },
       { id: 'fire_license', name: 'Fire License', days: supplier.fire_license_days_remaining, expiry: supplier.fire_license_validity, status: 'License', icon: '🚒', category: 'license' },
@@ -157,7 +404,6 @@ const SupplierDetailsCSR = () => {
       { id: 'berc_license', name: 'BERC License', days: supplier.berc_days_remaining, expiry: supplier.berc_license_validity, status: 'License', icon: '📋', category: 'license' },
     ];
 
-    // Date fields that need calculation
     const dateItems = [
       { id: 'fire_training', name: 'Fire Training (FSCD)', date: supplier.last_fire_training_by_fscd, icon: '🔥', category: 'safety' },
       { id: 'next_fire_training', name: 'Next Fire Training', date: supplier.fscd_next_fire_training_date, icon: '🔥', category: 'safety' },
@@ -172,7 +418,6 @@ const SupplierDetailsCSR = () => {
       { id: 'safety_audit', name: 'Safety Audit', date: supplier.last_safety_audit_date, icon: '🔍', category: 'safety' },
     ];
 
-    // Add items with pre-calculated days
     certItems.forEach(item => {
       if (item.days && notificationDays.includes(item.days)) {
         items.push({
@@ -184,7 +429,6 @@ const SupplierDetailsCSR = () => {
       }
     });
 
-    // Add date items with calculated days
     dateItems.forEach(item => {
       if (item.date) {
         const days = calculateDays(item.date);
@@ -203,7 +447,6 @@ const SupplierDetailsCSR = () => {
     return items.sort((a, b) => a.days_remaining - b.days_remaining);
   };
 
-  // Send expiry notifications
   const sendExpiryNotifications = async () => {
     const selected = Object.entries(selectedItems)
       .filter(([_, isSelected]) => isSelected)
@@ -255,7 +498,6 @@ const SupplierDetailsCSR = () => {
           details: result.notifications,
         });
 
-        // Reset selections
         setSelectedItems({});
         setCustomMessage('');
       } else {
@@ -275,25 +517,162 @@ const SupplierDetailsCSR = () => {
     }
   };
 
-  // Get notification badge count
   const getNotificationCount = () => {
     return getExpiringItems().length;
   };
 
-  const tabs = [
-    { id: "general", label: "General Info", icon: "🏢" },
-    { id: "building", label: "Building & Manpower", icon: "🏭" },
-    { id: "production", label: "Production", icon: "⚙️" },
-    { id: "certifications", label: "Certifications", icon: "📜" },
-    { id: "licenses", label: "Licenses", icon: "📋" },
-    { id: "safety", label: "Safety", icon: "🚨" },
-    { id: "compliance", label: "Compliance", icon: "✅" },
-    { id: "pcSafety", label: "PC & Safety", icon: "👥" },
-    { id: "environment", label: "Environment", icon: "🌱" },
-    { id: "rsc", label: "RSC Audit", icon: "🔍" },
-    { id: "csr", label: "CSR", icon: "🤝" },
-    { id: "documents", label: "Documents", icon: "📎" },
-  ];
+  const groupedData = supplier && {
+    basic: [
+      { label: "SL No", value: supplier.sl_no },
+      { label: "Supplier ID", value: supplier.supplier_id, copyable: true, field: "supplier_id" },
+      { label: "Category", value: supplier.supplier_category },
+      { label: "Year Established", value: supplier.year_of_establishment },
+      { label: "Location", value: supplier.location },
+      { label: "Factory Location", value: supplier.location_factory },
+      { label: "Bank Account", value: supplier.bank_account },
+      { label: "Bank Branch", value: supplier.bank_branch },
+      { label: "Bank BIN", value: supplier.bank_bin },
+      { label: "Weekly Holiday", value: supplier.weekly_holiday },
+      { label: "BGMEA Number", value: supplier.bgmea_number },
+      { label: "BKMEA Number", value: supplier.bkmea_number },
+      { label: "RSC", value: supplier.rsc },
+      { label: "TAD Group Order Status", value: supplier.tad_group_order_status },
+    ],
+    contacts: [
+      { label: "Email", value: supplier.email, copyable: true, field: "email" },
+      { label: "Phone", value: supplier.phone, copyable: true, field: "phone" },
+      { label: "Main Contact", value: supplier.factory_main_contact },
+      { label: "Merchandiser Contact", value: supplier.factory_merchandiser_contact },
+      { label: "HR/Compliance Contact", value: supplier.factory_hr_compliance_contact },
+    ],
+    building: [
+      { label: "Building Type", value: getBuildingType(supplier) },
+      { label: "Building Details", value: supplier.building_details },
+      { label: "Total Area", value: supplier.total_area ? `${supplier.total_area} sq ft` : null },
+      { label: "Ownership Details", value: supplier.ownership_details },
+    ],
+    manpower: [
+      { label: "Workers - Male", value: supplier.manpower_workers_male },
+      { label: "Workers - Female", value: supplier.manpower_workers_female },
+      { label: "Workers - Other Gender", value: supplier.other_gender_workers },
+      { label: "Workers - Disabled", value: supplier.disabled_workers },
+      { label: "Staff - Male", value: supplier.manpower_staff_male },
+      { label: "Staff - Female", value: supplier.manpower_staff_female },
+      { label: "Total Manpower", value: supplier.total_manpower },
+    ],
+    production: [
+      { label: "Production Process", value: supplier.production_process },
+      { label: "Manufacturing Items", value: supplier.manufacturing_item },
+      { label: "Capacity per Month", value: supplier.capacity_per_month },
+      { label: "Business by Market", value: supplier.business_by_market },
+      { label: "Existing Customers", value: supplier.existing_customer },
+      { label: "Sewing Lines", value: supplier.number_of_sewing_line },
+      { label: "Total Machineries", value: supplier.total_number_of_machineries },
+      { label: "Yearly Turnover", value: formatCurrency(supplier.yearly_turnover_usd) },
+    ],
+    certifications: [
+      { name: "BSCI", days: supplier.bsci_validity_days_remaining, validity: supplier.bsci_validity, status: supplier.bsci_status, rating: supplier.bsci_rating },
+      { name: "SEDEX", days: supplier.sedex_validity_days_remaining, validity: supplier.sedex_validity, status: supplier.sedex_status, rating: supplier.sedex_rating },
+      { name: "WRAP", days: supplier.wrap_validity_days_remaining, validity: supplier.wrap_validity, status: supplier.wrap_status, rating: supplier.wrap_rating },
+      { name: "CTPAT", days: supplier.security_audit_validity_days_remaining, validity: supplier.security_audit_validity, status: supplier.security_audit_status },
+      { name: "Oeko-Tex", days: supplier.oeko_tex_validity_days_remaining, validity: supplier.oeko_tex_validity, status: supplier.oeko_tex_status },
+      { name: "GOTS", days: supplier.gots_validity_days_remaining, validity: supplier.gots_validity, status: supplier.gots_status },
+      { name: "OCS", days: supplier.ocs_validity_days_remaining, validity: supplier.ocs_validity, status: supplier.ocs_status },
+      { name: "GRS", days: supplier.grs_validity_days_remaining, validity: supplier.grs_validity, status: supplier.grs_status },
+      { name: "RCS", days: supplier.rcs_validity_days_remaining, validity: supplier.rcs_validity, status: supplier.rcs_status },
+      { name: "ISO 9001", days: supplier.iso_9001_validity_days_remaining, validity: supplier.iso_9001_validity, status: supplier.iso_9001_status },
+      { name: "ISO 14001", days: supplier.iso_14001_validity_days_remaining, validity: supplier.iso_14001_validity, status: supplier.iso_14001_status },
+    ],
+    licenses: [
+      { name: "Trade License", days: supplier.trade_license_days_remaining, validity: supplier.trade_license_validity },
+      { name: "Factory License", days: supplier.factory_license_days_remaining, validity: supplier.factory_license_validity },
+      { name: "Fire License", days: supplier.fire_license_days_remaining, validity: supplier.fire_license_validity },
+      { name: "Membership", days: supplier.membership_days_remaining, validity: supplier.membership_validity },
+      { name: "Group Insurance", days: supplier.group_insurance_days_remaining, validity: supplier.group_insurance_validity },
+      { name: "Boiler License", days: supplier.boiler_license_days_remaining, validity: supplier.boiler_license_validity, boilerNo: supplier.boiler_no },
+      { name: "BERC License", days: supplier.berc_days_remaining, validity: supplier.berc_license_validity },
+      { name: "Drinking Water License", days: supplier.drinking_water_license_days_remaining, validity: supplier.drinking_water_license_validity },
+    ],
+    fireSafety: [
+      { label: "Last Fire Training", value: formatDate(supplier.last_fire_training_by_fscd) },
+      { label: "Next Fire Training", value: formatDate(supplier.fscd_next_fire_training_date) },
+      { label: "Last Fire Drill", value: formatDate(supplier.last_fire_drill_record_by_fscd) },
+      { label: "Next Fire Drill", value: formatDate(supplier.fscd_next_drill_date) },
+      { label: "Fire Fighters/Rescuers", value: supplier.total_fire_fighter_rescue_first_aider_fscd },
+      { label: "Fire Safety Detection", value: supplier.fire_safety_detection },
+      { label: "Fire Safety Protection", value: supplier.fire_safety_protection },
+      { label: "Remarks", value: supplier.fire_safety_remarks },
+    ],
+    compliance: [
+      { label: "Compliance Status", value: supplier.compliance_status, badge: true },
+      { label: "Minimum Wages Paid", value: getBooleanDisplay(supplier.minimum_wages_paid) },
+      { label: "Earn Leave Status", value: getBooleanDisplay(supplier.earn_leave_status) },
+      { label: "Service Benefit", value: getBooleanDisplay(supplier.service_benefit) },
+      { label: "Maternity Benefit", value: getBooleanDisplay(supplier.maternity_benefit) },
+      { label: "Yearly Increment", value: getBooleanDisplay(supplier.yearly_increment) },
+      { label: "Festival Bonus", value: getBooleanDisplay(supplier.festival_bonus) },
+      { label: "Salary Due Status", value: getBooleanDisplay(supplier.salary_due_status) },
+      { label: "Due Salary Month", value: supplier.due_salary_month },
+      { label: "Remarks", value: supplier.compliance_remarks },
+    ],
+    grievance: [
+      { label: "Grievance Mechanism", value: getBooleanDisplay(supplier.grievance_mechanism) },
+      { label: "Resolution Procedure", value: supplier.grievance_resolution_procedure },
+      { label: "Last Resolution Date", value: formatDate(supplier.last_grievance_resolution_date) },
+      { label: "Resolution Rate", value: supplier.grievance_resolution_rate ? `${supplier.grievance_resolution_rate}%` : null },
+      { label: "Remarks", value: supplier.grievance_remarks },
+    ],
+    committee: [
+      { label: "Last PC Election", value: formatDate(supplier.last_pc_election_date) },
+      { label: "Last PC Meeting", value: formatDate(supplier.last_pc_meeting_date) },
+      { label: "Last Safety Committee Formation", value: formatDate(supplier.last_safety_committee_formation_date) },
+      { label: "Last Safety Committee Meeting", value: formatDate(supplier.last_safety_committee_meeting_date) },
+    ],
+    environmental: [
+      { label: "Water Test Report (DOE)", value: formatDate(supplier.water_test_report_doe) },
+      { label: "ZDHC Water Test", value: formatDate(supplier.zdhc_water_test_report) },
+      { label: "Higg FEM Self Assessment", value: supplier.higg_fem_self_assessment_score },
+      { label: "Higg FEM Verification", value: supplier.higg_fem_verification_assessment_score },
+      { label: "Behive Chemical Inventory", value: getBooleanDisplay(supplier.behive_chemical_inventory) },
+      { label: "CO2 Report", value: supplier.co2_report },
+      { label: "Solar Energy", value: supplier.solar_energy },
+      { label: "Green Energy", value: supplier.green_energy },
+    ],
+    rsc: [
+      { label: "RSC ID", value: supplier.rsc_id },
+      { label: "Progress Rate", value: supplier.progress_rate ? `${supplier.progress_rate}%` : null },
+      { label: "Structural - Initial Audit", value: formatDate(supplier.structural_initial_audit_date) },
+      { label: "Structural - Initial Findings", value: supplier.structural_initial_findings },
+      { label: "Structural - Total Findings", value: supplier.structural_total_findings },
+      { label: "Structural - Corrected", value: supplier.structural_total_corrected },
+      { label: "Structural - In Progress", value: supplier.structural_total_in_progress },
+      { label: "Structural - Pending Verification", value: supplier.structural_total_pending_verification },
+      { label: "Fire - Initial Audit", value: formatDate(supplier.fire_initial_audit_date) },
+      { label: "Fire - Initial Findings", value: supplier.fire_initial_findings },
+      { label: "Fire - Total Findings", value: supplier.fire_total_findings },
+      { label: "Fire - Corrected", value: supplier.fire_total_corrected },
+      { label: "Fire - In Progress", value: supplier.fire_total_in_progress },
+      { label: "Fire - Pending Verification", value: supplier.fire_total_pending_verification },
+      { label: "Electrical - Initial Audit", value: formatDate(supplier.electrical_initial_audit_date) },
+      { label: "Electrical - Initial Findings", value: supplier.electrical_initial_findings },
+      { label: "Electrical - Total Findings", value: supplier.electrical_total_findings },
+      { label: "Electrical - Corrected", value: supplier.electrical_total_corrected },
+      { label: "Electrical - In Progress", value: supplier.electrical_total_in_progress },
+      { label: "Electrical - Pending Verification", value: supplier.electrical_total_pending_verification },
+    ],
+    csr: [
+      { label: "Donation to Local Community", value: getBooleanDisplay(supplier.donation_local_community) },
+      { label: "Tree Plantation", value: getBooleanDisplay(supplier.tree_plantation_local_community) },
+      { label: "Sanitary Napkin Status", value: getBooleanDisplay(supplier.sanitary_napkin_status) },
+      { label: "Fair Shop", value: getBooleanDisplay(supplier.fair_shop) },
+      { label: "Gift During Festival", value: getBooleanDisplay(supplier.any_gift_provided_during_festival) },
+    ],
+    safetyDocuments: [
+      { label: "Safety Training Frequency", value: supplier.safety_training_frequency },
+      { label: "Last Safety Audit Date", value: formatDate(supplier.last_safety_audit_date) },
+      { label: "Safety Measures Remarks", value: supplier.safety_measures_remarks },
+    ],
+  };
 
   if (loading) {
     return (
@@ -310,10 +689,7 @@ const SupplierDetailsCSR = () => {
         <div style={styles.errorContent}>
           <span style={styles.errorIcon}>⚠️</span>
           <h2 style={styles.errorTitle}>Supplier Not Found</h2>
-          <p style={styles.errorMessage}>
-            {error ||
-              "The supplier you are looking for does not exist or has been removed."}
-          </p>
+          <p style={styles.errorMessage}>{error || "The supplier does not exist."}</p>
           <div style={styles.errorActions}>
             <button onClick={() => navigate(-1)} style={styles.backButton}>
               ← Go Back
@@ -321,43 +697,34 @@ const SupplierDetailsCSR = () => {
             <button onClick={fetchSupplierDetails} style={styles.retryButton}>
               Retry
             </button>
-            <Link to="/suppliersCSR" style={styles.browseButton}>
-              Browse All Suppliers
-            </Link>
           </div>
         </div>
       </div>
     );
   }
 
+  const expiringItems = getExpiringItems();
+
   return (
     <div style={styles.container}>
-      {/* Header with Breadcrumb */}
+      {/* Header */}
       <div style={styles.header}>
         <div style={styles.breadcrumb}>
-          <Link to="/csr-dashboard" style={styles.breadcrumbLink}>
-            Dashboard
-          </Link>
-          <span style={styles.breadcrumbSeparator}>/</span>
-          <Link to="/suppliersCSR" style={styles.breadcrumbLink}>
-            Suppliers
-          </Link>
-          <span style={styles.breadcrumbSeparator}>/</span>
-          <span style={styles.breadcrumbCurrent}>
-            {supplier.supplier_name || "Supplier Details"}
-          </span>
+          <Link to="/csr-dashboard" style={styles.breadcrumbLink}>Dashboard</Link>
+          <span style={styles.separator}>/</span>
+          <Link to="/suppliersCSR" style={styles.breadcrumbLink}>Suppliers</Link>
+          <span style={styles.separator}>/</span>
+          <span style={styles.breadcrumbCurrent}>{supplier.supplier_name || "Details"}</span>
         </div>
 
         <div style={styles.headerActions}>
           <button onClick={() => navigate(-1)} style={styles.backButton}>
             ← Back
           </button>
-          <button
-            onClick={() => navigate(`/edit-supplier/${id}`)}
-            style={styles.editButton}
-          >
-            ✏️ Edit Supplier
+          <button onClick={() => navigate(`/edit-supplier/${id}`)} style={styles.editButton}>
+            ✏️ Edit
           </button>
+          
           <button
             onClick={() => setShowNotificationModal(true)}
             style={{
@@ -373,70 +740,74 @@ const SupplierDetailsCSR = () => {
                   : "No items at notification days"
             }
           >
-            📧 Send Expiry Notifications
+            📧 Send Notifications
             {getNotificationCount() > 0 && (
               <span style={styles.notifyBadge}>
                 {getNotificationCount()}
               </span>
             )}
           </button>
+          
           <button onClick={fetchSupplierDetails} style={styles.refreshButton}>
             🔄 Refresh
           </button>
         </div>
       </div>
 
-      {/* Supplier Header Card */}
-      <div style={styles.supplierHeader}>
-        <div style={styles.supplierBasicInfo}>
-          <div style={styles.supplierLogo}>
+      {/* Supplier Profile Card */}
+      <div style={styles.profileCard}>
+        <div style={styles.profileLeft}>
+          <div style={styles.avatar}>
             {supplier.supplier_name?.charAt(0) || "S"}
           </div>
-          <div style={styles.supplierTitle}>
+          <div style={styles.profileInfo}>
             <h1 style={styles.supplierName}>
               {supplier.supplier_name || "Unnamed Supplier"}
-              <span style={styles.supplierId}>
-                (ID: {supplier.supplier_id || "N/A"})
-              </span>
+              <span style={styles.supplierId}>ID: {supplier.supplier_id || "N/A"}</span>
             </h1>
-            <div style={styles.supplierMeta}>
-              <span style={styles.category}>
-                Category:{" "}
-                <strong>{supplier.supplier_category || "Not specified"}</strong>
+            <div style={styles.profileMeta}>
+              <span style={styles.metaItem}>
+                <span style={styles.metaIcon}>📁</span>
+                {supplier.supplier_category || "Category N/A"}
               </span>
-              <span style={styles.separator}>•</span>
-              <span style={styles.established}>
+              <span style={styles.metaDot}>•</span>
+              <span style={styles.metaItem}>
+                <span style={styles.metaIcon}>📅</span>
                 Est. {supplier.year_of_establishment || "N/A"}
               </span>
-              <span style={styles.separator}>•</span>
-              <span style={styles.location}>
-                {supplier.location || "Location not specified"}
+              <span style={styles.metaDot}>•</span>
+              <span style={styles.metaItem}>
+                <span style={styles.metaIcon}>📍</span>
+                {supplier.location || "Location N/A"}
               </span>
+            </div>
+            <div style={styles.contactInfo}>
+              {supplier.email && (
+                <span style={styles.contactItem} onClick={() => copyToClipboard(supplier.email, "email")}>
+                  <span style={styles.contactIcon}>✉️</span>
+                  {supplier.email}
+                  {copiedField === "email" && <span style={styles.copiedTip}>Copied!</span>}
+                </span>
+              )}
+              {supplier.phone && (
+                <span style={styles.contactItem} onClick={() => copyToClipboard(supplier.phone, "phone")}>
+                  <span style={styles.contactIcon}>📞</span>
+                  {supplier.phone}
+                  {copiedField === "phone" && <span style={styles.copiedTip}>Copied!</span>}
+                </span>
+              )}
             </div>
           </div>
         </div>
-
-        <div style={styles.statusSection}>
-          <div style={styles.statusBadge}>
-            <span
-              style={{
-                ...styles.statusDot,
-                backgroundColor: getStatusColor(supplier.compliance_status).bg,
-              }}
-            ></span>
-            <span style={styles.statusText}>
-              {supplier.compliance_status?.toUpperCase() || "UNKNOWN"}
-            </span>
-          </div>
-          <div style={styles.certificationStatus}>
+        <div style={styles.profileRight}>
+          <StatusBadge status={supplier.compliance_status} size="large" />
+          <div style={styles.certStatus}>
             <span style={styles.certLabel}>Certification:</span>
             <span
               style={{
                 ...styles.certValue,
-                backgroundColor: supplier.is_certification_valid
-                  ? "#d4edda"
-                  : "#f8d7da",
-                color: supplier.is_certification_valid ? "#155724" : "#721c24",
+                backgroundColor: supplier.is_certification_valid ? colors.successLight : colors.dangerLight,
+                color: supplier.is_certification_valid ? colors.success : colors.danger,
               }}
             >
               {supplier.is_certification_valid ? "Valid" : "Invalid/Expired"}
@@ -445,186 +816,58 @@ const SupplierDetailsCSR = () => {
         </div>
       </div>
 
-      {/* Days Remaining Summary Cards - Enhanced */}
-      <div style={styles.daysSummary}>
-        <h3 style={styles.daysSummaryTitle}>📅 Days Remaining Summary</h3>
-        <div style={styles.daysGrid}>
-          {/* Certifications */}
-          <div style={styles.daysCard}>
-            <div style={styles.daysCardHeader}>
-              <span style={styles.daysCardIcon}>📜</span>
-              <span style={styles.daysCardTitle}>Certifications</span>
-            </div>
-            <div style={styles.daysCardContent}>
-              {supplier.bsci_validity_days_remaining && (
-                <div style={styles.daysCardItem}>
-                  <span>BSCI:</span>
-                  <span style={{
-                    ...styles.daysCardBadge,
-                    backgroundColor: getDaysRemainingColor(supplier.bsci_validity_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.bsci_validity_days_remaining).color,
-                  }}>
-                    {supplier.bsci_validity_days_remaining}d
-                  </span>
-                </div>
-              )}
-              {supplier.oeko_tex_validity_days_remaining && (
-                <div style={styles.daysCardItem}>
-                  <span>Oeko-Tex:</span>
-                  <span style={{
-                    ...styles.daysCardBadge,
-                    backgroundColor: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.oeko_tex_validity_days_remaining).color,
-                  }}>
-                    {supplier.oeko_tex_validity_days_remaining}d
-                  </span>
-                </div>
-              )}
-              {supplier.gots_validity_days_remaining && (
-                <div style={styles.daysCardItem}>
-                  <span>GOTS:</span>
-                  <span style={{
-                    ...styles.daysCardBadge,
-                    backgroundColor: getDaysRemainingColor(supplier.gots_validity_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.gots_validity_days_remaining).color,
-                  }}>
-                    {supplier.gots_validity_days_remaining}d
-                  </span>
-                </div>
-              )}
-              {supplier.wrap_validity_days_remaining && (
-                <div style={styles.daysCardItem}>
-                  <span>WRAP:</span>
-                  <span style={{
-                    ...styles.daysCardBadge,
-                    backgroundColor: getDaysRemainingColor(supplier.wrap_validity_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.wrap_validity_days_remaining).color,
-                  }}>
-                    {supplier.wrap_validity_days_remaining}d
-                  </span>
-                </div>
-              )}
-            </div>
+      {/* Expiry Summary Cards */}
+      {expiringItems.length > 0 && (
+        <div style={styles.expirySection}>
+          <div style={styles.sectionTitle}>
+            <span style={styles.titleIcon}>⚠️</span>
+            <h2 style={styles.sectionTitleText}>Expiring Soon ({expiringItems.length})</h2>
           </div>
-
-          {/* Licenses */}
-          <div style={styles.daysCard}>
-            <div style={styles.daysCardHeader}>
-              <span style={styles.daysCardIcon}>📋</span>
-              <span style={styles.daysCardTitle}>Licenses</span>
-            </div>
-            <div style={styles.daysCardContent}>
-              {supplier.trade_license_days_remaining && (
-                <div style={styles.daysCardItem}>
-                  <span>Trade:</span>
-                  <span style={{
-                    ...styles.daysCardBadge,
-                    backgroundColor: getDaysRemainingColor(supplier.trade_license_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.trade_license_days_remaining).color,
-                  }}>
-                    {supplier.trade_license_days_remaining}d
-                  </span>
+          <div style={styles.expiryGrid}>
+            {expiringItems.slice(0, 5).map((item, idx) => (
+              <div key={idx} style={styles.expiryCard}>
+                <div style={styles.expiryHeader}>
+                  <span style={styles.expiryIcon}>{item.icon || (item.type === "cert" ? "📜" : "📋")}</span>
+                  <span style={styles.expiryName}>{item.name}</span>
                 </div>
-              )}
-              {supplier.factory_license_days_remaining && (
-                <div style={styles.daysCardItem}>
-                  <span>Factory:</span>
-                  <span style={{
-                    ...styles.daysCardBadge,
-                    backgroundColor: getDaysRemainingColor(supplier.factory_license_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.factory_license_days_remaining).color,
-                  }}>
-                    {supplier.factory_license_days_remaining}d
-                  </span>
+                <div style={styles.expiryBody}>
+                  <DaysRemainingBadge days={item.days_remaining} />
+                  {item.expiry_date && (
+                    <span style={styles.expiryDate}>
+                      {formatDate(item.expiry_date)}
+                    </span>
+                  )}
                 </div>
-              )}
-              {supplier.fire_license_days_remaining && (
-                <div style={styles.daysCardItem}>
-                  <span>Fire:</span>
-                  <span style={{
-                    ...styles.daysCardBadge,
-                    backgroundColor: getDaysRemainingColor(supplier.fire_license_days_remaining).bg,
-                    color: getDaysRemainingColor(supplier.fire_license_days_remaining).color,
-                  }}>
-                    {supplier.fire_license_days_remaining}d
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Safety Items */}
-          <div style={styles.daysCard}>
-            <div style={styles.daysCardHeader}>
-              <span style={styles.daysCardIcon}>🔥</span>
-              <span style={styles.daysCardTitle}>Safety</span>
-            </div>
-            <div style={styles.daysCardContent}>
-              {supplier.last_fire_training_by_fscd && (
-                <div style={styles.daysCardItem}>
-                  <span>Last Training:</span>
-                  <span style={styles.daysCardDate}>
-                    {formatDate(supplier.last_fire_training_by_fscd)}
-                  </span>
-                </div>
-              )}
-              {supplier.fscd_next_fire_training_date && (
-                <div style={styles.daysCardItem}>
-                  <span>Next Training:</span>
-                  <span style={styles.daysCardDate}>
-                    {formatDate(supplier.fscd_next_fire_training_date)}
-                  </span>
-                </div>
-              )}
-              {supplier.last_fire_drill_record_by_fscd && (
-                <div style={styles.daysCardItem}>
-                  <span>Last Drill:</span>
-                  <span style={styles.daysCardDate}>
-                    {formatDate(supplier.last_fire_drill_record_by_fscd)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Environmental */}
-          <div style={styles.daysCard}>
-            <div style={styles.daysCardHeader}>
-              <span style={styles.daysCardIcon}>💧</span>
-              <span style={styles.daysCardTitle}>Environmental</span>
-            </div>
-            <div style={styles.daysCardContent}>
-              {supplier.water_test_report_doe && (
-                <div style={styles.daysCardItem}>
-                  <span>Water Test:</span>
-                  <span style={styles.daysCardDate}>
-                    {formatDate(supplier.water_test_report_doe)}
-                  </span>
-                </div>
-              )}
-              {supplier.zdhc_water_test_report && (
-                <div style={styles.daysCardItem}>
-                  <span>ZDHC:</span>
-                  <span style={styles.daysCardDate}>
-                    {formatDate(supplier.zdhc_water_test_report)}
-                  </span>
-                </div>
-              )}
-            </div>
+              </div>
+            ))}
+            {expiringItems.length > 5 && (
+              <div style={styles.moreCard}>
+                +{expiringItems.length - 5} more items
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Tab Navigation */}
       <div style={styles.tabsContainer}>
         <div style={styles.tabs}>
-          {tabs.map((tab) => (
+          {[
+            { id: "overview", label: "Overview", icon: "📊" },
+            { id: "details", label: "Details", icon: "🏢" },
+            { id: "certifications", label: "Certifications", icon: "📜" },
+            { id: "licenses", label: "Licenses", icon: "📋" },
+            { id: "compliance", label: "Compliance", icon: "✅" },
+            { id: "safety", label: "Safety", icon: "🚨" },
+            { id: "environment", label: "Environment", icon: "🌱" },
+            { id: "documents", label: "Documents", icon: "📎" },
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
-                ...styles.tabButton,
-                ...(activeTab === tab.id ? styles.tabButtonActive : {}),
+                ...styles.tab,
+                ...(activeTab === tab.id ? styles.activeTab : {}),
               }}
             >
               <span style={styles.tabIcon}>{tab.icon}</span>
@@ -636,1524 +879,326 @@ const SupplierDetailsCSR = () => {
 
       {/* Tab Content */}
       <div style={styles.tabContent}>
-        {activeTab === "general" && (
-          <div style={styles.overviewGrid}>
-            {/* Basic Information */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🏢</span> Basic Information
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow label="SL No" value={supplier.sl_no} />
-                <InfoRow
-                  label="Supplier ID"
-                  value={supplier.supplier_id}
-                  copyable
-                  fieldName="supplier_id"
-                  copiedField={copiedField}
-                  onCopy={copyToClipboard}
-                />
-                <InfoRow
-                  label="Supplier Category"
-                  value={supplier.supplier_category}
-                />
-                <InfoRow
-                  label="Year of Establishment"
-                  value={supplier.year_of_establishment}
-                />
-                <InfoRow label="Location" value={supplier.location} />
-                <InfoRow
-                  label="Building Type"
-                  value={
-                    <div style={styles.buildingType}>
-                      {supplier.rented_building && (
-                        <span style={styles.buildingTag}>Rented</span>
-                      )}
-                      {supplier.share_building && (
-                        <span style={styles.buildingTag}>Shared</span>
-                      )}
-                      {supplier.own_property && (
-                        <span style={styles.buildingTag}>Owned</span>
-                      )}
-                      {!supplier.rented_building &&
-                        !supplier.share_building &&
-                        !supplier.own_property && <span>Not specified</span>}
-                    </div>
-                  }
-                />
+        {/* Overview Tab */}
+        {activeTab === "overview" && (
+          <div style={styles.overview}>
+            <InfoCard title="Basic Information" icon="🏢" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.basic.filter(item => item.value).map((item, idx) => (
+                  <InfoRow
+                    key={idx}
+                    label={item.label}
+                    value={item.value}
+                    copyable={item.copyable}
+                    fieldName={item.field}
+                    copiedField={copiedField}
+                    onCopy={copyToClipboard}
+                  />
+                ))}
               </div>
-            </div>
+            </InfoCard>
 
-            {/* Contact Information */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📞</span> Contact Information
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Factory Main Contact"
-                  value={supplier.factory_main_contact}
-                />
-                <InfoRow
-                  label="Factory Merchandiser Contact"
-                  value={supplier.factory_merchandiser_contact}
-                />
-                <InfoRow
-                  label="Factory HR/Compliance Contact"
-                  value={supplier.factory_hr_compliance_contact}
-                />
-                <InfoRow
-                  label="Email"
-                  value={supplier.email}
-                  fieldName="email"
-                />
-                <InfoRow
-                  label="Phone"
-                  value={supplier.phone}
-                  copyable
-                  fieldName="phone"
-                  copiedField={copiedField}
-                  onCopy={copyToClipboard}
-                />
+            <InfoCard title="Contact Information" icon="📞">
+              <div style={styles.verticalList}>
+                {groupedData.contacts.filter(item => item.value).map((item, idx) => (
+                  <InfoRow
+                    key={idx}
+                    label={item.label}
+                    value={item.value}
+                    copyable={item.copyable}
+                    fieldName={item.field}
+                    copiedField={copiedField}
+                    onCopy={copyToClipboard}
+                  />
+                ))}
               </div>
-            </div>
+            </InfoCard>
 
-            {/* Ownership Details */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>👑</span> Ownership Details
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Ownership Details"
-                  value={supplier.ownership_details}
-                />
-                <InfoRow
-                  label="Building Details"
-                  value={supplier.building_details}
-                />
-                <InfoRow
-                  label="Total Area"
-                  value={
-                    supplier.total_area
-                      ? `${supplier.total_area} sq ft`
-                      : "Not specified"
-                  }
-                />
+            <InfoCard title="Building & Manpower" icon="🏭" colSpan={2}>
+              <div style={styles.sectionGroup}>
+                <div style={styles.groupHeader}>
+                  <span style={styles.groupIcon}>🏗️</span>
+                  <h4 style={styles.groupHeaderText}>Building Details</h4>
+                </div>
+                <div style={styles.twoColumn}>
+                  {groupedData.building.filter(item => item.value).map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+                </div>
               </div>
-            </div>
+              <div style={styles.sectionGroup}>
+                <div style={styles.groupHeader}>
+                  <span style={styles.groupIcon}>👥</span>
+                  <h4 style={styles.groupHeaderText}>Manpower Details</h4>
+                </div>
+                <div style={styles.twoColumn}>
+                  {groupedData.manpower.filter(item => item.value).map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+                </div>
+              </div>
+            </InfoCard>
+
+            <InfoCard title="Production Overview" icon="⚙️">
+              <div style={styles.verticalList}>
+                {groupedData.production.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
+              </div>
+            </InfoCard>
           </div>
         )}
 
-        {activeTab === "building" && (
-          <div style={styles.overviewGrid}>
-            {/* Manpower Details */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>👥</span> Manpower Details
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Workers - Male"
-                  value={supplier.manpower_workers_male}
-                />
-                <InfoRow
-                  label="Workers - Female"
-                  value={supplier.manpower_workers_female}
-                />
-                <InfoRow
-                  label="Staff - Male"
-                  value={supplier.manpower_staff_male}
-                />
-                <InfoRow
-                  label="Staff - Female"
-                  value={supplier.manpower_staff_female}
-                />
-                <InfoRow
-                  label="Total Manpower"
-                  value={supplier.total_manpower}
-                />
-                <InfoRow
-                  label="Disabled Workers"
-                  value={supplier.disabled_workers}
-                />
-                <InfoRow
-                  label="Other Gender Workers"
-                  value={supplier.other_gender_workers}
-                />
+        {/* Details Tab */}
+        {activeTab === "details" && (
+          <div style={styles.details}>
+            <InfoCard title="General Information" icon="🏢">
+              <div style={styles.twoColumn}>
+                {groupedData.basic.filter(item => item.value).map((item, idx) => (
+                  <InfoRow
+                    key={idx}
+                    label={item.label}
+                    value={item.value}
+                    copyable={item.copyable}
+                    fieldName={item.field}
+                    copiedField={copiedField}
+                    onCopy={copyToClipboard}
+                  />
+                ))}
               </div>
-            </div>
+            </InfoCard>
 
-            {/* Building Information */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🏭</span> Building Information
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Building Type"
-                  value={
-                    <div style={styles.buildingType}>
-                      {supplier.rented_building && (
-                        <span style={styles.buildingTag}>Rented</span>
-                      )}
-                      {supplier.share_building && (
-                        <span style={styles.buildingTag}>Shared</span>
-                      )}
-                      {supplier.own_property && (
-                        <span style={styles.buildingTag}>Owned</span>
-                      )}
-                    </div>
-                  }
-                />
-                <InfoRow
-                  label="Building Details"
-                  value={supplier.building_details}
-                />
-                <InfoRow
-                  label="Total Area"
-                  value={
-                    supplier.total_area
-                      ? `${supplier.total_area} sq ft`
-                      : "Not specified"
-                  }
-                />
+            <InfoCard title="Contact Details" icon="📞">
+              <div style={styles.twoColumn}>
+                {groupedData.contacts.filter(item => item.value).map((item, idx) => (
+                  <InfoRow
+                    key={idx}
+                    label={item.label}
+                    value={item.value}
+                    copyable={item.copyable}
+                    fieldName={item.field}
+                    copiedField={copiedField}
+                    onCopy={copyToClipboard}
+                  />
+                ))}
               </div>
-            </div>
+            </InfoCard>
+
+            <InfoCard title="Building Details" icon="🏭">
+              <div style={styles.twoColumn}>
+                {groupedData.building.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
+              </div>
+            </InfoCard>
+
+            <InfoCard title="Manpower Details" icon="👥">
+              <div style={styles.twoColumn}>
+                {groupedData.manpower.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
+              </div>
+            </InfoCard>
+
+            <InfoCard title="Production Details" icon="⚙️" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.production.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
+              </div>
+            </InfoCard>
           </div>
         )}
 
-        {activeTab === "production" && (
-          <div style={styles.overviewGrid}>
-            {/* Production Information */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>⚙️</span> Production Information
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Production Process"
-                  value={supplier.production_process}
-                />
-                <InfoRow
-                  label="Manufacturing Items"
-                  value={supplier.manufacturing_item}
-                />
-                <InfoRow
-                  label="Capacity per Month"
-                  value={supplier.capacity_per_month}
-                />
-                <InfoRow
-                  label="Business by Market"
-                  value={supplier.business_by_market}
-                />
-                <InfoRow
-                  label="Existing Customers"
-                  value={supplier.existing_customer}
-                />
-                <InfoRow
-                  label="Number of Sewing Lines"
-                  value={supplier.number_of_sewing_line}
-                />
-                <InfoRow
-                  label="Total Machineries"
-                  value={supplier.total_number_of_machineries}
-                />
-                <InfoRow
-                  label="Yearly Turnover (USD)"
-                  value={formatCurrency(supplier.yearly_turnover_usd)}
-                />
-                <InfoRow
-                  label="Weekly Holiday"
-                  value={supplier.weekly_holiday}
-                />
-                <InfoRow label="BGMEA Number" value={supplier.bgmea_number} />
-                <InfoRow label="BKMEA Number" value={supplier.bkmea_number} />
-                <InfoRow label="RSC" value={supplier.rsc} />
-                <InfoRow
-                  label="TAD Group Order Status"
-                  value={supplier.tad_group_order_status}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Certifications Tab */}
         {activeTab === "certifications" && (
-          <div style={styles.overviewGrid}>
-            {/* BSCI Certification */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📜</span> BSCI Certification
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Last Audit Date"
-                  value={formatDate(supplier.bsci_last_audit_date)}
-                />
-                <InfoRow label="Rating" value={supplier.bsci_rating} />
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.bsci_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.bsci_validity_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.bsci_validity_days_remaining,
-                        ).color,
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {supplier.bsci_validity_days_remaining} days
-                      {[90, 75, 60, 45, 30, 15].includes(
-                        supplier.bsci_validity_days_remaining,
-                      ) && <span style={styles.reminderIcon}> 🔔</span>}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(supplier.bsci_status)
-                          .bg,
-                        color: getStatusColor(supplier.bsci_status).text,
-                      }}
-                    >
-                      {supplier.bsci_status?.toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Oeko-Tex Certification */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📜</span> Oeko-Tex Certification
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.oeko_tex_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.oeko_tex_validity_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.oeko_tex_validity_days_remaining,
-                        ).color,
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {supplier.oeko_tex_validity_days_remaining} days
-                      {[90, 75, 60, 45, 30, 15].includes(
-                        supplier.oeko_tex_validity_days_remaining,
-                      ) && <span style={styles.reminderIcon}> 🔔</span>}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(
-                          supplier.oeko_tex_status,
-                        ).bg,
-                        color: getStatusColor(supplier.oeko_tex_status).text,
-                      }}
-                    >
-                      {supplier.oeko_tex_status?.toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* GOTS Certification */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📜</span> GOTS Certification
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.gots_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.gots_validity_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.gots_validity_days_remaining,
-                        ).color,
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {supplier.gots_validity_days_remaining} days
-                      {[90, 75, 60, 45, 30, 15].includes(
-                        supplier.gots_validity_days_remaining,
-                      ) && <span style={styles.reminderIcon}> 🔔</span>}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(supplier.gots_status)
-                          .bg,
-                        color: getStatusColor(supplier.gots_status).text,
-                      }}
-                    >
-                      {supplier.gots_status?.toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* WRAP Certification */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📜</span> WRAP Certification
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Last Audit Date"
-                  value={formatDate(supplier.wrap_last_audit_date)}
-                />
-                <InfoRow label="Rating" value={supplier.wrap_rating} />
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.wrap_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.wrap_validity_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.wrap_validity_days_remaining,
-                        ).color,
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {supplier.wrap_validity_days_remaining} days
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(supplier.wrap_status)
-                          .bg,
-                        color: getStatusColor(supplier.wrap_status).text,
-                      }}
-                    >
-                      {supplier.wrap_status?.toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* CTPAT Security Audit */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🛡️</span> CTPAT Security Audit
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Last Audit Date"
-                  value={formatDate(supplier.security_audit_last_date)}
-                />
-                <InfoRow
-                  label="Rating"
-                  value={supplier.security_audit_rating}
-                />
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.security_audit_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.security_audit_validity_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.security_audit_validity_days_remaining,
-                        ).color,
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {supplier.security_audit_validity_days_remaining} days
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(
-                          supplier.security_audit_status,
-                        ).bg,
-                        color: getStatusColor(supplier.security_audit_status)
-                          .text,
-                      }}
-                    >
-                      {supplier.security_audit_status?.toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* ISO 9001 Certification */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📜</span> ISO 9001 Certification
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.iso_9001_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.iso_9001_validity_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.iso_9001_validity_days_remaining,
-                        ).color,
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {supplier.iso_9001_validity_days_remaining} days
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(
-                          supplier.iso_9001_status,
-                        ).bg,
-                        color: getStatusColor(supplier.iso_9001_status).text,
-                      }}
-                    >
-                      {supplier.iso_9001_status?.toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* ISO 14001 Certification */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📜</span> ISO 14001 Certification
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.iso_14001_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.iso_14001_validity_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.iso_14001_validity_days_remaining,
-                        ).color,
-                        padding: "0.5rem 1rem",
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {supplier.iso_14001_validity_days_remaining} days
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(
-                          supplier.iso_14001_status,
-                        ).bg,
-                        color: getStatusColor(supplier.iso_14001_status).text,
-                      }}
-                    >
-                      {supplier.iso_14001_status?.toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* OCS Certification */}
-            {supplier.ocs_validity && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>📜</span> OCS Certification
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.ocs_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.ocs_validity_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.ocs_validity_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.ocs_validity_days_remaining} days
-                      </span>
-                    }
-                  />
-                  <InfoRow
-                    label="Status"
-                    value={
-                      <span
-                        style={{
-                          ...styles.statusBadgeInline,
-                          backgroundColor: getStatusColor(supplier.ocs_status)
-                            .bg,
-                          color: getStatusColor(supplier.ocs_status).text,
-                        }}
-                      >
-                        {supplier.ocs_status?.toUpperCase() || "N/A"}
-                      </span>
-                    }
-                  />
+          <div style={styles.certificationsGrid}>
+            {groupedData.certifications.map((cert, idx) => (
+              cert.validity && (
+                <div key={idx} style={styles.certCard}>
+                  <div style={styles.certHeader}>
+                    <span style={styles.certIcon}>📜</span>
+                    <h3 style={styles.certName}>{cert.name}</h3>
+                    {cert.status && <StatusBadge status={cert.status} size="small" />}
+                  </div>
+                  <div style={styles.certBody}>
+                    {cert.rating && (
+                      <div style={styles.certRow}>
+                        <span style={styles.certLabel}>Rating:</span>
+                        <span style={styles.certValue}>{cert.rating}</span>
+                      </div>
+                    )}
+                    {cert.validity && (
+                      <div style={styles.certRow}>
+                        <span style={styles.certLabel}>Valid Until:</span>
+                        <span style={styles.certValue}>{formatDate(cert.validity)}</span>
+                      </div>
+                    )}
+                    {cert.days && (
+                      <div style={styles.certRow}>
+                        <span style={styles.certLabel}>Days Left:</span>
+                        <DaysRemainingBadge days={cert.days} />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* GRS Certification */}
-            {supplier.grs_validity && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>📜</span> GRS Certification
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.grs_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.grs_validity_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.grs_validity_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.grs_validity_days_remaining} days
-                      </span>
-                    }
-                  />
-                  <InfoRow
-                    label="Status"
-                    value={
-                      <span
-                        style={{
-                          ...styles.statusBadgeInline,
-                          backgroundColor: getStatusColor(supplier.grs_status)
-                            .bg,
-                          color: getStatusColor(supplier.grs_status).text,
-                        }}
-                      >
-                        {supplier.grs_status?.toUpperCase() || "N/A"}
-                      </span>
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* RCS Certification */}
-            {supplier.rcs_validity && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>📜</span> RCS Certification
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.rcs_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.rcs_validity_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.rcs_validity_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.rcs_validity_days_remaining} days
-                      </span>
-                    }
-                  />
-                  <InfoRow
-                    label="Status"
-                    value={
-                      <span
-                        style={{
-                          ...styles.statusBadgeInline,
-                          backgroundColor: getStatusColor(supplier.rcs_status)
-                            .bg,
-                          color: getStatusColor(supplier.rcs_status).text,
-                        }}
-                      >
-                        {supplier.rcs_status?.toUpperCase() || "N/A"}
-                      </span>
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* SEDEX Certification */}
-            {supplier.sedex_last_audit_date && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>📜</span> SEDEX Certification
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow
-                    label="Last Audit Date"
-                    value={formatDate(supplier.sedex_last_audit_date)}
-                  />
-                  <InfoRow label="Rating" value={supplier.sedex_rating} />
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.sedex_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.sedex_validity_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.sedex_validity_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.sedex_validity_days_remaining} days
-                      </span>
-                    }
-                  />
-                  <InfoRow
-                    label="Status"
-                    value={
-                      <span
-                        style={{
-                          ...styles.statusBadgeInline,
-                          backgroundColor: getStatusColor(supplier.sedex_status)
-                            .bg,
-                          color: getStatusColor(supplier.sedex_status).text,
-                        }}
-                      >
-                        {supplier.sedex_status?.toUpperCase() || "N/A"}
-                      </span>
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Certification Remarks */}
+              )
+            ))}
             {supplier.certification_remarks && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>💬</span> Certification Remarks
-                </h3>
-                <p style={styles.remarksText}>
-                  {supplier.certification_remarks}
-                </p>
-              </div>
+              <InfoCard title="Remarks" icon="💬" colSpan={2}>
+                <p style={styles.remarks}>{supplier.certification_remarks}</p>
+              </InfoCard>
             )}
           </div>
         )}
 
+        {/* Licenses Tab */}
         {activeTab === "licenses" && (
-          <div style={styles.overviewGrid}>
-            {/* Trade License */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📋</span> Trade License
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.trade_license_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.trade_license_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.trade_license_days_remaining,
-                        ).color,
-                      }}
-                    >
-                      {supplier.trade_license_days_remaining} days
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Factory License */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🏭</span> Factory License
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.factory_license_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.factory_license_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.factory_license_days_remaining,
-                        ).color,
-                      }}
-                    >
-                      {supplier.factory_license_days_remaining} days
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Fire License */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🚒</span> Fire License
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Validity"
-                  value={formatDate(supplier.fire_license_validity)}
-                />
-                <InfoRow
-                  label="Days Remaining"
-                  value={
-                    <span
-                      style={{
-                        ...styles.daysRemaining,
-                        backgroundColor: getDaysRemainingColor(
-                          supplier.fire_license_days_remaining,
-                        ).bg,
-                        color: getDaysRemainingColor(
-                          supplier.fire_license_days_remaining,
-                        ).color,
-                      }}
-                    >
-                      {supplier.fire_license_days_remaining} days
-                    </span>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Membership Certificate */}
-            {supplier.membership_validity && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>📋</span> Membership Certificate
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.membership_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.membership_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.membership_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.membership_days_remaining} days
-                      </span>
-                    }
-                  />
+          <div style={styles.licensesGrid}>
+            {groupedData.licenses.map((license, idx) => (
+              license.validity && (
+                <div key={idx} style={styles.licenseCard}>
+                  <div style={styles.licenseHeader}>
+                    <span style={styles.licenseIcon}>📋</span>
+                    <h3 style={styles.licenseName}>{license.name}</h3>
+                  </div>
+                  <div style={styles.licenseBody}>
+                    {license.boilerNo && (
+                      <div style={styles.licenseRow}>
+                        <span style={styles.licenseLabel}>Boiler No:</span>
+                        <span style={styles.licenseValue}>{license.boilerNo}</span>
+                      </div>
+                    )}
+                    <div style={styles.licenseRow}>
+                      <span style={styles.licenseLabel}>Valid Until:</span>
+                      <span style={styles.licenseValue}>{formatDate(license.validity)}</span>
+                    </div>
+                    {license.days && (
+                      <div style={styles.licenseRow}>
+                        <span style={styles.licenseLabel}>Days Left:</span>
+                        <DaysRemainingBadge days={license.days} />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* Group Insurance */}
-            {supplier.group_insurance_validity && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>🛡️</span> Group Insurance
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.group_insurance_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.group_insurance_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.group_insurance_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.group_insurance_days_remaining} days
-                      </span>
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Boiler License */}
-            {supplier.boiler_license_validity && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>⚙️</span> Boiler License
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow label="Boiler No" value={supplier.boiler_no} />
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.boiler_license_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.boiler_license_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.boiler_license_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.boiler_license_days_remaining} days
-                      </span>
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* BERC License */}
-            {supplier.berc_license_validity && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>📋</span> BERC License
-                </h3>
-                <div style={styles.infoGrid}>
-                  <InfoRow
-                    label="Validity"
-                    value={formatDate(supplier.berc_license_validity)}
-                  />
-                  <InfoRow
-                    label="Days Remaining"
-                    value={
-                      <span
-                        style={{
-                          ...styles.daysRemaining,
-                          backgroundColor: getDaysRemainingColor(
-                            supplier.berc_days_remaining,
-                          ).bg,
-                          color: getDaysRemainingColor(
-                            supplier.berc_days_remaining,
-                          ).color,
-                        }}
-                      >
-                        {supplier.berc_days_remaining} days
-                      </span>
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* License Remarks */}
+              )
+            ))}
             {supplier.license_remarks && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>💬</span> License Remarks
-                </h3>
-                <p style={styles.remarksText}>{supplier.license_remarks}</p>
-              </div>
+              <InfoCard title="Remarks" icon="💬" colSpan={2}>
+                <p style={styles.remarks}>{supplier.license_remarks}</p>
+              </InfoCard>
             )}
           </div>
         )}
 
-        {activeTab === "safety" && (
-          <div style={styles.overviewGrid}>
-            {/* Fire Safety */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🚨</span> Fire Safety
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Last Fire Training by FSCD"
-                  value={formatDate(supplier.last_fire_training_by_fscd)}
-                />
-                <InfoRow
-                  label="Next Fire Training Date"
-                  value={formatDate(supplier.fscd_next_fire_training_date)}
-                />
-                <InfoRow
-                  label="Last Fire Drill Record"
-                  value={formatDate(supplier.last_fire_drill_record_by_fscd)}
-                />
-                <InfoRow
-                  label="Next Drill Date"
-                  value={formatDate(supplier.fscd_next_drill_date)}
-                />
-                <InfoRow
-                  label="Total Fire Fighters/Rescuers"
-                  value={supplier.total_fire_fighter_rescue_first_aider_fscd}
-                />
-              </div>
-            </div>
-
-            {/* Fire Safety Remarks */}
-            {supplier.fire_safety_remarks && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>💬</span> Fire Safety Remarks
-                </h3>
-                <p style={styles.remarksText}>{supplier.fire_safety_remarks}</p>
-              </div>
-            )}
-          </div>
-        )}
-
+        {/* Compliance Tab */}
         {activeTab === "compliance" && (
-          <div style={styles.overviewGrid}>
-            {/* Compliance Status */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>✅</span> Compliance Status
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Compliance Status"
-                  value={
-                    <span
-                      style={{
-                        ...styles.statusBadgeInline,
-                        backgroundColor: getStatusColor(
-                          supplier.compliance_status,
-                        ).bg,
-                        color: getStatusColor(supplier.compliance_status).text,
-                        padding: "0.25rem 0.75rem",
-                      }}
-                    >
-                      {supplier.compliance_status
-                        ?.replace("_", " ")
-                        .toUpperCase() || "N/A"}
-                    </span>
-                  }
-                />
-                <InfoRow
-                  label="Grievance Mechanism"
-                  value={getBooleanDisplay(supplier.grievance_mechanism)}
-                />
-                <InfoRow
-                  label="Last Grievance Resolution"
-                  value={formatDate(supplier.last_grievance_resolution_date)}
-                />
-                <InfoRow
-                  label="Grievance Resolution Rate"
-                  value={
-                    supplier.grievance_resolution_rate
-                      ? `${supplier.grievance_resolution_rate}%`
-                      : "N/A"
-                  }
-                />
+          <div style={styles.complianceGrid}>
+            <InfoCard title="Compliance Status" icon="✅">
+              <div style={styles.verticalList}>
+                {groupedData.compliance.map((item, idx) => (
+                  item.value ? (
+                    item.badge ? (
+                      <div key={idx} style={styles.infoRow}>
+                        <span style={styles.infoLabel}>{item.label}:</span>
+                        <StatusBadge status={item.value} size="small" />
+                      </div>
+                    ) : (
+                      <InfoRow key={idx} label={item.label} value={item.value} />
+                    )
+                  ) : null
+                ))}
               </div>
-            </div>
+            </InfoCard>
 
-            {/* Wages & Benefits */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>💰</span> Wages & Benefits
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Minimum Wages Paid"
-                  value={getBooleanDisplay(supplier.minimum_wages_paid)}
-                />
-                <InfoRow
-                  label="Earn Leave Status"
-                  value={getBooleanDisplay(supplier.earn_leave_status)}
-                />
-                <InfoRow
-                  label="Service Benefit"
-                  value={getBooleanDisplay(supplier.service_benefit)}
-                />
-                <InfoRow
-                  label="Maternity Benefit"
-                  value={getBooleanDisplay(supplier.maternity_benefit)}
-                />
-                <InfoRow
-                  label="Yearly Increment"
-                  value={getBooleanDisplay(supplier.yearly_increment)}
-                />
-                <InfoRow
-                  label="Festival Bonus"
-                  value={getBooleanDisplay(supplier.festival_bonus)}
-                />
-                <InfoRow
-                  label="Salary Due Status"
-                  value={getBooleanDisplay(supplier.salary_due_status)}
-                />
-                <InfoRow
-                  label="Due Salary Month"
-                  value={supplier.due_salary_month}
-                />
+            <InfoCard title="Grievance Management" icon="⚖️">
+              <div style={styles.verticalList}>
+                {groupedData.grievance.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
               </div>
-            </div>
+            </InfoCard>
 
-            {/* Remarks */}
-            {(supplier.compliance_remarks || supplier.grievance_remarks) && (
-              <div style={styles.infoCard}>
-                <h3 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>💬</span> Remarks
-                </h3>
-                {supplier.compliance_remarks && (
-                  <div style={styles.remarksSection}>
-                    <h4 style={styles.remarksTitle}>Compliance Remarks:</h4>
-                    <p style={styles.remarksText}>
-                      {supplier.compliance_remarks}
-                    </p>
-                  </div>
-                )}
-                {supplier.grievance_remarks && (
-                  <div style={styles.remarksSection}>
-                    <h4 style={styles.remarksTitle}>Grievance Remarks:</h4>
-                    <p style={styles.remarksText}>
-                      {supplier.grievance_remarks}
-                    </p>
-                  </div>
-                )}
-                {supplier.grievance_resolution_procedure && (
-                  <div style={styles.remarksSection}>
-                    <h4 style={styles.remarksTitle}>
-                      Grievance Resolution Procedure:
-                    </h4>
-                    <p style={styles.remarksText}>
-                      {supplier.grievance_resolution_procedure}
-                    </p>
-                  </div>
-                )}
+            <InfoCard title="Committee Meetings" icon="👥">
+              <div style={styles.verticalList}>
+                {groupedData.committee.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
               </div>
-            )}
+            </InfoCard>
+
+            <InfoCard title="CSR Activities" icon="🤝">
+              <div style={styles.twoColumn}>
+                {groupedData.csr.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
+              </div>
+            </InfoCard>
           </div>
         )}
 
-        {activeTab === "pcSafety" && (
-          <div style={styles.overviewGrid}>
-            {/* Participation Committee */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>👥</span> Participation Committee
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Last PC Election Date"
-                  value={formatDate(supplier.last_pc_election_date)}
-                />
-                <InfoRow
-                  label="Last PC Meeting Date"
-                  value={formatDate(supplier.last_pc_meeting_date)}
-                />
+        {/* Safety Tab */}
+        {activeTab === "safety" && (
+          <div style={styles.safetyGrid}>
+            <InfoCard title="Fire Safety" icon="🔥" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.fireSafety.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
               </div>
-            </div>
+            </InfoCard>
 
-            {/* Safety Committee */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🛡️</span> Safety Committee
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Last Safety Committee Formation"
-                  value={formatDate(
-                    supplier.last_safety_committee_formation_date,
-                  )}
-                />
-                <InfoRow
-                  label="Last Safety Committee Meeting"
-                  value={formatDate(
-                    supplier.last_safety_committee_meeting_date,
-                  )}
-                />
+            <InfoCard title="Safety Documents" icon="📄">
+              <div style={styles.verticalList}>
+                {groupedData.safetyDocuments.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
               </div>
-            </div>
+            </InfoCard>
           </div>
         )}
 
+        {/* Environment Tab */}
         {activeTab === "environment" && (
-          <div style={styles.overviewGrid}>
-            {/* Environmental Information */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🌱</span> Environmental
-                Information
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Water Test Report (DOE)"
-                  value={formatDate(supplier.water_test_report_doe)}
-                />
-                <InfoRow
-                  label="ZDHC Water Test Report"
-                  value={formatDate(supplier.zdhc_water_test_report)}
-                />
-                <InfoRow
-                  label="Higg FEM Self Assessment Score"
-                  value={supplier.higg_fem_self_assessment_score}
-                />
-                <InfoRow
-                  label="Higg FEM Verification Assessment Score"
-                  value={supplier.higg_fem_verification_assessment_score}
-                />
-                <InfoRow
-                  label="Behive Chemical Inventory"
-                  value={getBooleanDisplay(supplier.behive_chemical_inventory)}
-                />
+          <div style={styles.environmentGrid}>
+            <InfoCard title="Environmental Data" icon="🌱" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.environmental.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
               </div>
-            </div>
+            </InfoCard>
+
+            <InfoCard title="RSC Audit" icon="🔍" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.rsc.filter(item => item.value).map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
+              </div>
+            </InfoCard>
           </div>
         )}
 
-        {activeTab === "rsc" && (
-          <div style={styles.overviewGrid}>
-            {/* RSC Information */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🔍</span> RSC Information
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow label="RSC ID" value={supplier.rsc_id} />
-                <InfoRow
-                  label="Progress Rate"
-                  value={
-                    supplier.progress_rate
-                      ? `${supplier.progress_rate}%`
-                      : "N/A"
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Structural Safety */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🏗️</span> Structural Safety
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Initial Audit Date"
-                  value={formatDate(supplier.structural_initial_audit_date)}
-                />
-                <InfoRow
-                  label="Initial Findings"
-                  value={supplier.structural_initial_findings}
-                />
-                <InfoRow
-                  label="Last Follow-up Audit"
-                  value={formatDate(
-                    supplier.structural_last_follow_up_audit_date,
-                  )}
-                />
-                <InfoRow
-                  label="Total Findings"
-                  value={supplier.structural_total_findings}
-                />
-                <InfoRow
-                  label="Total Corrected"
-                  value={supplier.structural_total_corrected}
-                />
-                <InfoRow
-                  label="Total In Progress"
-                  value={supplier.structural_total_in_progress}
-                />
-                <InfoRow
-                  label="Total Pending Verification"
-                  value={supplier.structural_total_pending_verification}
-                />
-              </div>
-            </div>
-
-            {/* Fire Safety Audit */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🔥</span> Fire Safety Audit
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Initial Audit Date"
-                  value={formatDate(supplier.fire_initial_audit_date)}
-                />
-                <InfoRow
-                  label="Initial Findings"
-                  value={supplier.fire_initial_findings}
-                />
-                <InfoRow
-                  label="Last Follow-up Audit"
-                  value={formatDate(supplier.fire_last_follow_up_audit_date)}
-                />
-                <InfoRow
-                  label="Total Findings"
-                  value={supplier.fire_total_findings}
-                />
-                <InfoRow
-                  label="Total Corrected"
-                  value={supplier.fire_total_corrected}
-                />
-                <InfoRow
-                  label="Total In Progress"
-                  value={supplier.fire_total_in_progress}
-                />
-                <InfoRow
-                  label="Total Pending Verification"
-                  value={supplier.fire_total_pending_verification}
-                />
-              </div>
-            </div>
-
-            {/* Electrical Safety */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>⚡</span> Electrical Safety
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Initial Audit Date"
-                  value={formatDate(supplier.electrical_initial_audit_date)}
-                />
-                <InfoRow
-                  label="Initial Findings"
-                  value={supplier.electrical_initial_findings}
-                />
-                <InfoRow
-                  label="Last Follow-up Audit"
-                  value={formatDate(
-                    supplier.electrical_last_follow_up_audit_date,
-                  )}
-                />
-                <InfoRow
-                  label="Total Findings"
-                  value={supplier.electrical_total_findings}
-                />
-                <InfoRow
-                  label="Total Corrected"
-                  value={supplier.electrical_total_corrected}
-                />
-                <InfoRow
-                  label="Total In Progress"
-                  value={supplier.electrical_total_in_progress}
-                />
-                <InfoRow
-                  label="Total Pending Verification"
-                  value={supplier.electrical_total_pending_verification}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "csr" && (
-          <div style={styles.overviewGrid}>
-            {/* CSR Information */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>🤝</span> CSR Activities
-              </h3>
-              <div style={styles.infoGrid}>
-                <InfoRow
-                  label="Donation to Local Community"
-                  value={getBooleanDisplay(supplier.donation_local_community)}
-                />
-                <InfoRow
-                  label="Tree Plantation in Local Community"
-                  value={getBooleanDisplay(
-                    supplier.tree_plantation_local_community,
-                  )}
-                />
-                <InfoRow
-                  label="Sanitary Napkin Status"
-                  value={getBooleanDisplay(supplier.sanitary_napkin_status)}
-                />
-                <InfoRow
-                  label="Fair Shop"
-                  value={getBooleanDisplay(supplier.fair_shop)}
-                />
-                <InfoRow
-                  label="Any Gift Provided During Festival"
-                  value={getBooleanDisplay(
-                    supplier.any_gift_provided_during_festival,
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Documents Tab */}
         {activeTab === "documents" && (
-          <div style={styles.documentsGrid}>
-            {/* Documents List */}
-            <div style={styles.infoCard}>
-              <h3 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📎</span> Certificates & Documents
-              </h3>
-              <div style={styles.documentsList}>
-                {supplier.all_certificates &&
-                supplier.all_certificates.length > 0 ? (
-                  supplier.all_certificates.map(
-                    (cert, index) =>
-                      cert.url && (
-                        <div key={index} style={styles.documentItem}>
-                          <span style={styles.documentIcon}>📄</span>
-                          <div style={styles.documentInfo}>
-                            <div style={styles.documentName}>{cert.name}</div>
-                            <a
-                              href={cert.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={styles.documentLink}
-                            >
-                              View Document
-                            </a>
-                          </div>
-                        </div>
-                      ),
-                  )
-                ) : (
-                  <div style={styles.noDocuments}>
-                    <span style={styles.noDocumentsIcon}>📂</span>
-                    <p>No documents uploaded</p>
-                  </div>
-                )}
-              </div>
-            </div>
+          <div style={styles.documentsTab}>
+            <InfoCard title="All Documents" icon="📎">
+              <DocumentGrid documents={supplier.all_certificates || []} />
+            </InfoCard>
+            
+            {/* Building Images Gallery */}
+            {supplier.building_images && supplier.building_images.length > 0 && (
+              <InfoCard title="Building Images" icon="🏭">
+                <ImageGallery images={supplier.building_images} title="Building Images" />
+              </InfoCard>
+            )}
+            
+            {/* Fire Safety Images Gallery */}
+            {supplier.fire_images && supplier.fire_images.length > 0 && (
+              <InfoCard title="Fire Safety Images" icon="🔥">
+                <ImageGallery images={supplier.fire_images} title="Fire Safety Images" />
+              </InfoCard>
+            )}
           </div>
         )}
       </div>
@@ -2225,7 +1270,6 @@ const SupplierDetailsCSR = () => {
                     </div>
                   ) : (
                     <>
-                      {/* Custom Message Input */}
                       <div style={styles.messageInput}>
                         <label style={styles.messageLabel}>Custom Message (Optional):</label>
                         <textarea
@@ -2239,7 +1283,6 @@ const SupplierDetailsCSR = () => {
 
                       <h4 style={styles.modalSubtitle}>Select items to notify:</h4>
 
-                      {/* Group by category */}
                       {['certification', 'license', 'safety', 'environmental', 'committee'].map(category => {
                         const categoryItems = getExpiringItems().filter(item => item.category === category);
                         if (categoryItems.length === 0) return null;
@@ -2344,73 +1387,29 @@ const SupplierDetailsCSR = () => {
         </div>
       )}
 
-      {/* Action Buttons at Bottom */}
-      <div style={styles.actionButtons}>
-        <button onClick={() => navigate(-1)} style={styles.secondaryButton}>
+      {/* Action Buttons */}
+      <div style={styles.footer}>
+        <button onClick={() => navigate(-1)} style={styles.footerButton}>
           ← Back to List
         </button>
-        <button
-          onClick={() => navigate(`/edit-supplier/${id}`)}
-          style={styles.primaryButton}
-        >
+        <button onClick={() => navigate(`/edit-supplier/${id}`)} style={styles.footerButtonPrimary}>
           ✏️ Edit Supplier
         </button>
-        <button onClick={fetchSupplierDetails} style={styles.secondaryButton}>
-          🔄 Refresh Data
+        <button onClick={fetchSupplierDetails} style={styles.footerButton}>
+          🔄 Refresh
         </button>
       </div>
     </div>
   );
 };
 
-// Reusable InfoRow Component
-const InfoRow = ({
-  label,
-  value,
-  copyable = false,
-  link = false,
-  fieldName,
-  copiedField,
-  onCopy,
-}) => {
-  if (value === undefined || value === null || value === "") return null;
-
-  return (
-    <div style={styles.infoRow}>
-      <span style={styles.infoLabel}>{label}:</span>
-      <div style={styles.infoValueContainer}>
-        {link ? (
-          <a
-            href={value.startsWith("http") ? value : `https://${value}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.infoLink}
-          >
-            {value}
-          </a>
-        ) : (
-          <span style={styles.infoValue}>{value}</span>
-        )}
-        {copyable && (
-          <button
-            onClick={() => onCopy(value, fieldName)}
-            style={styles.copyButton}
-            title="Copy to clipboard"
-          >
-            {copiedField === fieldName ? "✅" : "📋"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
-
+// Styles
 const styles = {
   container: {
-    padding: "3rem 5rem",
+    padding: "2rem 3rem",
     backgroundColor: "#f8fafc",
     minHeight: "100vh",
-    fontFamily: "system-ui, -apple-system, sans-serif",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
   },
   header: {
     display: "flex",
@@ -2425,74 +1424,67 @@ const styles = {
     alignItems: "center",
     gap: "0.5rem",
     fontSize: "0.875rem",
-    color: "#64748b",
+    color: colors.textSecondary,
   },
   breadcrumbLink: {
-    color: "#3b82f6",
+    color: colors.primary,
     textDecoration: "none",
+    cursor: "pointer",
   },
-  breadcrumbSeparator: {
-    color: "#cbd5e1",
-  },
-  breadcrumbCurrent: {
-    color: "#334155",
-    fontWeight: "500",
-  },
-  headerActions: {
-    display: "flex",
-    gap: "0.75rem",
-    flexWrap: "wrap",
-  },
+  separator: { color: colors.border },
+  breadcrumbCurrent: { color: colors.textPrimary, fontWeight: "500" },
+  headerActions: { display: "flex", gap: "0.75rem", flexWrap: "wrap" },
   backButton: {
     padding: "0.5rem 1rem",
-    backgroundColor: "#6c757d",
+    backgroundColor: colors.gray,
     color: "white",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
     display: "flex",
     alignItems: "center",
     gap: "0.5rem",
+    transition: "all 0.2s",
   },
   editButton: {
     padding: "0.5rem 1rem",
-    backgroundColor: "#3b82f6",
+    backgroundColor: colors.primary,
     color: "white",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
     display: "flex",
     alignItems: "center",
     gap: "0.5rem",
+    transition: "all 0.2s",
   },
   notifyButton: {
     padding: "0.5rem 1rem",
-    backgroundColor: "#6c757d",
+    backgroundColor: colors.gray,
     color: "white",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
     display: "flex",
     alignItems: "center",
     gap: "0.5rem",
-    transition: "all 0.2s ease",
+    transition: "all 0.2s",
     position: "relative",
   },
   notifyButtonActive: {
-    backgroundColor: "#fd7e14",
-    animation: "pulse 2s infinite",
+    backgroundColor: colors.warning,
   },
   notifyBadge: {
     position: "absolute",
     top: "-8px",
     right: "-8px",
-    backgroundColor: "#dc3545",
+    backgroundColor: colors.danger,
     color: "white",
     borderRadius: "50%",
     width: "20px",
@@ -2505,503 +1497,548 @@ const styles = {
   },
   refreshButton: {
     padding: "0.5rem 1rem",
-    backgroundColor: "#10b981",
+    backgroundColor: colors.success,
     color: "white",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
     display: "flex",
     alignItems: "center",
     gap: "0.5rem",
+    transition: "all 0.2s",
   },
-  supplierHeader: {
-    backgroundColor: "white",
-    borderRadius: "12px",
+  profileCard: {
+    backgroundColor: colors.background,
+    borderRadius: "16px",
     padding: "2rem",
     marginBottom: "2rem",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    border: "1px solid #e2e8f0",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+    border: `1px solid ${colors.border}`,
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     flexWrap: "wrap",
     gap: "2rem",
   },
-  supplierBasicInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1.5rem",
-    flex: 1,
-  },
-  supplierLogo: {
+  profileLeft: { display: "flex", alignItems: "center", gap: "2rem", flex: 1 },
+  avatar: {
     width: "80px",
     height: "80px",
-    borderRadius: "12px",
-    backgroundColor: "#3b82f6",
+    borderRadius: "16px",
+    background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.purple} 100%)`,
     color: "white",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontSize: "2rem",
-    fontWeight: "bold",
+    fontWeight: "600",
   },
-  supplierTitle: {
-    flex: 1,
-  },
+  profileInfo: { flex: 1 },
   supplierName: {
     fontSize: "2rem",
-    fontWeight: "800",
-    color: "#1e293b",
-    margin: "0 0 0.5rem 0",
+    fontWeight: "700",
+    color: colors.textPrimary,
+    margin: "0 0 0.75rem 0",
     display: "flex",
     alignItems: "center",
-    gap: "0.5rem",
+    gap: "1rem",
     flexWrap: "wrap",
   },
   supplierId: {
     fontSize: "1rem",
-    color: "#64748b",
+    color: colors.textSecondary,
     fontWeight: "normal",
   },
-  supplierMeta: {
+  profileMeta: {
     display: "flex",
     alignItems: "center",
     gap: "0.75rem",
-    color: "#64748b",
-    fontSize: "0.875rem",
     flexWrap: "wrap",
-  },
-  category: {
-    backgroundColor: "#f1f5f9",
-    padding: "0.25rem 0.5rem",
-    borderRadius: "4px",
-  },
-  separator: {
-    color: "#cbd5e1",
-  },
-  established: {
-    color: "#6c757d",
-  },
-  location: {
-    fontStyle: "italic",
-  },
-  statusSection: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: "0.75rem",
-  },
-  statusBadge: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    padding: "0.5rem 1rem",
-    backgroundColor: "#f1f5f9",
-    borderRadius: "20px",
-  },
-  statusDot: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-  },
-  statusText: {
-    fontSize: "0.875rem",
-    fontWeight: "600",
-    color: "#334155",
-  },
-  certificationStatus: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-  },
-  certLabel: {
-    fontSize: "0.875rem",
-    color: "#64748b",
-  },
-  certValue: {
-    fontSize: "0.875rem",
-    fontWeight: "600",
-    padding: "0.25rem 0.5rem",
-    borderRadius: "4px",
-  },
-
-  // Days Summary Styles - Enhanced
-  daysSummary: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "1.5rem",
-    marginBottom: "2rem",
-    border: "1px solid #e2e8f0",
-  },
-  daysSummaryTitle: {
-    fontSize: "1.25rem",
-    fontWeight: "700",
-    color: "#1e293b",
-    margin: "0 0 1.5rem 0",
-  },
-  daysGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: "1rem",
-  },
-  daysCard: {
-    backgroundColor: "#f8fafc",
-    borderRadius: "8px",
-    padding: "1rem",
-    border: "1px solid #e2e8f0",
-  },
-  daysCardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
     marginBottom: "1rem",
   },
-  daysCardIcon: {
-    fontSize: "1.25rem",
-  },
-  daysCardTitle: {
-    fontSize: "1rem",
-    fontWeight: "600",
-    color: "#1e293b",
-  },
-  daysCardContent: {
+  metaItem: {
     display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  daysCardItem: {
-    display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: "0.375rem",
     fontSize: "0.875rem",
+    color: colors.textSecondary,
   },
-  daysCardBadge: {
-    padding: "0.25rem 0.5rem",
-    borderRadius: "4px",
-    fontSize: "0.75rem",
-    fontWeight: "600",
+  metaIcon: { fontSize: "1rem" },
+  metaDot: { color: colors.border },
+  contactInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "1.5rem",
+    flexWrap: "wrap",
   },
-  daysCardDate: {
-    color: "#64748b",
-    fontSize: "0.75rem",
+  contactItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    fontSize: "0.875rem",
+    color: colors.textPrimary,
+    cursor: "pointer",
+    padding: "0.375rem 0.75rem",
+    backgroundColor: colors.cardBg,
+    borderRadius: "20px",
+    border: `1px solid ${colors.border}`,
+    transition: "all 0.2s",
+    position: "relative",
   },
-  daysNotAvailable: {
-    color: "#94a3b8",
-    fontStyle: "italic",
-  },
-  reminderBadge: {
-    backgroundColor: "#fd7e14",
+  contactIcon: { fontSize: "1rem" },
+  copiedTip: {
+    position: "absolute",
+    top: "-25px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    backgroundColor: colors.success,
     color: "white",
     padding: "0.25rem 0.5rem",
     borderRadius: "4px",
     fontSize: "0.75rem",
+    whiteSpace: "nowrap",
+  },
+  profileRight: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: "1rem",
+  },
+  certStatus: { display: "flex", alignItems: "center", gap: "0.5rem" },
+  certLabel: { fontSize: "0.875rem", color: colors.textSecondary },
+  certValue: {
+    fontSize: "0.875rem",
     fontWeight: "600",
-    textAlign: "center",
+    padding: "0.375rem 1rem",
+    borderRadius: "20px",
   },
-  reminderIcon: {
-    marginLeft: "0.5rem",
-  },
-
-  tabsContainer: {
+  expirySection: {
+    backgroundColor: colors.background,
+    borderRadius: "12px",
+    padding: "1.5rem",
     marginBottom: "2rem",
+    border: `1px solid ${colors.border}`,
+  },
+  sectionTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    marginBottom: "1.5rem",
+  },
+  sectionTitleText: {
+    fontSize: "1.25rem",
+    fontWeight: "600",
+    color: colors.textPrimary,
+    margin: 0,
+  },
+  titleIcon: { fontSize: "1.25rem" },
+  expiryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "1rem",
+  },
+  expiryCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: "10px",
+    padding: "1rem",
+    border: `1px solid ${colors.border}`,
+  },
+  expiryHeader: { display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" },
+  expiryIcon: { fontSize: "1.125rem" },
+  expiryName: { fontWeight: "500", fontSize: "0.875rem", color: colors.textPrimary },
+  expiryBody: { display: "flex", flexDirection: "column", gap: "0.5rem" },
+  expiryDate: { fontSize: "0.75rem", color: colors.textSecondary },
+  moreCard: {
+    backgroundColor: colors.grayLight,
+    borderRadius: "10px",
+    padding: "1rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "0.875rem",
+    color: colors.textSecondary,
+    border: `1px dashed ${colors.border}`,
+  },
+  tabsContainer: {
+    backgroundColor: colors.background,
+    borderRadius: "12px 12px 0 0",
+    borderBottom: `1px solid ${colors.border}`,
+    overflowX: "auto",
   },
   tabs: {
     display: "flex",
-    gap: "0.5rem",
-    overflowX: "auto",
-    paddingBottom: "0.5rem",
+    padding: "0 1rem",
+    gap: "0.25rem",
   },
-  tabButton: {
-    padding: "0.75rem 1.5rem",
-    backgroundColor: "#f8fafc",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
+  tab: {
+    padding: "1rem 1.5rem",
+    backgroundColor: "transparent",
+    border: "none",
     cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
-    color: "#64748b",
+    color: colors.textSecondary,
     display: "flex",
     alignItems: "center",
     gap: "0.5rem",
     whiteSpace: "nowrap",
-    transition: "all 0.2s ease",
+    transition: "all 0.2s",
+    position: "relative",
   },
-  tabButtonActive: {
-    backgroundColor: "#3b82f6",
-    color: "white",
-    borderColor: "#3b82f6",
+  activeTab: {
+    color: colors.primary,
+    fontWeight: "600",
+    borderBottom: `2px solid ${colors.primary}`,
   },
-  tabIcon: {
-    fontSize: "1rem",
-  },
+  tabIcon: { fontSize: "1rem" },
   tabContent: {
-    marginBottom: "2rem",
+    backgroundColor: colors.background,
+    borderRadius: "0 0 12px 12px",
+    padding: "2rem",
+    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
   },
-  overviewGrid: {
+  overview: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+    gridTemplateColumns: "repeat(3, 1fr)",
     gap: "1.5rem",
   },
-  documentsGrid: {
+  details: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+    gridTemplateColumns: "repeat(2, 1fr)",
     gap: "1.5rem",
   },
   infoCard: {
-    backgroundColor: "white",
+    backgroundColor: colors.cardBg,
     borderRadius: "12px",
-    padding: "1.5rem",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    border: "1px solid #e2e8f0",
+    border: `1px solid ${colors.border}`,
+    overflow: "hidden",
   },
-  cardTitle: {
-    fontSize: "1.125rem",
-    fontWeight: "700",
-    color: "#1e293b",
-    margin: "0 0 1.5rem 0",
+  cardHeader: {
+    padding: "1rem 1.5rem",
+    backgroundColor: colors.background,
+    borderBottom: `1px solid ${colors.border}`,
     display: "flex",
     alignItems: "center",
-    gap: "0.5rem",
-  },
-  cardIcon: {
-    fontSize: "1.25rem",
-  },
-  infoGrid: {
-    display: "flex",
-    flexDirection: "column",
     gap: "0.75rem",
   },
+  cardIcon: { fontSize: "1.25rem" },
+  cardTitle: {
+    fontSize: "1rem",
+    fontWeight: "600",
+    color: colors.textPrimary,
+    margin: 0,
+  },
+  cardBody: { padding: "1.5rem" },
   infoRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: "1rem",
+    padding: "0.375rem 0",
+    borderBottom: `1px dashed ${colors.border}`,
   },
   infoLabel: {
     fontSize: "0.875rem",
-    color: "#64748b",
+    color: colors.textSecondary,
     fontWeight: "500",
     minWidth: "120px",
-    flexShrink: 0,
   },
   infoValueContainer: {
     flex: 1,
     display: "flex",
     alignItems: "center",
     gap: "0.5rem",
+    justifyContent: "flex-end",
   },
   infoValue: {
     fontSize: "0.875rem",
-    color: "#334155",
+    color: colors.textPrimary,
     fontWeight: "500",
-    wordBreak: "break-word",
-  },
-  infoLink: {
-    fontSize: "0.875rem",
-    color: "#3b82f6",
-    textDecoration: "none",
     wordBreak: "break-word",
   },
   copyButton: {
-    backgroundColor: "transparent",
+    background: "none",
     border: "none",
     cursor: "pointer",
     fontSize: "0.875rem",
-    color: "#64748b",
+    color: colors.textSecondary,
     padding: "0.25rem",
     borderRadius: "4px",
-    flexShrink: 0,
+    transition: "all 0.2s",
   },
-  buildingType: {
-    display: "flex",
-    gap: "0.5rem",
-    flexWrap: "wrap",
-  },
-  buildingTag: {
-    backgroundColor: "#e2e8f0",
-    color: "#475569",
-    padding: "0.25rem 0.75rem",
-    borderRadius: "4px",
-    fontSize: "0.75rem",
-    fontWeight: "500",
-  },
-  daysRemaining: {
-    padding: "0.25rem 0.75rem",
-    borderRadius: "4px",
-    fontSize: "0.75rem",
-    fontWeight: "600",
+  statusBadge: {
     display: "inline-block",
+    borderRadius: "20px",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: "0.025em",
   },
-  statusBadgeInline: {
-    padding: "0.125rem 0.5rem",
-    borderRadius: "4px",
+  daysBadge: {
+    display: "inline-block",
+    padding: "0.25rem 0.75rem",
+    borderRadius: "20px",
     fontSize: "0.75rem",
     fontWeight: "600",
-    display: "inline-block",
   },
-  remarksText: {
-    margin: 0,
-    color: "#334155",
-    fontSize: "0.875rem",
-    lineHeight: 1.6,
+  twoColumn: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "0.75rem 1.5rem",
   },
-  remarksSection: {
-    marginBottom: "1rem",
-  },
-  remarksTitle: {
-    fontSize: "0.875rem",
-    fontWeight: "600",
-    color: "#475569",
-    marginBottom: "0.5rem",
-  },
-  documentsList: {
+  verticalList: {
     display: "flex",
     flexDirection: "column",
+    gap: "0.5rem",
+  },
+  sectionGroup: {
+    marginBottom: "1.5rem",
+  },
+  groupHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    marginBottom: "1rem",
+  },
+  groupHeaderText: {
+    fontSize: "0.875rem",
+    fontWeight: "600",
+    color: colors.textPrimary,
+    margin: 0,
+  },
+  groupIcon: { fontSize: "1rem", color: colors.textSecondary },
+  certificationsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+    gap: "1.5rem",
+  },
+  certCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: "10px",
+    border: `1px solid ${colors.border}`,
+    overflow: "hidden",
+  },
+  certHeader: {
+    padding: "1rem",
+    backgroundColor: colors.background,
+    borderBottom: `1px solid ${colors.border}`,
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    flexWrap: "wrap",
+  },
+  certIcon: { fontSize: "1.125rem" },
+  certName: {
+    fontSize: "0.875rem",
+    fontWeight: "600",
+    color: colors.textPrimary,
+    margin: 0,
+    flex: 1,
+  },
+  certBody: { padding: "1rem" },
+  certRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0.375rem 0",
+    borderBottom: `1px dashed ${colors.border}`,
+  },
+  certLabel: { fontSize: "0.75rem", color: colors.textSecondary },
+  certValue: { fontSize: "0.75rem", fontWeight: "500", color: colors.textPrimary },
+  licensesGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: "1.5rem",
+  },
+  licenseCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: "10px",
+    border: `1px solid ${colors.border}`,
+    overflow: "hidden",
+  },
+  licenseHeader: {
+    padding: "1rem",
+    backgroundColor: colors.background,
+    borderBottom: `1px solid ${colors.border}`,
+    display: "flex",
+    alignItems: "center",
     gap: "0.75rem",
   },
-  documentItem: {
+  licenseIcon: { fontSize: "1.125rem" },
+  licenseName: {
+    fontSize: "0.875rem",
+    fontWeight: "600",
+    color: colors.textPrimary,
+    margin: 0,
+  },
+  licenseBody: { padding: "1rem" },
+  licenseRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0.375rem 0",
+    borderBottom: `1px dashed ${colors.border}`,
+  },
+  licenseLabel: { fontSize: "0.75rem", color: colors.textSecondary },
+  licenseValue: { fontSize: "0.75rem", fontWeight: "500", color: colors.textPrimary },
+  complianceGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "1.5rem",
+  },
+  safetyGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "1.5rem",
+  },
+  environmentGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "1.5rem",
+  },
+  documentsTab: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "1.5rem",
+  },
+  documentGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+    gap: "1rem",
+  },
+  documentCard: {
     display: "flex",
     alignItems: "center",
     gap: "1rem",
     padding: "1rem",
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.cardBg,
     borderRadius: "8px",
-    border: "1px solid #e2e8f0",
+    border: `1px solid ${colors.border}`,
+    transition: "all 0.2s",
   },
-  documentIcon: {
-    fontSize: "1.5rem",
-    color: "#3b82f6",
-  },
-  documentInfo: {
-    flex: 1,
-  },
-  documentName: {
-    fontWeight: "500",
-    marginBottom: "0.25rem",
-  },
-  documentLink: {
+  docIcon: { fontSize: "1.5rem", color: colors.primary },
+  docInfo: { flex: 1, minWidth: 0 },
+  docName: {
     fontSize: "0.875rem",
-    color: "#3b82f6",
+    fontWeight: "500",
+    color: colors.textPrimary,
+    marginBottom: "0.25rem",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  docLink: {
+    fontSize: "0.75rem",
+    color: colors.primary,
     textDecoration: "none",
+    cursor: "pointer",
   },
   noDocuments: {
     textAlign: "center",
-    padding: "2rem",
-    color: "#64748b",
+    padding: "3rem",
+    color: colors.textSecondary,
   },
-  noDocumentsIcon: {
-    fontSize: "3rem",
-    color: "#cbd5e1",
+  noDocsIcon: { fontSize: "3rem", color: colors.border, marginBottom: "1rem", display: "block" },
+  remarks: {
+    fontSize: "0.875rem",
+    color: colors.textPrimary,
+    lineHeight: 1.6,
+    margin: 0,
+  },
+  
+  // Image Gallery Styles
+  imageGallery: {
+    marginTop: "0.5rem",
+  },
+  galleryTitle: {
+    fontSize: "0.95rem",
+    fontWeight: "600",
+    color: colors.textPrimary,
     marginBottom: "1rem",
+  },
+  galleryImageContainer: {
+    position: "relative",
+    cursor: "pointer",
+    borderRadius: "8px",
+    overflow: "hidden",
+    border: `1px solid ${colors.border}`,
+    transition: "transform 0.2s, boxShadow 0.2s",
+    aspectRatio: "4/3",
+  },
+  galleryImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
     display: "block",
   },
-  actionButtons: {
-    display: "flex",
+  imageGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
     gap: "1rem",
-    justifyContent: "center",
-    paddingTop: "2rem",
-    borderTop: "1px solid #e2e8f0",
   },
-  primaryButton: {
-    padding: "0.75rem 1.5rem",
-    backgroundColor: "#3b82f6",
+  imageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "0.875rem",
-    fontWeight: "500",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-  },
-  secondaryButton: {
-    padding: "0.75rem 1.5rem",
-    backgroundColor: "#6c757d",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "0.875rem",
-    fontWeight: "500",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-  },
-  loadingContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "400px",
-  },
-  loadingSpinner: {
-    width: "50px",
-    height: "50px",
-    border: "4px solid #f3f3f3",
-    borderTop: "4px solid #3b82f6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  loadingText: {
-    marginTop: "1rem",
-    color: "#64748b",
-    fontSize: "0.875rem",
-  },
-  errorContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "400px",
-  },
-  errorContent: {
+    padding: "4px",
+    fontSize: "0.7rem",
     textAlign: "center",
-    maxWidth: "400px",
+    opacity: 0,
+    transition: "opacity 0.2s",
+    pointerEvents: "none",
   },
-  errorIcon: {
-    fontSize: "3rem",
-    color: "#dc2626",
-    marginBottom: "1rem",
+  imageOverlayText: {
     display: "block",
   },
-  errorTitle: {
-    fontSize: "1.5rem",
-    fontWeight: "700",
-    color: "#1e293b",
-    margin: "0 0 0.5rem 0",
+  fallbackContainer: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.grayLight,
   },
-  errorMessage: {
-    fontSize: "1rem",
-    color: "#4b5563",
-    marginBottom: "2rem",
+  fallbackSvg: {
+    width: "100%",
+    height: "100%",
+    display: "block",
   },
-  errorActions: {
+  
+  footer: {
     display: "flex",
     gap: "1rem",
     justifyContent: "center",
+    marginTop: "2rem",
+    paddingTop: "2rem",
+    borderTop: `1px solid ${colors.border}`,
   },
-  browseButton: {
+  footerButton: {
     padding: "0.75rem 1.5rem",
-    backgroundColor: "#3b82f6",
-    color: "white",
-    textDecoration: "none",
-    borderRadius: "6px",
-    fontSize: "0.875rem",
-    fontWeight: "500",
-  },
-  retryButton: {
-    padding: "0.5rem 1rem",
-    backgroundColor: "#6c757d",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
+    backgroundColor: "transparent",
+    color: colors.textSecondary,
+    border: `1px solid ${colors.border}`,
+    borderRadius: "8px",
     cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
+    transition: "all 0.2s",
   },
-
+  footerButtonPrimary: {
+    padding: "0.75rem 1.5rem",
+    backgroundColor: colors.primary,
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "0.875rem",
+    fontWeight: "500",
+    transition: "all 0.2s",
+  },
+  
   // Modal Styles
   modalOverlay: {
     position: "fixed",
@@ -3026,7 +2063,7 @@ const styles = {
   },
   modalHeader: {
     padding: "1.5rem",
-    borderBottom: "1px solid #e2e8f0",
+    borderBottom: `1px solid ${colors.border}`,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
@@ -3034,7 +2071,7 @@ const styles = {
   modalTitle: {
     fontSize: "1.25rem",
     fontWeight: "700",
-    color: "#1e293b",
+    color: colors.textPrimary,
     margin: 0,
   },
   modalClose: {
@@ -3042,7 +2079,7 @@ const styles = {
     border: "none",
     fontSize: "1.25rem",
     cursor: "pointer",
-    color: "#64748b",
+    color: colors.textSecondary,
     padding: "0.5rem",
   },
   modalBody: {
@@ -3050,13 +2087,13 @@ const styles = {
   },
   modalFooter: {
     padding: "1.5rem",
-    borderTop: "1px solid #e2e8f0",
+    borderTop: `1px solid ${colors.border}`,
     display: "flex",
     justifyContent: "flex-end",
     gap: "1rem",
   },
   modalInfo: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.cardBg,
     padding: "1rem",
     borderRadius: "8px",
     marginBottom: "1.5rem",
@@ -3064,7 +2101,7 @@ const styles = {
   modalSubtitle: {
     fontSize: "1rem",
     fontWeight: "600",
-    color: "#334155",
+    color: colors.textPrimary,
     marginBottom: "1rem",
   },
   messageInput: {
@@ -3074,13 +2111,13 @@ const styles = {
     display: "block",
     fontSize: "0.875rem",
     fontWeight: "500",
-    color: "#475569",
+    color: colors.textSecondary,
     marginBottom: "0.5rem",
   },
   messageTextarea: {
     width: "100%",
     padding: "0.75rem",
-    border: "1px solid #e2e8f0",
+    border: `1px solid ${colors.border}`,
     borderRadius: "6px",
     fontSize: "0.875rem",
     fontFamily: "inherit",
@@ -3092,22 +2129,22 @@ const styles = {
   categorySectionTitle: {
     fontSize: "0.95rem",
     fontWeight: "600",
-    color: "#2d3748",
+    color: colors.textPrimary,
     marginBottom: "0.75rem",
     paddingBottom: "0.25rem",
-    borderBottom: "1px solid #e2e8f0",
+    borderBottom: `1px solid ${colors.border}`,
   },
   checkboxLabel: {
     display: "flex",
     alignItems: "flex-start",
     gap: "1rem",
     padding: "1rem",
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.cardBg,
     borderRadius: "8px",
     marginBottom: "0.75rem",
     cursor: "pointer",
-    border: "1px solid #e2e8f0",
-    transition: "all 0.2s ease",
+    border: `1px solid ${colors.border}`,
+    transition: "all 0.2s",
   },
   checkbox: {
     marginTop: "0.25rem",
@@ -3128,65 +2165,53 @@ const styles = {
   itemIcon: {
     fontSize: "1.25rem",
   },
-  certName: {
-    fontWeight: "600",
-    color: "#1e293b",
-    flex: 1,
-  },
-  daysBadge: {
-    padding: "0.25rem 0.75rem",
-    borderRadius: "20px",
-    fontSize: "0.75rem",
-    fontWeight: "600",
-    whiteSpace: "nowrap",
-  },
   itemDetails: {
     display: "flex",
     gap: "1rem",
     fontSize: "0.75rem",
-    color: "#64748b",
+    color: colors.textSecondary,
     flexWrap: "wrap",
   },
   itemExpiry: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: colors.grayLight,
     padding: "0.125rem 0.5rem",
     borderRadius: "4px",
   },
   itemStatus: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: colors.grayLight,
     padding: "0.125rem 0.5rem",
     borderRadius: "4px",
   },
   successMessage: {
-    backgroundColor: "#d4edda",
-    color: "#155724",
+    backgroundColor: colors.successLight,
+    color: colors.success,
     padding: "1rem",
     borderRadius: "8px",
-    border: "1px solid #c3e6cb",
+    border: `1px solid ${colors.success}`,
     textAlign: "center",
   },
   errorMessage: {
-    backgroundColor: "#f8d7da",
-    color: "#721c24",
+    backgroundColor: colors.dangerLight,
+    color: colors.danger,
     padding: "1rem",
     borderRadius: "8px",
-    border: "1px solid #f5c6cb",
+    border: `1px solid ${colors.danger}`,
     textAlign: "center",
   },
   warningMessage: {
-    backgroundColor: "#fff3cd",
-    color: "#856404",
+    backgroundColor: colors.warningLight,
+    color: colors.warning,
     padding: "1rem",
     borderRadius: "8px",
-    border: "1px solid #ffeaa7",
+    border: `1px solid ${colors.warning}`,
     textAlign: "center",
   },
   infoMessage: {
-    backgroundColor: "#d1ecf1",
-    color: "#0c5460",
+    backgroundColor: colors.infoLight,
+    color: colors.info,
     padding: "1rem",
     borderRadius: "8px",
-    border: "1px solid #bee5eb",
+    border: `1px solid ${colors.info}`,
     textAlign: "center",
   },
   notificationDetails: {
@@ -3196,7 +2221,7 @@ const styles = {
   },
   modalButton: {
     padding: "0.75rem 1.5rem",
-    backgroundColor: "#3b82f6",
+    backgroundColor: colors.primary,
     color: "white",
     border: "none",
     borderRadius: "6px",
@@ -3207,7 +2232,7 @@ const styles = {
   },
   modalPrimaryButton: {
     padding: "0.75rem 1.5rem",
-    backgroundColor: "#fd7e14",
+    backgroundColor: colors.warning,
     color: "white",
     border: "none",
     borderRadius: "6px",
@@ -3217,7 +2242,7 @@ const styles = {
   },
   modalSecondaryButton: {
     padding: "0.75rem 1.5rem",
-    backgroundColor: "#6c757d",
+    backgroundColor: colors.gray,
     color: "white",
     border: "none",
     borderRadius: "6px",
@@ -3229,19 +2254,66 @@ const styles = {
     opacity: 0.5,
     cursor: "not-allowed",
   },
+  
+  loadingContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "400px",
+  },
+  loadingSpinner: {
+    width: "50px",
+    height: "50px",
+    border: `4px solid ${colors.grayLight}`,
+    borderTopColor: colors.primary,
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
+  loadingText: { marginTop: "1rem", color: colors.textSecondary, fontSize: "0.875rem" },
+  errorContainer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "400px",
+  },
+  errorContent: { textAlign: "center", maxWidth: "400px" },
+  errorIcon: { fontSize: "3rem", color: colors.danger, marginBottom: "1rem", display: "block" },
+  errorTitle: {
+    fontSize: "1.5rem",
+    fontWeight: "700",
+    color: colors.textPrimary,
+    margin: "0 0 0.5rem 0",
+  },
+  errorMessage: { fontSize: "1rem", color: colors.textSecondary, marginBottom: "2rem" },
+  errorActions: { display: "flex", gap: "1rem", justifyContent: "center" },
+  retryButton: {
+    padding: "0.75rem 1.5rem",
+    backgroundColor: colors.gray,
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "0.875rem",
+    fontWeight: "500",
+  },
 };
 
-// Add CSS animation for spinner and pulse
+// Add CSS animations
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
-  @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
+  
+  .gallery-image-container:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  
+  .gallery-image-container:hover .image-overlay {
+    opacity: 1 !important;
   }
 `;
 document.head.appendChild(styleSheet);

@@ -259,14 +259,9 @@ const EditSupplierCSR = () => {
 
   // File states
   const [files, setFiles] = useState({
-    // Building images (multiple)
-    building_images: [],
-    fire_images: [],
-
-    //general 
+    // Single file fields
     card_image: null,
-
-    // Certificate files
+    profile_picture: null,
     bsci_certificate: null,
     sedex_certificate: null,
     wrap_certificate: null,
@@ -280,8 +275,6 @@ const EditSupplierCSR = () => {
     iso_14001_certificate: null,
     other_certificate_1: null,
     other_certificate_2: null,
-
-    // License files
     trade_license_file: null,
     factory_license_file: null,
     fire_license_file: null,
@@ -290,12 +283,8 @@ const EditSupplierCSR = () => {
     boiler_license_file: null,
     berc_license_file: null,
     drinking_water_license_file: null,
-
-    // Environmental files
     environmental_compliance_certificate: null,
     environmental_audit_report: null,
-
-    // Compliance & Safety files
     compliance_certificate: null,
     grievance_policy_document: null,
     emergency_evacuation_plan: null,
@@ -303,38 +292,34 @@ const EditSupplierCSR = () => {
     health_safety_policy: null,
     risk_assessment_report: null,
     safety_audit_report: null,
-
-    // General documents
-    profile_picture: null,
     additional_document_1: null,
     additional_document_2: null,
     additional_document_3: null,
     additional_document_4: null,
-
-    // Fire Safety files
     fire_training_certificate: null,
     fire_drill_record: null,
     fire_safety_audit_report: null,
-
-    // RSC files
     rsc_certificate: null,
     structural_safety_report: null,
     electrical_safety_report: null,
     fire_safety_report: null,
-
-    // PC & Safety Committee files
     pc_election_document: null,
     pc_meeting_minutes: null,
     safety_committee_formation_document: null,
     safety_committee_meeting_minutes: null,
   });
 
-  // Existing file URLs for display
-  const [existingFiles, setExistingFiles] = useState({});
+  // Multiple image states
   const [buildingImages, setBuildingImages] = useState([]);
-  const [imagePreviews, setImagePreviews] = useState([]);
+  const [buildingImagePreviews, setBuildingImagePreviews] = useState([]);
+  const [existingBuildingImages, setExistingBuildingImages] = useState([]);
+
   const [fireImages, setFireImages] = useState([]);
   const [fireImagePreviews, setFireImagePreviews] = useState([]);
+  const [existingFireImages, setExistingFireImages] = useState([]);
+
+  // Existing file URLs for display
+  const [existingFiles, setExistingFiles] = useState({});
 
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -350,7 +335,7 @@ const EditSupplierCSR = () => {
 
     // Create preview URLs
     const newPreviews = files.map((file) => URL.createObjectURL(file));
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    setBuildingImagePreviews((prev) => [...prev, ...newPreviews]);
   };
 
   const handleFireImagesChange = (e) => {
@@ -364,14 +349,56 @@ const EditSupplierCSR = () => {
 
   const removeBuildingImage = (index) => {
     setBuildingImages((prev) => prev.filter((_, i) => i !== index));
-    URL.revokeObjectURL(imagePreviews[index]);
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    URL.revokeObjectURL(buildingImagePreviews[index]);
+    setBuildingImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeFireImage = (index) => {
     setFireImages((prev) => prev.filter((_, i) => i !== index));
     URL.revokeObjectURL(fireImagePreviews[index]);
     setFireImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingBuildingImage = async (imageUrl) => {
+    if (window.confirm("Are you sure you want to delete this image?")) {
+      try {
+        // Extract the filename from the URL
+        const filename = imageUrl.split("/").pop();
+
+        // Call API to delete the image
+        await supplierApi.delete(`supplier/${id}/delete-building-image/`, {
+          data: { image_url: imageUrl, type: "building" },
+        });
+
+        setExistingBuildingImages((prev) =>
+          prev.filter((url) => url !== imageUrl),
+        );
+        console.log("✅ Building image deleted successfully");
+      } catch (error) {
+        console.error("❌ Error deleting building image:", error);
+        alert("Failed to delete image. Please try again.");
+      }
+    }
+  };
+
+  const removeExistingFireImage = async (imageUrl) => {
+    if (window.confirm("Are you sure you want to delete this image?")) {
+      try {
+        // Extract the filename from the URL
+        const filename = imageUrl.split("/").pop();
+
+        // Call API to delete the image
+        await supplierApi.delete(`supplier/${id}/delete-building-image/`, {
+          data: { image_url: imageUrl, type: "fire" },
+        });
+
+        setExistingFireImages((prev) => prev.filter((url) => url !== imageUrl));
+        console.log("✅ Fire image deleted successfully");
+      } catch (error) {
+        console.error("❌ Error deleting fire image:", error);
+        alert("Failed to delete image. Please try again.");
+      }
+    }
   };
 
   // Function to calculate days remaining
@@ -459,7 +486,6 @@ const EditSupplierCSR = () => {
         }
       });
 
-      // Only update state if there are changes
       if (hasUpdates) {
         setLastUpdateTime(new Date());
         return updatedData;
@@ -470,45 +496,29 @@ const EditSupplierCSR = () => {
 
   // Effect for real-time updates
   useEffect(() => {
-    // Initial calculation
     updateAllDaysRemaining();
 
-    // Set up interval to recalculate periodically (every hour)
     const calculateInterval = setInterval(
-      () => {
-        console.log("Recalculating days remaining...");
-        updateAllDaysRemaining();
-      },
+      updateAllDaysRemaining,
       60 * 60 * 1000,
-    ); // Every hour
+    );
 
-    // Also recalculate when the component becomes visible
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        console.log("Tab became visible, recalculating days remaining...");
         updateAllDaysRemaining();
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    // Recalculate at midnight
     const now = new Date();
     const timeUntilMidnight =
       new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0) -
       now;
 
     const midnightTimeout = setTimeout(() => {
-      console.log("Midnight reached, recalculating days remaining...");
       updateAllDaysRemaining();
-
-      // Then set up daily interval
-      setInterval(
-        () => {
-          updateAllDaysRemaining();
-        },
-        24 * 60 * 60 * 1000,
-      ); // Every 24 hours
+      setInterval(updateAllDaysRemaining, 24 * 60 * 60 * 1000);
     }, timeUntilMidnight);
 
     return () => {
@@ -516,12 +526,9 @@ const EditSupplierCSR = () => {
       clearTimeout(midnightTimeout);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
-  // Also recalculate when validity dates change
   useEffect(() => {
-    // This effect runs whenever formData changes
-    // But we need to avoid infinite loops by checking if the change was from a validity field
     const validityFields = [
       "bsci_validity",
       "sedex_validity",
@@ -544,7 +551,6 @@ const EditSupplierCSR = () => {
       "drinking_water_license_validity",
     ];
 
-    // Check if any validity field was just updated
     const justUpdatedValidity = validityFields.some((field) => {
       return touchedFields[field];
     });
@@ -552,7 +558,7 @@ const EditSupplierCSR = () => {
     if (justUpdatedValidity) {
       updateAllDaysRemaining();
     }
-  }, [formData]); // This runs whenever formData changes
+  }, [formData, touchedFields]);
 
   useEffect(() => {
     fetchSupplierData();
@@ -656,6 +662,8 @@ const EditSupplierCSR = () => {
 
       // Store existing file URLs for display
       const fileFields = {
+        card_image: formattedData.card_image_url,
+        profile_picture: formattedData.profile_picture_url,
         bsci_certificate: formattedData.bsci_certificate_url,
         sedex_certificate: formattedData.sedex_certificate_url,
         wrap_certificate: formattedData.wrap_certificate_url,
@@ -677,7 +685,8 @@ const EditSupplierCSR = () => {
         group_insurance_file: formattedData.group_insurance_file_url,
         boiler_license_file: formattedData.boiler_license_file_url,
         berc_license_file: formattedData.berc_license_file_url,
-        drinking_water_license_file: formattedData.drinking_water_license_file_url,
+        drinking_water_license_file:
+          formattedData.drinking_water_license_file_url,
         environmental_compliance_certificate:
           formattedData.environmental_compliance_certificate_url,
         environmental_audit_report:
@@ -689,8 +698,6 @@ const EditSupplierCSR = () => {
         health_safety_policy: formattedData.health_safety_policy_url,
         risk_assessment_report: formattedData.risk_assessment_report_url,
         safety_audit_report: formattedData.safety_audit_report_url,
-        profile_picture: formattedData.profile_picture_url,
-        card_image: formattedData.card_image_url,
         additional_document_1: formattedData.additional_document_1_url,
         additional_document_2: formattedData.additional_document_2_url,
         additional_document_3: formattedData.additional_document_3_url,
@@ -711,6 +718,15 @@ const EditSupplierCSR = () => {
       };
 
       setExistingFiles(fileFields);
+
+      // Load existing multiple images
+      if (formattedData.building_images) {
+        setExistingBuildingImages(formattedData.building_images);
+      }
+
+      if (formattedData.fire_images) {
+        setExistingFireImages(formattedData.fire_images);
+      }
     } catch (err) {
       console.error("Error fetching supplier:", err);
       setError("Failed to load supplier data. Please try again.");
@@ -739,51 +755,6 @@ const EditSupplierCSR = () => {
         newData[daysRemainingField] = calculatedDays;
       }
 
-      // Handle specific cases for different field patterns
-      if (name === "bsci_validity") {
-        newData.bsci_validity_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "sedex_validity") {
-        newData.sedex_validity_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "wrap_validity") {
-        newData.wrap_validity_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "security_audit_validity") {
-        newData.security_audit_validity_days_remaining =
-          calculateDaysRemaining(value);
-      } else if (name === "oeko_tex_validity") {
-        newData.oeko_tex_validity_days_remaining =
-          calculateDaysRemaining(value);
-      } else if (name === "gots_validity") {
-        newData.gots_validity_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "ocs_validity") {
-        newData.ocs_validity_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "grs_validity") {
-        newData.grs_validity_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "rcs_validity") {
-        newData.rcs_validity_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "iso_9001_validity") {
-        newData.iso_9001_validity_days_remaining =
-          calculateDaysRemaining(value);
-      } else if (name === "iso_14001_validity") {
-        newData.iso_14001_validity_days_remaining =
-          calculateDaysRemaining(value);
-      } else if (name === "trade_license_validity") {
-        newData.trade_license_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "factory_license_validity") {
-        newData.factory_license_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "fire_license_validity") {
-        newData.fire_license_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "membership_validity") {
-        newData.membership_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "group_insurance_validity") {
-        newData.group_insurance_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "boiler_license_validity") {
-        newData.boiler_license_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "berc_license_validity") {
-        newData.berc_days_remaining = calculateDaysRemaining(value);
-      } else if (name === "drinking_water_license_validity") {
-        newData.drinking_water_license_days_remaining = calculateDaysRemaining(value);
-      }
-
       return newData;
     });
 
@@ -808,6 +779,7 @@ const EditSupplierCSR = () => {
 
   const handleSubmit = async () => {
     if (activeTab !== "documents") {
+      setActiveTab("documents");
       return;
     }
 
@@ -830,10 +802,8 @@ const EditSupplierCSR = () => {
         formDataCopy.total_manpower = total > 0 ? total : null;
       }
 
-      // CRITICAL: Recalculate ALL days_remaining fields before submitting
-      // This ensures the backend receives the current values
+      // Recalculate days remaining fields
       const dateFields = [
-        // Certifications
         { field: "bsci_validity", daysField: "bsci_validity_days_remaining" },
         { field: "sedex_validity", daysField: "sedex_validity_days_remaining" },
         { field: "wrap_validity", daysField: "wrap_validity_days_remaining" },
@@ -857,8 +827,6 @@ const EditSupplierCSR = () => {
           field: "iso_14001_validity",
           daysField: "iso_14001_validity_days_remaining",
         },
-
-        // Licenses
         {
           field: "trade_license_validity",
           daysField: "trade_license_days_remaining",
@@ -890,79 +858,168 @@ const EditSupplierCSR = () => {
         },
       ];
 
-      // Recalculate each days_remaining field
       dateFields.forEach(({ field, daysField }) => {
         if (formDataCopy[field]) {
           formDataCopy[daysField] = calculateDaysRemaining(formDataCopy[field]);
         }
       });
 
-      console.log("Submitting with recalculated values:", {
-        bsci_validity: formDataCopy.bsci_validity,
-        bsci_days: formDataCopy.bsci_validity_days_remaining,
-        trade_license: formDataCopy.trade_license_validity,
-        trade_days: formDataCopy.trade_license_days_remaining,
-      });
-
       const formDataToSend = new FormData();
 
-      // Add ALL form data (including recalculated days_remaining)
+      // List of single file fields (we'll handle them separately)
+      const singleFileFields = [
+        "card_image",
+        "profile_picture",
+        "bsci_certificate",
+        "sedex_certificate",
+        "wrap_certificate",
+        "security_audit_certificate",
+        "oeko_tex_certificate",
+        "gots_certificate",
+        "ocs_certificate",
+        "grs_certificate",
+        "rcs_certificate",
+        "iso_9001_certificate",
+        "iso_14001_certificate",
+        "other_certificate_1",
+        "other_certificate_2",
+        "trade_license_file",
+        "factory_license_file",
+        "fire_license_file",
+        "membership_file",
+        "group_insurance_file",
+        "boiler_license_file",
+        "berc_license_file",
+        "drinking_water_license_file",
+        "fire_training_certificate",
+        "fire_drill_record",
+        "fire_safety_audit_report",
+        "structural_safety_report",
+        "electrical_safety_report",
+        "fire_safety_report",
+        "rsc_certificate",
+        "pc_election_document",
+        "pc_meeting_minutes",
+        "safety_committee_formation_document",
+        "safety_committee_meeting_minutes",
+        "environmental_compliance_certificate",
+        "environmental_audit_report",
+        "compliance_certificate",
+        "grievance_policy_document",
+        "emergency_evacuation_plan",
+        "safety_protocols_document",
+        "health_safety_policy",
+        "risk_assessment_report",
+        "safety_audit_report",
+        "additional_document_1",
+        "additional_document_2",
+        "additional_document_3",
+        "additional_document_4",
+      ];
+
+      // Add ALL non-file fields (skip file fields)
       Object.entries(formDataCopy).forEach(([key, value]) => {
-        // Only append if value exists and is not empty
+        // Skip file fields - we'll handle them separately
+        if (singleFileFields.includes(key)) {
+          return;
+        }
+
+        // Skip the JSON fields that will be handled by the backend
+        if (key === "building_images_json" || key === "fire_images_json") {
+          return;
+        }
+
+        // Add non-file fields
         if (value !== null && value !== undefined && value !== "") {
-          // Convert booleans to strings
-          const finalValue =
-            typeof value === "boolean" ? value.toString() : value;
-          formDataToSend.append(key, finalValue);
+          if (typeof value === "boolean") {
+            formDataToSend.append(key, value.toString());
+          } else if (typeof value === "number") {
+            formDataToSend.append(key, value.toString());
+          } else if (typeof value === "string") {
+            formDataToSend.append(key, value);
+          } else {
+            formDataToSend.append(key, String(value));
+          }
         }
       });
 
-      // Add multiple building images
-      buildingImages.forEach((image) => {
-        formDataToSend.append("building_images", image);
-      });
+      // CRITICAL FIX: Add multiple building images with the correct field name
+      // The backend expects 'building_images' (plural) for multiple files
+      if (buildingImages.length > 0) {
+        buildingImages.forEach((image) => {
+          formDataToSend.append("building_images", image);
+        });
+        console.log(`📸 Added ${buildingImages.length} new building images`);
+      }
 
-      // Add multiple fire images
-      fireImages.forEach((image) => {
-        formDataToSend.append("fire_images", image);
-      });
+      // CRITICAL FIX: Add multiple fire images with the correct field name
+      // The backend expects 'fire_images' (plural) for multiple files
+      if (fireImages.length > 0) {
+        fireImages.forEach((image) => {
+          formDataToSend.append("fire_images", image);
+        });
+        console.log(`📸 Added ${fireImages.length} new fire images`);
+      }
 
-      // Add files
+      // Track which existing images to keep
+      // The backend needs to know which existing images to keep
+      if (existingBuildingImages.length > 0) {
+        // If you need to specify which existing images to keep,
+        // you might need to send their paths or IDs
+        console.log(
+          `📸 Keeping ${existingBuildingImages.length} existing building images`,
+        );
+      }
+
+      if (existingFireImages.length > 0) {
+        console.log(
+          `📸 Keeping ${existingFireImages.length} existing fire images`,
+        );
+      }
+
+      // Add single files ONLY if a new file was selected
       Object.entries(files).forEach(([key, file]) => {
-        if (file) {
+        if (file && file instanceof File && singleFileFields.includes(key)) {
           formDataToSend.append(key, file);
+          console.log(`📎 Adding file: ${key} - ${file.name}`);
         }
       });
 
-      // Log what we're sending
-      console.log("Sending FormData entries:");
+      // Log what we're sending (for debugging)
+      console.log("📦 Sending FormData with fields:");
       for (let pair of formDataToSend.entries()) {
-        if (!(pair[1] instanceof File))  {
-          console.log(pair[0] + ": " + pair[1]);
+        if (pair[1] instanceof File) {
+          console.log(`  ${pair[0]}: [File] ${pair[1].name} (${pair[1].type})`);
+        } else {
+          console.log(`  ${pair[0]}: ${pair[1]}`);
         }
       }
 
       const response = await updateSupplier(id, formDataToSend);
-      console.log("Update response:", response.data);
+      console.log("✅ Update response:", response.data);
 
       alert("Supplier updated successfully!");
       navigate("/suppliersCSR");
     } catch (err) {
-      console.error("Update error:", err);
+      console.error("❌ Update error:", err);
       let errorMessage = "Error updating supplier. Please try again.";
       if (err.response?.data) {
         const errorData = err.response.data;
-        errorMessage =
-          typeof errorData === "object"
-            ? Object.entries(errorData)
-                .map(
-                  ([field, errors]) =>
-                    `${field}: ${
-                      Array.isArray(errors) ? errors.join(", ") : errors
-                    }`,
-                )
-                .join("\n")
-            : errorData;
+
+        // Format error messages
+        if (typeof errorData === "object") {
+          const errorMessages = [];
+          Object.entries(errorData).forEach(([field, errors]) => {
+            if (Array.isArray(errors)) {
+              errorMessages.push(`${field}: ${errors.join(", ")}`);
+            } else if (typeof errors === "string") {
+              errorMessages.push(`${field}: ${errors}`);
+            }
+          });
+          errorMessage = errorMessages.join("\n");
+        } else {
+          errorMessage = errorData;
+        }
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -971,7 +1028,6 @@ const EditSupplierCSR = () => {
       setIsUpdating(false);
     }
   };
-
   const handleNext = () => {
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
     if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1].id);
@@ -990,7 +1046,6 @@ const EditSupplierCSR = () => {
     { id: "certifications", label: "Certifications", icon: "📜" },
     { id: "licenses", label: "Licenses", icon: "📋" },
     { id: "safety", label: "Safety", icon: "🚨" },
-    { id: "compliance", label: "Compliance", icon: "✅" },
     { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
     { id: "environment", label: "Environment", icon: "🌱" },
     { id: "rsc", label: "RSC Audit", icon: "🔍" },
@@ -998,8 +1053,49 @@ const EditSupplierCSR = () => {
     { id: "documents", label: "Documents", icon: "📎" },
   ];
 
-  // Render functions for multiple image upload
-  const renderMultipleImageUpload = (label, name, images, previews, onRemove, onChange) => {
+  // Function to get correct file URL (point to Django server)
+  const getCorrectFileUrl = (url) => {
+    if (!url) return "#";
+
+    // If the URL starts with /media/, point it to Django server
+    if (url.startsWith("/media/")) {
+      return `http://119.148.51.38:8000${url}`;
+    }
+
+    // If it's a relative URL that doesn't start with http, add Django server
+    if (!url.startsWith("http")) {
+      return `http://119.148.51.38:8000${url.startsWith("/") ? url : "/" + url}`;
+    }
+
+    // If it's already an absolute URL but pointing to port 3000, fix it
+    if (url.includes("119.148.51.38:3000")) {
+      return url.replace(":3000", ":8000");
+    }
+
+    return url;
+  };
+
+  const handleViewFile = (e, url) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const correctUrl = getCorrectFileUrl(url);
+    console.log("Opening file URL:", correctUrl);
+
+    // Open in new tab
+    window.open(correctUrl, "_blank", "noopener,noreferrer");
+  };
+
+  // Render functions
+  const renderMultipleImageUpload = (
+    label,
+    name,
+    images,
+    previews,
+    onRemove,
+    onChange,
+    existingImages = [],
+  ) => {
     return (
       <div style={formGroupStyle}>
         <label style={labelStyle}>{label}</label>
@@ -1019,7 +1115,40 @@ const EditSupplierCSR = () => {
           </label>
         </div>
 
-        {/* Image Previews */}
+        {/* Existing Images */}
+        {existingImages.length > 0 && (
+          <div style={imageGridStyle}>
+            {existingImages.map((imageUrl, index) => (
+              <div key={`existing-${index}`} style={imagePreviewContainerStyle}>
+                <img
+                  src={getCorrectFileUrl(imageUrl)}
+                  alt={`Existing ${index + 1}`}
+                  style={imagePreviewStyle}
+                  onError={(e) => {
+                    e.target.src =
+                      "https://via.placeholder.com/150?text=Image+Not+Found";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (name === "building_images") {
+                      removeExistingBuildingImage(imageUrl);
+                    } else {
+                      removeExistingFireImage(imageUrl);
+                    }
+                  }}
+                  style={removeImageButtonStyle}
+                >
+                  ×
+                </button>
+                <div style={imageInfoStyle}>Existing Image</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* New Image Previews */}
         {previews.length > 0 && (
           <div style={imageGridStyle}>
             {previews.map((preview, index) => (
@@ -1047,9 +1176,10 @@ const EditSupplierCSR = () => {
           </div>
         )}
 
-        {images.length > 0 && (
+        {(images.length > 0 || existingImages.length > 0) && (
           <div style={imageCountStyle}>
-            Total {images.length} image(s) selected
+            Total {images.length + existingImages.length} image(s)
+            {images.length > 0 && ` (${images.length} new)`}
           </div>
         )}
       </div>
@@ -1067,12 +1197,10 @@ const EditSupplierCSR = () => {
     const isError = touchedFields[name] && isRequired && !formData[name];
     const Component = rows ? "textarea" : "input";
 
-    // For days remaining fields, show a subtle indicator that they're auto-updating
     const isDaysRemaining =
       name.includes("_days_remaining") ||
       name.includes("_validity_days_remaining");
 
-    // Add a small refresh icon for days remaining fields
     const showAutoUpdate =
       isDaysRemaining &&
       formData[
@@ -1104,7 +1232,7 @@ const EditSupplierCSR = () => {
             ...(rows ? textareaStyle : {}),
             ...(isDaysRemaining ? daysRemainingFieldStyle : {}),
           }}
-          disabled={isUpdating || isLoading || isDaysRemaining} // Disable days remaining fields from manual editing
+          disabled={isUpdating || isLoading || isDaysRemaining}
           placeholder={
             isDaysRemaining ? "Auto-calculated" : `Enter ${label.toLowerCase()}`
           }
@@ -1187,9 +1315,8 @@ const EditSupplierCSR = () => {
             <span>📄</span>
             <span>Existing file: </span>
             <a
-              href={existingFile}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="#"
+              onClick={(e) => handleViewFile(e, existingFile)}
               style={existingFileLinkStyle}
             >
               View
@@ -1563,9 +1690,10 @@ const EditSupplierCSR = () => {
                       "Building Images",
                       "building_images",
                       buildingImages,
-                      imagePreviews,
+                      buildingImagePreviews,
                       removeBuildingImage,
                       handleBuildingImagesChange,
+                      existingBuildingImages,
                     )}
                   </div>
                 </div>
@@ -1775,30 +1903,56 @@ const EditSupplierCSR = () => {
                     </div>
                   </div>
 
-                  {/* BERC License - Custom section */}
+                  {/* BERC License */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>BERC License</h4>
                     </div>
                     <div style={cardBodyStyle}>
                       <div style={formGridStyle}>
-                        {renderInput("Validity", "berc_license_validity", "date")}
-                        {renderInput("Days Remaining", "berc_days_remaining", "number")}
-                        {renderFileInput("BERC License File", "berc_license_file", ".pdf,.jpg,.png")}
+                        {renderInput(
+                          "Validity",
+                          "berc_license_validity",
+                          "date",
+                        )}
+                        {renderInput(
+                          "Days Remaining",
+                          "berc_days_remaining",
+                          "number",
+                        )}
+                        {renderFileInput(
+                          "BERC License File",
+                          "berc_license_file",
+                          ".pdf,.jpg,.png",
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Drinking Water License - Custom section */}
+                  {/* Drinking Water License */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>Drinking Water Test License</h4>
+                      <h4 style={cardTitleStyle}>
+                        Drinking Water Test License
+                      </h4>
                     </div>
                     <div style={cardBodyStyle}>
                       <div style={formGridStyle}>
-                        {renderInput("Validity", "drinking_water_license_validity", "date")}
-                        {renderInput("Days Remaining", "drinking_water_license_days_remaining", "number")}
-                        {renderFileInput("License File", "drinking_water_license_file", ".pdf,.jpg,.png")}
+                        {renderInput(
+                          "Validity",
+                          "drinking_water_license_validity",
+                          "date",
+                        )}
+                        {renderInput(
+                          "Days Remaining",
+                          "drinking_water_license_days_remaining",
+                          "number",
+                        )}
+                        {renderFileInput(
+                          "License File",
+                          "drinking_water_license_file",
+                          ".pdf,.jpg,.png",
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1892,6 +2046,7 @@ const EditSupplierCSR = () => {
                         fireImagePreviews,
                         removeFireImage,
                         handleFireImagesChange,
+                        existingFireImages,
                       )}
                     </div>
                   </div>
@@ -1907,96 +2062,6 @@ const EditSupplierCSR = () => {
                     false,
                     3,
                   )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "compliance" && (
-              <div style={formSectionStyle}>
-                <div style={sectionHeaderStyle}>
-                  <h3 style={sectionTitleStyle}>
-                    <span style={sectionIconStyle}>✅</span> Compliance &
-                    Grievance
-                  </h3>
-                  <p style={sectionDescriptionStyle}>
-                    Compliance status and grievance management
-                  </p>
-                </div>
-
-                <div style={cardsContainerStyle}>
-                  <div style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>Compliance Status</h4>
-                    </div>
-                    <div style={cardBodyStyle}>
-                      <div style={formGridStyle}>
-                        {renderSelect(
-                          "Compliance Status",
-                          "compliance_status",
-                          complianceStatusOptions,
-                        )}
-                        {renderFileInput(
-                          "Compliance Certificate",
-                          "compliance_certificate",
-                          ".pdf,.jpg,.png",
-                        )}
-                        <div style={fullWidthStyle}>
-                          {renderInput(
-                            "Compliance Remarks",
-                            "compliance_remarks",
-                            "text",
-                            false,
-                            3,
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>Grievance Management</h4>
-                    </div>
-                    <div style={cardBodyStyle}>
-                      <div style={checkboxGridStyle}>
-                        {renderCheckbox(
-                          "Grievance Mechanism Available",
-                          "grievance_mechanism",
-                        )}
-                      </div>
-                      <div style={formGridStyle}>
-                        {renderFileInput(
-                          "Grievance Policy Document",
-                          "grievance_policy_document",
-                          ".pdf",
-                        )}
-                        {renderInput(
-                          "Grievance Resolution Procedure",
-                          "grievance_resolution_procedure",
-                          "text",
-                          false,
-                          3,
-                        )}
-                        {renderInput(
-                          "Last Grievance Resolution Date",
-                          "last_grievance_resolution_date",
-                          "date",
-                        )}
-                        {renderInput(
-                          "Grievance Resolution Rate (%)",
-                          "grievance_resolution_rate",
-                          "number",
-                        )}
-                        {renderInput(
-                          "Grievance Remarks",
-                          "grievance_remarks",
-                          "text",
-                          false,
-                          3,
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -2110,21 +2175,9 @@ const EditSupplierCSR = () => {
                     "higg_fem_verification_assessment_score",
                     "number",
                   )}
-                  {renderInput(
-                    "CO2 Report",
-                    "co2_report",
-                    "text",
-                  )}
-                  {renderInput(
-                    "Solar Energy",
-                    "solar_energy",
-                    "text",
-                  )}
-                  {renderInput(
-                    "Green Energy",
-                    "green_energy",
-                    "text",
-                  )}
+                  {renderInput("CO2 Report", "co2_report", "text")}
+                  {renderInput("Solar Energy", "solar_energy", "text")}
+                  {renderInput("Green Energy", "green_energy", "text")}
                   <div style={fullWidthStyle}>
                     {renderCheckbox(
                       "Behive Chemical Inventory",
@@ -2212,6 +2265,90 @@ const EditSupplierCSR = () => {
                     "Any Gift Provided During Festival",
                     "any_gift_provided_during_festival",
                   )}
+                </div>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>✅</span> Compliance &
+                    Grievance
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Compliance status and grievance management
+                  </p>
+                </div>
+                <div style={cardsContainerStyle}>
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Compliance Status</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderSelect(
+                          "Compliance Status",
+                          "compliance_status",
+                          complianceStatusOptions,
+                        )}
+                        {renderFileInput(
+                          "Compliance Certificate",
+                          "compliance_certificate",
+                          ".pdf,.jpg,.png",
+                        )}
+                        <div style={fullWidthStyle}>
+                          {renderInput(
+                            "Compliance Remarks",
+                            "compliance_remarks",
+                            "text",
+                            false,
+                            3,
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Grievance Management</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={checkboxGridStyle}>
+                        {renderCheckbox(
+                          "Grievance Mechanism Available",
+                          "grievance_mechanism",
+                        )}
+                      </div>
+                      <div style={formGridStyle}>
+                        {renderFileInput(
+                          "Grievance Policy Document",
+                          "grievance_policy_document",
+                          ".pdf",
+                        )}
+                        {renderInput(
+                          "Grievance Resolution Procedure",
+                          "grievance_resolution_procedure",
+                          "text",
+                          false,
+                          3,
+                        )}
+                        {renderInput(
+                          "Last Grievance Resolution Date",
+                          "last_grievance_resolution_date",
+                          "date",
+                        )}
+                        {renderInput(
+                          "Grievance Resolution Rate (%)",
+                          "grievance_resolution_rate",
+                          "number",
+                        )}
+                        {renderInput(
+                          "Grievance Remarks",
+                          "grievance_remarks",
+                          "text",
+                          false,
+                          3,
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -2380,7 +2517,7 @@ const EditSupplierCSR = () => {
   );
 };
 
-// Style constants - Modern Professional Design
+// Style constants
 const containerStyle = {
   backgroundColor: "#f3f4f6",
   minHeight: "100vh",

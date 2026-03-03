@@ -111,22 +111,22 @@ const HOLIDAYS = [
 
 // Cache keys
 const CACHE_KEYS = {
-  EMPLOYEES: 'hr_employees',
-  LEAVES: 'hr_leaves',
-  CVS: 'hr_cvs',
-  INTERVIEWS: 'hr_interviews',
-  ATTENDANCE: 'hr_attendance',
+  EMPLOYEES: "hr_employees",
+  LEAVES: "hr_leaves",
+  CVS: "hr_cvs",
+  INTERVIEWS: "hr_interviews",
+  ATTENDANCE: "hr_attendance",
 };
 
 // Cache expiry (5 minutes)
-const CACHE_EXPIRY = 5 * 60 * 1000;
+const CACHE_EXPIRY = 30 * 60 * 1000;
 
 // Cache utility functions
 const getCachedData = (key) => {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return null;
-    
+
     const { data, timestamp } = JSON.parse(cached);
     if (Date.now() - timestamp > CACHE_EXPIRY) {
       localStorage.removeItem(key);
@@ -140,12 +140,15 @@ const getCachedData = (key) => {
 
 const setCachedData = (key, data) => {
   try {
-    localStorage.setItem(key, JSON.stringify({
-      data,
-      timestamp: Date.now(),
-    }));
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        data,
+        timestamp: Date.now(),
+      }),
+    );
   } catch (error) {
-    console.warn('Failed to cache data:', error);
+    console.warn("Failed to cache data:", error);
   }
 };
 
@@ -186,40 +189,79 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// Loading skeleton component
+const StatCardSkeleton = () => (
+  <div
+    style={{
+      background: "linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)",
+      padding: "1.5rem",
+      borderRadius: "1rem",
+      height: "120px",
+      position: "relative",
+      overflow: "hidden",
+    }}
+  >
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background:
+          "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
+        animation: "shimmer 1.5s infinite",
+      }}
+    />
+  </div>
+);
+
 const HRWorkPage = () => {
   const navigate = useNavigate();
-  
+
   // State management with cached defaults
   const [employeeCount, setEmployeeCount] = useState(() => {
     const cached = getCachedData(CACHE_KEYS.EMPLOYEES);
     return cached?.length || 0;
   });
-  
+
   const [employeeData, setEmployeeData] = useState(() => {
     return getCachedData(CACHE_KEYS.EMPLOYEES) || [];
   });
-  
+
   const [upcomingInterviews, setUpcomingInterviews] = useState(() => {
     return getCachedData(CACHE_KEYS.INTERVIEWS) || [];
   });
-  
+
   const [leaveRequests, setLeaveRequests] = useState(() => {
     return getCachedData(CACHE_KEYS.LEAVES) || [];
   });
-  
+
   const [cvCount, setCvCount] = useState(() => {
     const cached = getCachedData(CACHE_KEYS.CVS);
     return cached?.length || 0;
   });
-  
+
   const [attendanceData, setAttendanceData] = useState(() => {
     return getCachedData(CACHE_KEYS.ATTENDANCE) || [];
   });
-  
+
   const [upcomingHolidays, setUpcomingHolidays] = useState([]);
   const [hoveredCard, setHoveredCard] = useState(null);
-  const [selectedChart, setSelectedChart] = useState("attendance");
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedChart, setSelectedChart] = useState("leave");
+
+  // Loading states for progressive loading
+  const [loadingStates, setLoadingStates] = useState({
+    quickStats:
+      !getCachedData(CACHE_KEYS.LEAVES) ||
+      !getCachedData(CACHE_KEYS.CVS) ||
+      !getCachedData(CACHE_KEYS.INTERVIEWS),
+    employees: !getCachedData(CACHE_KEYS.EMPLOYEES),
+    attendance: !getCachedData(CACHE_KEYS.ATTENDANCE),
+    details:
+      !getCachedData(CACHE_KEYS.ATTENDANCE) ||
+      !getCachedData(CACHE_KEYS.EMPLOYEES),
+  });
 
   // Load holidays instantly (static data)
   useEffect(() => {
@@ -227,12 +269,11 @@ const HRWorkPage = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const upcoming = HOLIDAYS
-        .filter((holiday) => {
-          const holidayDate = new Date(holiday.date);
-          holidayDate.setHours(0, 0, 0, 0);
-          return holidayDate >= today;
-        })
+      const upcoming = HOLIDAYS.filter((holiday) => {
+        const holidayDate = new Date(holiday.date);
+        holidayDate.setHours(0, 0, 0, 0);
+        return holidayDate >= today;
+      })
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(0, 3);
 
@@ -241,91 +282,123 @@ const HRWorkPage = () => {
     fetchUpcomingHolidays();
   }, []);
 
-  // Load all data with caching and prioritization
+  // Load data progressively with caching
   useEffect(() => {
     let isMounted = true;
 
-    const loadAllData = async () => {
-      setIsRefreshing(true);
-      
+    const loadDataProgressively = async () => {
       try {
-        // Load all APIs in parallel for maximum speed
-        const [
-          employeesRes,
-          leavesRes,
-          cvsRes,
-          interviewsRes,
-          attendanceRes
-        ] = await Promise.allSettled([
-          getEmployees(),
-          getEmployeeLeaves(),
-          getCVs(),
-          getInterviews(),
-          getAttendance(),
-        ]);
+        // PHASE 1: Load quick stats (Leaves, CVs, Interviews) - these are fastest
+        // Only fetch if cache is missing or expired
+        if (loadingStates.quickStats) {
+          console.log("Phase 1: Loading quick stats...");
 
-        if (!isMounted) return;
+          // Load leaves, CVs, and interviews in parallel
+          const [leavesRes, cvsRes, interviewsRes] = await Promise.allSettled([
+            getEmployeeLeaves(),
+            getCVs(),
+            getInterviews(),
+          ]);
 
-        // Process employees
-        if (employeesRes.status === 'fulfilled') {
-          const employees = employeesRes.value.data;
-          setCachedData(CACHE_KEYS.EMPLOYEES, employees);
-          setEmployeeCount(employees.length || 0);
-          setEmployeeData(employees);
+          if (!isMounted) return;
+
+          // Process leaves
+          if (leavesRes.status === "fulfilled") {
+            const leaves = leavesRes.value.data;
+            setCachedData(CACHE_KEYS.LEAVES, leaves);
+            const sortedRequests = leaves.sort(
+              (a, b) => new Date(b.start_date) - new Date(a.start_date),
+            );
+            setLeaveRequests(sortedRequests);
+          }
+
+          // Process CVs
+          if (cvsRes.status === "fulfilled") {
+            const cvs = cvsRes.value.data;
+            setCachedData(CACHE_KEYS.CVS, cvs);
+            setCvCount(cvs.length || 0);
+          }
+
+          // Process interviews
+          if (interviewsRes.status === "fulfilled") {
+            const interviews = interviewsRes.value.data;
+            setCachedData(CACHE_KEYS.INTERVIEWS, interviews);
+            const sortedInterviews = interviews
+              .map((interview) => ({
+                ...interview,
+                displayTime: interview.time
+                  ? formatTime(interview.time)
+                  : "--:--",
+              }))
+              .sort(
+                (a, b) =>
+                  new Date(b.interview_date) - new Date(a.interview_date),
+              );
+            setUpcomingInterviews(sortedInterviews);
+          }
+
+          // Mark quick stats as loaded
+          setLoadingStates((prev) => ({ ...prev, quickStats: false }));
         }
 
-        // Process leaves
-        if (leavesRes.status === 'fulfilled') {
-          const leaves = leavesRes.value.data;
-          setCachedData(CACHE_KEYS.LEAVES, leaves);
-          const sortedRequests = leaves.sort((a, b) => 
-            new Date(b.start_date) - new Date(a.start_date)
-          );
-          setLeaveRequests(sortedRequests);
+        // PHASE 2: Load employee data (if cache missing)
+        if (loadingStates.employees) {
+          console.log("Phase 2: Loading employee data...");
+          const employeesRes = await getEmployees();
+
+          if (!isMounted) return;
+
+          if (employeesRes.status === 200 || employeesRes.status === 201) {
+            const employees = employeesRes.data;
+            setCachedData(CACHE_KEYS.EMPLOYEES, employees);
+            setEmployeeCount(employees.length || 0);
+            setEmployeeData(employees);
+          }
+
+          setLoadingStates((prev) => ({ ...prev, employees: false }));
         }
 
-        // Process CVs
-        if (cvsRes.status === 'fulfilled') {
-          const cvs = cvsRes.value.data;
-          setCachedData(CACHE_KEYS.CVS, cvs);
-          setCvCount(cvs.length || 0);
-        }
+        // PHASE 3: Load attendance data (if cache missing)
+        if (loadingStates.attendance) {
+          console.log("Phase 3: Loading attendance data...");
+          const attendanceRes = await getAttendance();
 
-        // Process interviews
-        if (interviewsRes.status === 'fulfilled') {
-          const interviews = interviewsRes.value.data;
-          setCachedData(CACHE_KEYS.INTERVIEWS, interviews);
-          const sortedInterviews = interviews
-            .map((interview) => ({
-              ...interview,
-              displayTime: interview.time ? formatTime(interview.time) : "--:--",
-            }))
-            .sort((a, b) => new Date(b.interview_date) - new Date(a.interview_date));
-          setUpcomingInterviews(sortedInterviews);
-        }
+          if (!isMounted) return;
 
-        // Process attendance
-        if (attendanceRes.status === 'fulfilled') {
-          const attendance = attendanceRes.value.data;
-          setCachedData(CACHE_KEYS.ATTENDANCE, attendance);
-          setAttendanceData(attendance);
-        }
+          if (attendanceRes.status === 200 || attendanceRes.status === 201) {
+            const attendance = attendanceRes.data;
+            setCachedData(CACHE_KEYS.ATTENDANCE, attendance);
+            setAttendanceData(attendance);
+          }
 
+          setLoadingStates((prev) => ({
+            ...prev,
+            attendance: false,
+            details: false,
+          }));
+        }
       } catch (error) {
         console.error("Error loading data:", error);
-      } finally {
-        if (isMounted) {
-          setIsRefreshing(false);
-        }
+        // Even if some phases fail, mark them as loaded to remove skeletons
+        setLoadingStates({
+          quickStats: false,
+          employees: false,
+          attendance: false,
+          details: false,
+        });
       }
     };
 
-    loadAllData();
+    loadDataProgressively();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [
+    loadingStates.quickStats,
+    loadingStates.employees,
+    loadingStates.attendance,
+  ]);
 
   const today = new Date();
   const formattedDate = today.toLocaleDateString("en-US", {
@@ -429,15 +502,16 @@ const HRWorkPage = () => {
     });
 
     const absent = Math.max(0, employeeCount - todayAttendance.length);
-    const attendanceRate = employeeCount > 0 
-      ? Math.round(((employeeCount - absent) / employeeCount) * 100) 
-      : 0;
+    const attendanceRate =
+      employeeCount > 0
+        ? Math.round(((employeeCount - absent) / employeeCount) * 100)
+        : 0;
 
     const pieData = [
       { name: "On Time", value: onTime, color: "#10b981" },
       { name: "Late", value: late, color: "#f59e0b" },
       { name: "Absent", value: absent, color: "#ef4444" },
-    ].filter(item => item.value > 0);
+    ].filter((item) => item.value > 0);
 
     // Weekly attendance data (last 7 days)
     const weeklyData = [];
@@ -446,26 +520,34 @@ const HRWorkPage = () => {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split("T")[0];
       const dayAttendance = attendanceData.filter(
-        (record) => record.date && new Date(record.date).toISOString().split("T")[0] === dateStr
+        (record) =>
+          record.date &&
+          new Date(record.date).toISOString().split("T")[0] === dateStr,
       );
-      
+
       weeklyData.push({
         day: date.toLocaleDateString("en-US", { weekday: "short" }),
-        onTime: dayAttendance.filter(r => {
+        onTime: dayAttendance.filter((r) => {
           if (!r.check_in) return false;
           const time = r.check_in.trim();
           if (time.includes(":")) {
             const [h] = time.split(":");
-            return parseInt(h) < 9 || (parseInt(h) === 9 && parseInt(time.split(":")[1]) <= 30);
+            return (
+              parseInt(h) < 9 ||
+              (parseInt(h) === 9 && parseInt(time.split(":")[1]) <= 30)
+            );
           }
           return false;
         }).length,
-        late: dayAttendance.filter(r => {
+        late: dayAttendance.filter((r) => {
           if (!r.check_in) return false;
           const time = r.check_in.trim();
           if (time.includes(":")) {
             const [h] = time.split(":");
-            return parseInt(h) > 9 || (parseInt(h) === 9 && parseInt(time.split(":")[1]) > 30);
+            return (
+              parseInt(h) > 9 ||
+              (parseInt(h) === 9 && parseInt(time.split(":")[1]) > 30)
+            );
           }
           return true;
         }).length,
@@ -485,9 +567,15 @@ const HRWorkPage = () => {
   }, [attendanceData, employeeCount]);
 
   const leaveAnalytics = useMemo(() => {
-    const pending = leaveRequests.filter((req) => req.status === "pending").length;
-    const approved = leaveRequests.filter((req) => req.status === "approved").length;
-    const rejected = leaveRequests.filter((req) => req.status === "rejected").length;
+    const pending = leaveRequests.filter(
+      (req) => req.status === "pending",
+    ).length;
+    const approved = leaveRequests.filter(
+      (req) => req.status === "approved",
+    ).length;
+    const rejected = leaveRequests.filter(
+      (req) => req.status === "rejected",
+    ).length;
     const total = leaveRequests.length;
 
     const leaveTypes = {};
@@ -495,17 +583,19 @@ const HRWorkPage = () => {
       leaveTypes[req.leave_type] = (leaveTypes[req.leave_type] || 0) + 1;
     });
 
-    const leaveTypeData = Object.entries(leaveTypes).map(([name, value], index) => ({
-      name,
-      value,
-      color: PIE_COLORS[index % PIE_COLORS.length],
-    }));
+    const leaveTypeData = Object.entries(leaveTypes).map(
+      ([name, value], index) => ({
+        name,
+        value,
+        color: PIE_COLORS[index % PIE_COLORS.length],
+      }),
+    );
 
     const statusData = [
       { name: "Pending", value: pending, color: "#f59e0b" },
       { name: "Approved", value: approved, color: "#10b981" },
       { name: "Rejected", value: rejected, color: "#ef4444" },
-    ].filter(item => item.value > 0);
+    ].filter((item) => item.value > 0);
 
     return {
       pending,
@@ -517,142 +607,137 @@ const HRWorkPage = () => {
     };
   }, [leaveRequests]);
 
-  const employeeAnalytics = useMemo(() => {
-    const departments = {};
-    employeeData.forEach((emp) => {
-      const dept = emp.department || "Unassigned";
-      departments[dept] = (departments[dept] || 0) + 1;
-    });
+  // const employeeAnalytics = useMemo(() => {
+  //   const departments = {};
+  //   employeeData.forEach((emp) => {
+  //     const dept = emp.department || "Unassigned";
+  //     departments[dept] = (departments[dept] || 0) + 1;
+  //   });
 
-    const departmentData = Object.entries(departments).map(([name, value], index) => ({
-      name,
-      value,
-      color: PIE_COLORS[index % PIE_COLORS.length],
-    }));
+  //   const departmentData = Object.entries(departments).map(
+  //     ([name, value], index) => ({
+  //       name,
+  //       value,
+  //       color: PIE_COLORS[index % PIE_COLORS.length],
+  //     }),
+  //   );
 
-    return {
-      total: employeeCount,
-      departmentData,
-    };
-  }, [employeeData, employeeCount]);
+  //   return {
+  //     total: employeeCount,
+  //     departmentData,
+  //   };
+  // }, [employeeData, employeeCount]);
 
   // Stats cards data with cached values
-  const stats = useMemo(() => [
-    {
-      title: "Total Employees",
-      value: employeeCount,
-      icon: <FiUsers size={24} />,
-      link: "/employees",
-      gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    },
-    {
-      title: "On-Time Arrivals",
-      value: calculateOnTimeAttendancePercentage(attendanceData),
-      icon: <FiClockIcon size={24} />,
-      link: "/weekly-attendance-graph",
-      gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-      subtitle: `Arrived by 9:30 AM`,
-    },
-    {
-      title: "Attendance Rate",
-      value: `${attendanceAnalytics.attendanceRate}%`,
-      icon: <FiUserCheck size={24} />,
-      link: "/attendance",
-      gradient: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-      subtitle: `${attendanceAnalytics.onTime} on time, ${attendanceAnalytics.late} late`,
-    },
-    {
-      title: "Pending Leaves",
-      value: leaveAnalytics.pending,
-      icon: <FiCalendar size={24} />,
-      link: "/employee_leave",
-      gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-    },
-    {
-      title: "CV Bank",
-      value: cvCount,
-      icon: <FiFileText size={24} />,
-      link: "/cv-list",
-      gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-    },
-    {
-      title: "Interviews",
-      value: upcomingInterviews.length,
-      icon: <FiBriefcase size={24} />,
-      link: "/interviews",
-      gradient: "linear-gradient(135deg, #ec4899 0%, #db2777 100%)",
-    },
-  ], [employeeCount, attendanceAnalytics, leaveAnalytics.pending, cvCount, upcomingInterviews.length, calculateOnTimeAttendancePercentage, attendanceData]);
+  const stats = useMemo(
+    () => [
+      {
+        title: "Total Employees",
+        value: employeeCount,
+        icon: <FiUsers size={24} />,
+        link: "/employees",
+        gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        loading: loadingStates.employees,
+      },
+      {
+        title: "On-Time Arrivals",
+        value: calculateOnTimeAttendancePercentage(attendanceData),
+        icon: <FiClockIcon size={24} />,
+        link: "/weekly-attendance-graph",
+        gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+        subtitle: `Arrived by 9:30 AM`,
+        loading: loadingStates.attendance,
+      },
+      {
+        title: "Attendance Rate",
+        value: `${attendanceAnalytics.attendanceRate}%`,
+        icon: <FiUserCheck size={24} />,
+        link: "/attendance",
+        gradient: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+        subtitle: `${attendanceAnalytics.onTime} on time, ${attendanceAnalytics.late} late`,
+        loading: loadingStates.attendance,
+      },
+      {
+        title: "Pending Leaves",
+        value: leaveAnalytics.pending,
+        icon: <FiCalendar size={24} />,
+        link: "/employee_leave",
+        gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+        loading: loadingStates.quickStats,
+      },
+      {
+        title: "CV Bank",
+        value: cvCount,
+        icon: <FiFileText size={24} />,
+        link: "/cv-list",
+        gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+        loading: loadingStates.quickStats,
+      },
+      {
+        title: "Interviews",
+        value: upcomingInterviews.length,
+        icon: <FiBriefcase size={24} />,
+        link: "/interviews",
+        gradient: "linear-gradient(135deg, #ec4899 0%, #db2777 100%)",
+        loading: loadingStates.quickStats,
+      },
+    ],
+    [
+      employeeCount,
+      attendanceAnalytics,
+      leaveAnalytics.pending,
+      cvCount,
+      upcomingInterviews.length,
+      calculateOnTimeAttendancePercentage,
+      attendanceData,
+      loadingStates,
+    ],
+  );
 
-  const quickActions = useMemo(() => [
-    {
-      title: "Add Employee",
-      icon: <FiUsers size={20} />,
-      link: "/add-employee",
-      color: "#667eea",
-    },
-    {
-      title: "Schedule Interview",
-      icon: <FiBriefcase size={20} />,
-      link: "/interviews",
-      color: "#ec4899",
-    },
-    {
-      title: "Process Payroll",
-      icon: <FiDollarSign size={20} />,
-      link: "/finance-provision",
-      color: "#8b5cf6",
-    },
-    {
-      title: "Send Announcement",
-      icon: <FiSend size={20} />,
-      link: "/letter-send",
-      color: "#10b981",
-    },
-    {
-      title: "View Reports",
-      icon: <FiBarChart2 size={20} />,
-      link: "/weekly-attendance-graph",
-      color: "#f59e0b",
-    },
-    {
-      title: "Holiday Calendar",
-      icon: <FiCalendar size={20} />,
-      link: "/holidays",
-      color: "#14b8a6",
-    },
-  ], []);
+  const quickActions = useMemo(
+    () => [
+      {
+        title: "Add Employee",
+        icon: <FiUsers size={20} />,
+        link: "/add-employee",
+        color: "#667eea",
+      },
+      {
+        title: "Schedule Interview",
+        icon: <FiBriefcase size={20} />,
+        link: "/interviews",
+        color: "#ec4899",
+      },
+      {
+        title: "Process Payroll",
+        icon: <FiDollarSign size={20} />,
+        link: "/finance-provision",
+        color: "#8b5cf6",
+      },
+      {
+        title: "Send Announcement",
+        icon: <FiSend size={20} />,
+        link: "/letter-send",
+        color: "#10b981",
+      },
+      {
+        title: "View Reports",
+        icon: <FiBarChart2 size={20} />,
+        link: "/weekly-attendance-graph",
+        color: "#f59e0b",
+      },
+      {
+        title: "Holiday Calendar",
+        icon: <FiCalendar size={20} />,
+        link: "/holidays",
+        color: "#14b8a6",
+      },
+    ],
+    [],
+  );
 
   // Get today's attendance for display
   const todayAttendance = attendanceAnalytics.todayAttendance.slice(0, 3);
-
-  // Subtle refresh indicator (optional)
-  const refreshIndicator = isRefreshing ? (
-    <div style={{
-      position: 'fixed',
-      bottom: '20px',
-      right: '20px',
-      background: 'rgba(0,0,0,0.7)',
-      color: 'white',
-      padding: '8px 16px',
-      borderRadius: '20px',
-      fontSize: '0.8rem',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      zIndex: 1000,
-    }}>
-      <div style={{
-        width: '12px',
-        height: '12px',
-        border: '2px solid white',
-        borderTopColor: 'transparent',
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-      }} />
-      Updating...
-    </div>
-  ) : null;
 
   return (
     <div
@@ -660,7 +745,8 @@ const HRWorkPage = () => {
         display: "flex",
         height: "100vh",
         backgroundColor: "#f0f2f5",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily:
+          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       <Sidebars />
@@ -729,97 +815,105 @@ const HRWorkPage = () => {
             marginBottom: "2rem",
           }}
         >
-          {stats.map((stat, index) => (
-            <div
-              key={index}
-              style={{
-                background: stat.gradient,
-                padding: "1.5rem",
-                borderRadius: "1rem",
-                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-                cursor: "pointer",
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                transform: hoveredCard === index ? "translateY(-5px) scale(1.02)" : "translateY(0)",
-                position: "relative",
-                overflow: "hidden",
-              }}
-              onMouseEnter={() => setHoveredCard(index)}
-              onMouseLeave={() => setHoveredCard(null)}
-              onClick={() => navigate(stat.link)}
-            >
+          {stats.map((stat, index) =>
+            stat.loading ? (
+              <StatCardSkeleton key={index} />
+            ) : (
               <div
+                key={index}
                 style={{
-                  position: "absolute",
-                  top: -50,
-                  right: -50,
-                  width: 150,
-                  height: 150,
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.1)",
-                  transition: "all 0.3s ease",
-                  transform: hoveredCard === index ? "scale(1.2)" : "scale(1)",
-                }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
+                  background: stat.gradient,
+                  padding: "1.5rem",
+                  borderRadius: "1rem",
+                  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                  cursor: "pointer",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  transform:
+                    hoveredCard === index
+                      ? "translateY(-5px) scale(1.02)"
+                      : "translateY(0)",
                   position: "relative",
-                  zIndex: 1,
+                  overflow: "hidden",
                 }}
+                onMouseEnter={() => setHoveredCard(index)}
+                onMouseLeave={() => setHoveredCard(null)}
+                onClick={() => navigate(stat.link)}
               >
-                <div>
-                  <p
-                    style={{
-                      fontSize: "0.95rem",
-                      fontWeight: 500,
-                      color: "rgba(255,255,255,0.9)",
-                      margin: 0,
-                    }}
-                  >
-                    {stat.title}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: "2.2rem",
-                      fontWeight: 700,
-                      margin: "0.5rem 0 0 0",
-                      color: "white",
-                      lineHeight: 1,
-                    }}
-                  >
-                    {stat.value}
-                  </p>
-                  {stat.subtitle && (
-                    <p
-                      style={{
-                        fontSize: "0.8rem",
-                        color: "rgba(255,255,255,0.8)",
-                        marginTop: "0.5rem",
-                      }}
-                    >
-                      {stat.subtitle}
-                    </p>
-                  )}
-                </div>
                 <div
                   style={{
-                    padding: "1rem",
-                    backgroundColor: "rgba(255,255,255,0.2)",
-                    borderRadius: "1rem",
-                    color: "white",
+                    position: "absolute",
+                    top: -50,
+                    right: -50,
+                    width: 150,
+                    height: 150,
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,0.1)",
+                    transition: "all 0.3s ease",
+                    transform:
+                      hoveredCard === index ? "scale(1.2)" : "scale(1)",
+                  }}
+                />
+                <div
+                  style={{
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backdropFilter: "blur(5px)",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    position: "relative",
+                    zIndex: 1,
                   }}
                 >
-                  {stat.icon}
+                  <div>
+                    <p
+                      style={{
+                        fontSize: "0.95rem",
+                        fontWeight: 500,
+                        color: "rgba(255,255,255,0.9)",
+                        margin: 0,
+                      }}
+                    >
+                      {stat.title}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "2.2rem",
+                        fontWeight: 700,
+                        margin: "0.5rem 0 0 0",
+                        color: "white",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {stat.value}
+                    </p>
+                    {stat.subtitle && (
+                      <p
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "rgba(255,255,255,0.8)",
+                          marginTop: "0.5rem",
+                        }}
+                      >
+                        {stat.subtitle}
+                      </p>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      padding: "1rem",
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      borderRadius: "1rem",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backdropFilter: "blur(5px)",
+                    }}
+                  >
+                    {stat.icon}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
 
         {/* Charts Section */}
@@ -838,6 +932,8 @@ const HRWorkPage = () => {
               borderRadius: "1rem",
               padding: "1.5rem",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              opacity: loadingStates.details ? 0.7 : 1,
+              transition: "opacity 0.3s ease",
             }}
           >
             <div
@@ -860,7 +956,7 @@ const HRWorkPage = () => {
                 }}
               >
                 <FiActivity color="#10b981" />
-                Today's Attendance
+                Today's Attendance / Leave Status
               </h3>
               <select
                 value={selectedChart}
@@ -876,10 +972,9 @@ const HRWorkPage = () => {
               >
                 <option value="attendance">Attendance</option>
                 <option value="leave">Leave Status</option>
-                <option value="department">Department</option>
               </select>
             </div>
-            
+
             <div style={{ height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -888,8 +983,8 @@ const HRWorkPage = () => {
                       selectedChart === "attendance"
                         ? attendanceAnalytics.pieData
                         : selectedChart === "leave"
-                        ? leaveAnalytics.statusData
-                        : employeeAnalytics.departmentData
+                          ? leaveAnalytics.statusData
+                          : []
                     }
                     cx="50%"
                     cy="50%"
@@ -899,16 +994,17 @@ const HRWorkPage = () => {
                     dataKey="value"
                     isAnimationActive={false}
                   >
-                    {(
-                      selectedChart === "attendance"
-                        ? attendanceAnalytics.pieData
-                        : selectedChart === "leave"
+                    {(selectedChart === "attendance"
+                      ? attendanceAnalytics.pieData
+                      : selectedChart === "leave"
                         ? leaveAnalytics.statusData
                         : employeeAnalytics.departmentData
                     ).map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.color || PIE_COLORS[index % PIE_COLORS.length]}
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          entry.color || PIE_COLORS[index % PIE_COLORS.length]
+                        }
                         stroke="white"
                         strokeWidth={2}
                       />
@@ -933,6 +1029,8 @@ const HRWorkPage = () => {
               borderRadius: "1rem",
               padding: "1.5rem",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              opacity: loadingStates.details ? 0.7 : 1,
+              transition: "opacity 0.3s ease",
             }}
           >
             <h3
@@ -956,12 +1054,26 @@ const HRWorkPage = () => {
                   margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="day" stroke="#64748b" tick={{ fontSize: 12 }} />
+                  <XAxis
+                    dataKey="day"
+                    stroke="#64748b"
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis stroke="#64748b" tick={{ fontSize: 12 }} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend iconSize={8} wrapperStyle={{ fontSize: '12px' }} />
-                  <Bar dataKey="onTime" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={30} />
-                  <Bar dataKey="late" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: "12px" }} />
+                  <Bar
+                    dataKey="onTime"
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={30}
+                  />
+                  <Bar
+                    dataKey="late"
+                    fill="#f59e0b"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={30}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1027,12 +1139,14 @@ const HRWorkPage = () => {
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "translateY(-3px)";
-                    e.currentTarget.style.boxShadow = "0 10px 20px rgba(0,0,0,0.1)";
+                    e.currentTarget.style.boxShadow =
+                      "0 10px 20px rgba(0,0,0,0.1)";
                     e.currentTarget.style.borderColor = action.color;
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+                    e.currentTarget.style.boxShadow =
+                      "0 2px 4px rgba(0,0,0,0.05)";
                     e.currentTarget.style.borderColor = "#f1f5f9";
                   }}
                 >
@@ -1062,6 +1176,8 @@ const HRWorkPage = () => {
               borderRadius: "1rem",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               padding: "1.5rem",
+              opacity: loadingStates.quickStats ? 0.7 : 1,
+              transition: "opacity 0.3s ease",
             }}
           >
             <h2
@@ -1092,7 +1208,12 @@ const HRWorkPage = () => {
                     isAnimationActive={false}
                   >
                     {leaveAnalytics.leaveTypeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={2} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.color}
+                        stroke="white"
+                        strokeWidth={2}
+                      />
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
@@ -1109,7 +1230,14 @@ const HRWorkPage = () => {
               }}
             >
               {leaveAnalytics.leaveTypeData.slice(0, 3).map((type, index) => (
-                <div key={index} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div
+                  key={index}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
                   <div
                     style={{
                       width: 10,
@@ -1143,6 +1271,8 @@ const HRWorkPage = () => {
               borderRadius: "1rem",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               overflow: "hidden",
+              opacity: loadingStates.quickStats ? 0.7 : 1,
+              transition: "opacity 0.3s ease",
             }}
           >
             <div
@@ -1185,7 +1315,8 @@ const HRWorkPage = () => {
                         width: 36,
                         height: 36,
                         borderRadius: "50%",
-                        background: "linear-gradient(135deg, #ec4899 0%, #db2777 100%)",
+                        background:
+                          "linear-gradient(135deg, #ec4899 0%, #db2777 100%)",
                         color: "white",
                         display: "flex",
                         alignItems: "center",
@@ -1195,35 +1326,75 @@ const HRWorkPage = () => {
                         fontSize: "1rem",
                       }}
                     >
-                      {interview.name ? interview.name.charAt(0).toUpperCase() : "?"}
+                      {interview.name
+                        ? interview.name.charAt(0).toUpperCase()
+                        : "?"}
                     </div>
                     <div>
-                      <h3 style={{ fontWeight: 600, margin: 0, fontSize: "0.9rem" }}>
+                      <h3
+                        style={{
+                          fontWeight: 600,
+                          margin: 0,
+                          fontSize: "0.9rem",
+                        }}
+                      >
                         {interview.name || "Unnamed Candidate"}
                       </h3>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748b",
+                          margin: "0.25rem 0 0 0",
+                        }}
+                      >
                         {interview.position_for || "Position not specified"}
                       </p>
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <p style={{ fontWeight: 600, margin: 0, fontSize: "0.85rem" }}>
+                    <p
+                      style={{
+                        fontWeight: 600,
+                        margin: 0,
+                        fontSize: "0.85rem",
+                      }}
+                    >
                       {interview.time || "TBD"}
                     </p>
-                    <p style={{ fontSize: "0.7rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
+                    <p
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "#64748b",
+                        margin: "0.25rem 0 0 0",
+                      }}
+                    >
                       {interview.interview_date}
                     </p>
                   </div>
                 </div>
               ))}
               {upcomingInterviews.length === 0 && (
-                <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-                  <FiBriefcase size={30} style={{ marginBottom: "0.5rem", opacity: 0.5 }} />
+                <div
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                  }}
+                >
+                  <FiBriefcase
+                    size={30}
+                    style={{ marginBottom: "0.5rem", opacity: 0.5 }}
+                  />
                   <p style={{ fontSize: "0.9rem" }}>No interviews scheduled</p>
                 </div>
               )}
             </div>
-            <div style={{ padding: "0.75rem 1.5rem", borderTop: "1px solid #f1f5f9" }}>
+            <div
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderTop: "1px solid #f1f5f9",
+              }}
+            >
               <Link
                 to="/interviews"
                 style={{
@@ -1250,6 +1421,8 @@ const HRWorkPage = () => {
               borderRadius: "1rem",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               overflow: "hidden",
+              opacity: loadingStates.quickStats ? 0.7 : 1,
+              transition: "opacity 0.3s ease",
             }}
           >
             <div
@@ -1275,62 +1448,108 @@ const HRWorkPage = () => {
               </h2>
             </div>
             <div>
-              {leaveRequests.filter(req => req.status === "pending").slice(0, 3).map((request, index) => (
-                <div
-                  key={request.id}
-                  style={{
-                    padding: "1rem 1.5rem",
-                    borderBottom: index < 2 ? "1px solid #f1f5f9" : "none",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: "50%",
-                        background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-                        color: "white",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: "1rem",
-                        fontWeight: 600,
-                        fontSize: "1rem",
-                      }}
-                    >
-                      {request.employee_name ? request.employee_name.charAt(0).toUpperCase() : "?"}
+              {leaveRequests
+                .filter((req) => req.status === "pending")
+                .slice(0, 3)
+                .map((request, index) => (
+                  <div
+                    key={request.id}
+                    style={{
+                      padding: "1rem 1.5rem",
+                      borderBottom: index < 2 ? "1px solid #f1f5f9" : "none",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: "50%",
+                          background:
+                            "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: "1rem",
+                          fontWeight: 600,
+                          fontSize: "1rem",
+                        }}
+                      >
+                        {request.employee_name
+                          ? request.employee_name.charAt(0).toUpperCase()
+                          : "?"}
+                      </div>
+                      <div>
+                        <h3
+                          style={{
+                            fontWeight: 600,
+                            margin: 0,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          {request.employee_name || "Unknown Employee"}
+                        </h3>
+                        <p
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748b",
+                            margin: "0.25rem 0 0 0",
+                          }}
+                        >
+                          {request.leave_type}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 style={{ fontWeight: 600, margin: 0, fontSize: "0.9rem" }}>
-                        {request.employee_name || "Unknown Employee"}
-                      </h3>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
-                        {request.leave_type}
+                    <div style={{ textAlign: "right" }}>
+                      <p
+                        style={{
+                          fontWeight: 600,
+                          margin: 0,
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {request.start_date}
+                      </p>
+                      <p
+                        style={{
+                          fontSize: "0.7rem",
+                          color: "#64748b",
+                          margin: "0.25rem 0 0 0",
+                        }}
+                      >
+                        to {request.end_date}
                       </p>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <p style={{ fontWeight: 600, margin: 0, fontSize: "0.85rem" }}>
-                      {request.start_date}
-                    </p>
-                    <p style={{ fontSize: "0.7rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
-                      to {request.end_date}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
               {leaveAnalytics.pending === 0 && (
-                <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-                  <FiCheckCircle size={30} style={{ marginBottom: "0.5rem", opacity: 0.5 }} />
-                  <p style={{ fontSize: "0.9rem" }}>No pending leave requests</p>
+                <div
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                  }}
+                >
+                  <FiCheckCircle
+                    size={30}
+                    style={{ marginBottom: "0.5rem", opacity: 0.5 }}
+                  />
+                  <p style={{ fontSize: "0.9rem" }}>
+                    No pending leave requests
+                  </p>
                 </div>
               )}
             </div>
-            <div style={{ padding: "0.75rem 1.5rem", borderTop: "1px solid #f1f5f9" }}>
+            <div
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderTop: "1px solid #f1f5f9",
+              }}
+            >
               <Link
                 to="/employee_leave"
                 style={{
@@ -1367,6 +1586,8 @@ const HRWorkPage = () => {
               borderRadius: "1rem",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               overflow: "hidden",
+              opacity: loadingStates.attendance ? 0.7 : 1,
+              transition: "opacity 0.3s ease",
             }}
           >
             <div
@@ -1397,7 +1618,10 @@ const HRWorkPage = () => {
                   key={record.id}
                   style={{
                     padding: "1rem 1.5rem",
-                    borderBottom: index < todayAttendance.length - 1 ? "1px solid #f1f5f9" : "none",
+                    borderBottom:
+                      index < todayAttendance.length - 1
+                        ? "1px solid #f1f5f9"
+                        : "none",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -1409,7 +1633,8 @@ const HRWorkPage = () => {
                         width: 36,
                         height: 36,
                         borderRadius: "50%",
-                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        background:
+                          "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                         color: "white",
                         display: "flex",
                         alignItems: "center",
@@ -1418,35 +1643,77 @@ const HRWorkPage = () => {
                         fontWeight: 600,
                       }}
                     >
-                      {record.employee_name ? record.employee_name.charAt(0).toUpperCase() : "?"}
+                      {record.employee_name
+                        ? record.employee_name.charAt(0).toUpperCase()
+                        : "?"}
                     </div>
                     <div>
-                      <h3 style={{ fontWeight: 600, margin: 0, fontSize: "0.9rem" }}>
+                      <h3
+                        style={{
+                          fontWeight: 600,
+                          margin: 0,
+                          fontSize: "0.9rem",
+                        }}
+                      >
                         {record.employee_name || "Unknown Employee"}
                       </h3>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748b",
+                          margin: "0.25rem 0 0 0",
+                        }}
+                      >
                         ID: {record.id}
                       </p>
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <p style={{ fontWeight: 600, margin: 0, fontSize: "0.85rem" }}>
+                    <p
+                      style={{
+                        fontWeight: 600,
+                        margin: 0,
+                        fontSize: "0.85rem",
+                      }}
+                    >
                       In: {record.check_in || "--:--"}
                     </p>
-                    <p style={{ fontSize: "0.7rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
+                    <p
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "#64748b",
+                        margin: "0.25rem 0 0 0",
+                      }}
+                    >
                       Out: {record.check_out || "--:--"}
                     </p>
                   </div>
                 </div>
               ))}
               {todayAttendance.length === 0 && (
-                <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-                  <FiClockIcon size={30} style={{ marginBottom: "0.5rem", opacity: 0.5 }} />
-                  <p style={{ fontSize: "0.9rem" }}>No attendance records for today</p>
+                <div
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                  }}
+                >
+                  <FiClockIcon
+                    size={30}
+                    style={{ marginBottom: "0.5rem", opacity: 0.5 }}
+                  />
+                  <p style={{ fontSize: "0.9rem" }}>
+                    No attendance records for today
+                  </p>
                 </div>
               )}
             </div>
-            <div style={{ padding: "0.75rem 1.5rem", borderTop: "1px solid #f1f5f9" }}>
+            <div
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderTop: "1px solid #f1f5f9",
+              }}
+            >
               <Link
                 to="/attendance"
                 style={{
@@ -1503,13 +1770,22 @@ const HRWorkPage = () => {
                   key={index}
                   style={{
                     padding: "0.75rem",
-                    borderBottom: index < upcomingHolidays.length - 1 ? "1px solid #f1f5f9" : "none",
+                    borderBottom:
+                      index < upcomingHolidays.length - 1
+                        ? "1px solid #f1f5f9"
+                        : "none",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                    }}
+                  >
                     <div
                       style={{
                         width: 32,
@@ -1525,10 +1801,24 @@ const HRWorkPage = () => {
                       <FiStar size={14} />
                     </div>
                     <div>
-                      <h3 style={{ fontWeight: 600, margin: 0, fontSize: "0.9rem" }}>
-                        {holiday.name.length > 25 ? holiday.name.substring(0, 25) + "..." : holiday.name}
+                      <h3
+                        style={{
+                          fontWeight: 600,
+                          margin: 0,
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        {holiday.name.length > 25
+                          ? holiday.name.substring(0, 25) + "..."
+                          : holiday.name}
                       </h3>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", margin: "0.25rem 0 0 0" }}>
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748b",
+                          margin: "0.25rem 0 0 0",
+                        }}
+                      >
                         {holiday.date} • {holiday.day}
                       </p>
                     </div>
@@ -1549,13 +1839,27 @@ const HRWorkPage = () => {
                 </div>
               ))}
               {upcomingHolidays.length === 0 && (
-                <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>
-                  <FiGift size={30} style={{ marginBottom: "0.5rem", opacity: 0.5 }} />
+                <div
+                  style={{
+                    padding: "2rem",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                  }}
+                >
+                  <FiGift
+                    size={30}
+                    style={{ marginBottom: "0.5rem", opacity: 0.5 }}
+                  />
                   <p style={{ fontSize: "0.9rem" }}>No upcoming holidays</p>
                 </div>
               )}
             </div>
-            <div style={{ padding: "0.75rem 1.5rem", borderTop: "1px solid #f1f5f9" }}>
+            <div
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderTop: "1px solid #f1f5f9",
+              }}
+            >
               <Link
                 to="/holidays"
                 style={{
@@ -1577,13 +1881,11 @@ const HRWorkPage = () => {
         </div>
       </div>
 
-      {refreshIndicator}
-
       <style>
         {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
           }
           ::-webkit-scrollbar {
             width: 6px;
