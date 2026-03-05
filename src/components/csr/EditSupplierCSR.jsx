@@ -1582,7 +1582,7 @@ const EditSupplierCSR = () => {
                     "text",
                     true,
                   )}
-                  {renderInput("Supplier ID", "supplier_id", "text", true)}
+                  {renderInput("Supplier ID", "supplier_id", "text")}
                   {renderInput(
                     "Head Office Address",
                     "location",

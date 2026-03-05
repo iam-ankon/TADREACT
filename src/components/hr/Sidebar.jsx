@@ -245,7 +245,7 @@ const Sidebar = () => {
 
   // === HR DASHBOARD MENU ITEMS (Full Access Users) ===
   const hrDashboardMenuItems = [
-    { to: "/hr-work", icon: <FiHome />, label: "Dashboard", badge: null },
+    { to: "/hr-work", icon: <FiHome />, label: "Human Resources", badge: null },
     {
       to: "/finance-provision",
       icon: <FiDollarSign />,

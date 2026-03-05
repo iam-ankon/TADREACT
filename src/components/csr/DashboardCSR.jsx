@@ -555,13 +555,6 @@ const SupplierDashboardCSR = () => {
           )}
           
           <div style={styles.expiryAlertActions}>
-            <button 
-              onClick={sendBulkRemindersHandler}
-              disabled={sendingReminders}
-              style={styles.expiryAlertButton}
-            >
-              {sendingReminders ? 'Sending...' : '📧 Send All Reminders'}
-            </button>
             <Link to="/suppliersCSR?filter=expiring" style={styles.expiryAlertLink}>
               View All Expiring →
             </Link>

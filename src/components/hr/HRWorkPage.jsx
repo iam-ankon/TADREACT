@@ -119,7 +119,7 @@ const CACHE_KEYS = {
 };
 
 // Cache expiry (5 minutes)
-const CACHE_EXPIRY = 30 * 60 * 1000;
+const CACHE_EXPIRY = 5 * 60 * 1000;
 
 // Cache utility functions
 const getCachedData = (key) => {
@@ -637,7 +637,6 @@ const HRWorkPage = () => {
         icon: <FiUsers size={24} />,
         link: "/employees",
         gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        loading: loadingStates.employees,
       },
       {
         title: "On-Time Arrivals",
@@ -646,7 +645,6 @@ const HRWorkPage = () => {
         link: "/weekly-attendance-graph",
         gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
         subtitle: `Arrived by 9:30 AM`,
-        loading: loadingStates.attendance,
       },
       {
         title: "Attendance Rate",
@@ -655,7 +653,6 @@ const HRWorkPage = () => {
         link: "/attendance",
         gradient: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
         subtitle: `${attendanceAnalytics.onTime} on time, ${attendanceAnalytics.late} late`,
-        loading: loadingStates.attendance,
       },
       {
         title: "Pending Leaves",
@@ -663,7 +660,6 @@ const HRWorkPage = () => {
         icon: <FiCalendar size={24} />,
         link: "/employee_leave",
         gradient: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-        loading: loadingStates.quickStats,
       },
       {
         title: "CV Bank",
@@ -671,7 +667,6 @@ const HRWorkPage = () => {
         icon: <FiFileText size={24} />,
         link: "/cv-list",
         gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-        loading: loadingStates.quickStats,
       },
       {
         title: "Interviews",
@@ -679,7 +674,6 @@ const HRWorkPage = () => {
         icon: <FiBriefcase size={24} />,
         link: "/interviews",
         gradient: "linear-gradient(135deg, #ec4899 0%, #db2777 100%)",
-        loading: loadingStates.quickStats,
       },
     ],
     [
@@ -690,7 +684,6 @@ const HRWorkPage = () => {
       upcomingInterviews.length,
       calculateOnTimeAttendancePercentage,
       attendanceData,
-      loadingStates,
     ],
   );
 
@@ -932,7 +925,7 @@ const HRWorkPage = () => {
               borderRadius: "1rem",
               padding: "1.5rem",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              opacity: loadingStates.details ? 0.7 : 1,
+
               transition: "opacity 0.3s ease",
             }}
           >

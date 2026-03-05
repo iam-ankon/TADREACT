@@ -629,7 +629,7 @@ const SupplierListCSR = () => {
                         </th>
                         <th style={styles.headerCell} onClick={() => handleSort("sl_no")}>
                           <div style={styles.headerCellContent}>
-                            ID {getSortIcon("sl_no")}
+                            SL NO {getSortIcon("sl_no")}
                           </div>
                         </th>
                         <th style={styles.headerCell} onClick={() => handleSort("supplier_name")}>
