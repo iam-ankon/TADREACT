@@ -1028,8 +1028,13 @@ const SalaryFormat = () => {
                     <FaSave />
                     {isDataSavedForMonth ? "✓ Saved" : "Save Data"}
                   </button>
-
-
+                  
+                  <button
+                    onClick={() => navigate("/bonus-format")}
+                    className="btn btn-records"
+                  >
+                    <FaCalendarAlt /> Bonus & Records
+                  </button>
 
                   <button
                     onClick={() => navigate("/salary-records")}

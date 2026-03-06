@@ -503,7 +503,6 @@ export const salaryAPI = {
   },
 };
 
-
 // Salary Records APIs
 export const salaryRecordsAPI = {
   // Get all salary records with optional filtering - FIXED VERSION
@@ -1169,6 +1168,82 @@ export const batchCalculationUtils = {
   },
 };
 
+export const bonusAPI = {
+  // Get all bonus records with filters
+  getAll: (params = {}) => {
+    const queryString = Object.keys(params)
+      .map(
+        (key) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`,
+      )
+      .join("&");
+    const url = `/bonus/${queryString ? "?" + queryString : ""}`;
+    return apiClient.get(url);
+  },
+
+  // Create bonus records for a month/year
+  createBonus: (data) => apiClient.post("/bonus/create/", data),
+
+  // Update bonus record (manual adjustment)
+  updateBonus: (recordId, data) =>
+    apiClient.put(`/bonus/update/${recordId}/`, data),
+
+  // Approve bonus batch
+  approveBatch: (batchId, data) =>
+    apiClient.post(`/bonus/approve/${batchId}/`, data),
+
+  // Get bonus summary
+  getSummary: (params) => {
+    const queryString = Object.keys(params)
+      .map(
+        (key) =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`,
+      )
+      .join("&");
+    return apiClient.get(
+      `/bonus/summary/${queryString ? "?" + queryString : ""}`,
+    );
+  },
+
+  // Save bonus data (similar to salary save)
+  saveBonus: (data) => apiClient.post("/save-bonus/", data),
+
+  // Check if bonus records exist
+  checkBonusExists: (month, year, companyName = "") => {
+    const params = { month, year };
+    if (companyName && companyName !== "All Companies") {
+      params.company_name = companyName;
+    }
+    return apiClient.get("/check-bonus-exists/", { params });
+  },
+
+  // ===== NEW METHOD FOR BONUS BANK TRANSFER EXCEL =====
+  // Generate bonus bank transfer Excel
+  generateBonusBankTransferExcel: (data) => {
+    return apiClient.post("/generate-bonus-bank-transfer-excel/", data, {
+      responseType: "blob",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
+  generateBonusSheetExcel: (data) => {
+    return apiClient.post("/generate-bonus-sheet-excel/", data, {
+      responseType: "blob",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
+  generateAllCompaniesBonusExcel: (data) => {
+    return apiClient.post("/generate-all-companies-bonus-excel/", data, {
+      responseType: "blob",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  },
+};
 // Export all APIs as a single object for easy importing
 export const financeAPI = {
   employee: employeeAPI,
@@ -1177,12 +1252,12 @@ export const financeAPI = {
   salaryRecords: salaryRecordsAPI,
   approval: approvalAPI,
   storage: storageAPI,
+  bonus: bonusAPI,
   utils: salaryUtils,
   batch: batchCalculationUtils,
 
   salaryRecordsAPI: salaryRecordsAPI,
 
-  // Batch calculation method
   batchCalculateTaxes: async (
     employees,
     sourceOtherData = {},

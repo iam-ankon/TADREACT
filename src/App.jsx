@@ -98,6 +98,8 @@ import TaxCalculators from "./components/tax/TaxCalculators.jsx";
 import SalaryFormat from "./components/tax/SalaryFormat.jsx";
 import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
 import SalaryRecords from "./components/tax/SalaryRecords.jsx";
+import BonusFormat from "./components/tax/BonusFormat.jsx";
+import BonusRecords from "./components/tax/BonusRecords.jsx";
 
 // Stationery Management
 import StationeryDashboard from "./components/stationery/StationeryDashboard.jsx";
@@ -212,6 +214,8 @@ const AppContent = () => {
           {/* <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} /> */}
           <Route path="/tax-calculator/:employeeId" element={<ProtectedRoute><TaxCalculators /></ProtectedRoute>} />
           <Route path="/salary-format" element={<ProtectedRoute><SalaryFormat /></ProtectedRoute>} />
+          <Route path="/bonus-format" element={<ProtectedRoute><BonusFormat /></ProtectedRoute>} />
+          <Route path="/bonus-records" element={<ProtectedRoute><BonusRecords /></ProtectedRoute>} />
 
 
           {/* CSR Section (protect based on your needs) */}
