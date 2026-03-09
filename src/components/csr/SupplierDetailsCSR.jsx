@@ -388,6 +388,9 @@ const SupplierDetailsCSR = () => {
   const [customMessage, setCustomMessage] = useState("");
   const [selectedItems, setSelectedItems] = useState({});
 
+  // Notification days constant - ONLY these days trigger notifications
+  const NOTIFICATION_DAYS = [90, 75, 60];
+
   useEffect(() => {
     fetchSupplierDetails();
   }, [id]);
@@ -642,10 +645,21 @@ const SupplierDetailsCSR = () => {
     return items.sort((a, b) => a.days_remaining - b.days_remaining);
   };
 
-  // Also update the notification count function to match
+  // FIXED: Get notification count - ONLY items at notification days (90, 75, 60)
   const getNotificationCount = () => {
-    return getExpiringItems().length;
+    if (!supplier) return 0;
+
+    // Get all expiring items
+    const allItems = getExpiringItems();
+
+    // Filter to only include items where days_remaining is in NOTIFICATION_DAYS
+    const notificationItems = allItems.filter((item) =>
+      NOTIFICATION_DAYS.includes(item.days_remaining),
+    );
+
+    return notificationItems.length;
   };
+
   // FIXED: sendExpiryNotifications function with better error handling
   const sendExpiryNotifications = async () => {
     const selected = Object.entries(selectedItems)
@@ -1210,6 +1224,10 @@ const SupplierDetailsCSR = () => {
   }
 
   const expiringItems = getExpiringItems();
+  const notificationItems = expiringItems.filter((item) =>
+    NOTIFICATION_DAYS.includes(item.days_remaining),
+  );
+  const notificationCount = notificationItems.length;
 
   return (
     <div style={styles.container}>
@@ -1244,20 +1262,20 @@ const SupplierDetailsCSR = () => {
             onClick={() => setShowNotificationModal(true)}
             style={{
               ...styles.notifyButton,
-              ...(getNotificationCount() > 0 ? styles.notifyButtonActive : {}),
+              ...(notificationCount > 0 ? styles.notifyButtonActive : {}),
             }}
             disabled={!supplier.email || supplier.email.trim() === ""}
             title={
               !supplier.email || supplier.email.trim() === ""
                 ? "Supplier has no email address"
-                : getNotificationCount() > 0
-                  ? `${getNotificationCount()} item(s) at notification days`
+                : notificationCount > 0
+                  ? `${notificationCount} item(s) at notification days (${NOTIFICATION_DAYS.join(", ")})`
                   : "No items at notification days"
             }
           >
             📧 Send Notifications
-            {getNotificationCount() > 0 && (
-              <span style={styles.notifyBadge}>{getNotificationCount()}</span>
+            {notificationCount > 0 && (
+              <span style={styles.notifyBadge}>{notificationCount}</span>
             )}
           </button>
 
@@ -1345,37 +1363,54 @@ const SupplierDetailsCSR = () => {
         </div>
       </div>
 
-      {/* Expiry Summary Cards */}
-      {expiringItems.length > 0 && (
+      {/* Expiry Summary Cards - Show all expiring items for visibility */}
+      {expiringItems.filter((item) =>
+        NOTIFICATION_DAYS.includes(item.days_remaining),
+      ).length > 0 && (
         <div style={styles.expirySection}>
           <div style={styles.sectionTitle}>
             <span style={styles.titleIcon}>⚠️</span>
             <h2 style={styles.sectionTitleText}>
-              Expiring Soon ({expiringItems.length})
+              Items Requiring Attention (
+              {
+                expiringItems.filter((item) =>
+                  NOTIFICATION_DAYS.includes(item.days_remaining),
+                ).length
+              }
+              )
             </h2>
           </div>
           <div style={styles.expiryGrid}>
-            {expiringItems.slice(0, 5).map((item, idx) => (
-              <div key={idx} style={styles.expiryCard}>
-                <div style={styles.expiryHeader}>
-                  <span style={styles.expiryIcon}>
-                    {item.icon || (item.type === "cert" ? "📜" : "📋")}
-                  </span>
-                  <span style={styles.expiryName}>{item.name}</span>
-                </div>
-                <div style={styles.expiryBody}>
-                  <DaysRemainingBadge days={item.days_remaining} />
-                  {item.expiry_date && (
-                    <span style={styles.expiryDate}>
-                      {formatDate(item.expiry_date)}
+            {expiringItems
+              .filter((item) => NOTIFICATION_DAYS.includes(item.days_remaining))
+              .slice(0, 5)
+              .map((item, idx) => (
+                <div key={idx} style={styles.expiryCard}>
+                  <div style={styles.expiryHeader}>
+                    <span style={styles.expiryIcon}>
+                      {item.icon || (item.type === "cert" ? "📜" : "📋")}
                     </span>
-                  )}
+                    <span style={styles.expiryName}>{item.name}</span>
+                  </div>
+                  <div style={styles.expiryBody}>
+                    <DaysRemainingBadge days={item.days_remaining} />
+                    {item.expiry_date && (
+                      <span style={styles.expiryDate}>
+                        {formatDate(item.expiry_date)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {expiringItems.length > 5 && (
+              ))}
+            {expiringItems.filter((item) =>
+              NOTIFICATION_DAYS.includes(item.days_remaining),
+            ).length > 5 && (
               <div style={styles.moreCard}>
-                +{expiringItems.length - 5} more items
+                +
+                {expiringItems.filter((item) =>
+                  NOTIFICATION_DAYS.includes(item.days_remaining),
+                ).length - 5}{" "}
+                more items
               </div>
             )}
           </div>
@@ -1730,16 +1765,6 @@ const SupplierDetailsCSR = () => {
                   ))}
               </div>
             </InfoCard>
-
-            <InfoCard title="Safety Documents" icon="📄">
-              <div style={styles.verticalList}>
-                {groupedData.safetyDocuments
-                  .filter((item) => item.value)
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
-            </InfoCard>
           </div>
         )}
 
@@ -1867,8 +1892,8 @@ const SupplierDetailsCSR = () => {
                       <strong>From:</strong> compliance@texweave.net
                     </p>
                     <p>
-                      <strong>Notification Days:</strong> 90, 75, 60, 45, 30, 15
-                      days before expiry
+                      <strong>Notification Days:</strong>{" "}
+                      {NOTIFICATION_DAYS.join(", ")} days before expiry
                     </p>
                   </div>
 
@@ -1893,27 +1918,21 @@ const SupplierDetailsCSR = () => {
                       </div>
 
                       <h4 style={styles.modalSubtitle}>
-                        Select items to notify:
+                        Select items to notify (only items at{" "}
+                        {NOTIFICATION_DAYS.join(", ")} days shown):
                       </h4>
 
-                      {[
-                        "certification",
-                        "license",
-                        "safety",
-                        "environmental",
-                        "committee",
-                      ].map((category) => {
+                      {["certification", "license"].map((category) => {
                         const categoryItems = getExpiringItems().filter(
-                          (item) => item.category === category,
+                          (item) =>
+                            item.category === category &&
+                            NOTIFICATION_DAYS.includes(item.days_remaining),
                         );
                         if (categoryItems.length === 0) return null;
 
                         const categoryNames = {
                           certification: "📜 Certifications",
                           license: "📋 Licenses",
-                          safety: "🔥 Safety Items",
-                          environmental: "💧 Environmental",
-                          committee: "👥 Committee & Meetings",
                         };
 
                         return (
@@ -1978,11 +1997,11 @@ const SupplierDetailsCSR = () => {
                         );
                       })}
 
-                      {getExpiringItems().length === 0 && (
+                      {notificationItems.length === 0 && (
                         <div style={styles.infoMessage}>
-                          ℹ️ No items are at notification days (90, 75, 60, 45,
-                          30, 15 days remaining). Check back later for
-                          reminders.
+                          ℹ️ No items are at notification days (
+                          {NOTIFICATION_DAYS.join(", ")} days remaining). Check
+                          back later for reminders.
                         </div>
                       )}
                     </>

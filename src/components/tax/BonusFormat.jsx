@@ -31,6 +31,35 @@ const parseDate = (dateStr) => {
   return new Date(year, month - 1, day);
 };
 
+const COMPANY_BONUS_PERCENTAGES = {
+  "TAD LOGISTIC LTD": 60,
+  "TAD LOGISTIC": 60,
+  KOITHE: 50,
+  KLOTHEN: 50,
+  "KLOTHEN LTD": 50,
+  "KLOTHEN LIMITED": 50,
+};
+
+const getCompanyBonusPercentage = (companyName, defaultPercentage = 100) => {
+  if (!companyName) return defaultPercentage;
+
+  const companyUpper = companyName.toUpperCase();
+
+  // Exact match
+  if (COMPANY_BONUS_PERCENTAGES[companyName]) {
+    return COMPANY_BONUS_PERCENTAGES[companyName];
+  }
+
+  // Partial match
+  for (const [key, value] of Object.entries(COMPANY_BONUS_PERCENTAGES)) {
+    if (companyUpper.includes(key) || key.includes(companyUpper)) {
+      return value;
+    }
+  }
+
+  return defaultPercentage;
+};
+
 const formatNumber = (num) => {
   if (num === null || num === undefined || isNaN(num)) return "৳0";
   const abs = Math.abs(num);
@@ -333,10 +362,17 @@ const BonusFormat = () => {
     }
   }, [searchTerm, employees]);
 
-  // Calculate bonus for an employee
   const calculateBonus = useCallback(
     (employee) => {
       const empId = employee.employee_id;
+      const companyName =
+        employee.company_name ?? employee.company?.company_name ?? "Unknown";
+
+      // Get company-specific bonus percentage
+      const companyBonusPercentage = getCompanyBonusPercentage(
+        companyName,
+        bonusPercentage,
+      );
 
       // Check if we have existing record
       const existingRecord = bonusRecords[empId];
@@ -359,8 +395,8 @@ const BonusFormat = () => {
       // Get eligibility
       const eligibility = getEligibilityInfo(months);
 
-      // Calculate bonus
-      const bonusAmount = (grossSalary * bonusPercentage) / 100;
+      // Calculate bonus using company-specific percentage
+      const bonusAmount = (grossSalary * companyBonusPercentage) / 100;
       const bonusPayable = (bonusAmount * eligibility.percentage) / 100;
 
       // Get manual adjustments
@@ -379,8 +415,7 @@ const BonusFormat = () => {
         name: employee.name,
         designation: employee.designation,
         doj: employee.joining_date,
-        company_name:
-          employee.company_name ?? employee.company?.company_name ?? "Unknown",
+        company_name: companyName,
         bank_account: employee.bank_account,
         branch_name: employee.branch_name,
 
@@ -404,8 +439,10 @@ const BonusFormat = () => {
         eligibility_color: eligibility.color,
         eligibility_bg: eligibility.bgColor,
 
-        // Bonus calculation
-        bonus_percentage: bonusPercentage,
+        // Bonus calculation - using company-specific percentage
+        bonus_percentage: companyBonusPercentage,
+        base_bonus_percentage: bonusPercentage, // The user-selected default
+        is_company_specific: companyBonusPercentage !== bonusPercentage,
         bonus_amount: bonusAmount,
         bonus_payable: bonusPayable,
 
@@ -427,6 +464,35 @@ const BonusFormat = () => {
     },
     [selectedMonth, selectedYear, bonusPercentage, bonusRecords, manualData],
   );
+
+  const CompanyBonusInfo = ({ companyName }) => {
+    const companyPercentage = getCompanyBonusPercentage(companyName);
+    const isSpecial = companyPercentage !== 100;
+
+    if (!isSpecial) return null;
+
+    return (
+      <div
+        className="company-bonus-info"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.25rem 0.75rem",
+          background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+          borderRadius: "20px",
+          fontSize: "0.8rem",
+          fontWeight: "600",
+          color: "#92400e",
+          border: "2px solid #f59e0b",
+          marginLeft: "0.5rem",
+        }}
+      >
+        <FaPercent />
+        <span>{companyPercentage}% Bonus Rate</span>
+      </div>
+    );
+  };
 
   // Manual data handlers
   const updateManual = (empId, field, value) => {
@@ -1010,24 +1076,57 @@ const BonusFormat = () => {
               Companies ({Object.keys(grouped).length})
             </div>
             <div className="company-buttons-grid">
-              {Object.keys(grouped).map((comp) => (
-                <div key={comp} className="company-card">
-                  <button
-                    className={`company-toggle-btn ${
-                      openCompanies[comp] ? "active" : ""
-                    }`}
-                    onClick={() => toggleCompany(comp)}
-                  >
-                    <span className="company-name">{comp}</span>
-                    <span className="employee-count">
-                      {grouped[comp].length} employees
-                    </span>
-                    <span className="toggle-indicator">
-                      {openCompanies[comp] ? "▲" : "▼"}
-                    </span>
-                  </button>
-                </div>
-              ))}
+              {Object.keys(grouped).map((comp) => {
+                const companyPercentage = getCompanyBonusPercentage(comp);
+                const isSpecial = companyPercentage !== 100;
+
+                return (
+                  <div key={comp} className="company-card">
+                    <button
+                      className={`company-toggle-btn ${
+                        openCompanies[comp] ? "active" : ""
+                      }`}
+                      onClick={() => toggleCompany(comp)}
+                      style={
+                        isSpecial
+                          ? {
+                              borderColor: "#f59e0b",
+                              background: openCompanies[comp]
+                                ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+                                : "rgba(245, 158, 11, 0.1)",
+                            }
+                          : {}
+                      }
+                    >
+                      <span className="company-name">
+                        {comp}
+                        {isSpecial && (
+                          <span
+                            className="company-bonus-badge"
+                            style={{
+                              marginLeft: "0.5rem",
+                              padding: "0.2rem 0.5rem",
+                              background: "#f59e0b",
+                              color: "white",
+                              borderRadius: "12px",
+                              fontSize: "0.7rem",
+                              fontWeight: "600",
+                            }}
+                          >
+                            {companyPercentage}%
+                          </span>
+                        )}
+                      </span>
+                      <span className="employee-count">
+                        {grouped[comp].length} employees
+                      </span>
+                      <span className="toggle-indicator">
+                        {openCompanies[comp] ? "▲" : "▼"}
+                      </span>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1036,12 +1135,47 @@ const BonusFormat = () => {
             const emps = grouped[comp];
             if (!openCompanies[comp]) return null;
 
+            const companyPercentage = getCompanyBonusPercentage(comp);
+            const isSpecial = companyPercentage !== 100;
+
+            // Add console log to debug
+            console.log(
+              `Company: ${comp}, Percentage: ${companyPercentage}, isSpecial: ${isSpecial}`,
+            );
+
             return (
               <div key={comp} className="company-section">
                 <div className="company-header">
                   <div className="company-title">
-                    <h2>{comp}</h2>
-                    <h3>
+                    <h2
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span style={{ color: "#1f2937" }}>{comp}</span>
+                      {isSpecial && (
+                        <span
+                          style={{
+                            marginLeft: "1rem",
+                            padding: "0.3rem 1rem",
+                            // Solid orange background
+                            borderRadius: "20px",
+                            fontSize: "0.9rem",
+                            fontWeight: "600",
+
+                            border: "2px solid #b45309",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
+                          }}
+                        >
+                          {companyPercentage}% Bonus Rate
+                        </span>
+                      )}
+                    </h2>
+                    <h3 style={{ color: "#333333" }}>
                       {bonusType} Calculation - {monthNames[selectedMonth - 1]}{" "}
                       {selectedYear}
                     </h3>
@@ -1117,6 +1251,18 @@ const BonusFormat = () => {
                                 </div>
                                 <small className="eligibility-label">
                                   {eligibility.shortLabel}
+                                  {bonus.is_company_specific && (
+                                    <span
+                                      style={{
+                                        display: "block",
+                                        color: "#f59e0b",
+                                        fontSize: "0.6rem",
+                                        fontWeight: "bold",
+                                      }}
+                                    >
+                                      (Company: {bonus.bonus_percentage}%)
+                                    </span>
+                                  )}
                                 </small>
                               </td>
 
@@ -1130,6 +1276,18 @@ const BonusFormat = () => {
                                 </div>
                                 <small className="bonus-percentage">
                                   ({bonus.bonus_percentage}%)
+                                  {bonus.is_company_specific && (
+                                    <span
+                                      style={{
+                                        display: "block",
+                                        fontSize: "0.6rem",
+                                        color: "#f59e0b",
+                                        fontWeight: "bold",
+                                      }}
+                                    >
+                                      company rate
+                                    </span>
+                                  )}
                                 </small>
                               </td>
 
@@ -1249,6 +1407,18 @@ const BonusFormat = () => {
                   <h4>
                     <FaMoneyBillWave className="summary-icon" />
                     Company Summary - {comp}
+                    {isSpecial && (
+                      <span
+                        style={{
+                          marginLeft: "1rem",
+                          fontSize: "0.9rem",
+                          fontWeight: "normal",
+                          color: "#666",
+                        }}
+                      >
+                        (Using {companyPercentage}% bonus rate)
+                      </span>
+                    )}
                   </h4>
                   <div className="summary-stats-grid">
                     <div className="summary-stat-card">
@@ -1350,6 +1520,75 @@ const BonusFormat = () => {
             );
           })}
 
+          <div
+            className="bonus-rates-info"
+            style={{
+              display: "flex",
+              gap: "1rem",
+              padding: "0.5rem 1rem",
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "10px",
+              marginTop: "0.5rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <span
+              style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+            >
+              <span style={{ fontWeight: "bold" }}>Company Bonus Rates:</span>
+            </span>
+            <span
+              style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+            >
+              <span
+                style={{
+                  background: "#f59e0b",
+                  color: "white",
+                  padding: "0.2rem 0.5rem",
+                  borderRadius: "12px",
+                  fontSize: "0.8rem",
+                }}
+              >
+                TAD LOGISTIC
+              </span>{" "}
+              = 60%
+            </span>
+            <span
+              style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+            >
+              <span
+                style={{
+                  background: "#f59e0b",
+                  color: "white",
+                  padding: "0.2rem 0.5rem",
+                  borderRadius: "12px",
+                  fontSize: "0.8rem",
+                }}
+              >
+                KOITHE
+              </span>{" "}
+              = 50%
+            </span>
+            <span
+              style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+            >
+              <span
+                style={{
+                  background: "#f59e0b",
+                  color: "white",
+                  padding: "0.2rem 0.5rem",
+                  borderRadius: "12px",
+                  fontSize: "0.8rem",
+                }}
+              >
+                KLOTHEN
+              </span>{" "}
+              = 50%
+            </span>
+            <span style={{ color: "rgba(255,255,255,0.8)" }}>
+              Other companies: 100%
+            </span>
+          </div>
           {/* SUMMARY SECTION - Only show when no companies are open */}
           {showSummary && filteredEmployees.length > 0 && (
             <div className="summary-section">
@@ -2604,6 +2843,25 @@ const BonusFormat = () => {
           .bonus-status-summary {
             flex-direction: column;
             padding: 1rem;
+          }
+
+          .company-bonus-badge {
+            animation: pulse 2s infinite;
+          }
+
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+          }
+
+          .bonus-rates-info {
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+          }
+
+          .bonus-rates-info span {
+            font-size: 0.9rem;
           }
 
           .status-item {

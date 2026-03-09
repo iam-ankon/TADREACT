@@ -206,19 +206,51 @@ const SupplierListCSR = () => {
     ).toLowerCase();
   };
 
+  // FIXED: Only return true if days remaining is exactly in NOTIFICATION_DAYS
   const hasExpiringCertifications = (supplier) => {
     return (
       (supplier.bsci_validity_days_remaining && 
        NOTIFICATION_DAYS.includes(supplier.bsci_validity_days_remaining)) ||
+      (supplier.sedex_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.sedex_validity_days_remaining)) ||
+      (supplier.wrap_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.wrap_validity_days_remaining)) ||
+      (supplier.security_audit_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.security_audit_validity_days_remaining)) ||
       (supplier.oeko_tex_validity_days_remaining && 
        NOTIFICATION_DAYS.includes(supplier.oeko_tex_validity_days_remaining)) ||
       (supplier.gots_validity_days_remaining && 
        NOTIFICATION_DAYS.includes(supplier.gots_validity_days_remaining)) ||
+      (supplier.ocs_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.ocs_validity_days_remaining)) ||
+      (supplier.grs_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.grs_validity_days_remaining)) ||
+      (supplier.rcs_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.rcs_validity_days_remaining)) ||
+      (supplier.iso_9001_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.iso_9001_validity_days_remaining)) ||
+      (supplier.iso_14001_validity_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.iso_14001_validity_days_remaining)) ||
+      (supplier.trade_license_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.trade_license_days_remaining)) ||
+      (supplier.factory_license_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.factory_license_days_remaining)) ||
       (supplier.fire_license_days_remaining && 
-       NOTIFICATION_DAYS.includes(supplier.fire_license_days_remaining))
+       NOTIFICATION_DAYS.includes(supplier.fire_license_days_remaining)) ||
+      (supplier.membership_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.membership_days_remaining)) ||
+      (supplier.group_insurance_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.group_insurance_days_remaining)) ||
+      (supplier.boiler_license_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.boiler_license_days_remaining)) ||
+      (supplier.berc_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.berc_days_remaining)) ||
+      (supplier.drinking_water_license_days_remaining && 
+       NOTIFICATION_DAYS.includes(supplier.drinking_water_license_days_remaining))
     );
   };
 
+  // FIXED: Get all expiring certifications for a supplier (only those at notification days)
   const getExpiringCertifications = (supplier) => {
     const expiring = [];
     
@@ -227,6 +259,30 @@ const SupplierListCSR = () => {
       expiring.push({
         type: "BSCI",
         days: supplier.bsci_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.sedex_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.sedex_validity_days_remaining)) {
+      expiring.push({
+        type: "SEDEX",
+        days: supplier.sedex_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.wrap_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.wrap_validity_days_remaining)) {
+      expiring.push({
+        type: "WRAP",
+        days: supplier.wrap_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.security_audit_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.security_audit_validity_days_remaining)) {
+      expiring.push({
+        type: "CTPAT",
+        days: supplier.security_audit_validity_days_remaining,
       });
     }
     
@@ -246,11 +302,107 @@ const SupplierListCSR = () => {
       });
     }
     
+    if (supplier.ocs_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.ocs_validity_days_remaining)) {
+      expiring.push({
+        type: "OCS",
+        days: supplier.ocs_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.grs_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.grs_validity_days_remaining)) {
+      expiring.push({
+        type: "GRS",
+        days: supplier.grs_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.rcs_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.rcs_validity_days_remaining)) {
+      expiring.push({
+        type: "RCS",
+        days: supplier.rcs_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.iso_9001_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.iso_9001_validity_days_remaining)) {
+      expiring.push({
+        type: "ISO 9001",
+        days: supplier.iso_9001_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.iso_14001_validity_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.iso_14001_validity_days_remaining)) {
+      expiring.push({
+        type: "ISO 14001",
+        days: supplier.iso_14001_validity_days_remaining,
+      });
+    }
+    
+    if (supplier.trade_license_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.trade_license_days_remaining)) {
+      expiring.push({
+        type: "Trade License",
+        days: supplier.trade_license_days_remaining,
+      });
+    }
+    
+    if (supplier.factory_license_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.factory_license_days_remaining)) {
+      expiring.push({
+        type: "Factory License",
+        days: supplier.factory_license_days_remaining,
+      });
+    }
+    
     if (supplier.fire_license_days_remaining && 
         NOTIFICATION_DAYS.includes(supplier.fire_license_days_remaining)) {
       expiring.push({
         type: "Fire License",
         days: supplier.fire_license_days_remaining,
+      });
+    }
+    
+    if (supplier.membership_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.membership_days_remaining)) {
+      expiring.push({
+        type: "Membership",
+        days: supplier.membership_days_remaining,
+      });
+    }
+    
+    if (supplier.group_insurance_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.group_insurance_days_remaining)) {
+      expiring.push({
+        type: "Group Insurance",
+        days: supplier.group_insurance_days_remaining,
+      });
+    }
+    
+    if (supplier.boiler_license_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.boiler_license_days_remaining)) {
+      expiring.push({
+        type: "Boiler License",
+        days: supplier.boiler_license_days_remaining,
+      });
+    }
+    
+    if (supplier.berc_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.berc_days_remaining)) {
+      expiring.push({
+        type: "BERC License",
+        days: supplier.berc_days_remaining,
+      });
+    }
+    
+    if (supplier.drinking_water_license_days_remaining && 
+        NOTIFICATION_DAYS.includes(supplier.drinking_water_license_days_remaining)) {
+      expiring.push({
+        type: "Drinking Water License",
+        days: supplier.drinking_water_license_days_remaining,
       });
     }
     
@@ -319,6 +471,9 @@ const SupplierListCSR = () => {
 
   const totalPages = Math.ceil(sortedSuppliers.length / itemsPerPage);
 
+  // FIXED: Calculate expiring count based on notification days only
+  const expiringCount = suppliers.filter(hasExpiringCertifications).length;
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this supplier?")) return;
 
@@ -371,8 +526,6 @@ const SupplierListCSR = () => {
     window.history.replaceState({}, '', '/suppliersCSR');
   };
 
-  const expiringCount = suppliers.filter(hasExpiringCertifications).length;
-
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return "↕️";
     return sortConfig.direction === "asc" ? "↑" : "↓";
@@ -415,7 +568,7 @@ const SupplierListCSR = () => {
               <div style={styles.expiringBannerContent}>
                 <span style={styles.expiringBannerIcon}>⚠️</span>
                 <span>
-                  <strong>{expiringCount} supplier{expiringCount !== 1 ? 's' : ''}</strong> with certifications at critical milestones
+                  <strong>{expiringCount} supplier{expiringCount !== 1 ? 's' : ''}</strong> with certifications at {NOTIFICATION_DAYS.join(', ')} days
                 </span>
               </div>
               <button onClick={clearExpiringFilter} style={styles.expiringBannerClose}>
@@ -652,7 +805,7 @@ const SupplierListCSR = () => {
                             Status {getSortIcon("status")}
                           </div>
                         </th>
-                        <th style={styles.headerCell}>Certifications</th>
+                        <th style={styles.headerCell}>Expiring Items</th>
                         <th style={styles.headerCell}>Actions</th>
                       </tr>
                     </thead>

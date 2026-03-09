@@ -924,7 +924,7 @@ const BonusRecords = () => {
                       : "Export All Companies"}
                   </button>
 
-                  <button
+                  {/* <button
                     onClick={generateAllCompaniesBonusSheet}
                     className="btn btn-all-sheets"
                     disabled={
@@ -936,7 +936,7 @@ const BonusRecords = () => {
                     {generatingBonusSheet.all_companies
                       ? "Generating..."
                       : "All Bonus Sheets"}
-                  </button>
+                  </button> */}
 
                   <button
                     onClick={showAllCompanies}
