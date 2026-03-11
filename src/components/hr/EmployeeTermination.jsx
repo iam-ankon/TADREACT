@@ -76,10 +76,17 @@ const EmployeeTermination = () => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const response = await getEmployees();
-        const data = response.data || [];
-        setEmployees(data);
-        setFilteredEmployees(data);
+        const response = await getEmployees(1, 100, true); // Fetch all pages
+
+        let employeesData = [];
+        if (Array.isArray(response.data)) {
+          employeesData = response.data;
+        } else if (response.data && response.data.results) {
+          employeesData = response.data.results;
+        }
+
+        setEmployees(employeesData);
+        setFilteredEmployees(employeesData);
       } catch (err) {
         console.error("Error fetching employees:", err);
         setError("Failed to load employee records. Please try again.");

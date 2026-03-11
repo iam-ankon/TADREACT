@@ -1,6 +1,3 @@
-
-
-
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -8,6 +5,8 @@ import {
   Route,
   useLocation,
 } from "react-router-dom";
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import Sidebar from "./components/hr/Sidebar";
 import ProtectedRoute from "./components/hr/ProtectedRoute";
 import ProtectedRouteForAll from "./components/hr/ProtectedRouteForAll";
@@ -83,6 +82,10 @@ import DetailsInquiry from "./components/merchandiser/DetailsInquiry";
 import AddAttachmentInquiry from "./components/merchandiser/AddAttachmentInquiry";
 import BuyerDetails from "./components/merchandiser/BuyerDetails.jsx";
 import CustomerDetailsPage from "./components/merchandiser/CustomerDetailsPage.jsx";
+import OrderList from "./components/merchandiser/OrderList.jsx";
+import AddOrder from "./components/merchandiser/AddOrder.jsx";
+import EditOrder from "./components/merchandiser/EditOrder.jsx";
+import DetailOrder from "./components/merchandiser/DetailOrder.jsx";
 
 //CSR Pages
 import DashboardCSR from "./components/csr/DashboardCSR.jsx";
@@ -93,7 +96,6 @@ import SupplierDetailsCSR from "./components/csr/SupplierDetailsCSR.jsx";
 
 
 // Tax Calculator
-// import TaxCalculator from "./components/tax/TaxCalculator.jsx";
 import TaxCalculators from "./components/tax/TaxCalculators.jsx";
 import SalaryFormat from "./components/tax/SalaryFormat.jsx";
 import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
@@ -210,13 +212,16 @@ const AppContent = () => {
           <Route path="/inquiries/attachments" element={<ProtectedRoute><AddAttachmentInquiry /></ProtectedRoute>} />
           <Route path="/buyer-details/:id" element={<ProtectedRoute><BuyerDetails /></ProtectedRoute>} />
           <Route path="/customer-details/:id" element={<ProtectedRoute><CustomerDetailsPage /></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />
+          <Route path="/orders/add" element={<ProtectedRoute><AddOrder /></ProtectedRoute>} />
+          <Route path="/orders/:id" element={<ProtectedRoute><DetailOrder /></ProtectedRoute>} />
+          <Route path="/orders/edit/:id" element={<ProtectedRoute><EditOrder /></ProtectedRoute>} />
+          
           {/* Tax Calculator Section (protect based on your needs) */}
-          {/* <Route path="/tax-calculator" element={<ProtectedRoute><TaxCalculator /></ProtectedRoute>} /> */}
           <Route path="/tax-calculator/:employeeId" element={<ProtectedRoute><TaxCalculators /></ProtectedRoute>} />
           <Route path="/salary-format" element={<ProtectedRoute><SalaryFormat /></ProtectedRoute>} />
           <Route path="/bonus-format" element={<ProtectedRoute><BonusFormat /></ProtectedRoute>} />
           <Route path="/bonus-records" element={<ProtectedRoute><BonusRecords /></ProtectedRoute>} />
-
 
           {/* CSR Section (protect based on your needs) */}
           <Route path="/csr-dashboard" element={<ProtectedRoute><DashboardCSR /></ProtectedRoute>} />
@@ -232,7 +237,9 @@ const AppContent = () => {
 
 const App = () => (
   <Router>
-    <AppContent />
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <AppContent />
+    </LocalizationProvider>
   </Router>
 );
 

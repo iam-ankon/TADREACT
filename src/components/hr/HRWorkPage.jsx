@@ -288,23 +288,28 @@ const HRWorkPage = () => {
 
     const loadDataProgressively = async () => {
       try {
-        // PHASE 1: Load quick stats (Leaves, CVs, Interviews) - these are fastest
-        // Only fetch if cache is missing or expired
+        // PHASE 1: Load quick stats (Leaves, CVs, Interviews) - fetch ALL pages
         if (loadingStates.quickStats) {
-          console.log("Phase 1: Loading quick stats...");
+          console.log("Phase 1: Loading all quick stats data...");
 
-          // Load leaves, CVs, and interviews in parallel
+          // Load leaves, CVs, and interviews in parallel with allPages=true
           const [leavesRes, cvsRes, interviewsRes] = await Promise.allSettled([
-            getEmployeeLeaves(),
-            getCVs(),
-            getInterviews(),
+            getEmployeeLeaves(1, 100, true), // Fetch ALL leaves
+            getCVs(1, 100, true), // Fetch ALL CVs
+            getInterviews(1, 100, true), // Fetch ALL interviews
           ]);
 
           if (!isMounted) return;
 
-          // Process leaves
+          // Process leaves - handle both array and paginated responses
           if (leavesRes.status === "fulfilled") {
-            const leaves = leavesRes.value.data;
+            let leaves = [];
+            if (Array.isArray(leavesRes.value.data)) {
+              leaves = leavesRes.value.data;
+            } else if (leavesRes.value.data && leavesRes.value.data.results) {
+              leaves = leavesRes.value.data.results;
+            }
+
             setCachedData(CACHE_KEYS.LEAVES, leaves);
             const sortedRequests = leaves.sort(
               (a, b) => new Date(b.start_date) - new Date(a.start_date),
@@ -312,16 +317,31 @@ const HRWorkPage = () => {
             setLeaveRequests(sortedRequests);
           }
 
-          // Process CVs
+          // Process CVs - handle both array and paginated responses
           if (cvsRes.status === "fulfilled") {
-            const cvs = cvsRes.value.data;
+            let cvs = [];
+            if (Array.isArray(cvsRes.value.data)) {
+              cvs = cvsRes.value.data;
+            } else if (cvsRes.value.data && cvsRes.value.data.results) {
+              cvs = cvsRes.value.data.results;
+            }
+
             setCachedData(CACHE_KEYS.CVS, cvs);
             setCvCount(cvs.length || 0);
           }
 
-          // Process interviews
+          // Process interviews - handle both array and paginated responses
           if (interviewsRes.status === "fulfilled") {
-            const interviews = interviewsRes.value.data;
+            let interviews = [];
+            if (Array.isArray(interviewsRes.value.data)) {
+              interviews = interviewsRes.value.data;
+            } else if (
+              interviewsRes.value.data &&
+              interviewsRes.value.data.results
+            ) {
+              interviews = interviewsRes.value.data.results;
+            }
+
             setCachedData(CACHE_KEYS.INTERVIEWS, interviews);
             const sortedInterviews = interviews
               .map((interview) => ({
@@ -341,35 +361,43 @@ const HRWorkPage = () => {
           setLoadingStates((prev) => ({ ...prev, quickStats: false }));
         }
 
-        // PHASE 2: Load employee data (if cache missing)
+        // PHASE 2: Load employee data (fetch ALL pages)
         if (loadingStates.employees) {
-          console.log("Phase 2: Loading employee data...");
-          const employeesRes = await getEmployees();
+          console.log("Phase 2: Loading all employee data...");
+          const employeesRes = await getEmployees(1, 100, true); // Fetch ALL employees
 
           if (!isMounted) return;
 
-          if (employeesRes.status === 200 || employeesRes.status === 201) {
-            const employees = employeesRes.data;
-            setCachedData(CACHE_KEYS.EMPLOYEES, employees);
-            setEmployeeCount(employees.length || 0);
-            setEmployeeData(employees);
+          let employees = [];
+          if (employeesRes.data && Array.isArray(employeesRes.data)) {
+            employees = employeesRes.data;
+          } else if (employeesRes.data && employeesRes.data.results) {
+            employees = employeesRes.data.results;
           }
+
+          setCachedData(CACHE_KEYS.EMPLOYEES, employees);
+          setEmployeeCount(employees.length || 0);
+          setEmployeeData(employees);
 
           setLoadingStates((prev) => ({ ...prev, employees: false }));
         }
 
-        // PHASE 3: Load attendance data (if cache missing)
+        // PHASE 3: Load attendance data (fetch ALL pages)
         if (loadingStates.attendance) {
-          console.log("Phase 3: Loading attendance data...");
-          const attendanceRes = await getAttendance();
+          console.log("Phase 3: Loading all attendance data...");
+          const attendanceRes = await getAttendance(1, 100, true); // Fetch ALL attendance
 
           if (!isMounted) return;
 
-          if (attendanceRes.status === 200 || attendanceRes.status === 201) {
-            const attendance = attendanceRes.data;
-            setCachedData(CACHE_KEYS.ATTENDANCE, attendance);
-            setAttendanceData(attendance);
+          let attendance = [];
+          if (attendanceRes.data && Array.isArray(attendanceRes.data)) {
+            attendance = attendanceRes.data;
+          } else if (attendanceRes.data && attendanceRes.data.results) {
+            attendance = attendanceRes.data.results;
           }
+
+          setCachedData(CACHE_KEYS.ATTENDANCE, attendance);
+          setAttendanceData(attendance);
 
           setLoadingStates((prev) => ({
             ...prev,

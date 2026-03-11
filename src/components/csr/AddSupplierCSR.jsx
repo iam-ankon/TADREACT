@@ -260,7 +260,6 @@ const AddSupplierCSR = () => {
   const [files, setFiles] = useState({
     // Single file fields
     card_image: null,
-    profile_picture: null,
     bsci_certificate: null,
     sedex_certificate: null,
     wrap_certificate: null,
@@ -524,7 +523,6 @@ const AddSupplierCSR = () => {
       // List of single file fields
       const singleFileFields = [
         "card_image",
-        "profile_picture",
         "bsci_certificate",
         "sedex_certificate",
         "wrap_certificate",
@@ -1975,11 +1973,6 @@ const AddSupplierCSR = () => {
                     </div>
                     <div style={cardBodyStyle}>
                       <div style={formGridStyle}>
-                        {renderFileInput(
-                          "Profile Picture",
-                          "profile_picture",
-                          "image/*",
-                        )}
                         {renderFileInput(
                           "Additional Document 1",
                           "additional_document_1",

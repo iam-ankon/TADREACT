@@ -125,16 +125,16 @@ const createSupplierInstance = () => {
   });
 
   instance.interceptors.request.use(async (config) => {
-    console.log(
-      `🚀 Making ${config.method?.toUpperCase()} request to:`,
-      config.url,
-    );
+    // console.log(
+    //   `🚀 Making ${config.method?.toUpperCase()} request to:`,
+    //   config.url,
+    // );
 
     // Add Authorization token
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Token ${token}`;
-      console.log("🔑 Auth token added");
+      // console.log("🔑 Auth token added");
     }
 
     // Add CSRF token for state-changing requests
@@ -143,13 +143,13 @@ const createSupplierInstance = () => {
       let csrfToken = getCsrfToken();
 
       if (!csrfToken) {
-        console.log("🔄 No CSRF token found, fetching...");
+        // console.log("🔄 No CSRF token found, fetching...");
         csrfToken = await fetchCsrfToken();
       }
 
       if (csrfToken) {
         config.headers["X-CSRFToken"] = csrfToken;
-        console.log("🔒 CSRF Token sent:", csrfToken.substring(0, 10) + "...");
+        // console.log("🔒 CSRF Token sent:", csrfToken.substring(0, 10) + "...");
       } else {
         console.warn("⚠️ CSRF token missing for state-changing request");
       }
@@ -160,10 +160,10 @@ const createSupplierInstance = () => {
 
   instance.interceptors.response.use(
     (response) => {
-      console.log(
-        `✅ ${response.config.method?.toUpperCase()} ${response.config.url} success:`,
-        response.status,
-      );
+      // console.log(
+      //   `✅ ${response.config.method?.toUpperCase()} ${response.config.url} success:`,
+      //   response.status,
+      // );
       return response;
     },
     async (error) => {
@@ -212,7 +212,7 @@ export const getSuppliers = (params = {}) => {
 
 // Get single supplier by ID
 export const getSupplierById = (id) => {
-  console.log(`📡 Fetching supplier ID: ${id}`);
+  // console.log(`📡 Fetching supplier ID: ${id}`);
   return supplierApi.get(`supplier/${id}/`);
 };
 

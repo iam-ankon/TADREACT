@@ -29,8 +29,10 @@ import {
   AlertCircle,
   Briefcase,
   Hash as HashIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { getCVs, deleteCV } from "../../api/employeeApi";
+import { getAllCVs, deleteCV } from "../../api/employeeApi";
 
 const CVList = () => {
   const [cvs, setCvs] = useState([]);
@@ -44,6 +46,11 @@ const CVList = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("list");
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(100); // Show 50 items per page
+  const [paginatedCVs, setPaginatedCVs] = useState([]);
+
   const navigate = useNavigate();
 
   /* ------------------------------------------------------------------ *
@@ -56,8 +63,8 @@ const CVList = () => {
     const fetchCVs = async () => {
       try {
         setLoading(true);
-        const response = await getCVs();
-        const data = response.data;
+        // Use getAllCVs which fetches all pages
+        const data = await getAllCVs(); // This should fetch all pages
         setCvs(data);
         setFilteredCvs(data);
       } catch (err) {
@@ -140,10 +147,21 @@ const CVList = () => {
     });
 
     setFilteredCvs(filtered);
+    // Reset to first page when filters change
+    setCurrentPage(1);
   }, [cvs, searchQuery, statusFilter, sortBy, sortOrder]);
 
   /* ------------------------------------------------------------------ *
-   *  3. Save search state
+   *  3. Handle Pagination
+   * ------------------------------------------------------------------ */
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedCVs(filteredCvs.slice(startIndex, endIndex));
+  }, [filteredCvs, currentPage, itemsPerPage]);
+
+  /* ------------------------------------------------------------------ *
+   *  4. Save search state
    * ------------------------------------------------------------------ */
   useEffect(() => {
     localStorage.setItem("cvListSearchQuery", searchQuery);
@@ -187,15 +205,32 @@ const CVList = () => {
   const refreshData = async () => {
     try {
       setLoading(true);
-      const response = await getCVs();
-      const data = response.data;
+      const data = await getAllCVs(); // Fetch all pages
       setCvs(data);
       setFilteredCvs(data);
+      setCurrentPage(1);
     } catch (err) {
       console.error("Error refreshing CVs:", err);
       setError("Failed to refresh CVs.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    setCurrentPage(page);
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
     }
   };
 
@@ -212,6 +247,12 @@ const CVList = () => {
 
     return { totalCVs, withPDF, withReference, recentCVs };
   };
+
+  // Calculate pagination values
+  const totalItems = filteredCvs.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
 
   if (loading) {
     return (
@@ -240,8 +281,8 @@ const CVList = () => {
                 animation: "spin 1s linear infinite",
                 width: "48px",
                 height: "48px",
-                border: "3px solid rgba(59, 130, 246, 0.2)",
-                borderTopColor: "#3B82F6",
+                border: "3px solid rgba(139, 92, 246, 0.2)",
+                borderTopColor: "#8B5CF6",
                 borderRadius: "50%",
               }}
             ></div>
@@ -274,13 +315,17 @@ const CVList = () => {
       <div
         style={{
           flex: 1,
-          padding: "32px",
-          overflowY: "auto",
-          height: "100vh",
+          padding: "24px",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          maxHeight: "100vh",
+          margin: "0 auto",
+          maxWidth: "1550px",
         }}
       >
         {/* Modern Header with Stats */}
-        <div style={{ margin: "0 auto", maxWidth: "1550px" }}>
+        <div style={{ marginBottom: "24px", flexShrink: 0 }}>
           <div
             style={{
               display: "flex",
@@ -331,7 +376,7 @@ const CVList = () => {
               </div>
             </div>
 
-            {/* Quick Stats */}
+            {/* Quick Stats - Same as before */}
             <div
               style={{
                 display: "flex",
@@ -467,7 +512,7 @@ const CVList = () => {
             </div>
           </div>
 
-          {/* Action Bar */}
+          {/* Action Bar - Same as before */}
           <div
             style={{
               display: "flex",
@@ -850,9 +895,7 @@ const CVList = () => {
             flex: 1,
             overflow: "hidden",
             position: "relative",
-            minHeight: "0", // Important for flex child scrolling
-            margin: "0 auto",
-            maxWidth: "1550px",
+            minHeight: "0",
           }}
         >
           {filteredCvs.length === 0 ? (
@@ -950,10 +993,11 @@ const CVList = () => {
                 height: "100%",
                 overflowY: "auto",
                 overflowX: "hidden",
+                scrollbarWidth: "thin",
+                scrollbarColor: "#c1c1c1 #f1f1f1",
               }}
-              className="cv-list-scrollarea" // Add this class
             >
-              {filteredCvs.map((cv) => (
+              {paginatedCVs.map((cv) => (
                 <CVCard
                   key={cv.id}
                   cv={cv}
@@ -991,9 +1035,6 @@ const CVList = () => {
                   color: "#6B7280",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 10,
                   flexShrink: 0,
                 }}
               >
@@ -1010,11 +1051,12 @@ const CVList = () => {
                   flex: 1,
                   overflowY: "auto",
                   overflowX: "hidden",
-                  maxHeight: "calc(100vh - 400px)",
+                  maxHeight: "calc(100vh - 320px)",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#c1c1c1 #f1f1f1",
                 }}
-                className="cv-list-scrollarea" // Add this class
               >
-                {filteredCvs.map((cv, index) => (
+                {paginatedCVs.map((cv, index) => (
                   <CVListItem
                     key={cv.id}
                     cv={cv}
@@ -1031,123 +1073,173 @@ const CVList = () => {
           )}
         </div>
 
-        {/* Summary Footer */}
+        {/* Pagination Controls */}
         {filteredCvs.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+          <div
             style={{
-              marginTop: "20px",
-              padding: "16px 20px",
-              background: "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)",
-              color: "white",
+              marginTop: "6px",
+              marginBottom: "-1px",
+              padding: "10px 16px",
+              background: "white",
               borderRadius: "12px",
+              border: "1px solid rgba(229, 231, 235, 0.5)",
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
+              justifyContent: "space-between",
               flexShrink: 0,
-              margin: "0 auto",
-              maxWidth: "1550px",
             }}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  marginBottom: "4px",
-                }}
-              >
-                Showing {filteredCvs.length} CVs
-              </div>
-              <div
-                style={{
-                  fontSize: "12px",
-                  opacity: 0.8,
-                }}
-              >
-                Sorted by {sortBy} •{" "}
-                {sortOrder === "asc" ? "Ascending" : "Descending"}
-              </div>
+            <div style={{ fontSize: "14px", color: "#6B7280" }}>
+              Showing{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {startIndex}
+              </span>{" "}
+              to{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {endIndex}
+              </span>{" "}
+              of{" "}
+              <span style={{ fontWeight: "600", color: "#111827" }}>
+                {totalItems}
+              </span>{" "}
+              results
             </div>
-            <div style={{ display: "flex", gap: "12px" }}>
+
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <button
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
                 style={{
-                  padding: "8px 16px",
-                  background: "rgba(255, 255, 255, 0.1)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  padding: "8px 12px",
+                  background: currentPage === 1 ? "#F3F4F6" : "white",
+                  border: "1px solid #E5E7EB",
                   borderRadius: "8px",
-                  color: "white",
-                  fontSize: "13px",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "rgba(255, 255, 255, 0.15)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "rgba(255, 255, 255, 0.1)")
-                }
-              >
-                Generate Report
-              </button>
-              <button
-                style={{
-                  padding: "8px 16px",
-                  background: "white",
-                  color: "#1E293B",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: "pointer",
+                  color: currentPage === 1 ? "#9CA3AF" : "#374151",
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
+                  justifyContent: "center",
                   transition: "all 0.2s ease",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#F1F5F9")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "white")
-                }
+                onMouseEnter={(e) => {
+                  if (currentPage !== 1) {
+                    e.currentTarget.style.background = "#F9FAFB";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 1) {
+                    e.currentTarget.style.background = "white";
+                  }
+                }}
               >
-                <BarChart3 size={14} />
-                View Analytics
+                <ChevronLeft size={16} />
+              </button>
+
+              <div style={{ display: "flex", gap: "4px" }}>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => goToPage(pageNum)}
+                      style={{
+                        padding: "8px 12px",
+                        minWidth: "40px",
+                        background:
+                          currentPage === pageNum ? "#8B5CF6" : "white",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "8px",
+                        color: currentPage === pageNum ? "white" : "#374151",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: currentPage === pageNum ? "600" : "400",
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentPage !== pageNum) {
+                          e.currentTarget.style.background = "#F9FAFB";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentPage !== pageNum) {
+                          e.currentTarget.style.background = "white";
+                        }
+                      }}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                style={{
+                  padding: "8px 12px",
+                  background: currentPage === totalPages ? "#F3F4F6" : "white",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: "8px",
+                  color: currentPage === totalPages ? "#9CA3AF" : "#374151",
+                  cursor:
+                    currentPage === totalPages ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== totalPages) {
+                    e.currentTarget.style.background = "#F9FAFB";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== totalPages) {
+                    e.currentTarget.style.background = "white";
+                  }
+                }}
+              >
+                <ChevronRight size={16} />
               </button>
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
 
       {/* Add CSS for custom scrollbars */}
       <style>{`
-        /* Custom scrollbar for CVList only */
-        .cv-list-scrollarea::-webkit-scrollbar {
+        /* Custom scrollbar for Webkit browsers */
+        ::-webkit-scrollbar {
           width: 8px;
           height: 8px;
         }
 
-        .cv-list-scrollarea::-webkit-scrollbar-track {
+        ::-webkit-scrollbar-track {
           background: #f1f1f1;
           border-radius: 4px;
         }
 
-        .cv-list-scrollarea::-webkit-scrollbar-thumb {
+        ::-webkit-scrollbar-thumb {
           background: #c1c1c1;
           border-radius: 4px;
         }
 
-        .cv-list-scrollarea::-webkit-scrollbar-thumb:hover {
+        ::-webkit-scrollbar-thumb:hover {
           background: #a1a1a1;
         }
 
         /* For Firefox */
-        .cv-list-scrollarea {
+        * {
           scrollbar-width: thin;
           scrollbar-color: #c1c1c1 #f1f1f1;
         }
@@ -1162,20 +1254,12 @@ const CVList = () => {
         .scroll-container {
           scroll-behavior: smooth;
         }
-
-        /* Hardware acceleration for sidebar animation */
-        .gpu-accelerated {
-          transform: translateZ(0);
-          backface-visibility: hidden;
-          perspective: 1000px;
-          will-change: transform, width;
-        }
       `}</style>
     </div>
   );
 };
 
-// CV Card Component (Grid View)
+// CV Card Component (Grid View) - Same as before
 const CVCard = ({
   cv,
   onEdit,
@@ -1496,19 +1580,23 @@ const CVCard = ({
             <Trash2 size={14} />
           </button>
           <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(cv.id);
+            }}
             style={{
               padding: "8px",
-              background: "#F3F4F6",
+              background: "#F5F3FF",
               border: "none",
               borderRadius: "8px",
-              color: "#6B7280",
+              color: "#8B5CF6",
               cursor: "pointer",
               transition: "all 0.2s ease",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#E5E7EB")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#F3F4F6")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#EDE9FE")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#F5F3FF")}
           >
-            <MoreVertical size={14} />
+            <Eye size={14} />
           </button>
         </div>
       </div>
@@ -1580,7 +1668,7 @@ const CVCard = ({
   );
 };
 
-// CV List Item Component (List View)
+// CV List Item Component (List View) - Same as before
 const CVListItem = ({
   cv,
   index,
@@ -1594,9 +1682,9 @@ const CVListItem = ({
     <>
       <div
         style={{
-          padding: "10px 10px",
+          padding: "16px 20px",
           display: "grid",
-          gridTemplateColumns: "2fr 2fr 1fr 1fr 1.5fr",
+          gridTemplateColumns: "2fr 2fr 1fr 1.5fr 0.5fr",
           gap: "16px",
           alignItems: "center",
           borderBottom: "1px solid #F3F4F6",

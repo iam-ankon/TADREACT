@@ -69,15 +69,39 @@ const Attendance = () => {
       try {
         setLoading(true);
         const [attRes, empRes, compRes] = await Promise.all([
-          getAttendance(),
-          getEmployees(),
-          getCompanies(),
+          getAttendance(1, 100, true), // Fetch all pages
+          getEmployees(1, 100, true), // Fetch all pages
+          getCompanies(1, 100, true), // Fetch all pages
         ]);
-        setAttendance(attRes?.data || []);
-        setEmployees(empRes?.data || []);
-        setCompanies(compRes?.data?.results || compRes?.data || []);
 
-        // Force set to today's date when data loads, regardless of localStorage
+        // Handle attendance data (might be paginated)
+        if (attRes.data && Array.isArray(attRes.data)) {
+          setAttendance(attRes.data);
+        } else if (attRes.data && attRes.data.results) {
+          setAttendance(attRes.data.results);
+        } else {
+          setAttendance([]);
+        }
+
+        // Handle employees data
+        if (empRes.data && Array.isArray(empRes.data)) {
+          setEmployees(empRes.data);
+        } else if (empRes.data && empRes.data.results) {
+          setEmployees(empRes.data.results);
+        } else {
+          setEmployees([]);
+        }
+
+        // Handle companies data
+        if (compRes.data && Array.isArray(compRes.data)) {
+          setCompanies(compRes.data);
+        } else if (compRes.data && compRes.data.results) {
+          setCompanies(compRes.data.results);
+        } else {
+          setCompanies([]);
+        }
+
+        // Force set to today's date when data loads
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
         setDateFilter(todayStr);
@@ -91,7 +115,7 @@ const Attendance = () => {
       }
     };
     fetchData();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   useEffect(() => {
     if (dateFilter) localStorage.setItem("attendanceDateFilter", dateFilter);

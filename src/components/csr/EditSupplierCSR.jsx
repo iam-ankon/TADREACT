@@ -261,7 +261,6 @@ const EditSupplierCSR = () => {
   const [files, setFiles] = useState({
     // Single file fields
     card_image: null,
-    profile_picture: null,
     bsci_certificate: null,
     sedex_certificate: null,
     wrap_certificate: null,
@@ -663,7 +662,6 @@ const EditSupplierCSR = () => {
       // Store existing file URLs for display
       const fileFields = {
         card_image: formattedData.card_image_url,
-        profile_picture: formattedData.profile_picture_url,
         bsci_certificate: formattedData.bsci_certificate_url,
         sedex_certificate: formattedData.sedex_certificate_url,
         wrap_certificate: formattedData.wrap_certificate_url,
@@ -869,7 +867,6 @@ const EditSupplierCSR = () => {
       // List of single file fields (we'll handle them separately)
       const singleFileFields = [
         "card_image",
-        "profile_picture",
         "bsci_certificate",
         "sedex_certificate",
         "wrap_certificate",
@@ -2425,11 +2422,6 @@ const EditSupplierCSR = () => {
                     </div>
                     <div style={cardBodyStyle}>
                       <div style={formGridStyle}>
-                        {renderFileInput(
-                          "Profile Picture",
-                          "profile_picture",
-                          "image/*",
-                        )}
                         {renderFileInput(
                           "Additional Document 1",
                           "additional_document_1",

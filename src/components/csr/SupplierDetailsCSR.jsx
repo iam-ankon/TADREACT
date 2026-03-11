@@ -235,7 +235,7 @@ const DocumentGrid = ({ documents }) => {
     e.stopPropagation();
 
     const correctUrl = getCorrectFileUrl(url);
-    console.log("Opening document URL:", correctUrl);
+    // console.log("Opening document URL:", correctUrl);
 
     // Open in new tab
     window.open(correctUrl, "_blank", "noopener,noreferrer");
@@ -278,7 +278,7 @@ const ImageGallery = ({ images, title }) => {
 
   const handleImageClick = (url) => {
     const correctUrl = getCorrectFileUrl(url);
-    console.log("Opening image URL:", correctUrl);
+    // console.log("Opening image URL:", correctUrl);
     window.open(correctUrl, "_blank");
   };
 
@@ -398,26 +398,26 @@ const SupplierDetailsCSR = () => {
   // Debug logging for images
   useEffect(() => {
     if (supplier) {
-      console.log("=== Supplier Data Debug ===");
-      console.log("Building images:", supplier.building_images);
-      console.log("Fire images:", supplier.fire_images);
-      console.log("All certificates:", supplier.all_certificates);
+      // console.log("=== Supplier Data Debug ===");
+      // console.log("Building images:", supplier.building_images);
+      // console.log("Fire images:", supplier.fire_images);
+      // console.log("All certificates:", supplier.all_certificates);
 
       // Test image URLs
       if (supplier.building_images) {
         supplier.building_images.forEach((url, i) => {
-          console.log(
-            `Building image ${i + 1} corrected URL:`,
-            getCorrectFileUrl(url),
-          );
+          // console.log(
+          //   `Building image ${i + 1} corrected URL:`,
+          //   getCorrectFileUrl(url),
+          // );
         });
       }
       if (supplier.fire_images) {
         supplier.fire_images.forEach((url, i) => {
-          console.log(
-            `Fire image ${i + 1} corrected URL:`,
-            getCorrectFileUrl(url),
-          );
+          // console.log(
+          //   `Fire image ${i + 1} corrected URL:`,
+          //   getCorrectFileUrl(url),
+          // );
         });
       }
     }
@@ -700,7 +700,7 @@ const SupplierDetailsCSR = () => {
         custom_message: customMessage,
       };
 
-      console.log("Sending notification request:", requestData);
+      // console.log("Sending notification request:", requestData);
 
       const response = await fetch(
         `http://119.148.51.38:8000/api/merchandiser/api/supplier/${id}/send-expiry-notifications/`,
@@ -717,12 +717,12 @@ const SupplierDetailsCSR = () => {
       );
 
       // Log the response status
-      console.log("Response status:", response.status);
+      // console.log("Response status:", response.status);
 
       // Try to get the response body
       let result;
       const responseText = await response.text();
-      console.log("Response text:", responseText);
+      // console.log("Response text:", responseText);
 
       try {
         result = JSON.parse(responseText);
@@ -735,7 +735,7 @@ const SupplierDetailsCSR = () => {
         };
       }
 
-      console.log("Response data:", result);
+      // console.log("Response data:", result);
 
       if (response.ok && result.success) {
         setNotificationResult({

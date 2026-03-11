@@ -1,4 +1,4 @@
-/*  employeeApi.js  –  HRMS + Chat API wrapper  */
+/*  employeeApi.js  –  HRMS + Chat API wrapper with full pagination support */
 import axios from "axios";
 
 /* -------------------------------------------------------------------------- */
@@ -8,18 +8,35 @@ export const getBackendURL = () => "http://119.148.51.38:8000";
 
 const getHRMSBaseUrl = () => `${getBackendURL()}/api/hrms/api/`;
 
-/* Token handling – unchanged */
+/* Token handling – enhanced with validation */
 export const getToken = () => {
   const token = localStorage.getItem("token");
-  console.log("Retrieved token:", token ? "Yes" : "No");
+  console.log(
+    "Retrieved token:",
+    token ? "Yes (length: " + token.length + ")" : "No",
+  );
+
+  // Validate token format (basic check)
+  if (token && token.length < 10) {
+    console.warn("⚠️ Token seems too short, might be invalid");
+  }
+
   return token;
 };
 
 export const setToken = (token) => {
-  if (!token) return console.warn("Attempting to set empty token");
+  if (!token) {
+    console.warn("Attempting to set empty token");
+    return;
+  }
+
   localStorage.setItem("token", token);
   localStorage.setItem("token_timestamp", Date.now().toString());
-  console.log("Token stored");
+
+  // Verify token was stored
+  const storedToken = localStorage.getItem("token");
+  console.log("Token stored:", storedToken ? "✅ Success" : "❌ Failed");
+  console.log("Token preview:", token.substring(0, 15) + "...");
 };
 
 export const removeToken = () => {
@@ -28,6 +45,7 @@ export const removeToken = () => {
     "username",
     "user_id",
     "employee_id",
+    "employee_db_id",
     "employee_name",
     "designation",
     "permissions",
@@ -86,12 +104,15 @@ export const fetchCsrfToken = async (forceRefresh = false) => {
     // Try multiple ways to get the token
     if (data.csrfToken) {
       _csrfToken = data.csrfToken;
-      console.log("CSRF token from JSON:", _csrfToken);
+      console.log("CSRF token from JSON:", _csrfToken.substring(0, 10) + "...");
     } else {
       // Fallback to cookie reading
       _csrfToken = getCsrfTokenFromCookie();
       if (_csrfToken) {
-        console.log("CSRF token from cookie after fetch:", _csrfToken);
+        console.log(
+          "CSRF token from cookie after fetch:",
+          _csrfToken.substring(0, 10) + "...",
+        );
       }
     }
 
@@ -169,13 +190,1616 @@ export const sendLeaveEmailToMD = async (emailData) => {
 };
 
 /* -------------------------------------------------------------------------- */
-/*  DELETE ATTENDANCE BY MONTH                                               */
+/*  2.  AXIOS INSTANCES (authenticated)                                      */
 /* -------------------------------------------------------------------------- */
+const createInstance = (baseURL) => {
+  const instance = axios.create({
+    baseURL,
+    timeout: 45000,
+    withCredentials: true, // Essential for CSRF
+  });
+
+  // FIXED: Request interceptor with ONLY standard headers
+  instance.interceptors.request.use(async (cfg) => {
+    console.log(`🚀 Making ${cfg.method?.toUpperCase()} request to:`, cfg.url);
+
+    // Get token from localStorage
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      // ONLY use standard Authorization header - NO custom headers
+      cfg.headers.Authorization = `Token ${token}`;
+
+      console.log("🔑 Auth token added:", token.substring(0, 15) + "...");
+      console.log(
+        "📋 Authorization header:",
+        cfg.headers.Authorization ? "Present" : "Missing",
+      );
+    } else {
+      console.warn("⚠️ No auth token found in localStorage!");
+    }
+
+    // ONLY add CSRF for state-changing requests, not GET requests
+    const method = cfg.method?.toLowerCase();
+    if (method && ["post", "patch", "put", "delete"].includes(method)) {
+      let csrfToken = getCsrfToken();
+
+      if (!csrfToken) {
+        console.log("🔄 No CSRF token found, fetching...");
+        csrfToken = await fetchCsrfToken();
+      }
+
+      if (csrfToken) {
+        cfg.headers["X-CSRFToken"] = csrfToken;
+        console.log("🔒 CSRF Token sent:", csrfToken.substring(0, 10) + "...");
+      } else {
+        console.warn("⚠️ CSRF token missing for state-changing request");
+      }
+    }
+
+    return cfg;
+  });
+
+  // Enhanced response interceptor with pagination handling
+  instance.interceptors.response.use(
+    (response) => {
+      console.log(
+        `✅ ${response.config.method?.toUpperCase()} ${
+          response.config.url
+        } success:`,
+        response.status,
+      );
+      return response;
+    },
+    async (error) => {
+      console.error(`❌ API Error:`, {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data,
+      });
+
+      // Handle authentication errors
+      if (error.response?.status === 401) {
+        console.error("🔒 Unauthenticated – logging out");
+        removeToken();
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
+
+      return Promise.reject(error);
+    },
+  );
+  return instance;
+};
+
+/* HRMS API (all employee / interview / provision endpoints) */
+export const hrmsApi = createInstance(getHRMSBaseUrl());
+
+/* Chat API (kept separate – different base URL) */
+export const chatApi = createInstance(getBackendURL());
+
+/* -------------------------------------------------------------------------- */
+/*  3.  HELPER FUNCTION TO EXTRACT DATA FROM PAGINATED RESPONSES            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Extracts data array from paginated API responses
+ * Handles both direct arrays and paginated { results: [...] } format
+ */
+const extractDataFromResponse = (response) => {
+  if (!response || !response.data) return [];
+
+  // Case 1: Paginated response with results array
+  if (response.data.results && Array.isArray(response.data.results)) {
+    console.log(
+      `📊 Paginated response: ${response.data.results.length} items (page ${response.data.current_page || 1} of ${Math.ceil(response.data.count / (response.data.page_size || 50))})`,
+    );
+    return response.data.results;
+  }
+
+  // Case 2: Direct array
+  if (Array.isArray(response.data)) {
+    console.log(`📊 Direct array response: ${response.data.length} items`);
+    return response.data;
+  }
+
+  // Case 3: Single object (wrap in array)
+  if (response.data && typeof response.data === "object") {
+    console.log(`📊 Single object response, wrapping in array`);
+    return [response.data];
+  }
+
+  // Case 4: Something else
+  console.warn("⚠️ Unexpected response format:", response.data);
+  return [];
+};
+
+/* -------------------------------------------------------------------------- */
+/*  4.  PAGINATION HELPER - FETCH ALL PAGES                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Generic function to fetch all paginated data from any endpoint
+ * @param {Function} apiFunction - The API function that accepts page and pageSize
+ * @param {Object} params - Additional parameters to pass to the API function
+ * @returns {Promise<Array>} - All items from all pages
+ */
+export const fetchAllPaginatedData = async (apiFunction, params = {}) => {
+  let allData = [];
+  let page = 1;
+  let hasMore = true;
+  const pageSize = 100;
+
+  while (hasMore) {
+    try {
+      console.log(`📦 Fetching page ${page}...`);
+      const response = await apiFunction(page, pageSize, params);
+
+      if (response.data && response.data.length > 0) {
+        allData = [...allData, ...response.data];
+
+        // Check if we have more pages based on pagination info
+        if (response.pagination && response.pagination.next) {
+          page++;
+        } else if (response.data.length === pageSize) {
+          // If we got a full page, assume there might be more
+          page++;
+        } else {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching page ${page}:`, error);
+      hasMore = false;
+    }
+  }
+
+  console.log(
+    `✅ Total ${allData.length} items fetched across ${page - 1} pages`,
+  );
+  return allData;
+};
+/* -------------------------------------------------------------------------- */
+/*  5.  DEBUG / TEST HELPERS                                                 */
+/* -------------------------------------------------------------------------- */
+export const debugAuth = () => {
+  const token = localStorage.getItem("token");
+  const username = localStorage.getItem("username");
+  const mode = localStorage.getItem("mode");
+  const permissions = localStorage.getItem("permissions");
+
+  console.log("AUTH DEBUG:", {
+    token: token ? "Present (length: " + token.length + ")" : "Missing",
+    username,
+    mode,
+    permissions: permissions ? "Present" : "Missing",
+  });
+
+  return {
+    token: !!token,
+    tokenPreview: token ? token.substring(0, 20) + "..." : null,
+    username,
+    mode,
+    permissions: !!permissions,
+  };
+};
+
+export const checkAuthStatus = async () => {
+  try {
+    console.log("🔍 Checking authentication status...");
+    const token = localStorage.getItem("token");
+
+    console.log(
+      "Token in localStorage:",
+      token ? "✅ Yes (length: " + token.length + ")" : "❌ No",
+    );
+    console.log("Username:", localStorage.getItem("username"));
+    console.log("Employee ID:", localStorage.getItem("employee_id"));
+
+    if (!token) {
+      return {
+        authenticated: false,
+        error: "No token found",
+        tokenExists: false,
+      };
+    }
+
+    // Try a simple authenticated endpoint
+    const response = await hrmsApi.get("debug_auth/");
+    console.log("✅ Auth check response:", response.data);
+    return {
+      authenticated: true,
+      data: response.data,
+      tokenExists: true,
+    };
+  } catch (error) {
+    console.error(
+      "❌ Auth check failed:",
+      error.response?.data || error.message,
+    );
+    return {
+      authenticated: false,
+      error: error.response?.data || error.message,
+      tokenExists: !!localStorage.getItem("token"),
+      status: error.response?.status,
+    };
+  }
+};
+
+export const testAuth = () => chatApi.post("/api/auth/test/", { test: "data" });
+export const testChatEndpoint = () => chatApi.get("/api/chat/conversations/");
+export const testHRMSEndpoint = () => hrmsApi.get("employees/");
+
+/* -------------------------------------------------------------------------- */
+/*  6.  AUTHENTICATION                                                        */
+export const loginUser = async (payload) => {
+  const { username, password, employee_id, designation, department, email } =
+    payload;
+
+  console.log("🔐 Attempting login for username:", username);
+
+  const resp = await fetch(`${getBackendURL()}/users/login/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: username?.trim(),
+      password: password?.trim(),
+      employee_id: employee_id?.trim(),
+      designation: designation?.trim() || "",
+      department: department?.trim() || "",
+      email: email?.trim() || "",
+    }),
+  });
+
+  if (!resp.ok) {
+    let msg = "Login failed";
+    try {
+      const e = await resp.json();
+      msg = e.error || e.detail || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const data = await resp.json();
+
+  console.log("✅ Login response data:", data);
+  console.log(
+    "🔑 Token received:",
+    data.token ? "✅ Yes (length: " + data.token.length + ")" : "❌ No",
+  );
+
+  if (!data.token) {
+    throw new Error("No token received from server");
+  }
+
+  setToken(data.token);
+
+  // Enhanced storage function with reporting_leader
+  const store = (k, v) => {
+    if (v !== undefined && v !== null && v !== "") {
+      localStorage.setItem(k, v.toString());
+      console.log(`💾 Stored ${k}:`, v);
+    } else {
+      console.warn(`⚠️ No value for ${k}`);
+      localStorage.removeItem(k); // Remove if empty
+    }
+  };
+
+  // Store all user data
+  store("username", data.username);
+  store("user_id", data.user_id);
+  store("employee_id", data.employee_id);
+  store("employee_db_id", data.employee_db_id);
+  store("employee_name", data.employee_name);
+  store("designation", data.designation);
+  store("department", data.department);
+  store("email", data.email || data.username);
+  store("mode", data.mode || "restricted");
+  store("permissions", JSON.stringify(data.permissions || {}));
+  store("reporting_leader", data.reporting_leader);
+
+  console.log("📋 Final stored data:", {
+    employee_id: localStorage.getItem("employee_id"),
+    employee_db_id: localStorage.getItem("employee_db_id"),
+    employee_name: localStorage.getItem("employee_name"),
+    designation: localStorage.getItem("designation"),
+    department: localStorage.getItem("department"),
+    reporting_leader: localStorage.getItem("reporting_leader"),
+    token: localStorage.getItem("token") ? "Present" : "Missing",
+  });
+
+  return data;
+};
+
+/* -------------------------------------------------------------------------- */
+/*  7.  EMPLOYEE APIs                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get employees with pagination support
+ * @param {number} page - Page number (default: 1)
+ * @param {number} pageSize - Items per page (default: 100)
+ * @param {Object|boolean} options - Either filter params or boolean for allPages
+ * @returns {Promise<Object>} - Response with data and pagination info
+ */
+export const getEmployees = async (page = 1, pageSize = 100, options = {}) => {
+  try {
+    // Handle backward compatibility and allPages flag
+    let allPages = false;
+    let filters = {};
+
+    if (typeof options === "boolean") {
+      allPages = options;
+    } else if (typeof options === "object") {
+      allPages = options.allPages || false;
+      filters = options.filters || {};
+    }
+
+    if (allPages) {
+      // Fetch all pages
+      let allEmployees = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: currentPage,
+          page_size: pageSize,
+          ...filters,
+        });
+
+        const response = await hrmsApi.get(`employees/?${params.toString()}`);
+
+        if (response.data && response.data.results) {
+          allEmployees = [...allEmployees, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          const data = extractDataFromResponse(response);
+          if (data.length > 0) {
+            allEmployees = [...allEmployees, ...data];
+          }
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Fetched ${allEmployees.length} total employees`);
+      return {
+        data: allEmployees,
+        pagination: {
+          count: allEmployees.length,
+          total_pages: 1,
+        },
+      };
+    } else {
+      // Fetch single page
+      const params = new URLSearchParams({
+        page: page,
+        page_size: pageSize,
+        ...filters,
+      });
+
+      const response = await hrmsApi.get(`employees/?${params.toString()}`);
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      // Fallback for non-paginated response
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: {
+          count: data.length,
+          current_page: 1,
+          page_size: data.length,
+          total_pages: 1,
+        },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching employees:", error);
+    return { data: [], pagination: { count: 0 } };
+  }
+};
+
+export const getEmployeeById = (id) => hrmsApi.get(`employees/${id}/`);
+export const addEmployee = (data) => hrmsApi.post("employees/", data);
+export const updateEmployee = (id, data) =>
+  hrmsApi.patch(`employees/${id}/`, data);
+export const deleteEmployee = async (id, terminationData) => {
+  try {
+    const response = await hrmsApi.delete(`employees/${id}/terminate/`, {
+      data: terminationData,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error terminating employee:", error);
+    throw error;
+  }
+};
+
+export const updateEmployeeImage = (id, formData) => {
+  console.log("=== updateEmployeeImage DEBUG ===");
+  console.log("Employee ID:", id);
+  return hrmsApi.patch(`employees/${id}/`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
+export const updateEmployeeCustomers = (id, customerIds) => {
+  const customersArray = Array.isArray(customerIds)
+    ? customerIds.map((id) => parseInt(id)).filter((id) => !isNaN(id))
+    : [];
+
+  return hrmsApi.patch(`employees/${id}/update_customers/`, {
+    customers: customersArray,
+  });
+};
+
+export const addEmployeeLeave = async (data) => {
+  try {
+    console.log("📝 Creating leave request with data:", data);
+
+    const reportingLeader = localStorage.getItem("reporting_leader");
+
+    const leaveData = {
+      ...data,
+      employee: parseInt(data.employee),
+      employee_code: data.employee_code || localStorage.getItem("employee_id"),
+      status: data.status || "pending",
+      reporting_leader: reportingLeader || "",
+    };
+
+    console.log("📦 Final API payload:", leaveData);
+
+    const response = await hrmsApi.post("employee_leaves/", leaveData);
+    console.log("✅ Leave created successfully:", response.data);
+    return response;
+  } catch (error) {
+    console.error("❌ Error creating leave:", error);
+    throw error;
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*  8.  CUSTOMER APIs                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get all customers with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getAllCustomers = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allCustomers = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `customers/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allCustomers = [...allCustomers, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          const data = extractDataFromResponse(response);
+          if (data.length > 0) {
+            allCustomers = [...allCustomers, ...data];
+          }
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allCustomers,
+        pagination: { count: allCustomers.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `customers/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching customers:", error);
+    return { data: [] };
+  }
+};
+
+export const getCustomerById = (id) => hrmsApi.get(`customers/${id}/`);
+
+/* -------------------------------------------------------------------------- */
+/*  9.  PERFORMANCE APPRAISAL APIs                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get performance appraisals with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {Object|boolean} options - Filter params or allPages flag
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getPerformanceAppraisals = async (
+  page = 1,
+  pageSize = 100,
+  options = {},
+) => {
+  try {
+    let allPages = false;
+    let filters = {};
+
+    if (typeof options === "boolean") {
+      allPages = options;
+    } else if (typeof options === "object") {
+      allPages = options.allPages || false;
+      filters = options.filters || {};
+    }
+
+    if (allPages) {
+      let allAppraisals = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: currentPage,
+          page_size: pageSize,
+          ...filters,
+        });
+
+        const response = await hrmsApi.get(
+          `performance_appraisals/?${params.toString()}`,
+        );
+
+        if (response.data && response.data.results) {
+          allAppraisals = [...allAppraisals, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allAppraisals,
+        pagination: { count: allAppraisals.length },
+      };
+    } else {
+      const params = new URLSearchParams({
+        page: page,
+        page_size: pageSize,
+        ...filters,
+      });
+
+      const response = await hrmsApi.get(
+        `performance_appraisals/?${params.toString()}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching appraisals:", error);
+    return { data: [] };
+  }
+};
+
+export const getPerformanceAppraisalById = (id) =>
+  hrmsApi.get(`performance_appraisals/${id}/`);
+
+export const createPerformanceAppraisal = (data) =>
+  hrmsApi.post("performance_appraisals/", data);
+
+export const addPerformanceAppraisal = (data) =>
+  hrmsApi.post("performance_appraisals/", data);
+
+export const updatePerformanceAppraisal = (id, data) =>
+  hrmsApi.patch(`performance_appraisals/${id}/`, data);
+
+export const deletePerformanceAppraisal = (id) =>
+  hrmsApi.delete(`performance_appraisals/${id}/`);
+
+/**
+ * Get performance appraisals by employee ID with pagination
+ * @param {string} employeeId - Employee ID
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data
+ */
+export const getPerformanceAppraisalsByEmployeeId = async (
+  employeeId,
+  allPages = false,
+) => {
+  try {
+    console.log(`🔍 API: Fetching appraisals for employee ${employeeId}`);
+
+    if (allPages) {
+      let allAppraisals = [];
+      let currentPage = 1;
+      let hasMore = true;
+      const pageSize = 100;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `performance_appraisals/?employee_id=${employeeId}&page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allAppraisals = [...allAppraisals, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          const data = extractDataFromResponse(response);
+          if (data.length > 0) {
+            allAppraisals = [...allAppraisals, ...data];
+          }
+          hasMore = false;
+        }
+      }
+
+      console.log(
+        `📊 Found ${allAppraisals.length} total appraisals for employee ${employeeId}`,
+      );
+      return { data: allAppraisals };
+    } else {
+      const response = await hrmsApi.get(
+        `performance_appraisals/?employee_id=${employeeId}`,
+      );
+      console.log(`📊 API Response for ${employeeId}:`, response.data);
+      return {
+        ...response,
+        data: extractDataFromResponse(response),
+      };
+    }
+  } catch (error) {
+    console.error(`❌ Error fetching appraisals for ${employeeId}:`, error);
+    return { data: [] };
+  }
+};
+
+export const approveIncrement = async (appraisalId) => {
+  try {
+    console.log("📡 Approving increment for ID:", appraisalId);
+    const response = await hrmsApi.post(
+      `performance_appraisals/${appraisalId}/approve_increment/`,
+      {},
+    );
+    console.log("✅ API Response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ API Error in approveIncrement:", error);
+    throw error;
+  }
+};
+
+export const approveDesignation = async (appraisalId) => {
+  try {
+    console.log("📡 Approving designation for ID:", appraisalId);
+    const response = await hrmsApi.post(
+      `performance_appraisals/${appraisalId}/approve_designation/`,
+      {},
+    );
+    console.log("✅ API Response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ API Error in approveDesignation:", error);
+    throw error;
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*  10.  TERMINATED EMPLOYEES ARCHIVE APIs                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get terminated employees with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getTerminatedEmployees = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allTerminated = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `terminated_employees/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allTerminated = [...allTerminated, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allTerminated,
+        pagination: { count: allTerminated.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `terminated_employees/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching terminated employees:", error);
+    return { data: [] };
+  }
+};
+
+export const getTerminatedEmployeeById = (id) =>
+  hrmsApi.get(`terminated_employees/${id}/`);
+
+export const searchTerminatedEmployees = async (params = {}) => {
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) queryParams.append(key, value);
+  });
+
+  const queryString = queryParams.toString();
+  const url = queryString
+    ? `terminated_employees/?${queryString}`
+    : "terminated_employees/";
+
+  const response = await hrmsApi.get(url);
+  return {
+    ...response,
+    data: extractDataFromResponse(response),
+  };
+};
+
+export const restoreTerminatedEmployee = (archiveId) =>
+  hrmsApi.post(`terminated_employees/${archiveId}/restore/`, {});
+
+export const getTerminationStats = () =>
+  hrmsApi.get("terminated_employees/stats/");
+
+export const exportTerminatedEmployees = (format = "json") =>
+  hrmsApi.get(`terminated_employees/export/?format=${format}`, {
+    responseType: format === "csv" ? "blob" : "json",
+  });
+
+export const updateTerminationStatus = (archiveId, statusData) =>
+  hrmsApi.patch(`terminated_employees/${archiveId}/update_status/`, statusData);
+
+export const bulkDeleteTerminatedEmployees = (archiveIds) =>
+  hrmsApi.post("terminated_employees/bulk_delete/", { ids: archiveIds });
+
+export const getTerminationTrends = (startDate, endDate) => {
+  const params = {};
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+  return hrmsApi.get("terminated_employees/trends/", { params });
+};
+
+export const getDepartmentTerminationStats = () =>
+  hrmsApi.get("terminated_employees/department_stats/");
+
+/* -------------------------------------------------------------------------- */
+/*  11.  LEAVE BALANCES                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get employee leave balances with pagination support
+ * @param {string} employeeId - Employee ID
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data
+ */
+export const getEmployeeLeaveBalances = async (
+  employeeId = null,
+  allPages = false,
+) => {
+  try {
+    const effectiveEmployeeId =
+      employeeId || localStorage.getItem("employee_id");
+    console.log("🔍 Fetching balances for employee:", effectiveEmployeeId);
+
+    if (allPages) {
+      let allBalances = [];
+      let currentPage = 1;
+      let hasMore = true;
+      const pageSize = 100;
+
+      while (hasMore) {
+        const url = `employee_leave_balances/?employee_id=${effectiveEmployeeId}&page=${currentPage}&page_size=${pageSize}`;
+        const response = await hrmsApi.get(url);
+
+        if (response.data && response.data.results) {
+          allBalances = [...allBalances, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          const data = extractDataFromResponse(response);
+          if (data.length > 0) {
+            allBalances = [...allBalances, ...data];
+          }
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Found ${allBalances.length} total balances`);
+      return { data: allBalances };
+    } else {
+      const url = `employee_leave_balances/?employee_id=${effectiveEmployeeId}`;
+      const response = await hrmsApi.get(url);
+      const balancesData = extractDataFromResponse(response);
+
+      console.log("✅ Returning balances:", balancesData.length);
+      return {
+        ...response,
+        data: balancesData,
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error in getEmployeeLeaveBalances:", error);
+    return { data: [] };
+  }
+};
+
+export const getMyLeaveBalance = async () => {
+  try {
+    console.log("🔍 Getting my leave balance (direct endpoint)...");
+    const response = await hrmsApi.get("get_my_leave_balance/");
+    console.log("✅ My leave balance:", response.data);
+    return response;
+  } catch (error) {
+    console.error("❌ Error getting my leave balance:", error);
+    throw error;
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*  12.  EMPLOYEE LEAVES APIs                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get employee leaves with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {Object|boolean} options - Filter params or allPages flag
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getEmployeeLeaves = async (
+  page = 1,
+  pageSize = 100,
+  options = {},
+) => {
+  try {
+    console.log("🔍 Getting leaves for current user...");
+
+    const username = localStorage.getItem("username");
+    const employeeId = localStorage.getItem("employee_id");
+    const employeeDbId = localStorage.getItem("employee_db_id");
+    const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
+
+    console.log("📋 User info:", {
+      username,
+      employeeId,
+      employeeDbId,
+      hasFullAccess: permissions.full_access,
+    });
+
+    const hasFullAccess = permissions.full_access === true;
+    const isSohel = username === "Sohel";
+
+    let allPages = false;
+    let filters = {};
+
+    if (typeof options === "boolean") {
+      allPages = options;
+    } else if (typeof options === "object") {
+      allPages = options.allPages || false;
+      filters = options.filters || {};
+    }
+
+    if (allPages) {
+      let allLeaves = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        let url = `employee_leaves/?page=${currentPage}&page_size=${pageSize}`;
+
+        if (!hasFullAccess || isSohel) {
+          const params = new URLSearchParams({
+            ...filters,
+          });
+          if (employeeId) params.append("employee_id", employeeId);
+          if (employeeDbId) params.append("employee_db_id", employeeDbId);
+          if (params.toString()) {
+            url += `&${params.toString()}`;
+          }
+        }
+
+        console.log("🌐 API URL:", url);
+        const response = await hrmsApi.get(url);
+
+        if (response.data && response.data.results) {
+          allLeaves = [...allLeaves, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          const data = extractDataFromResponse(response);
+          if (data.length > 0) {
+            allLeaves = [...allLeaves, ...data];
+          }
+          hasMore = false;
+        }
+      }
+
+      console.log(`📋 Found ${allLeaves.length} total leaves`);
+      return { data: allLeaves };
+    } else {
+      let url = `employee_leaves/?page=${page}&page_size=${pageSize}`;
+
+      if (!hasFullAccess || isSohel) {
+        const params = new URLSearchParams({
+          ...filters,
+        });
+        if (employeeId) params.append("employee_id", employeeId);
+        if (employeeDbId) params.append("employee_db_id", employeeDbId);
+        if (params.toString()) {
+          url += `&${params.toString()}`;
+        }
+      }
+
+      console.log("🌐 API URL:", url);
+
+      const response = await hrmsApi.get(url);
+
+      if (response.data && response.data.results) {
+        const leavesData = response.data.results;
+        console.log(`📋 Found ${leavesData.length} leaves on page ${page}`);
+
+        return {
+          ...response,
+          data: leavesData,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const leavesData = extractDataFromResponse(response);
+      console.log(`📋 Found ${leavesData.length} leaves`);
+
+      return {
+        ...response,
+        data: leavesData,
+        pagination: {
+          count: leavesData.length,
+          current_page: 1,
+          page_size: pageSize,
+          total_pages: 1,
+        },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching leaves:", error);
+    return {
+      data: [],
+      pagination: {
+        count: 0,
+        current_page: 1,
+        page_size: pageSize,
+        total_pages: 1,
+      },
+    };
+  }
+};
+
+export const getEmployeeLeaveById = (id) =>
+  hrmsApi.get(`employee_leaves/${id}/`);
+
+export const deleteEmployeeLeave = (id) =>
+  hrmsApi.delete(`employee_leaves/${id}/`);
+
+export const updateEmployeeLeave = (id, data) => {
+  console.log("📤 Updating leave with ID:", id);
+  return hrmsApi.patch(`employee_leaves/${id}/`, data);
+};
+
+export const addTeamLeaderComment = (leaveId, comment) => {
+  console.log("💬 Adding team leader comment for leave:", leaveId);
+  return hrmsApi.post(`employee_leaves/${leaveId}/add_team_comment/`, {
+    teamleader: comment,
+  });
+};
+
+/* -------------------------------------------------------------------------- */
+/*  13.  DEBUG & DIAGNOSTIC APIs                                              */
+/* -------------------------------------------------------------------------- */
+export const debugEmployeeLeaves = async () => {
+  try {
+    console.log("🔍 DEBUG: Fetching all leaves for debugging...");
+    const response = await hrmsApi.get("debug_all_leaves/");
+    return {
+      ...response,
+      data: extractDataFromResponse(response),
+    };
+  } catch (error) {
+    console.error("❌ Debug error:", error);
+    throw error;
+  }
+};
+
+export const debugAllLeaves = () => hrmsApi.get("debug_all_leaves/");
+export const debugEmployees = () => hrmsApi.get("debug_employees/");
+export const debugUserEmployeeMapping = () =>
+  hrmsApi.get("debug_user_employee_mapping/");
+export const checkUserEmployeeMapping = () =>
+  hrmsApi.get("check_user_employee_mapping/");
+
+export const debugCurrentUserLeaves = async () => {
+  try {
+    console.log("🔍 DEBUG: Fetching current user leaves...");
+    const response = await hrmsApi.get("api/debug_current_user_leaves/");
+    return {
+      ...response,
+      data: extractDataFromResponse(response),
+    };
+  } catch (error) {
+    console.error("❌ Debug error:", error);
+    throw error;
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*  14.  PERMISSION CHECKS                                                    */
+/* -------------------------------------------------------------------------- */
+const getPerms = () => JSON.parse(localStorage.getItem("permissions") || "{}");
+export const hasFullAccess = () => getPerms().full_access === true;
+export const canAccessLeaveRequests = () => getPerms().leave_requests === true;
+export const canAccessHRWork = () => getPerms().hr_work === true;
+
+/* -------------------------------------------------------------------------- */
+/*  15.  CHAT APIs                                                            */
+/* -------------------------------------------------------------------------- */
+export const createDirectConversation = (userId) =>
+  chatApi.post("/api/chat/conversations/", {
+    user_id: userId,
+    is_group: false,
+  });
+
+export const addMemberToConversation = (convId, userId) =>
+  chatApi.post(`/api/chat/conversations/${convId}/add_member/`, {
+    user_id: userId,
+  });
+
+export const sendMessage = (convId, content) =>
+  chatApi.post("/api/chat/messages/", { conversation: convId, content });
+
+export const fetchMessages = (convId) =>
+  chatApi.get(`/api/chat/conversations/${convId}/messages/`);
+
+export const fetchConversations = () => chatApi.get("/api/chat/conversations/");
+export const fetchUsers = () => chatApi.get("/api/chat/users/");
+
+export const createGroupConversation = (title, members) =>
+  chatApi.post("/api/chat/conversations/", { title, is_group: true, members });
+
+/* -------------------------------------------------------------------------- */
+/*  16.  COMPANY / DEPARTMENT APIs                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get companies with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getCompanies = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allCompanies = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `tad_groups/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allCompanies = [...allCompanies, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allCompanies,
+        pagination: { count: allCompanies.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `tad_groups/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching companies:", error);
+    return { data: [] };
+  }
+};
+
+export const getCompanyById = (id) => hrmsApi.get(`tad_groups/${id}/`);
+
+/**
+ * Get departments with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getDepartments = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allDepartments = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `departments/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allDepartments = [...allDepartments, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allDepartments,
+        pagination: { count: allDepartments.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `departments/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching departments:", error);
+    return { data: [] };
+  }
+};
+
+export const getDepartmentById = (id) => hrmsApi.get(`departments/${id}/`);
+
+export const getCustomers = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  return getAllCustomers(page, pageSize, allPages);
+};
+
+/* -------------------------------------------------------------------------- */
+/*  17.  NOTIFICATIONS / ATTENDANCE / LEAVE                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get notifications with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getNotifications = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allNotifications = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `notifications/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allNotifications = [...allNotifications, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allNotifications,
+        pagination: { count: allNotifications.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `notifications/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching notifications:", error);
+    return { data: [] };
+  }
+};
+
+export const getWeeklyAttendanceStats = (startDate, endDate) => {
+  return hrmsApi
+    .get("api/weekly_attendance_stats/", {
+      params: {
+        start_date: startDate,
+        end_date: endDate,
+      },
+    })
+    .catch((error) => {
+      console.error("Error with api/ prefix, trying without...", error);
+      return hrmsApi.get("weekly_attendance_stats/", {
+        params: {
+          start_date: startDate,
+          end_date: endDate,
+        },
+      });
+    });
+};
+
+export const getTeamLeaves = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    console.log("🔍 Getting team leaves via dedicated endpoint...");
+
+    if (allPages) {
+      let allLeaves = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `team_leaves/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allLeaves = [...allLeaves, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          const data = extractDataFromResponse(response);
+          if (data.length > 0) {
+            allLeaves = [...allLeaves, ...data];
+          }
+          hasMore = false;
+        }
+      }
+
+      return { data: allLeaves };
+    } else {
+      const response = await hrmsApi.get(
+        `team_leaves/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return { data: data };
+    }
+  } catch (error) {
+    console.error("❌ Error in getTeamLeaves:", error);
+    return await getEmployeeLeaves(page, pageSize, allPages);
+  }
+};
+
+export const sendWelcomeEmail = (employeeId) => {
+  console.log("Sending welcome email for employee ID:", employeeId);
+  return hrmsApi.post(`employees/${employeeId}/send-welcome-email/`);
+};
+
+export const getEmployeeDetailsByCode = async (employeeCode) => {
+  try {
+    console.log("🔍 Fetching employee details for code:", employeeCode);
+
+    const response = await hrmsApi.get(
+      `employees/?employee_id=${employeeCode}`,
+    );
+    const employees = extractDataFromResponse(response);
+
+    if (employees && employees.length > 0) {
+      const exactEmployee = employees.find(
+        (emp) =>
+          emp.employee_id === employeeCode ||
+          emp.employee_id?.toString() === employeeCode?.toString(),
+      );
+
+      if (exactEmployee) {
+        console.log(
+          "🎯 Found exact employee:",
+          exactEmployee.name,
+          "-",
+          exactEmployee.designation,
+        );
+        return exactEmployee;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("❌ Error fetching employee details:", error);
+    return null;
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*  18.  ATTENDANCE APIs                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get attendance records with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getAttendance = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allAttendance = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `attendance/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allAttendance = [...allAttendance, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allAttendance,
+        pagination: { count: allAttendance.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `attendance/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching attendance:", error);
+    return { data: [] };
+  }
+};
+
+export const getAttendanceById = (id) => hrmsApi.get(`attendance/${id}/`);
+export const addAttendance = (data) => hrmsApi.post("attendance/", data);
+export const updateAttendance = (id, data) =>
+  hrmsApi.patch(`attendance/${id}/`, data);
+export const deleteAttendance = (id) => hrmsApi.delete(`attendance/${id}/`);
+export const deleteAllAttendance = () =>
+  hrmsApi.delete("attendance/delete_all/");
+
 export const deleteAttendanceByMonth = async (year, month) => {
   try {
     console.log(`🗑️ Deleting attendance for ${year}-${month}`);
 
-    // Option 1: Try the specific endpoint first (might be implemented later)
+    // Option 1: Try the specific endpoint first
     try {
       const response = await hrmsApi.delete(`attendance/delete_by_month/`, {
         params: {
@@ -193,7 +1817,7 @@ export const deleteAttendanceByMonth = async (year, month) => {
 
     // Option 2: Manual deletion by fetching and deleting each record
     console.log("🔍 Fetching all attendance records...");
-    const allAttendance = await hrmsApi.get("attendance/");
+    const allAttendance = await getAttendance(1, 100, true);
 
     if (!allAttendance.data || !Array.isArray(allAttendance.data)) {
       throw new Error("No attendance data found");
@@ -289,979 +1913,76 @@ export const deleteAttendanceByMonth = async (year, month) => {
 };
 
 /* -------------------------------------------------------------------------- */
-/*  2.  AXIOS INSTANCES (authenticated)                                      */
+/*  19.  INTERVIEWS                                                           */
 /* -------------------------------------------------------------------------- */
-const createInstance = (baseURL) => {
-  const instance = axios.create({
-    baseURL,
-    timeout: 45000,
-    withCredentials: true, // Essential for CSRF
-  });
 
-  // Enhanced request interceptor with CSRF retry
-  // instance.interceptors.request.use(async (cfg) => {
-  //   console.log(`🚀 Making ${cfg.method?.toUpperCase()} request to:`, cfg.url);
+/**
+ * Get interviews with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getInterviews = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allInterviews = [];
+      let currentPage = 1;
+      let hasMore = true;
 
-  //   const token = localStorage.getItem("token");
-  //   if (token) {
-  //     cfg.headers.Authorization = `Token ${token}`;
-  //     console.log("🔑 Auth token added");
-  //   }
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `interviews/?page=${currentPage}&page_size=${pageSize}`,
+        );
 
-  //   // CSRF for state-changing requests
-  //   if (["post", "patch", "put", "delete"].includes(cfg.method?.toLowerCase())) {
-  //     let csrfToken = getCsrfToken();
-
-  //     // If no CSRF token, try to fetch one
-  //     if (!csrfToken) {
-  //       console.log("🔄 No CSRF token found, fetching...");
-  //       csrfToken = await fetchCsrfToken();
-  //     }
-
-  //     if (csrfToken) {
-  //       cfg.headers["X-CSRFToken"] = csrfToken;
-  //       console.log("🔒 CSRF Token sent:", csrfToken.substring(0, 10) + "...");
-  //     } else {
-  //       console.error("❌ CSRF token missing after fetch attempt!");
-  //       // Don't block the request, let it proceed and handle the error
-  //     }
-  //   }
-
-  //   return cfg;
-  // });
-
-  // In the request interceptor, change the CSRF condition:
-  instance.interceptors.request.use(async (cfg) => {
-    console.log(`🚀 Making ${cfg.method?.toUpperCase()} request to:`, cfg.url);
-
-    const token = localStorage.getItem("token");
-    if (token) {
-      cfg.headers.Authorization = `Token ${token}`;
-      console.log("🔑 Auth token added");
-    }
-
-    // ONLY add CSRF for state-changing requests, not GET requests
-    const method = cfg.method?.toLowerCase();
-    if (method && ["post", "patch", "put", "delete"].includes(method)) {
-      let csrfToken = getCsrfToken();
-
-      if (!csrfToken) {
-        console.log("🔄 No CSRF token found, fetching...");
-        csrfToken = await fetchCsrfToken();
-      }
-
-      if (csrfToken) {
-        cfg.headers["X-CSRFToken"] = csrfToken;
-        console.log("🔒 CSRF Token sent:", csrfToken.substring(0, 10) + "...");
-      } else {
-        console.warn("⚠️ CSRF token missing for state-changing request");
-      }
-    }
-
-    return cfg;
-  });
-
-  // Enhanced response interceptor with CSRF error handling
-  instance.interceptors.response.use(
-    (response) => {
-      console.log(
-        `✅ ${response.config.method?.toUpperCase()} ${
-          response.config.url
-        } success:`,
-        response.status,
-      );
-      return response;
-    },
-    async (error) => {
-      console.error(`❌ API Error:`, {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        message: error.message,
-      });
-
-      // Handle CSRF errors (403 Forbidden is common for CSRF failures)
-      if (error.response?.status === 403 && error.config) {
-        console.log("🔄 Possible CSRF error, retrying with fresh token...");
-
-        // Fetch fresh CSRF token
-        const newCsrfToken = await fetchCsrfToken(true); // force refresh
-
-        if (newCsrfToken) {
-          // Retry the request with new CSRF token
-          error.config.headers["X-CSRFToken"] = newCsrfToken;
-          console.log("🔄 Retrying request with new CSRF token");
-          return instance.request(error.config);
+        if (response.data && response.data.results) {
+          allInterviews = [...allInterviews, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
         }
       }
 
-      // Handle authentication errors
-      if (error.response?.status === 401) {
-        console.error("Unauthenticated – logging out");
-        removeToken();
-        window.location.href = "/login";
-      }
-
-      return Promise.reject(error);
-    },
-  );
-
-  return instance;
-};
-
-/* HRMS API (all employee / interview / provision endpoints) */
-export const hrmsApi = createInstance(getHRMSBaseUrl());
-
-/* Chat API (kept separate – different base URL) */
-export const chatApi = createInstance(getBackendURL());
-
-/* -------------------------------------------------------------------------- */
-/*  3.  DEBUG / TEST HELPERS                                                 */
-/* -------------------------------------------------------------------------- */
-export const debugAuth = () => {
-  const token = localStorage.getItem("token");
-  const username = localStorage.getItem("username");
-  const mode = localStorage.getItem("mode");
-  const permissions = localStorage.getItem("permissions");
-
-  console.log("AUTH DEBUG:", { token: !!token, username, mode, permissions });
-  return { token: !!token, username, mode, permissions };
-};
-
-export const testAuth = () => chatApi.post("/api/auth/test/", { test: "data" });
-export const testChatEndpoint = () => chatApi.get("/api/chat/conversations/");
-export const testHRMSEndpoint = () => hrmsApi.get("employees/");
-
-/* -------------------------------------------------------------------------- */
-/*  4.  AUTHENTICATION                                                       */
-export const loginUser = async (payload) => {
-  const { username, password, employee_id, designation, department, email } =
-    payload;
-
-  const resp = await fetch(`${getBackendURL()}/users/login/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: username?.trim(),
-      password: password?.trim(),
-      employee_id: employee_id?.trim(),
-      designation: designation?.trim() || "",
-      department: department?.trim() || "",
-      email: email?.trim() || "",
-    }),
-  });
-
-  if (!resp.ok) {
-    let msg = "Login failed";
-    try {
-      const e = await resp.json();
-      msg = e.error || e.detail || msg;
-    } catch {}
-    throw new Error(msg);
-  }
-
-  const data = await resp.json();
-
-  console.log("✅ Login response data:", data);
-
-  setToken(data.token);
-
-  // Enhanced storage function with reporting_leader
-  const store = (k, v) => {
-    if (v !== undefined && v !== null && v !== "") {
-      localStorage.setItem(k, v.toString());
-      console.log(`💾 Stored ${k}:`, v);
+      return {
+        data: allInterviews,
+        pagination: { count: allInterviews.length },
+      };
     } else {
-      console.warn(`⚠️ No value for ${k}`);
-      localStorage.removeItem(k); // Remove if empty
-    }
-  };
-
-  // Store all user data including employee_db_id and reporting_leader
-  store("username", data.username);
-  store("user_id", data.user_id);
-  store("employee_id", data.employee_id);
-  store("employee_db_id", data.employee_db_id);
-  store("employee_name", data.employee_name);
-  store("designation", data.designation);
-  store("department", data.department);
-  store("email", data.email || data.username);
-  store("mode", data.mode || "restricted");
-  store("permissions", JSON.stringify(data.permissions || {}));
-
-  // CRITICAL: Add reporting leader information
-  store("reporting_leader", data.reporting_leader);
-
-  console.log("📋 Final stored data:", {
-    employee_id: localStorage.getItem("employee_id"),
-    employee_db_id: localStorage.getItem("employee_db_id"),
-    employee_name: localStorage.getItem("employee_name"),
-    designation: localStorage.getItem("designation"),
-    department: localStorage.getItem("department"),
-    reporting_leader: localStorage.getItem("reporting_leader"),
-  });
-
-  return data;
-};
-
-/* -------------------------------------------------------------------------- */
-/*  5.  PERFORMANCE APPRAISAL APIs - ADDED SECTION                          */
-/* -------------------------------------------------------------------------- */
-export const getPerformanceAppraisals = () =>
-  hrmsApi.get("performance_appraisals/");
-
-export const getPerformanceAppraisalById = (id) =>
-  hrmsApi.get(`performance_appraisals/${id}/`);
-
-export const createPerformanceAppraisal = (data) =>
-  hrmsApi.post("performance_appraisals/", data);
-
-// Use separate function instead of alias to avoid circular dependency
-export const addPerformanceAppraisal = (data) =>
-  hrmsApi.post("performance_appraisals/", data);
-
-export const updatePerformanceAppraisal = (id, data) =>
-  hrmsApi.patch(`performance_appraisals/${id}/`, data);
-
-export const deletePerformanceAppraisal = (id) =>
-  hrmsApi.delete(`performance_appraisals/${id}/`);
-
-// In employeeApi.js - REPLACE the existing function
-// In your api/employeeApi.js file
-// In api/employeeApi.js - Add these functions
-export const getPerformanceAppraisalsByEmployeeId = async (employeeId) => {
-  try {
-    console.log(`🔍 API: Fetching appraisals for employee ${employeeId}`);
-
-    // Try the custom endpoint first
-    const response = await api.get(
-      `/performance-appraisals/by_employee/?employee_id=${employeeId}`,
-    );
-
-    console.log(`📊 API Response for ${employeeId}:`, response.data);
-    return response;
-  } catch (error) {
-    console.error(
-      `❌ Custom endpoint failed for employee ${employeeId}:`,
-      error,
-    );
-
-    // Fallback: Use main endpoint with query parameter
-    try {
-      console.log("🔄 Falling back to main endpoint with filter...");
-      const response = await api.get(
-        `/performance-appraisals/?employee_id=${employeeId}`,
-      );
-      console.log(`📊 Fallback response for ${employeeId}:`, response.data);
-      return response;
-    } catch (fallbackError) {
-      console.error(
-        `❌ Fallback also failed for employee ${employeeId}:`,
-        fallbackError,
+      const response = await hrmsApi.get(
+        `interviews/?page=${page}&page_size=${pageSize}`,
       );
 
-      // Last resort: Get all and filter client-side
-      try {
-        console.log("🔄 Last resort: Client-side filtering...");
-        const allResponse = await getPerformanceAppraisals();
-        if (allResponse.data) {
-          const filtered = allResponse.data.filter(
-            (appraisal) => appraisal.employee_id === employeeId,
-          );
-          console.log(`📊 Client-side filtered for ${employeeId}:`, filtered);
-          return { data: filtered };
-        }
-        return { data: [] };
-      } catch (finalError) {
-        console.error("❌ All methods failed:", finalError);
-        throw error;
-      }
-    }
-  }
-};
-
-// Helper function to get increment history
-export const getIncrementHistory = async (employeeId) => {
-  try {
-    const response = await getPerformanceAppraisalsByEmployeeId(employeeId);
-
-    if (response.data && Array.isArray(response.data)) {
-      // Filter only approved increments
-      const incrementHistory = response.data.filter(
-        (appraisal) =>
-          appraisal.increment === true && appraisal.increment_approved === true,
-      );
-
-      console.log(`💰 Increment history for ${employeeId}:`, incrementHistory);
-      return incrementHistory;
-    }
-
-    return [];
-  } catch (error) {
-    console.error(
-      `❌ Error getting increment history for ${employeeId}:`,
-      error,
-    );
-    return [];
-  }
-};
-// In employeeApi.js - Fix the approveIncrement function
-export const approveIncrement = async (appraisalId) => {
-  try {
-    console.log("📡 Approving increment for ID:", appraisalId);
-
-    // Call the custom action endpoint - it should be POST to approve_increment/
-    const response = await hrmsApi.post(
-      `performance_appraisals/${appraisalId}/approve_increment/`,
-      {}, // Empty body since we don't need to send data for approval
-    );
-
-    console.log("✅ API Response:", response.data);
-    return response.data;
-  } catch (error) {
-    console.error("❌ API Error in approveIncrement:", error);
-    console.error("❌ Error details:", error.response?.data);
-    throw error;
-  }
-};
-
-// In employeeApi.js - Add this function after the approveIncrement function
-
-/* -------------------------------------------------------------------------- */
-/*  APPROVE DESIGNATION API                                                  */
-/* -------------------------------------------------------------------------- */
-export const approveDesignation = async (appraisalId) => {
-  try {
-    console.log("📡 Approving designation for ID:", appraisalId);
-
-    // Call the custom action endpoint for designation approval
-    const response = await hrmsApi.post(
-      `performance_appraisals/${appraisalId}/approve_designation/`,
-      {}, // Empty body since we don't need to send data for approval
-    );
-
-    console.log("✅ API Response:", response.data);
-    return response.data;
-  } catch (error) {
-    console.error("❌ API Error in approveDesignation:", error);
-    console.error("❌ Error details:", error.response?.data);
-    throw error;
-  }
-};
-
-/* -------------------------------------------------------------------------- */
-/*  TERMINATED EMPLOYEES ARCHIVE APIs                                        */
-/* -------------------------------------------------------------------------- */
-
-// Get all terminated employees (archives)
-export const getTerminatedEmployees = () =>
-  hrmsApi.get("terminated_employees/");
-
-// Get terminated employee by ID
-export const getTerminatedEmployeeById = (id) =>
-  hrmsApi.get(`terminated_employees/${id}/`);
-
-// Search terminated employees with filters
-export const searchTerminatedEmployees = (params = {}) => {
-  const queryParams = new URLSearchParams();
-
-  if (params.search) queryParams.append("search", params.search);
-  if (params.department) queryParams.append("department", params.department);
-  if (params.company) queryParams.append("company", params.company);
-  if (params.termination_type)
-    queryParams.append("termination_type", params.termination_type);
-  if (params.status) queryParams.append("status", params.status);
-  if (params.start_date) queryParams.append("start_date", params.start_date);
-  if (params.end_date) queryParams.append("end_date", params.end_date);
-  if (params.page) queryParams.append("page", params.page);
-  if (params.page_size) queryParams.append("page_size", params.page_size);
-
-  const queryString = queryParams.toString();
-  const url = queryString
-    ? `terminated_employees/?${queryString}`
-    : "terminated_employees/";
-
-  return hrmsApi.get(url);
-};
-
-// Restore terminated employee (move back to active)
-export const restoreTerminatedEmployee = (archiveId) =>
-  hrmsApi.post(`terminated_employees/${archiveId}/restore/`, {});
-
-// Get termination statistics
-export const getTerminationStats = () =>
-  hrmsApi.get("terminated_employees/stats/");
-
-// Export terminated employees data
-export const exportTerminatedEmployees = (format = "json") =>
-  hrmsApi.get(`terminated_employees/export/?format=${format}`, {
-    responseType: format === "csv" ? "blob" : "json",
-  });
-
-// Update termination status (exit interview, clearance, settlement)
-export const updateTerminationStatus = (archiveId, statusData) =>
-  hrmsApi.patch(`terminated_employees/${archiveId}/update_status/`, statusData);
-
-// Bulk delete terminated employee records
-export const bulkDeleteTerminatedEmployees = (archiveIds) =>
-  hrmsApi.post("terminated_employees/bulk_delete/", { ids: archiveIds });
-
-// Get termination trends by month
-export const getTerminationTrends = (startDate, endDate) => {
-  const params = {};
-  if (startDate) params.start_date = startDate;
-  if (endDate) params.end_date = endDate;
-
-  return hrmsApi.get("terminated_employees/trends/", { params });
-};
-
-// Get department-wise termination statistics
-export const getDepartmentTerminationStats = () =>
-  hrmsApi.get("terminated_employees/department_stats/");
-
-/* -------------------------------------------------------------------------- */
-/*  6.  EMPLOYEE APIs                                                        */
-/* -------------------------------------------------------------------------- */
-export const getEmployees = () => hrmsApi.get("employees/");
-export const getEmployeeById = (id) => hrmsApi.get(`employees/${id}/`);
-export const addEmployee = (data) => hrmsApi.post("employees/", data);
-export const updateEmployee = (id, data) =>
-  hrmsApi.patch(`employees/${id}/`, data);
-export const deleteEmployee = async (id, terminationData) => {
-  try {
-    const response = await hrmsApi.delete(`employees/${id}/terminate/`, {
-      data: terminationData, // Send termination data in body
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error terminating employee:", error);
-    throw error;
-  }
-};
-
-/* ---- image & customers (partial updates) ---- */
-export const updateEmployeeImage = (id, formData) => {
-  console.log("=== updateEmployeeImage DEBUG ===");
-  console.log("Employee ID:", id);
-  console.log("FormData received:", formData);
-
-  // Log FormData contents
-  if (formData instanceof FormData) {
-    for (let [key, value] of formData.entries()) {
-      console.log(`FormData - ${key}:`, value);
-    }
-  }
-
-  console.log("=== END DEBUG ===");
-
-  return hrmsApi.patch(`employees/${id}/`, formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-};
-
-export const updateEmployeeCustomers = (id, customerIds) => {
-  console.log("=== updateEmployeeCustomers DEBUG ===");
-  console.log("Employee ID:", id);
-  console.log("Customer IDs received:", customerIds);
-  console.log("Customer IDs type:", typeof customerIds);
-
-  // Ensure we have an array of numbers
-  const customersArray = Array.isArray(customerIds)
-    ? customerIds.map((id) => parseInt(id)).filter((id) => !isNaN(id))
-    : [];
-
-  console.log("Processed customer IDs:", customersArray);
-
-  // Try multiple payload formats to see what works
-  const payload = {
-    customers: customersArray,
-  };
-
-  console.log("Final payload being sent:", payload);
-  console.log("=== END DEBUG ===");
-
-  return hrmsApi.patch(`employees/${id}/update_customers/`, payload);
-};
-
-// In employeeApi.js - UPDATE the getEmployeeLeaves function
-export const getEmployeeLeaves = async () => {
-  try {
-    console.log("🔍 Getting leaves for current user...");
-
-    // Get current user info
-    const username = localStorage.getItem("username");
-    const employeeId = localStorage.getItem("employee_id");
-    const employeeDbId = localStorage.getItem("employee_db_id");
-    const permissions = JSON.parse(localStorage.getItem("permissions") || "{}");
-
-    console.log("📋 User info:", {
-      username,
-      employeeId,
-      employeeDbId,
-      hasFullAccess: permissions.full_access,
-    });
-
-    // Check if user has full access (but exclude Sohel from seeing all leaves)
-    const hasFullAccess = permissions.full_access === true;
-    const isSohel = username === "Sohel";
-
-    let url = "employee_leaves/";
-
-    // If user has full access AND is NOT Sohel, get all leaves
-    if (hasFullAccess && !isSohel) {
-      console.log("👑 Full access user (not Sohel) - getting all leaves");
-    } else {
-      // For regular users and Sohel, only get their own leaves
-      console.log(
-        `👤 ${isSohel ? "Sohel (restricted)" : "Regular user"} - getting own leaves`,
-      );
-
-      if (!employeeId && !employeeDbId) {
-        console.error("❌ No employee ID found in localStorage");
-        return { data: [] };
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
       }
 
-      // Add employee_id as query parameter
-      const params = new URLSearchParams();
-      if (employeeId) params.append("employee_id", employeeId);
-      if (employeeDbId) params.append("employee_db_id", employeeDbId);
-
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
     }
-
-    console.log("🌐 API URL:", url);
-
-    const response = await hrmsApi.get(url);
-
-    console.log("📋 API Response:", {
-      status: response.status,
-      dataCount: Array.isArray(response.data)
-        ? response.data.length
-        : "unknown",
-      data: response.data,
-    });
-
-    // Filter response to ensure only current user's leaves (for regular users and Sohel)
-    let leavesData = [];
-    if (response.data) {
-      if (Array.isArray(response.data)) {
-        leavesData = response.data;
-      } else if (
-        response.data.results &&
-        Array.isArray(response.data.results)
-      ) {
-        leavesData = response.data.results;
-      } else {
-        leavesData = [response.data];
-      }
-    }
-
-    // If user has full access AND is NOT Sohel, return all leaves
-    if (hasFullAccess && !isSohel) {
-      console.log(
-        `✅ Returning all ${leavesData.length} leaves for full access user`,
-      );
-      return { ...response, data: leavesData };
-    }
-
-    // For regular users and Sohel, filter to only their own leaves
-    console.log("🔍 Filtering leaves for regular user/Sohel...");
-    const filteredLeaves = leavesData.filter((leave) => {
-      const leaveEmployeeId =
-        leave.employee?.employee_id || leave.employee_code || leave.employee_id;
-      const leaveEmployeeDbId = leave.employee?.id || leave.employee;
-      const leaveEmployeeName = leave.employee_name || leave.employee?.name;
-
-      const matches =
-        leaveEmployeeId === employeeId ||
-        leaveEmployeeDbId?.toString() === employeeDbId ||
-        (leaveEmployeeName &&
-          leaveEmployeeName === localStorage.getItem("employee_name"));
-
-      if (!matches) {
-        console.log(`❌ Filtered out leave ${leave.id}:`, {
-          leaveEmployeeId,
-          leaveEmployeeDbId,
-          leaveEmployeeName,
-          ourEmployeeId: employeeId,
-          ourEmployeeDbId: employeeDbId,
-          ourEmployeeName: localStorage.getItem("employee_name"),
-        });
-      }
-
-      return matches;
-    });
-
-    console.log(
-      `✅ Filtered leaves: ${filteredLeaves.length} out of ${leavesData.length}`,
-    );
-
-    return { ...response, data: filteredLeaves };
   } catch (error) {
-    console.error("❌ Error fetching leaves:", error);
-    console.error("❌ Error details:", error.response?.data);
-
-    // Return empty array on error to prevent frontend crashes
+    console.error("❌ Error fetching interviews:", error);
     return { data: [] };
   }
 };
 
-// In employeeApi.js - Update the addEmployeeLeave function
-export const addEmployeeLeave = async (data) => {
-  try {
-    console.log("📝 Creating leave request with data:", data);
-
-    // Get current user's reporting leader from localStorage
-    const reportingLeader = localStorage.getItem("reporting_leader");
-    console.log("👤 Current user reporting leader:", reportingLeader);
-
-    // Ensure employee field is properly formatted and include reporting_leader
-    const leaveData = {
-      ...data,
-      employee: parseInt(data.employee), // Ensure it's a number
-      employee_code: data.employee_code || localStorage.getItem("employee_id"),
-      status: data.status || "pending",
-      reporting_leader: reportingLeader || "", // CRITICAL: Add reporting leader
-    };
-
-    console.log("📦 Final API payload:", leaveData);
-
-    const response = await hrmsApi.post("employee_leaves/", leaveData);
-    console.log("✅ Leave created successfully:", response.data);
-    return response;
-  } catch (error) {
-    console.error("❌ Error creating leave:", error);
-    console.error("Error details:", error.response?.data);
-    throw error;
-  }
-};
-
-/* -------------------------------------------------------------------------- */
-/*  7.  CUSTOMER APIs - ADDED MISSING FUNCTION                              */
-/* -------------------------------------------------------------------------- */
-export const getAllCustomers = () => hrmsApi.get("customers/");
-export const getCustomerById = (id) => hrmsApi.get(`customers/${id}/`);
-
-/* -------------------------------------------------------------------------- */
-/*  8.  LEAVE BALANCES                                                       */
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-/*  8.  LEAVE BALANCES - FIXED VERSION                                       */
-/* -------------------------------------------------------------------------- */
-
-// In employeeApi.js - Replace the getEmployeeLeaveBalances function
-export const getEmployeeLeaveBalances = async (employeeId = null) => {
-  try {
-    const effectiveEmployeeId =
-      employeeId || localStorage.getItem("employee_id");
-    console.log("🔍 Fetching balances for employee:", effectiveEmployeeId);
-
-    const url = `employee_leave_balances/?employee_id=${effectiveEmployeeId}`;
-    const response = await hrmsApi.get(url);
-
-    console.log("📊 Raw balances response:", response.data);
-
-    // Return the array directly instead of transforming to single object
-    if (response.data && Array.isArray(response.data)) {
-      console.log("✅ Returning array of balances:", response.data.length);
-      return response;
-    } else {
-      console.log("⚠️ No balance records found, returning empty array");
-      return {
-        ...response,
-        data: [],
-      };
-    }
-  } catch (error) {
-    console.error("❌ Error in getEmployeeLeaveBalances:", error);
-    // Return empty array on error
-    return {
-      data: [],
-    };
-  }
-};
-
-// In employeeApi.js - Add this function
-
-export const getMyLeaveBalance = async () => {
-  try {
-    console.log("🔍 Getting my leave balance (direct endpoint)...");
-    const response = await hrmsApi.get("get_my_leave_balance/");
-    console.log("✅ My leave balance:", response.data);
-    return response;
-  } catch (error) {
-    console.error("❌ Error getting my leave balance:", error);
-    throw error;
-  }
-};
-
-// Add to employeeApi.js
-export const debugEmployeeLeaves = async () => {
-  try {
-    console.log("🔍 DEBUG: Fetching all leaves for debugging...");
-    const response = await hrmsApi.get("debug_all_leaves/");
-    console.log("📊 DEBUG - All leaves:", response.data);
-    return response;
-  } catch (error) {
-    console.error("❌ Debug error:", error);
-    throw error;
-  }
-};
-
-// Add to employeeApi.js - in the DEBUG / TEST HELPERS section
-
-/* -------------------------------------------------------------------------- */
-/*  DEBUG & DIAGNOSTIC APIs                                                  */
-/* -------------------------------------------------------------------------- */
-
-export const debugAllLeaves = () => hrmsApi.get("debug_all_leaves/");
-
-export const debugEmployees = () => hrmsApi.get("debug_employees/");
-
-export const debugUserEmployeeMapping = () =>
-  hrmsApi.get("debug_user_employee_mapping/");
-
-export const checkUserEmployeeMapping = () =>
-  hrmsApi.get("check_user_employee_mapping/");
-
-// In employeeApi.js - fix the debugCurrentUserLeaves function
-export const debugCurrentUserLeaves = async () => {
-  try {
-    console.log("🔍 DEBUG: Fetching current user leaves...");
-    const response = await hrmsApi.get("api/debug_current_user_leaves/"); // Fixed URL
-    console.log("📊 DEBUG - Current user leaves:", response.data);
-    return response;
-  } catch (error) {
-    console.error("❌ Debug error:", error);
-    throw error;
-  }
-};
-// Add this helper function to employeeApi.js
-const initializeLeaveBalancesForEmployee = async (employeeDbId) => {
-  try {
-    console.log("🔄 Initializing leave balances for employee:", employeeDbId);
-    const response = await hrmsApi.post("initialize_leave_balances/", {
-      employee_db_id: employeeDbId,
-    });
-    console.log("✅ Leave balances initialized:", response.data);
-    return response.data;
-  } catch (error) {
-    console.error("❌ Error initializing leave balances:", error);
-    throw error;
-  }
-};
-/* -------------------------------------------------------------------------- */
-/*  9.  PERMISSION CHECKS                                                    */
-/* -------------------------------------------------------------------------- */
-const getPerms = () => JSON.parse(localStorage.getItem("permissions") || "{}");
-export const hasFullAccess = () => getPerms().full_access === true;
-export const canAccessLeaveRequests = () => getPerms().leave_requests === true;
-export const canAccessHRWork = () => getPerms().hr_work === true;
-
-/* -------------------------------------------------------------------------- */
-/*  10.  CHAT APIs                                                            */
-/* -------------------------------------------------------------------------- */
-export const createDirectConversation = (userId) =>
-  chatApi.post("/api/chat/conversations/", {
-    user_id: userId,
-    is_group: false,
-  });
-
-export const addMemberToConversation = (convId, userId) =>
-  chatApi.post(`/api/chat/conversations/${convId}/add_member/`, {
-    user_id: userId,
-  });
-
-export const sendMessage = (convId, content) =>
-  chatApi.post("/api/chat/messages/", { conversation: convId, content });
-
-export const fetchMessages = (convId) =>
-  chatApi.get(`/api/chat/conversations/${convId}/messages/`);
-
-export const fetchConversations = () => chatApi.get("/api/chat/conversations/");
-export const fetchUsers = () => chatApi.get("/api/chat/users/");
-
-export const createGroupConversation = (title, members) =>
-  chatApi.post("/api/chat/conversations/", { title, is_group: true, members });
-
-/* -------------------------------------------------------------------------- */
-/*  11.  COMPANY / DEPARTMENT APIs                                           */
-/* -------------------------------------------------------------------------- */
-export const getCompanies = () => hrmsApi.get("tad_groups/");
-export const getCompanyById = (id) => hrmsApi.get(`tad_groups/${id}/`);
-export const getDepartments = () => hrmsApi.get("departments/");
-export const getDepartmentById = (id) => hrmsApi.get(`departments/${id}/`);
-export const getCustomers = () => hrmsApi.get("customers/");
-
-/* -------------------------------------------------------------------------- */
-/*  12.  NOTIFICATIONS / ATTENDANCE / LEAVE                                  */
-/* -------------------------------------------------------------------------- */
-export const getNotifications = () => hrmsApi.get("notifications/");
-
-// export const getEmployeeLeaves = () => hrmsApi.get("employee_leaves/");
-export const getEmployeeLeaveById = (id) =>
-  hrmsApi.get(`employee_leaves/${id}/`);
-
-export const deleteEmployeeLeave = (id) =>
-  hrmsApi.delete(`employee_leaves/${id}/`);
-
-// In employeeApi.js - Add to the ATTENDANCE APIs section
-
-// In employeeApi.js - Update the function
-export const getWeeklyAttendanceStats = (startDate, endDate) => {
-  return hrmsApi
-    .get("api/weekly_attendance_stats/", {
-      // Try with api/ prefix
-      params: {
-        start_date: startDate,
-        end_date: endDate,
-      },
-    })
-    .catch((error) => {
-      console.error("Error with api/ prefix, trying without...", error);
-      // Fallback to without api/ prefix
-      return hrmsApi.get("weekly_attendance_stats/", {
-        params: {
-          start_date: startDate,
-          end_date: endDate,
-        },
-      });
-    });
-};
-
-// In employeeApi.js - Add this function
-export const getTeamLeaves = async () => {
-  try {
-    console.log("🔍 Getting team leaves via dedicated endpoint...");
-    const response = await hrmsApi.get("team_leaves/");
-
-    return response;
-  } catch (error) {
-    return await getEmployeeLeaves();
-  }
-};
-
-// In employeeApi.js - Update the updateEmployeeLeave function
-export const updateEmployeeLeave = (id, data) => {
-  console.log("📤 Updating leave with ID:", id);
-  console.log("📦 Update data:", data);
-
-  return hrmsApi.patch(`employee_leaves/${id}/`, data);
-};
-
-// In employeeApi.js - Add this function
-export const addTeamLeaderComment = (leaveId, comment) => {
-  console.log("💬 Adding team leader comment for leave:", leaveId);
-  console.log("📝 Comment:", comment);
-
-  return hrmsApi.post(`employee_leaves/${leaveId}/add_team_comment/`, {
-    teamleader: comment, // Match the field name in your model
-  });
-};
-
-// In employeeApi.js - Update the addEmployeeLeave function
-// export const addEmployeeLeave = async (data) => {
-//   try {
-//     console.log("📝 Creating leave request with data:", data);
-
-//     // Ensure employee field is properly formatted
-//     const leaveData = {
-//       ...data,
-//       employee: parseInt(data.employee), // Ensure it's a number
-//       employee_code: data.employee_code || localStorage.getItem("employee_id"),
-//       status: data.status || "pending"
-//     };
-
-//     console.log("📦 Final API payload:", leaveData);
-
-//     const response = await hrmsApi.post("employee_leaves/", leaveData);
-//     console.log("✅ Leave created successfully:", response.data);
-//     return response;
-//   } catch (error) {
-//     console.error("❌ Error creating leave:", error);
-//     console.error("Error details:", error.response?.data);
-//     throw error;
-//   }
-// };
-
-// CORRECT — use hrmsApi (same as all other employee endpoints)
-export const sendWelcomeEmail = (employeeId) => {
-  console.log("Sending welcome email for employee ID:", employeeId);
-  return hrmsApi.post(`employees/${employeeId}/send-welcome-email/`);
-};
-
-// Update in employeeApi.js - Fix the getEmployeeDetailsByCode function
-export const getEmployeeDetailsByCode = async (employeeCode) => {
-  try {
-    console.log("🔍 Fetching employee details for code:", employeeCode);
-
-    const response = await hrmsApi.get(
-      `employees/?employee_id=${employeeCode}`,
-    );
-    console.log("✅ Employee search response count:", response.data.length);
-
-    if (response.data && response.data.length > 0) {
-      // Filter to find the EXACT employee with matching employee_id
-      const exactEmployee = response.data.find(
-        (emp) =>
-          emp.employee_id === employeeCode ||
-          emp.employee_id?.toString() === employeeCode?.toString(),
-      );
-
-      if (exactEmployee) {
-        console.log(
-          "🎯 Found exact employee:",
-          exactEmployee.name,
-          "-",
-          exactEmployee.designation,
-        );
-        return exactEmployee;
-      } else {
-        console.warn(
-          "⚠️ No exact match found for employee code:",
-          employeeCode,
-        );
-        console.log(
-          "📋 Available employees in response:",
-          response.data.map((emp) => ({
-            id: emp.id,
-            name: emp.name,
-            employee_id: emp.employee_id,
-            designation: emp.designation,
-          })),
-        );
-      }
-    } else {
-      console.warn("⚠️ No employees found in response");
-    }
-
-    return null;
-  } catch (error) {
-    console.error("❌ Error fetching employee details:", error);
-    return null;
-  }
-};
-
-/* -------------------------------------------------------------------------- */
-/*  13.  ATTENDANCE APIs                                                     */
-/* -------------------------------------------------------------------------- */
-export const getAttendance = () => hrmsApi.get("attendance/");
-export const getAttendanceById = (id) => hrmsApi.get(`attendance/${id}/`);
-export const addAttendance = (data) => hrmsApi.post("attendance/", data);
-export const updateAttendance = (id, data) =>
-  hrmsApi.patch(`attendance/${id}/`, data);
-export const deleteAttendance = (id) => hrmsApi.delete(`attendance/${id}/`);
-export const deleteAllAttendance = () =>
-  hrmsApi.delete("attendance/delete_all/");
-
-/* -------------------------------------------------------------------------- */
-/*  14.  INTERVIEWS                                                          */
-/* -------------------------------------------------------------------------- */
-export const getInterviews = () => hrmsApi.get("interviews/");
 export const getInterviewById = (id) => hrmsApi.get(`interviews/${id}/`);
 export const addInterview = (data) => hrmsApi.post("interviews/", data);
 export const updateInterview = (id, data) =>
@@ -1269,10 +1990,134 @@ export const updateInterview = (id, data) =>
 export const deleteInterview = (id) => hrmsApi.delete(`interviews/${id}/`);
 
 /* -------------------------------------------------------------------------- */
-/*  15.  CVs                                                                 */
+/*  20.  CVs                                                                 */
 /* -------------------------------------------------------------------------- */
-export const getCVs = () => hrmsApi.get("cvs/");
+
+/**
+ * Get CVs with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {Object|boolean} options - Filter params or allPages flag
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getCVs = async (page = 1, pageSize = 100, options = {}) => {
+  try {
+    let allPages = false;
+    let filters = {};
+
+    if (typeof options === "boolean") {
+      allPages = options;
+    } else if (typeof options === "object") {
+      allPages = options.allPages || false;
+      filters = options.filters || {};
+    }
+
+    if (allPages) {
+      let allCVs = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: currentPage,
+          page_size: pageSize,
+          ...filters,
+        });
+
+        const url = `cvs/?${params.toString()}`;
+        console.log(`📡 Fetching CVs from: ${url}`);
+
+        const response = await hrmsApi.get(url);
+
+        if (response.data && response.data.results) {
+          allCVs = [...allCVs, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          const data = extractDataFromResponse(response);
+          if (data.length > 0) {
+            allCVs = [...allCVs, ...data];
+          }
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Total ${allCVs.length} CVs fetched`);
+      return {
+        data: allCVs,
+        pagination: {
+          count: allCVs.length,
+          total_pages: 1,
+        },
+      };
+    } else {
+      const params = new URLSearchParams({
+        page: page,
+        page_size: pageSize,
+        ...filters,
+      });
+
+      const url = `cvs/?${params.toString()}`;
+      console.log(`📡 Fetching CVs from: ${url}`);
+
+      const response = await hrmsApi.get(url);
+
+      if (response.data && response.data.results) {
+        console.log(
+          `📋 Page ${page}: ${response.data.results.length} CVs (Total: ${response.data.count})`,
+        );
+
+        return {
+          ...response,
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      // Fallback for non-paginated response
+      const data = extractDataFromResponse(response);
+      return {
+        ...response,
+        data: data,
+        pagination: {
+          count: data.length,
+          next: null,
+          previous: null,
+          current_page: 1,
+          page_size: data.length,
+          total_pages: 1,
+        },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching CVs:", error);
+    return {
+      data: [],
+      pagination: {
+        count: 0,
+        current_page: 1,
+        page_size: pageSize,
+        total_pages: 1,
+      },
+    };
+  }
+};
+
+// Function to get ALL CVs (all pages) - kept for backward compatibility
+export const getAllCVs = async (filters = {}) => {
+  const result = await getCVs(1, 100, { allPages: true, filters });
+  return result.data;
+};
+
 export const getCVById = (id) => hrmsApi.get(`cvs/${id}/`);
+
 export const addCV = (data) => {
   const fd = new FormData();
   fd.append("employee", data.employee);
@@ -1285,14 +2130,79 @@ export const addCV = (data) => {
   fd.append("phone", data.phone ?? "");
   return hrmsApi.post("cvs/", fd);
 };
+
 export const updateCV = (id, data) => hrmsApi.patch(`cvs/${id}/`, data);
 export const deleteCV = (id) => hrmsApi.delete(`cvs/${id}/`);
 
 /* -------------------------------------------------------------------------- */
-/*  16.  PROVISIONS (IT / Finance / Admin)                                   */
+/*  21.  PROVISIONS (IT / Finance / Admin)                                   */
 /* -------------------------------------------------------------------------- */
-const provision = (base) => ({
-  list: () => hrmsApi.get(`${base}/`),
+
+/**
+ * Generic provision API creator with pagination
+ * @param {string} base - Base endpoint
+ * @returns {Object} - API functions with pagination
+ */
+const createProvisionApi = (base) => ({
+  list: async (page = 1, pageSize = 100, allPages = false) => {
+    try {
+      if (allPages) {
+        let allItems = [];
+        let currentPage = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+          const response = await hrmsApi.get(
+            `${base}/?page=${currentPage}&page_size=${pageSize}`,
+          );
+
+          if (response.data && response.data.results) {
+            allItems = [...allItems, ...response.data.results];
+            hasMore = response.data.next ? true : false;
+            currentPage++;
+          } else {
+            const data = extractDataFromResponse(response);
+            if (data.length > 0) {
+              allItems = [...allItems, ...data];
+            }
+            hasMore = false;
+          }
+        }
+
+        return {
+          data: allItems,
+          pagination: { count: allItems.length },
+        };
+      } else {
+        const response = await hrmsApi.get(
+          `${base}/?page=${page}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          return {
+            data: response.data.results,
+            pagination: {
+              count: response.data.count,
+              next: response.data.next,
+              previous: response.data.previous,
+              current_page: page,
+              page_size: pageSize,
+              total_pages: Math.ceil(response.data.count / pageSize),
+            },
+          };
+        }
+
+        const data = extractDataFromResponse(response);
+        return {
+          data: data,
+          pagination: { count: data.length },
+        };
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching ${base}:`, error);
+      return { data: [] };
+    }
+  },
   get: (id) => hrmsApi.get(`${base}/${id}/`),
   add: (data) => hrmsApi.post(`${base}/`, data),
   update: (id, data) => hrmsApi.patch(`${base}/${id}/`, data),
@@ -1305,7 +2215,7 @@ export const {
   add: addITProvision,
   update: updateITProvision,
   del: deleteITProvision,
-} = provision("it_provisions");
+} = createProvisionApi("it_provisions");
 
 export const {
   list: getFinanceProvisions,
@@ -1313,7 +2223,7 @@ export const {
   add: addFinanceProvision,
   update: updateFinanceProvision,
   del: deleteFinanceProvision,
-} = provision("finance_provisions");
+} = createProvisionApi("finance_provisions");
 
 export const {
   list: getAdminProvisions,
@@ -1321,10 +2231,10 @@ export const {
   add: addAdminProvision,
   update: updateAdminProvision,
   del: deleteAdminProvision,
-} = provision("admin_provisions");
+} = createProvisionApi("admin_provisions");
 
 /* -------------------------------------------------------------------------- */
-/*  17.  TERMINATION APIs                                                    */
+/*  22.  TERMINATION APIs                                                     */
 /* -------------------------------------------------------------------------- */
 export const addEmployeeTermination = (data) =>
   hrmsApi.post("employee_termination/", data);
@@ -1334,20 +2244,86 @@ export const updateEmployeeTermination = (id, data) =>
   hrmsApi.put(`employee_termination/${id}/`, data);
 
 /* -------------------------------------------------------------------------- */
-/*  18.  LETTER SEND & EMAIL LOGS                                            */
+/*  23.  LETTER SEND & EMAIL LOGS                                            */
 /* -------------------------------------------------------------------------- */
-export const getLetterSend = () => hrmsApi.get("letter_send/");
+
+/**
+ * Get letter send records with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getLetterSend = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allLetters = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `letter_send/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allLetters = [...allLetters, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allLetters,
+        pagination: { count: allLetters.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `letter_send/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching letter send:", error);
+    return { data: [] };
+  }
+};
+
 export const getLetterSendById = (id) => hrmsApi.get(`letter_send/${id}/`);
+
 export const addLetterSend = (data) => {
   const fd = new FormData();
-
   if (data.get("name")) fd.append("name", data.get("name"));
   if (data.get("email")) fd.append("email", data.get("email"));
   if (data.get("letter_file"))
     fd.append("letter_file", data.get("letter_file"));
   if (data.get("letter_type"))
     fd.append("letter_type", data.get("letter_type"));
-
   return hrmsApi.post("letter_send/", fd, {
     headers: {
       "Content-Type": "multipart/form-data",
@@ -1365,61 +2341,174 @@ export const checkOfferLetter = async (email) => {
     return { offer_letter_sent: false };
   }
 };
+
 export const updateLetterSend = (id, data) =>
   hrmsApi.patch(`letter_send/${id}/`, data);
 export const deleteLetterSend = (id) => hrmsApi.delete(`letter_send/${id}/`);
 
-export const getEmailLogs = () => hrmsApi.get("email_logs/");
+/**
+ * Get email logs with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getEmailLogs = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allLogs = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `email_logs/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allLogs = [...allLogs, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allLogs,
+        pagination: { count: allLogs.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `email_logs/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching email logs:", error);
+    return { data: [] };
+  }
+};
+
 export const deleteAllEmailLogs = () =>
   hrmsApi.delete("email_logs/delete_all/");
 
 /* -------------------------------------------------------------------------- */
-/*  19.  LEAVE TYPES                                                         */
+/*  24.  LEAVE TYPES                                                          */
 /* -------------------------------------------------------------------------- */
-export const getEmployeeLeaveTypes = () => hrmsApi.get("employee_leave_types/");
+
+/**
+ * Get leave types with pagination support
+ * @param {number} page - Page number
+ * @param {number} pageSize - Items per page
+ * @param {boolean} allPages - Whether to fetch all pages
+ * @returns {Promise<Object>} - Response with data and pagination
+ */
+export const getEmployeeLeaveTypes = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allTypes = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `employee_leave_types/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allTypes = [...allTypes, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allTypes,
+        pagination: { count: allTypes.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `employee_leave_types/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching leave types:", error);
+    return { data: [] };
+  }
+};
+
 export const updateEmployeeLeaveType = (id, data) =>
   hrmsApi.put(`employee_leave_types/${id}/`, data);
 
 /* -------------------------------------------------------------------------- */
-/*  20.  OFFER-LETTER CHECK                                                  */
-/* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-/*  UPDATE INTERVIEW OFFER LETTER STATUS                                     */
-/* -------------------------------------------------------------------------- */
-
-/* -------------------------------------------------------------------------- */
-/*  UPDATE INTERVIEW OFFER LETTER STATUS                                     */
+/*  25.  OFFER-LETTER CHECK                                                   */
 /* -------------------------------------------------------------------------- */
 export const updateInterviewOfferLetterStatus = (interviewId, email) =>
   hrmsApi.patch(`interviews/${interviewId}/`, {
     offer_letter_sent: true,
-    email: email, // Ensure email is included for tracking
+    email: email,
   });
 
-// Add to employeeApi.js - Debug function
 export const debugCurrentUserData = async () => {
   try {
     console.log("🔍 DEBUG CURRENT USER DATA:");
-    console.log("📋 LocalStorage data:", {
-      employee_id: localStorage.getItem("employee_id"),
-      employee_db_id: localStorage.getItem("employee_db_id"),
-      employee_name: localStorage.getItem("employee_name"),
-      username: localStorage.getItem("username"),
-      user_id: localStorage.getItem("user_id"),
-    });
 
-    // Test API endpoints
-    const [leavesResponse, balancesResponse, debugResponse] = await Promise.all(
-      [
-        getEmployeeLeaves(),
-        getEmployeeLeaveBalances(),
+    const [leavesResponse, balancesResponse, debugResponse] =
+      await Promise.allSettled([
+        getEmployeeLeaves(1, 100, false),
+        getEmployeeLeaveBalances(null, false),
         hrmsApi.get("api/debug_current_user_leaves/"),
-      ],
-    );
-
-    console.log("📋 Leaves API response:", leavesResponse.data);
-    console.log("💰 Balances API response:", balancesResponse.data);
-    console.log("🐛 Debug leaves response:", debugResponse.data);
+      ]);
 
     return {
       localStorage: {
@@ -1427,9 +2516,14 @@ export const debugCurrentUserData = async () => {
         employee_db_id: localStorage.getItem("employee_db_id"),
         employee_name: localStorage.getItem("employee_name"),
       },
-      leaves: leavesResponse.data,
-      balances: balancesResponse.data,
-      debug: debugResponse.data,
+      leaves:
+        leavesResponse.status === "fulfilled" ? leavesResponse.value.data : [],
+      balances:
+        balancesResponse.status === "fulfilled"
+          ? balancesResponse.value.data
+          : [],
+      debug:
+        debugResponse.status === "fulfilled" ? debugResponse.value.data : null,
     };
   } catch (error) {
     console.error("❌ Debug error:", error);
@@ -1437,70 +2531,207 @@ export const debugCurrentUserData = async () => {
   }
 };
 
-// In employeeApi.js - REPLACE the getEmployeeLeaves function
-// export const getEmployeeLeaves = async () => {
-//   try {
-//     console.log("🔍 Getting employee leaves...");
-
-//     // Get employee_id from localStorage for better filtering
-//     const employeeId = localStorage.getItem("employee_id");
-//     const employeeDbId = localStorage.getItem("employee_db_id");
-
-//     console.log("📋 Using employee data:", {
-//       employeeId,
-//       employeeDbId
-//     });
-
-//     let url = "employee_leaves/";
-
-//     // Add employee_id as query parameter to help backend filtering
-//     if (employeeId) {
-//       url += `?employee_id=${employeeId}`;
-//     }
-
-//     console.log("🌐 API URL:", url);
-
-//     const response = await hrmsApi.get(url);
-
-//     console.log("📋 Leaves API response:", {
-//       status: response.status,
-//       data: response.data,
-//       count: Array.isArray(response.data) ? response.data.length : 'unknown',
-//       dataType: Array.isArray(response.data) ? 'array' : typeof response.data
-//     });
-
-//     // If data is not an array, try to extract from results or convert
-//     let leavesData = response.data;
-//     if (response.data && !Array.isArray(response.data)) {
-//       if (response.data.results && Array.isArray(response.data.results)) {
-//         leavesData = response.data.results;
-//         console.log("🔄 Extracted leaves from results:", leavesData.length);
-//       } else {
-//         leavesData = [response.data];
-//         console.log("🔄 Converted single object to array");
-//       }
-//     }
-
-//     console.log("✅ Final leaves data:", leavesData);
-//     return { ...response, data: leavesData };
-
-//   } catch (error) {
-//     console.error("❌ Error fetching leaves:", error);
-//     console.error("❌ Error details:", error.response?.data);
-
-//     // Return empty array on error to prevent frontend crashes
-//     return { data: [] };
-//   }
-// };
-
 /* -------------------------------------------------------------------------- */
-/*  21.  INVITE / MD SIR                                                     */
+/*  26.  INVITE / MD SIR                                                      */
 /* -------------------------------------------------------------------------- */
 export const sendInviteMail = (data) => hrmsApi.post("invitemail/", data);
 export const sendMdSirMail = (data) => hrmsApi.post("mdsir/", data);
 
 /* -------------------------------------------------------------------------- */
-/*  22.  FALLBACK RAW REQUEST (rarely needed)                                */
+/*  27.  STATIONERY MANAGEMENT APIs                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get stationery items with pagination support
+ */
+export const getStationeryItems = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allItems = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `stationery-items/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allItems = [...allItems, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allItems,
+        pagination: { count: allItems.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `stationery-items/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching stationery items:", error);
+    return { data: [] };
+  }
+};
+
+/**
+ * Get stationery usage with pagination support
+ */
+export const getStationeryUsage = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allUsage = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `stationery-usage/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allUsage = [...allUsage, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allUsage,
+        pagination: { count: allUsage.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `stationery-usage/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching stationery usage:", error);
+    return { data: [] };
+  }
+};
+
+/**
+ * Get stationery transactions with pagination support
+ */
+export const getStationeryTransactions = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
+  try {
+    if (allPages) {
+      let allTransactions = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await hrmsApi.get(
+          `stationery-transactions/?page=${currentPage}&page_size=${pageSize}`,
+        );
+
+        if (response.data && response.data.results) {
+          allTransactions = [...allTransactions, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return {
+        data: allTransactions,
+        pagination: { count: allTransactions.length },
+      };
+    } else {
+      const response = await hrmsApi.get(
+        `stationery-transactions/?page=${page}&page_size=${pageSize}`,
+      );
+
+      if (response.data && response.data.results) {
+        return {
+          data: response.data.results,
+          pagination: {
+            count: response.data.count,
+            next: response.data.next,
+            previous: response.data.previous,
+            current_page: page,
+            page_size: pageSize,
+            total_pages: Math.ceil(response.data.count / pageSize),
+          },
+        };
+      }
+
+      const data = extractDataFromResponse(response);
+      return {
+        data: data,
+        pagination: { count: data.length },
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error fetching stationery transactions:", error);
+    return { data: [] };
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*  28.  FALLBACK RAW REQUEST (rarely needed)                                */
 /* -------------------------------------------------------------------------- */
 export const apiRequest = async (url, opts = {}) => {
   const token = getToken();
@@ -1533,12 +2764,16 @@ export default {
   setToken,
   removeToken,
   debugAuth,
+  checkAuthStatus,
 
   // CSRF
   fetchCsrfToken,
   getCsrfToken,
 
-  // Performance Appraisals - NEWLY ADDED
+  // Pagination Helper
+  fetchAllPaginatedData,
+
+  // Performance Appraisals
   getPerformanceAppraisals,
   getPerformanceAppraisalById,
   createPerformanceAppraisal,
@@ -1555,7 +2790,7 @@ export default {
   getDepartments,
   getDepartmentById,
   getCustomers,
-  getAllCustomers, // ADDED THIS MISSING FUNCTION
+  getAllCustomers,
   getCustomerById,
 
   // Employees
@@ -1586,6 +2821,7 @@ export default {
   updateAttendance,
   deleteAttendance,
   deleteAllAttendance,
+  deleteAttendanceByMonth,
 
   // Interviews
   getInterviews,
@@ -1607,13 +2843,11 @@ export default {
   addITProvision,
   updateITProvision,
   deleteITProvision,
-
   getFinanceProvisions,
   getFinanceProvisionById,
   addFinanceProvision,
   updateFinanceProvision,
   deleteFinanceProvision,
-
   getAdminProvisions,
   getAdminProvisionById,
   addAdminProvision,
@@ -1624,9 +2858,24 @@ export default {
   addEmployeeTermination,
   getEmployeeTerminationById,
   updateEmployeeTermination,
+  getTerminatedEmployees,
+  getTerminatedEmployeeById,
+  searchTerminatedEmployees,
+  restoreTerminatedEmployee,
+  getTerminationStats,
+  exportTerminatedEmployees,
+  updateTerminationStatus,
+  bulkDeleteTerminatedEmployees,
+  getTerminationTrends,
+  getDepartmentTerminationStats,
 
   // Notifications
   getNotifications,
+
+  // Stationery
+  getStationeryItems,
+  getStationeryUsage,
+  getStationeryTransactions,
 
   // Letter Send
   getLetterSend,
@@ -1663,15 +2912,19 @@ export default {
   apiRequest,
 
   getWeeklyAttendanceStats,
+  getTeamLeaves,
+  sendWelcomeEmail,
+  getEmployeeDetailsByCode,
+  addTeamLeaderComment,
+  sendLeaveEmailToMD,
+  debugEmployeeLeaves,
+  debugAllLeaves,
+  debugEmployees,
+  debugUserEmployeeMapping,
+  checkUserEmployeeMapping,
+  debugCurrentUserLeaves,
+  debugCurrentUserData,
 
-  getTerminatedEmployees,
-  getTerminatedEmployeeById,
-  searchTerminatedEmployees,
-  restoreTerminatedEmployee,
-  getTerminationStats,
-  exportTerminatedEmployees,
-  updateTerminationStatus,
-  bulkDeleteTerminatedEmployees,
-  getTerminationTrends,
-  getDepartmentTerminationStats,
+  // Helper
+  extractDataFromResponse,
 };

@@ -71,10 +71,17 @@ const EmployeeLeave = () => {
     const fetchLeaves = async () => {
       try {
         setLoading(true);
-        const response = await getEmployeeLeaves();
-        const data = response.data;
-        setLeaves(data);
-        setFilteredLeaves(data);
+        const response = await getEmployeeLeaves(1, 100, true); // Fetch all pages
+
+        let leavesData = [];
+        if (Array.isArray(response.data)) {
+          leavesData = response.data;
+        } else if (response.data && response.data.results) {
+          leavesData = response.data.results;
+        }
+
+        setLeaves(leavesData);
+        setFilteredLeaves(leavesData);
       } catch (err) {
         console.error("Error fetching leaves:", err);
         setError("Failed to load leave records. Please try again.");

@@ -80,9 +80,16 @@ const PerformanceAppraisal = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await getPerformanceAppraisals();
-        const data = response.data || [];
-        setAppraisals(data);
+        const response = await getPerformanceAppraisals(1, 100, true); // Fetch all pages
+
+        let appraisalsData = [];
+        if (Array.isArray(response.data)) {
+          appraisalsData = response.data;
+        } else if (response.data && response.data.results) {
+          appraisalsData = response.data.results;
+        }
+
+        setAppraisals(appraisalsData);
       } catch (err) {
         console.error("Error fetching appraisals:", err);
         setError({
@@ -2303,18 +2310,18 @@ const ListView = ({
   isTopPerformer,
 }) => {
   // Calculate available height dynamically
-  const [listHeight, setListHeight] = useState('calc(100vh - 320px)');
-  
+  const [listHeight, setListHeight] = useState("calc(100vh - 320px)");
+
   useEffect(() => {
     // Update height on resize
     const updateHeight = () => {
       // Adjust this value based on your actual header + footer + pagination height
       setListHeight(`calc(100vh - 280px)`);
     };
-    
+
     updateHeight();
-    window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
   }, []);
 
   return (
@@ -2378,7 +2385,6 @@ const ListView = ({
     </div>
   );
 };
-
 
 const DeleteConfirmationModal = ({
   showDeleteConfirm,
@@ -3102,7 +3108,6 @@ const AppraisalListItem = ({
         position: "relative",
       }}
     >
-
       {/* Employee Column */}
       <div
         style={{ flex: 2, display: "flex", alignItems: "center", gap: "12px" }}

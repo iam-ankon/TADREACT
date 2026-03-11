@@ -117,9 +117,17 @@ const EmployeeDetails = () => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const response = await getEmployees();
+        const response = await getEmployees(1, 100, true); // Fetch all pages
+
+        let employeesData = [];
         if (Array.isArray(response.data)) {
-          setEmployees(response.data);
+          employeesData = response.data;
+        } else if (response.data && response.data.results) {
+          employeesData = response.data.results;
+        }
+
+        if (Array.isArray(employeesData)) {
+          setEmployees(employeesData);
         } else {
           throw new Error("Invalid employee data format");
         }
@@ -346,7 +354,7 @@ const EmployeeDetails = () => {
         ? filteredEmployees.filter((emp) => selectedRows.includes(emp.id))
         : filteredEmployees;
 
-    const companyName = employees[0]?.company_name || "Company Name";
+    const companyName = "TAD Group";
     const reportDate = new Date().toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
