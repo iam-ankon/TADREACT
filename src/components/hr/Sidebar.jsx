@@ -271,6 +271,12 @@ const Sidebar = () => {
       badge: null,
     },
     {
+      to: "/ai-assistant",
+      icon: <FiMessageSquare />,
+      label: "AI Assistant",
+      badge: null,
+    },
+    {
       to: "/chat",
       icon: <FiMessageSquare />,
       label: "Chatbox",

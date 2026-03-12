@@ -119,7 +119,7 @@ const CACHE_KEYS = {
 };
 
 // Cache expiry (5 minutes)
-const CACHE_EXPIRY = 5 * 60 * 1000;
+const CACHE_EXPIRY = 2 * 60 * 1000;
 
 // Cache utility functions
 const getCachedData = (key) => {

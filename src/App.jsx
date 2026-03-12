@@ -110,6 +110,10 @@ import StationeryItems from "./components/stationery/StationeryItems.jsx";
 import StationeryUsage from "./components/stationery/StationeryUsage.jsx";
 import StockReport from "./components/stationery/StockReport.jsx";
 
+
+//ai assistant
+import ChatInterface from "./components/ai_assistant/ChatInterface.jsx";
+
 // chatbox 
 import ChatApp from "./components/chatbox/ChatApp.jsx";
 
@@ -229,6 +233,10 @@ const AppContent = () => {
           <Route path="/add-supplierCSR" element={<ProtectedRoute><AddSupplierCSR /></ProtectedRoute>} />
           <Route path="/edit-supplier/:id" element={<ProtectedRoute><EditSupplierCSR /></ProtectedRoute>} />
           <Route path="/suppliersCSR/:id" element={<ProtectedRoute><SupplierDetailsCSR /></ProtectedRoute>} />
+
+          {/* AI Assistant Route (Accessible to ALL authenticated users) */}
+          <Route path="/ai-assistant" element={<ProtectedRoute><ChatInterface /></ProtectedRoute>} />
+
         </Routes>
       </div>
     </>
