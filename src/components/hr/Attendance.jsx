@@ -44,6 +44,10 @@ const Attendance = () => {
   const [isFiltering, setIsFiltering] = useState(false);
   const mainContentRef = useRef(null);
 
+  // Add state for employee lookup data
+  const [employeeLookup, setEmployeeLookup] = useState({});
+  const [companyLookup, setCompanyLookup] = useState({});
+
   // All useEffects
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -62,6 +66,64 @@ const Attendance = () => {
       setDateRangeEnd(savedEnd);
       setShowDateRange(true);
     }
+  }, []);
+
+  // Fetch all employees for lookup (once)
+  useEffect(() => {
+    const fetchAllEmployeesForLookup = async () => {
+      try {
+        // Fetch all employees (you might want to limit this to active employees only)
+        const response = await getEmployees(1, 1000, true); // Fetch up to 1000 employees
+        
+        let employeesData = [];
+        if (response.data && Array.isArray(response.data)) {
+          employeesData = response.data;
+        } else if (response.data && response.data.results) {
+          employeesData = response.data.results;
+        }
+
+        setEmployees(employeesData);
+
+        // Create lookup maps for O(1) access
+        const empLookup = {};
+        const compLookup = {};
+        
+        employeesData.forEach(emp => {
+          if (emp && emp.id) {
+            empLookup[emp.id] = {
+              employee_id: emp.employee_id,
+              name: emp.name,
+              designation: emp.designation,
+              department_name: emp.department_name,
+              company: emp.company,
+              company_name: emp.company_name
+            };
+          }
+        });
+
+        setEmployeeLookup(empLookup);
+
+        // Fetch companies if not already loaded
+        if (companies.length === 0) {
+          const compRes = await getCompanies(1, 100, false);
+          const companiesData = compRes.data?.results || compRes.data || [];
+          setCompanies(companiesData);
+          
+          // Create company lookup
+          compRes.data?.results?.forEach(comp => {
+            if (comp && comp.id) {
+              compLookup[comp.id] = comp.name || comp.company_name;
+            }
+          });
+          setCompanyLookup(compLookup);
+        }
+
+      } catch (error) {
+        console.error("Error fetching employees for lookup:", error);
+      }
+    };
+
+    fetchAllEmployeesForLookup();
   }, []);
 
   // Main data fetching with server-side filtering and pagination
@@ -107,18 +169,6 @@ const Attendance = () => {
         // Fetch paginated attendance data with filters
         const attRes = await getAttendance(currentPage, itemsPerPage, { filters });
         
-        // Fetch employees and companies for dropdowns (just once, not filtered)
-        // Use a ref to track if we've fetched these already
-        if (employees.length === 0 || companies.length === 0) {
-          const [empRes, compRes] = await Promise.all([
-            getEmployees(1, 500, false), // Get first 500 employees for dropdown
-            getCompanies(1, 100, false), // Get companies
-          ]);
-
-          setEmployees(empRes.data?.results || empRes.data || []);
-          setCompanies(compRes.data?.results || compRes.data || []);
-        }
-
         // Handle attendance data with pagination
         if (attRes.data && Array.isArray(attRes.data)) {
           setAttendance(attRes.data);
@@ -137,8 +187,6 @@ const Attendance = () => {
       } catch (error) {
         console.error("Error fetching data:", error);
         setAttendance([]);
-        setEmployees([]);
-        setCompanies([]);
         setTotalItems(0);
         setTotalPages(1);
       } finally {
@@ -180,35 +228,36 @@ const Attendance = () => {
     sortConfig,
   ]);
 
-  // Create optimized lookup maps for employees and companies
-  const employeeMap = useMemo(() => {
-    const map = new Map();
-    employees.forEach(emp => {
-      if (emp && emp.id) {
-        map.set(emp.id, emp);
-      }
-    });
-    return map;
-  }, [employees]);
-
-  const companyMap = useMemo(() => {
-    const map = new Map();
-    companies.forEach(comp => {
-      if (comp && comp.id) {
-        map.set(comp.id, comp);
-      }
-    });
-    return map;
-  }, [companies]);
-
-  // All function declarations with useCallback where appropriate
-  const requestSort = useCallback((key) => {
-    let direction = "ascending";
-    if (sortConfig.key === key && sortConfig.direction === "ascending") {
-      direction = "descending";
+  // Optimized employee details lookup using the lookup map
+  const getEmployeeDetails = useCallback((employeeId) => {
+    if (!employeeId) {
+      return { 
+        employee_id: "N/A", 
+        company: "N/A", 
+        department: "N/A",
+        name: "Unknown"
+      };
     }
-    setSortConfig({ key, direction });
-  }, [sortConfig]);
+    
+    const employee = employeeLookup[employeeId];
+    if (!employee) {
+      return { 
+        employee_id: "N/A", 
+        company: "N/A", 
+        department: "N/A",
+        name: "Unknown"
+      };
+    }
+    
+    const companyName = companyLookup[employee.company] || employee.company_name || "N/A";
+    
+    return {
+      employee_id: employee.employee_id || "N/A",
+      company: companyName,
+      department: employee.department_name || "N/A",
+      name: employee.name || "Unknown"
+    };
+  }, [employeeLookup, companyLookup]);
 
   const getTimeValue = useCallback((timeStr) => {
     try {
@@ -236,27 +285,6 @@ const Attendance = () => {
     }
     return 0;
   }, []);
-
-  // Optimized employee details lookup using maps
-  const getEmployeeDetails = useCallback((employeeId) => {
-    if (!employeeId) {
-      return { employee_id: "N/A", company: "N/A", department: "N/A" };
-    }
-    
-    const employee = employeeMap.get(employeeId);
-    if (!employee) {
-      return { employee_id: "N/A", company: "N/A", department: "N/A" };
-    }
-    
-    const company = companyMap.get(employee.company);
-    const companyName = company ? company.name || company.company_name : "N/A";
-    
-    return {
-      employee_id: employee.employee_id || "N/A",
-      company: companyName,
-      department: employee.department_name || "N/A",
-    };
-  }, [employeeMap, companyMap]);
 
   const handleDeleteMonthlyAttendance = async () => {
     if (!monthFilter) {
@@ -342,12 +370,15 @@ const Attendance = () => {
     const set = new Set();
     employees.forEach((emp) => {
       if (!emp) return;
-      const details = getEmployeeDetails(emp.id);
-      if (details.company && details.company !== "N/A")
-        set.add(details.company);
+      const companyName = emp.company_name || 
+                         (emp.company && companyLookup[emp.company]) || 
+                         "N/A";
+      if (companyName && companyName !== "N/A") {
+        set.add(companyName);
+      }
     });
     return Array.from(set).sort();
-  }, [employees, getEmployeeDetails]);
+  }, [employees, companyLookup]);
 
   const handlePageChange = useCallback((page) => {
     setCurrentPage(page);
@@ -418,7 +449,7 @@ const Attendance = () => {
           : "N/A";
         return [
           `"${emp.employee_id}"`,
-          `"${item.employee_name}"`,
+          `"${item.employee_name || emp.name}"`,
           `"${emp.company}"`,
           `"${emp.department}"`,
           `"${date}"`,
@@ -692,6 +723,9 @@ const Attendance = () => {
     );
   }, [currentPage, totalPages, totalItems, itemsPerPage, isFiltering, 
       handlePageChange, handleItemsPerPageChange]);
+
+  // Check if we have employee lookup data loaded
+  const isEmployeeDataLoaded = Object.keys(employeeLookup).length > 0;
 
   return (
     <div
@@ -1071,7 +1105,7 @@ const Attendance = () => {
               </div>
               <div style={statItemStyle}>
                 <span style={statValueStyle}>
-                  {Array.isArray(employees) ? employees.length : 0}
+                  {Object.keys(employeeLookup).length}
                 </span>
                 <span style={statLabelStyle}>Employees</span>
               </div>
@@ -1190,7 +1224,7 @@ const Attendance = () => {
                             <span style={idStyle}>{emp.employee_id}</span>
                           </td>
                           <td style={tdStyle}>
-                            <div style={nameStyle}>{a.employee_name}</div>
+                            <div style={nameStyle}>{a.employee_name || emp.name}</div>
                           </td>
                           <td style={tdStyle}>
                             <span style={companyCellStyle}>{emp.company}</span>
@@ -1338,29 +1372,26 @@ const Attendance = () => {
               </div>
 
               <div style={employeeListStyle}>
-                {Array.isArray(employees) && employees.length > 0 ? (
-                  employees
+                {Object.values(employeeLookup).length > 0 ? (
+                  Object.values(employeeLookup)
                     .filter((emp) => {
                       if (!emp) return false;
                       const search = employeeSearchTerm.toLowerCase();
                       return (
-                        (emp.name || emp.employee_name || "")
+                        (emp.name || "").toLowerCase().includes(search) ||
+                        (emp.employee_id || "")
+                          .toString()
                           .toLowerCase()
-                          .includes(search) ||
-                        (emp.employee_id &&
-                          emp.employee_id
-                            .toString()
-                            .toLowerCase()
-                            .includes(search))
+                          .includes(search)
                       );
                     })
                     .map((employee) => (
                       <div
-                        key={employee.id}
+                        key={employee.employee_id}
                         style={{
                           ...employeeItemStyle,
                           ...(selectedEmployees.find(
-                            (e) => e && e.id === employee.id,
+                            (e) => e && e.employee_id === employee.employee_id,
                           )
                             ? selectedEmployeeStyle
                             : {}),
@@ -1368,29 +1399,29 @@ const Attendance = () => {
                         onClick={() => {
                           setSelectedEmployees((prev) => {
                             const exists = prev.find(
-                              (e) => e && e.id === employee.id,
+                              (e) => e && e.employee_id === employee.employee_id,
                             );
                             return exists
-                              ? prev.filter((e) => e && e.id !== employee.id)
+                              ? prev.filter((e) => e && e.employee_id !== employee.employee_id)
                               : [...prev, employee];
                           });
                         }}
                       >
                         <div style={employeeCheckboxStyle}>
                           {selectedEmployees.find(
-                            (e) => e && e.id === employee.id,
+                            (e) => e && e.employee_id === employee.employee_id,
                           ) && "✓"}
                         </div>
                         <div style={employeeInfoStyle}>
                           <div style={employeeNameStyle}>
-                            {employee.name || employee.employee_name}
+                            {employee.name}
                           </div>
                           <div style={employeeIdStyle}>
                             ID: {employee.employee_id}
                           </div>
                           <div style={employeeCompanyStyle}>
-                            {getEmployeeDetails(employee.id).company} •{" "}
-                            {getEmployeeDetails(employee.id).department}
+                            {employee.company_name || "N/A"} •{" "}
+                            {employee.department_name || "N/A"}
                           </div>
                         </div>
                       </div>
@@ -1506,7 +1537,7 @@ const Attendance = () => {
   );
 };
 
-// Styles (unchanged from original)
+// Styles (keep all your existing styles here)
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
