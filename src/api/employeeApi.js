@@ -519,8 +519,10 @@ export const loginUser = async (payload) => {
 /*  7.  EMPLOYEE APIs                                                         */
 /* -------------------------------------------------------------------------- */
 
+// In employeeApi.js - Update the getEmployees function (around line 400-450)
+
 /**
- * Get employees with pagination support
+ * Get employees with pagination support and filtering
  * @param {number} page - Page number (default: 1)
  * @param {number} pageSize - Items per page (default: 100)
  * @param {Object|boolean} options - Either filter params or boolean for allPages
@@ -540,7 +542,7 @@ export const getEmployees = async (page = 1, pageSize = 100, options = {}) => {
     }
 
     if (allPages) {
-      // Fetch all pages
+      // Fetch all pages (use sparingly, only for exports/downloads)
       let allEmployees = [];
       let currentPage = 1;
       let hasMore = true;
@@ -576,11 +578,11 @@ export const getEmployees = async (page = 1, pageSize = 100, options = {}) => {
         },
       };
     } else {
-      // Fetch single page
+      // Fetch single page with filters
       const params = new URLSearchParams({
         page: page,
         page_size: pageSize,
-        ...filters,
+        ...filters, // Add all filters
       });
 
       const response = await hrmsApi.get(`employees/?${params.toString()}`);
@@ -613,7 +615,15 @@ export const getEmployees = async (page = 1, pageSize = 100, options = {}) => {
     }
   } catch (error) {
     console.error("❌ Error fetching employees:", error);
-    return { data: [], pagination: { count: 0 } };
+    return {
+      data: [],
+      pagination: {
+        count: 0,
+        current_page: 1,
+        page_size: pageSize,
+        total_pages: 1,
+      },
+    };
   }
 };
 
@@ -1720,19 +1730,27 @@ export const getEmployeeDetailsByCode = async (employeeCode) => {
 /*  18.  ATTENDANCE APIs                                                      */
 /* -------------------------------------------------------------------------- */
 
+// In employeeApi.js - Update the getAttendance function (around line 1400-1450)
+
 /**
- * Get attendance records with pagination support
+ * Get attendance records with pagination support and filtering
  * @param {number} page - Page number
  * @param {number} pageSize - Items per page
- * @param {boolean} allPages - Whether to fetch all pages
+ * @param {Object|boolean} options - Filter params or allPages flag
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getAttendance = async (
-  page = 1,
-  pageSize = 100,
-  allPages = false,
-) => {
+export const getAttendance = async (page = 1, pageSize = 100, options = {}) => {
   try {
+    let allPages = false;
+    let filters = {};
+
+    if (typeof options === "boolean") {
+      allPages = options;
+    } else if (typeof options === "object") {
+      allPages = options.allPages || false;
+      filters = options.filters || {};
+    }
+
     if (allPages) {
       let allAttendance = [];
       let currentPage = 1;
@@ -1757,9 +1775,20 @@ export const getAttendance = async (
         pagination: { count: allAttendance.length },
       };
     } else {
-      const response = await hrmsApi.get(
-        `attendance/?page=${page}&page_size=${pageSize}`,
-      );
+      // Build query parameters with filters
+      const params = new URLSearchParams({
+        page: page,
+        page_size: pageSize,
+      });
+
+      // Add all filters to params
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          params.append(key, value);
+        }
+      });
+
+      const response = await hrmsApi.get(`attendance/?${params.toString()}`);
 
       if (response.data && response.data.results) {
         return {
@@ -1778,15 +1807,27 @@ export const getAttendance = async (
       const data = extractDataFromResponse(response);
       return {
         data: data,
-        pagination: { count: data.length },
+        pagination: {
+          count: data.length,
+          current_page: 1,
+          page_size: data.length,
+          total_pages: 1,
+        },
       };
     }
   } catch (error) {
     console.error("❌ Error fetching attendance:", error);
-    return { data: [] };
+    return {
+      data: [],
+      pagination: {
+        count: 0,
+        current_page: 1,
+        page_size: pageSize,
+        total_pages: 1,
+      },
+    };
   }
 };
-
 export const getAttendanceById = (id) => hrmsApi.get(`attendance/${id}/`);
 export const addAttendance = (data) => hrmsApi.post("attendance/", data);
 export const updateAttendance = (id, data) =>

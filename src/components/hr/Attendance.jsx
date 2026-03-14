@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   getAttendance,
   getEmployees,
@@ -29,7 +29,6 @@ const Attendance = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [dateFilter, setDateFilter] = useState(() => {
-    // Remove localStorage reading from initial state
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   });
@@ -40,11 +39,12 @@ const Attendance = () => {
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
-  const [availablePageSizes, setAvailablePageSizes] = useState([100]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isFiltering, setIsFiltering] = useState(false);
   const mainContentRef = useRef(null);
 
-  // All useEffects that don't depend on filteredData
+  // All useEffects
   useEffect(() => {
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
@@ -64,59 +64,94 @@ const Attendance = () => {
     }
   }, []);
 
+  // Main data fetching with server-side filtering and pagination
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [attRes, empRes, compRes] = await Promise.all([
-          getAttendance(1, 100, true), // Fetch all pages
-          getEmployees(1, 100, true), // Fetch all pages
-          getCompanies(1, 100, true), // Fetch all pages
-        ]);
+        setIsFiltering(true);
+        
+        // Build filter parameters for server
+        const filters = {};
+        
+        if (monthFilter) {
+          const [year, month] = monthFilter.split("-");
+          filters.year = year;
+          filters.month = month;
+        }
+        
+        if (!showDateRange && dateFilter) {
+          filters.date = dateFilter;
+        }
+        
+        if (showDateRange && dateRangeStart && dateRangeEnd) {
+          filters.start_date = dateRangeStart;
+          filters.end_date = dateRangeEnd;
+        }
+        
+        if (companyFilter) {
+          filters.company = companyFilter;
+        }
+        
+        if (searchTerm) {
+          filters.search = searchTerm;
+        }
+        
+        // Add sorting
+        if (sortConfig.key) {
+          filters.order_by = sortConfig.direction === "descending" 
+            ? `-${sortConfig.key}` 
+            : sortConfig.key;
+        }
 
-        // Handle attendance data (might be paginated)
+        // Fetch paginated attendance data with filters
+        const attRes = await getAttendance(currentPage, itemsPerPage, { filters });
+        
+        // Fetch employees and companies for dropdowns (just once, not filtered)
+        // Use a ref to track if we've fetched these already
+        if (employees.length === 0 || companies.length === 0) {
+          const [empRes, compRes] = await Promise.all([
+            getEmployees(1, 500, false), // Get first 500 employees for dropdown
+            getCompanies(1, 100, false), // Get companies
+          ]);
+
+          setEmployees(empRes.data?.results || empRes.data || []);
+          setCompanies(compRes.data?.results || compRes.data || []);
+        }
+
+        // Handle attendance data with pagination
         if (attRes.data && Array.isArray(attRes.data)) {
           setAttendance(attRes.data);
+          setTotalItems(attRes.pagination?.count || attRes.data.length);
+          setTotalPages(attRes.pagination?.total_pages || 1);
         } else if (attRes.data && attRes.data.results) {
           setAttendance(attRes.data.results);
+          setTotalItems(attRes.data.count || 0);
+          setTotalPages(Math.ceil((attRes.data.count || 0) / itemsPerPage));
         } else {
           setAttendance([]);
+          setTotalItems(0);
+          setTotalPages(1);
         }
 
-        // Handle employees data
-        if (empRes.data && Array.isArray(empRes.data)) {
-          setEmployees(empRes.data);
-        } else if (empRes.data && empRes.data.results) {
-          setEmployees(empRes.data.results);
-        } else {
-          setEmployees([]);
-        }
-
-        // Handle companies data
-        if (compRes.data && Array.isArray(compRes.data)) {
-          setCompanies(compRes.data);
-        } else if (compRes.data && compRes.data.results) {
-          setCompanies(compRes.data.results);
-        } else {
-          setCompanies([]);
-        }
-
-        // Force set to today's date when data loads
-        const today = new Date();
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-        setDateFilter(todayStr);
       } catch (error) {
         console.error("Error fetching data:", error);
         setAttendance([]);
         setEmployees([]);
         setCompanies([]);
+        setTotalItems(0);
+        setTotalPages(1);
       } finally {
         setLoading(false);
+        setIsFiltering(false);
       }
     };
+    
     fetchData();
-  }, []);
+  }, [currentPage, itemsPerPage, monthFilter, dateFilter, dateRangeStart, 
+      dateRangeEnd, showDateRange, companyFilter, searchTerm, sortConfig]);
 
+  // Save filter preferences
   useEffect(() => {
     if (dateFilter) localStorage.setItem("attendanceDateFilter", dateFilter);
   }, [dateFilter]);
@@ -131,20 +166,7 @@ const Attendance = () => {
     }
   }, [dateRangeStart, dateRangeEnd]);
 
-  useEffect(() => {
-    setIsFiltering(true);
-    const timer = setTimeout(() => setIsFiltering(false), 300);
-    return () => clearTimeout(timer);
-  }, [
-    searchTerm,
-    companyFilter,
-    monthFilter,
-    dateFilter,
-    dateRangeStart,
-    dateRangeEnd,
-    showDateRange,
-  ]);
-
+  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -158,16 +180,37 @@ const Attendance = () => {
     sortConfig,
   ]);
 
-  // All function declarations
-  const requestSort = (key) => {
+  // Create optimized lookup maps for employees and companies
+  const employeeMap = useMemo(() => {
+    const map = new Map();
+    employees.forEach(emp => {
+      if (emp && emp.id) {
+        map.set(emp.id, emp);
+      }
+    });
+    return map;
+  }, [employees]);
+
+  const companyMap = useMemo(() => {
+    const map = new Map();
+    companies.forEach(comp => {
+      if (comp && comp.id) {
+        map.set(comp.id, comp);
+      }
+    });
+    return map;
+  }, [companies]);
+
+  // All function declarations with useCallback where appropriate
+  const requestSort = useCallback((key) => {
     let direction = "ascending";
     if (sortConfig.key === key && sortConfig.direction === "ascending") {
       direction = "descending";
     }
     setSortConfig({ key, direction });
-  };
+  }, [sortConfig]);
 
-  const getTimeValue = (timeStr) => {
+  const getTimeValue = useCallback((timeStr) => {
     try {
       const timePart = timeStr.includes("T")
         ? timeStr.split("T")[1].slice(0, 5)
@@ -177,9 +220,9 @@ const Attendance = () => {
     } catch {
       return 0;
     }
-  };
+  }, []);
 
-  const parseDelayTime = (delay) => {
+  const parseDelayTime = useCallback((delay) => {
     if (!delay) return 0;
     if (typeof delay === "number") {
       return Math.floor(delay / 60);
@@ -192,47 +235,28 @@ const Attendance = () => {
       }
     }
     return 0;
-  };
+  }, []);
 
-  const sortAttendance = (records) => {
-    if (!records || !Array.isArray(records)) return [];
-    const sortedRecords = [...records];
-    sortedRecords.sort((a, b) => {
-      if (sortConfig.key === "date") {
-        const dateA = a.date ? new Date(a.date) : new Date(0);
-        const dateB = b.date ? new Date(b.date) : new Date(0);
-        return sortConfig.direction === "ascending"
-          ? dateA - dateB
-          : dateB - dateA;
-      } else if (sortConfig.key === "check_in") {
-        const timeA = a.check_in ? getTimeValue(a.check_in) : 0;
-        const timeB = b.check_in ? getTimeValue(b.check_in) : 0;
-        return sortConfig.direction === "ascending"
-          ? timeA - timeB
-          : timeB - timeA;
-      } else if (sortConfig.key === "check_out") {
-        const timeA = a.check_out ? getTimeValue(a.check_out) : 0;
-        const timeB = b.check_out ? getTimeValue(b.check_out) : 0;
-        return sortConfig.direction === "ascending"
-          ? timeA - timeB
-          : timeB - timeA;
-      } else if (sortConfig.key === "delay_time") {
-        const delayA = parseDelayTime(a.attendance_delay || a.delay_time);
-        const delayB = parseDelayTime(b.attendance_delay || b.delay_time);
-        return sortConfig.direction === "ascending"
-          ? delayA - delayB
-          : delayB - delayA;
-      } else if (sortConfig.key === "employee_name") {
-        const nameA = a.employee_name || "";
-        const nameB = b.employee_name || "";
-        return sortConfig.direction === "ascending"
-          ? nameA.localeCompare(nameB)
-          : nameB.localeCompare(nameA);
-      }
-      return 0;
-    });
-    return sortedRecords;
-  };
+  // Optimized employee details lookup using maps
+  const getEmployeeDetails = useCallback((employeeId) => {
+    if (!employeeId) {
+      return { employee_id: "N/A", company: "N/A", department: "N/A" };
+    }
+    
+    const employee = employeeMap.get(employeeId);
+    if (!employee) {
+      return { employee_id: "N/A", company: "N/A", department: "N/A" };
+    }
+    
+    const company = companyMap.get(employee.company);
+    const companyName = company ? company.name || company.company_name : "N/A";
+    
+    return {
+      employee_id: employee.employee_id || "N/A",
+      company: companyName,
+      department: employee.department_name || "N/A",
+    };
+  }, [employeeMap, companyMap]);
 
   const handleDeleteMonthlyAttendance = async () => {
     if (!monthFilter) {
@@ -251,8 +275,11 @@ const Attendance = () => {
     try {
       const [year, month] = monthFilter.split("-");
       await deleteAttendanceByMonth(year, month);
-      const attRes = await getAttendance();
-      setAttendance(attRes?.data || []);
+      
+      // Refresh current page after deletion
+      const filters = { year, month };
+      const attRes = await getAttendance(currentPage, itemsPerPage, { filters });
+      setAttendance(attRes.data?.results || []);
       setDeleteSuccess(true);
       setTimeout(() => setDeleteSuccess(false), 3000);
     } catch (error) {
@@ -262,7 +289,7 @@ const Attendance = () => {
     }
   };
 
-  const formatTimeToAMPM = (timeStr) => {
+  const formatTimeToAMPM = useCallback((timeStr) => {
     if (!timeStr) return "9:30 AM";
     try {
       const timePart = timeStr.includes("T")
@@ -275,9 +302,9 @@ const Attendance = () => {
     } catch {
       return "9:30 AM";
     }
-  };
+  }, []);
 
-  const formatDelayTime = (delay) => {
+  const formatDelayTime = useCallback((delay) => {
     if (!delay) return "00:00";
     if (typeof delay === "number") {
       const hours = Math.floor(delay / 3600);
@@ -291,9 +318,9 @@ const Attendance = () => {
         return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
     }
     return "00:00";
-  };
+  }, []);
 
-  const isEarlyPunch = (delayTime) => {
+  const isEarlyPunch = useCallback((delayTime) => {
     if (!delayTime) return true;
     if (typeof delayTime === "number") {
       return delayTime <= 0;
@@ -306,160 +333,39 @@ const Attendance = () => {
       }
     }
     return true;
-  };
+  }, []);
 
-  const getEmployeeDetails = (employeeId) => {
-    if (!employeeId || !Array.isArray(employees)) {
-      return { employee_id: "N/A", company: "N/A", department: "N/A" };
-    }
-    const employee = employees.find((emp) => emp && emp.id === employeeId);
-    if (!employee)
-      return { employee_id: "N/A", company: "N/A", department: "N/A" };
-    const company = Array.isArray(companies)
-      ? companies.find(
-          (comp) =>
-            comp &&
-            (comp.id === employee.company || comp.id === employee.company?.id),
-        )
-      : null;
-    const companyName = company ? company.name || company.company_name : "N/A";
-    return {
-      employee_id: employee.employee_id || "N/A",
-      company: companyName,
-      department: employee.department_name || "N/A",
-    };
-  };
+  // Get unique companies from employees for filter dropdown
+  const getUniqueCompanies = useCallback(() => {
+    if (!Array.isArray(employees)) return [];
 
-  const filterAttendanceByNameAndId = (records) => {
-    if (!records || !Array.isArray(records)) return [];
-    if (!searchTerm) return records;
-    const searchLower = searchTerm.toLowerCase();
-    return records.filter((r) => {
-      if (!r) return false;
-      const empDetails = getEmployeeDetails(r.employee);
-      return (
-        (r.employee_name &&
-          r.employee_name.toLowerCase().includes(searchLower)) ||
-        (empDetails.employee_id &&
-          empDetails.employee_id.toString().toLowerCase().includes(searchLower))
-      );
+    const set = new Set();
+    employees.forEach((emp) => {
+      if (!emp) return;
+      const details = getEmployeeDetails(emp.id);
+      if (details.company && details.company !== "N/A")
+        set.add(details.company);
     });
-  };
+    return Array.from(set).sort();
+  }, [employees, getEmployeeDetails]);
 
-  const filterAttendanceByCompany = (records) => {
-    if (!records || !Array.isArray(records)) return [];
-    if (!companyFilter) return records;
-    return records.filter((r) => {
-      if (!r) return false;
-      const details = getEmployeeDetails(r.employee);
-      return details.company === companyFilter;
-    });
-  };
-
-  const filterAttendanceByMonth = (records) => {
-    if (!records || !Array.isArray(records)) return [];
-    if (!monthFilter) return records;
-    try {
-      const [year, month] = monthFilter.split("-");
-      const prefix = `${year}-${month}`;
-      return records.filter((r) => {
-        if (!r || !r.date) return false;
-        try {
-          const dateStr = r.date.split("T")[0];
-          return dateStr.startsWith(prefix);
-        } catch (error) {
-          return false;
-        }
-      });
-    } catch (error) {
-      return records;
-    }
-  };
-
-  const filterAttendanceByDate = (records) => {
-    if (!records || !Array.isArray(records)) return [];
-    if (!showDateRange && dateFilter) {
-      return records.filter((r) => {
-        if (!r || !r.date) return false;
-        return r.date.split("T")[0] === dateFilter;
-      });
-    }
-    if (showDateRange && dateRangeStart && dateRangeEnd) {
-      const start = new Date(dateRangeStart);
-      const end = new Date(dateRangeEnd);
-      end.setHours(23, 59, 59, 999);
-      return records.filter((r) => {
-        if (!r || !r.date) return false;
-        try {
-          const recDate = new Date(r.date.split("T")[0]);
-          return recDate >= start && recDate <= end;
-        } catch (error) {
-          return false;
-        }
-      });
-    }
-    return records;
-  };
-
-  const getFilteredAttendance = () => {
-    if (!attendance || !Array.isArray(attendance)) {
-      return [];
-    }
-    let filtered = attendance;
-    filtered = filterAttendanceByNameAndId(filtered);
-    filtered = filterAttendanceByCompany(filtered);
-    filtered = filterAttendanceByMonth(filtered);
-    filtered = filterAttendanceByDate(filtered);
-    filtered = sortAttendance(filtered);
-    return filtered;
-  };
-
-  // Define filteredData here
-  const filteredData = getFilteredAttendance();
-
-  // Now this useEffect can safely use filteredData
-  useEffect(() => {
-    if (filteredData && filteredData.length >= 0) {
-      const total = filteredData.length;
-      const sizes = [100];
-      const validSizes = sizes.filter((size) => size <= total || size === 25);
-      if (!validSizes.includes(itemsPerPage) && validSizes.length > 0) {
-        setItemsPerPage(validSizes[0]);
-      }
-      setAvailablePageSizes(validSizes);
-    }
-  }, [filteredData.length, itemsPerPage]);
-
-  // Pagination logic
-  const totalItems = filteredData.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return filteredData.slice(startIndex, endIndex);
-  }, [filteredData, currentPage, itemsPerPage]);
-
-  const handlePageChange = (page) => {
+  const handlePageChange = useCallback((page) => {
     setCurrentPage(page);
-    // Scroll to top of table
     if (mainContentRef.current) {
       mainContentRef.current.scrollTo({
         top: 0,
         behavior: "smooth",
       });
     }
-  };
+  }, []);
 
-  const handleItemsPerPageChange = (e) => {
-    const newSize = parseInt(e.target.value);
-    setItemsPerPage(newSize);
+  const handleItemsPerPageChange = useCallback((e) => {
+    setItemsPerPage(parseInt(e.target.value));
     setCurrentPage(1);
-  };
+  }, []);
 
-  const generateSmartReport = () => {
-    let data = filteredData;
-    if (!data || data.length === 0) {
+  const generateSmartReport = useCallback(() => {
+    if (!attendance || attendance.length === 0) {
       alert("No records found");
       return;
     }
@@ -475,6 +381,7 @@ const Attendance = () => {
       "Delay Time",
       "Office Start",
     ];
+    
     const reportTitle = monthFilter
       ? `Monthly Report: ${new Date(monthFilter + "-01").toLocaleDateString(
           "en-US",
@@ -501,10 +408,10 @@ const Attendance = () => {
       `Generated: ${new Date().toLocaleString("en-US", {
         timeZone: "Asia/Dhaka",
       })}`,
-      `Total: ${data.length}`,
+      `Total: ${attendance.length}`,
       "",
       headers.join(","),
-      ...data.map((item) => {
+      ...attendance.map((item) => {
         const emp = getEmployeeDetails(item.employee);
         const date = item.date
           ? new Date(item.date).toLocaleDateString()
@@ -524,33 +431,12 @@ const Attendance = () => {
     ].join("\n");
 
     downloadCSV(csv, filename);
-  };
+  }, [attendance, monthFilter, dateRangeStart, dateRangeEnd, dateFilter, 
+      getEmployeeDetails, formatTimeToAMPM, formatDelayTime]);
 
-  const generateEmployeeFullReport = () => {
+  const generateEmployeeFullReport = useCallback(() => {
     if (!selectedEmployees || selectedEmployees.length === 0) {
       alert("Select at least one employee");
-      return;
-    }
-
-    let allRecords = [];
-    selectedEmployees.forEach((emp) => {
-      if (!emp || !emp.id) return;
-
-      let records = Array.isArray(attendance)
-        ? attendance.filter((r) => r && r.employee === emp.id)
-        : [];
-      if (monthFilter) {
-        const [year, month] = monthFilter.split("-");
-        const prefix = `${year}-${month}`;
-        records = records.filter(
-          (r) => r && r.date && r.date.split("T")[0].startsWith(prefix),
-        );
-      }
-      records.forEach((r) => allRecords.push({ ...r, selected_employee: emp }));
-    });
-
-    if (allRecords.length === 0) {
-      alert("No records found");
       return;
     }
 
@@ -565,6 +451,7 @@ const Attendance = () => {
       "Delay Time",
       "Office Start",
     ];
+    
     const reportTitle = monthFilter
       ? `Monthly Report: ${new Date(monthFilter + "-01").toLocaleDateString(
           "en-US",
@@ -578,21 +465,22 @@ const Attendance = () => {
           .toISOString()
           .slice(0, 10)}.csv`;
 
-    const csv = [
-      reportTitle,
-      `Generated: ${new Date().toLocaleString("en-US", {
-        timeZone: "Asia/Dhaka",
-      })}`,
-      `Total: ${allRecords.length}`,
-      "",
-      headers.join(","),
-      ...allRecords.map((item) => {
-        const emp = item.selected_employee;
+    const csvData = [];
+    
+    selectedEmployees.forEach((emp) => {
+      if (!emp || !emp.id) return;
+      
+      const employeeRecords = attendance.filter(
+        (r) => r && r.employee === emp.id
+      );
+      
+      employeeRecords.forEach((item) => {
         const details = getEmployeeDetails(emp.id);
         const date = item.date
           ? new Date(item.date).toLocaleDateString()
           : "N/A";
-        return [
+        
+        csvData.push([
           `"${details.employee_id}"`,
           `"${emp.name || emp.employee_name}"`,
           `"${details.company}"`,
@@ -602,13 +490,30 @@ const Attendance = () => {
           `"${formatTimeToAMPM(item.check_out)}"`,
           `"${formatDelayTime(item.attendance_delay || item.delay_time)}"`,
           `"${formatTimeToAMPM(item.office_start_time)}"`,
-        ].join(",");
-      }),
+        ].join(","));
+      });
+    });
+
+    if (csvData.length === 0) {
+      alert("No records found");
+      return;
+    }
+
+    const csv = [
+      reportTitle,
+      `Generated: ${new Date().toLocaleString("en-US", {
+        timeZone: "Asia/Dhaka",
+      })}`,
+      `Total: ${csvData.length}`,
+      "",
+      headers.join(","),
+      ...csvData,
     ].join("\n");
 
     downloadCSV(csv, filename);
     setShowEmployeeSearch(false);
-  };
+  }, [selectedEmployees, monthFilter, attendance, getEmployeeDetails, 
+      formatTimeToAMPM, formatDelayTime]);
 
   const downloadCSV = (content, filename) => {
     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
@@ -619,39 +524,29 @@ const Attendance = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const clearDateFilter = () => {
-    setDateFilter("");
-  };
-
-  const clearCompanyFilter = () => {
-    setCompanyFilter("");
-  };
-
-  const clearSearch = () => {
-    setSearchTerm("");
-  };
-
-  const clearMonthFilter = () => {
-    setMonthFilter("");
-  };
-
-  const clearDateRange = () => {
+  // Filter clear functions
+  const clearDateFilter = useCallback(() => setDateFilter(""), []);
+  const clearCompanyFilter = useCallback(() => setCompanyFilter(""), []);
+  const clearSearch = useCallback(() => setSearchTerm(""), []);
+  const clearMonthFilter = useCallback(() => setMonthFilter(""), []);
+  const clearDateRange = useCallback(() => {
     setDateRangeStart("");
     setDateRangeEnd("");
     setShowDateRange(false);
-  };
+  }, []);
 
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     clearMonthFilter();
     clearCompanyFilter();
     clearSearch();
     setDateFilter("");
     clearDateRange();
-  };
+  }, [clearMonthFilter, clearCompanyFilter, clearSearch, clearDateRange]);
 
-  const handleDateToggle = () => {
+  const handleDateToggle = useCallback(() => {
     setShowDateRange((v) => !v);
     if (!showDateRange) {
       setDateRangeStart("");
@@ -664,22 +559,10 @@ const Attendance = () => {
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
       setDateFilter(todayStr);
     }
-  };
+  }, [showDateRange]);
 
-  const getUniqueCompanies = () => {
-    if (!Array.isArray(employees)) return [];
-
-    const set = new Set();
-    employees.forEach((emp) => {
-      if (!emp) return;
-      const details = getEmployeeDetails(emp.id);
-      if (details.company && details.company !== "N/A")
-        set.add(details.company);
-    });
-    return Array.from(set).sort();
-  };
-
-  const SkeletonRow = () => (
+  // Skeleton component
+  const SkeletonRow = useCallback(() => (
     <tr>
       {Array(9)
         .fill(0)
@@ -689,9 +572,10 @@ const Attendance = () => {
           </td>
         ))}
     </tr>
-  );
+  ), []);
 
-  const SortIndicator = ({ columnKey }) => {
+  // Sort indicator component
+  const SortIndicator = useCallback(({ columnKey }) => {
     if (sortConfig.key !== columnKey) {
       return <span style={sortIndicatorStyle}>↕</span>;
     }
@@ -700,9 +584,10 @@ const Attendance = () => {
         {sortConfig.direction === "ascending" ? "↑" : "↓"}
       </span>
     );
-  };
+  }, [sortConfig]);
 
-  const Pagination = () => {
+  // Pagination component
+  const Pagination = useCallback(() => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
 
@@ -723,6 +608,7 @@ const Attendance = () => {
           Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
           {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}{" "}
           records
+          {isFiltering && <span style={filteringIndicatorStyle}> ⟳</span>}
         </div>
 
         <div style={paginationControlsStyle}>
@@ -733,7 +619,7 @@ const Attendance = () => {
               onChange={handleItemsPerPageChange}
               style={pageSizeSelectStyle}
             >
-              {availablePageSizes.map((size) => (
+              {[25, 50, 100, 200].map((size) => (
                 <option key={size} value={size}>
                   {size} per page
                 </option>
@@ -804,7 +690,8 @@ const Attendance = () => {
         </div>
       </div>
     );
-  };
+  }, [currentPage, totalPages, totalItems, itemsPerPage, isFiltering, 
+      handlePageChange, handleItemsPerPageChange]);
 
   return (
     <div
@@ -854,7 +741,7 @@ const Attendance = () => {
               <div style={summaryItemStyle}>
                 <span style={summaryLabelStyle}>Total Records</span>
                 <span style={summaryValueStyle}>
-                  {filteredData.length}
+                  {totalItems}
                   {isFiltering && (
                     <span style={filteringIndicatorStyle}>⟳</span>
                   )}
@@ -1148,11 +1035,11 @@ const Attendance = () => {
                 <button
                   onClick={generateSmartReport}
                   style={primaryActionButtonStyle}
-                  disabled={!filteredData || filteredData.length === 0}
+                  disabled={!attendance || attendance.length === 0}
                 >
                   <span style={buttonIconStyle}>📥</span>
                   Download CSV
-                  <span style={badgeStyle}>{filteredData.length}</span>
+                  <span style={badgeStyle}>{attendance.length}</span>
                 </button>
 
                 <div style={reportInfoStyle}>
@@ -1173,8 +1060,8 @@ const Attendance = () => {
             {/* Quick Stats */}
             <div style={quickStatsStyle}>
               <div style={statItemStyle}>
-                <span style={statValueStyle}>{filteredData.length}</span>
-                <span style={statLabelStyle}>Filtered</span>
+                <span style={statValueStyle}>{attendance.length}</span>
+                <span style={statLabelStyle}>Current Page</span>
               </div>
               <div style={statItemStyle}>
                 <span style={statValueStyle}>
@@ -1196,7 +1083,7 @@ const Attendance = () => {
             <div style={tableHeaderStyle}>
               <h3 style={tableTitleStyle}>Attendance Records</h3>
               <div style={tableSummaryStyle}>
-                Showing {paginatedData.length} of {filteredData.length} records
+                Showing {attendance.length} of {totalItems} records
                 {sortConfig.key &&
                   ` • Sorted by ${sortConfig.key.replace("_", " ")}`}
               </div>
@@ -1205,7 +1092,7 @@ const Attendance = () => {
             <div
               style={{
                 ...tableContainerStyle,
-                maxHeight: "calc(100vh - 450px)", // Adjusted for pagination
+                maxHeight: "calc(100vh - 450px)",
                 overflowY: "auto",
                 overflowX: "auto",
                 position: "relative",
@@ -1284,8 +1171,8 @@ const Attendance = () => {
                     Array(5)
                       .fill(0)
                       .map((_, i) => <SkeletonRow key={i} />)
-                  ) : paginatedData.length > 0 ? (
-                    paginatedData.map((a, index) => {
+                  ) : attendance.length > 0 ? (
+                    attendance.map((a, index) => {
                       if (!a) return null;
                       const emp = getEmployeeDetails(a.employee);
                       const delay = a.attendance_delay || a.delay_time;
@@ -1386,7 +1273,7 @@ const Attendance = () => {
             </div>
 
             {/* Pagination */}
-            {filteredData.length > 0 && <Pagination />}
+            {totalItems > 0 && <Pagination />}
           </div>
         </div>
       </div>
@@ -1581,7 +1468,6 @@ const Attendance = () => {
             cursor: pointer;
           }
 
-          /* Scrollbar Styles - Always at edge */
           ::-webkit-scrollbar {
             width: 10px;
             height: 10px;
@@ -1600,13 +1486,11 @@ const Attendance = () => {
             background: #94a3b8;
           }
           
-          /* Firefox scrollbar styles */
           * {
             scrollbar-width: thin;
             scrollbar-color: #cbd5e1 #f1f5f9;
           }
 
-          /* Ensure body doesn't scroll */
           body {
             overflow: hidden !important;
             margin: 0;
@@ -1622,7 +1506,7 @@ const Attendance = () => {
   );
 };
 
-// Styles (keeping all existing styles and adding new pagination styles)
+// Styles (unchanged from original)
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
@@ -2042,7 +1926,6 @@ const tableSummaryStyle = {
 const tableContainerStyle = {
   overflowX: "auto",
   width: "100%",
-  // Let the main container handle vertical scrolling
 };
 
 const tableStyle = {

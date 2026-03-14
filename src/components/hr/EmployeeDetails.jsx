@@ -61,11 +61,24 @@ const checkBirthdateMatch = (employeeDate, filterDate) => {
 };
 
 const EmployeeDetails = () => {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Data state
   const [employees, setEmployees] = useState([]);
+  const [allDesignations, setAllDesignations] = useState([]);
+  const [allDepartments, setAllDepartments] = useState([]);
+
+  // Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [designationFilter, setDesignationFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [birthdateFilter, setBirthdateFilter] = useState("");
+
+  // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDesignationDropdown, setShowDesignationDropdown] = useState(false);
@@ -73,9 +86,13 @@ const EmployeeDetails = () => {
   const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
   const [designationSearch, setDesignationSearch] = useState("");
   const [departmentSearch, setDepartmentSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "asc",
+  });
   const [selectedRows, setSelectedRows] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   const navigate = useNavigate();
   const isInitialMount = useRef(true);
@@ -99,6 +116,9 @@ const EmployeeDetails = () => {
       const savedBirthdateFilter = localStorage.getItem(
         "employeeBirthdateFilter",
       );
+      const savedItemsPerPage = localStorage.getItem("employeeItemsPerPage");
+      const savedSortKey = localStorage.getItem("employeeSortKey");
+      const savedSortDirection = localStorage.getItem("employeeSortDirection");
 
       if (savedSearchQuery !== null) setSearchQuery(savedSearchQuery);
       if (savedDesignationFilter !== null)
@@ -107,39 +127,127 @@ const EmployeeDetails = () => {
         setDepartmentFilter(savedDepartmentFilter);
       if (savedBirthdateFilter !== null)
         setBirthdateFilter(savedBirthdateFilter);
+      if (savedItemsPerPage) setItemsPerPage(parseInt(savedItemsPerPage));
+      if (savedSortKey && savedSortDirection) {
+        setSortConfig({
+          key: savedSortKey,
+          direction: savedSortDirection,
+        });
+      }
     } catch (err) {
       console.error("Error reading from localStorage:", err);
     }
   }, []);
 
-  // Fetch employees
+  // Build filter parameters for API
+  const buildFilterParams = useCallback(() => {
+    const params = {};
+
+    if (searchQuery) params.search = searchQuery;
+    if (designationFilter) params.designation = designationFilter;
+    if (departmentFilter) params.department = departmentFilter;
+    if (birthdateFilter) {
+      const [year, month, day] = birthdateFilter.split("-");
+      params.birth_month = month;
+      params.birth_day = day;
+    }
+
+    // Add sorting
+    if (sortConfig.key) {
+      params.ordering =
+        sortConfig.direction === "desc" ? `-${sortConfig.key}` : sortConfig.key;
+    }
+
+    return params;
+  }, [
+    searchQuery,
+    designationFilter,
+    departmentFilter,
+    birthdateFilter,
+    sortConfig,
+  ]);
+
+  // Fetch employees with pagination and filters
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const response = await getEmployees(1, 100, true); // Fetch all pages
+        setIsFiltering(true);
 
+        const filters = buildFilterParams();
+
+        // Fetch paginated employees
+        const response = await getEmployees(currentPage, itemsPerPage, {
+          allPages: false,
+          filters,
+        });
+
+        // Handle response
         let employeesData = [];
-        if (Array.isArray(response.data)) {
+        let total = 0;
+
+        if (response.data && Array.isArray(response.data)) {
           employeesData = response.data;
+          total = response.pagination?.count || employeesData.length;
         } else if (response.data && response.data.results) {
           employeesData = response.data.results;
+          total = response.data.count || 0;
         }
 
-        if (Array.isArray(employeesData)) {
-          setEmployees(employeesData);
-        } else {
-          throw new Error("Invalid employee data format");
+        setEmployees(employeesData);
+        setTotalItems(total);
+        setTotalPages(
+          response.pagination?.total_pages || Math.ceil(total / itemsPerPage),
+        );
+
+        // Fetch unique designations and departments for filters (only once)
+        if (allDesignations.length === 0 || allDepartments.length === 0) {
+          const allResponse = await getEmployees(1, 1000, {
+            allPages: true,
+            fields: ["designation", "department_name"],
+          });
+
+          let allData = [];
+          if (allResponse.data && Array.isArray(allResponse.data)) {
+            allData = allResponse.data;
+          } else if (allResponse.data && allResponse.data.results) {
+            allData = allResponse.data.results;
+          }
+
+          const designations = [
+            ...new Set(allData.map((emp) => emp.designation).filter(Boolean)),
+          ].sort();
+          const departments = [
+            ...new Set(
+              allData.map((emp) => emp.department_name).filter(Boolean),
+            ),
+          ].sort();
+
+          setAllDesignations(designations);
+          setAllDepartments(departments);
         }
       } catch (error) {
         console.error("Error fetching employees:", error);
         setError("Failed to load employees. Please try again.");
+        setEmployees([]);
+        setTotalItems(0);
+        setTotalPages(1);
       } finally {
         setLoading(false);
+        setIsFiltering(false);
       }
     };
+
     fetchEmployees();
-  }, []);
+  }, [
+    currentPage,
+    itemsPerPage,
+    searchQuery,
+    designationFilter,
+    departmentFilter,
+    birthdateFilter,
+    sortConfig,
+  ]);
 
   // Save filters to localStorage with debounce
   useEffect(() => {
@@ -154,6 +262,9 @@ const EmployeeDetails = () => {
         localStorage.setItem("employeeDesignationFilter", designationFilter);
         localStorage.setItem("employeeDepartmentFilter", departmentFilter);
         localStorage.setItem("employeeBirthdateFilter", birthdateFilter);
+        localStorage.setItem("employeeItemsPerPage", itemsPerPage.toString());
+        localStorage.setItem("employeeSortKey", sortConfig.key);
+        localStorage.setItem("employeeSortDirection", sortConfig.direction);
       } catch (err) {
         console.error("Error saving to localStorage:", err);
       }
@@ -161,102 +272,47 @@ const EmployeeDetails = () => {
     return () => {
       if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current);
     };
-  }, [searchQuery, designationFilter, departmentFilter, birthdateFilter]);
-
-  // Unique designations and departments
-  const uniqueDesignations = useMemo(() => {
-    return [
-      ...new Set(employees.map((emp) => emp.designation).filter(Boolean)),
-    ].sort();
-  }, [employees]);
-
-  const uniqueDepartments = useMemo(() => {
-    return [
-      ...new Set(employees.map((emp) => emp.department_name).filter(Boolean)),
-    ].sort();
-  }, [employees]);
-
-  // Filtered lists
-  const filteredDesignations = useMemo(() => {
-    return uniqueDesignations.filter((designation) =>
-      designation.toLowerCase().includes(designationSearch.toLowerCase()),
-    );
-  }, [uniqueDesignations, designationSearch]);
-
-  const filteredDepartments = useMemo(() => {
-    return uniqueDepartments.filter((department) =>
-      department.toLowerCase().includes(departmentSearch.toLowerCase()),
-    );
-  }, [uniqueDepartments, departmentSearch]);
-
-  // Sort employees
-  const sortedEmployees = useMemo(() => {
-    if (!employees.length) return [];
-    let sortableItems = [...employees];
-    if (sortConfig.key) {
-      sortableItems.sort((a, b) => {
-        const aValue = a[sortConfig.key] || "";
-        const bValue = b[sortConfig.key] || "";
-
-        if (aValue < bValue) {
-          return sortConfig.direction === "asc" ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === "asc" ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-    return sortableItems;
-  }, [employees, sortConfig]);
-
-  // Filter employees
-  const filteredEmployees = useMemo(() => {
-    if (!sortedEmployees.length) return [];
-    const lowerSearchQuery = searchQuery.toLowerCase();
-    const hasSearchQuery = searchQuery.trim() !== "";
-
-    return sortedEmployees.filter((employee) => {
-      if (!employee) return false;
-
-      if (hasSearchQuery) {
-        const matchesSearch =
-          employee.name?.toLowerCase().includes(lowerSearchQuery) ||
-          employee.employee_id?.toString().includes(searchQuery) ||
-          employee.email?.toLowerCase().includes(lowerSearchQuery) ||
-          employee.designation?.toLowerCase().includes(lowerSearchQuery) ||
-          employee.department_name?.toLowerCase().includes(lowerSearchQuery) ||
-          employee.company_name?.toLowerCase().includes(lowerSearchQuery);
-        if (!matchesSearch) return false;
-      }
-
-      if (designationFilter && employee.designation !== designationFilter)
-        return false;
-      if (departmentFilter && employee.department_name !== departmentFilter)
-        return false;
-      if (
-        birthdateFilter &&
-        !checkBirthdateMatch(employee.date_of_birth, birthdateFilter)
-      )
-        return false;
-      return true;
-    });
   }, [
-    sortedEmployees,
     searchQuery,
     designationFilter,
     departmentFilter,
     birthdateFilter,
+    itemsPerPage,
+    sortConfig,
   ]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchQuery,
+    designationFilter,
+    departmentFilter,
+    birthdateFilter,
+    sortConfig,
+  ]);
+
+  // Filtered lists for dropdowns
+  const filteredDesignations = useMemo(() => {
+    return allDesignations.filter((designation) =>
+      designation.toLowerCase().includes(designationSearch.toLowerCase()),
+    );
+  }, [allDesignations, designationSearch]);
+
+  const filteredDepartments = useMemo(() => {
+    return allDepartments.filter((department) =>
+      department.toLowerCase().includes(departmentSearch.toLowerCase()),
+    );
+  }, [allDepartments, departmentSearch]);
 
   // Handle select all
   useEffect(() => {
     if (selectAll) {
-      setSelectedRows(filteredEmployees.map((emp) => emp.id));
-    } else {
+      setSelectedRows(employees.map((emp) => emp.id));
+    } else if (selectedRows.length === employees.length) {
       setSelectedRows([]);
     }
-  }, [selectAll, filteredEmployees]);
+  }, [selectAll, employees]);
 
   // Event handlers
   const handleSort = (key) => {
@@ -276,20 +332,6 @@ const EmployeeDetails = () => {
     [navigate],
   );
 
-  const handleDelete = useCallback(async (id, e) => {
-    e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this employee?")) {
-      try {
-        await deleteEmployee(id);
-        setEmployees((prev) => prev.filter((employee) => employee.id !== id));
-        setSelectedRows((prev) => prev.filter((rowId) => rowId !== id));
-      } catch (error) {
-        console.error("Error deleting employee:", error);
-        setError("Failed to delete employee. Please try again.");
-      }
-    }
-  }, []);
-
   const handleSelectRow = (id, e) => {
     e.stopPropagation();
     setSelectedRows((prev) => {
@@ -299,21 +341,16 @@ const EmployeeDetails = () => {
         return [...prev, id];
       }
     });
-    setSelectAll(false);
+    if (selectAll) setSelectAll(false);
   };
 
   const handleExport = useCallback(() => {
     const escapeCSVPhone = (value) => {
       if (value === null || value === undefined || value === "") return "";
-
       const str = String(value).trim();
-
-      // If it looks like a phone number that starts with 0 or + or contains only digits
       if (/^0[0-9]{9,14}$|^[+][0-9]{10,15}$|^[0-9]{10,15}$/.test(str)) {
-        return `="${str}"`; // ← This is the magic
+        return `="${str}"`;
       }
-
-      // Normal escaping for other fields
       if (
         str.includes(",") ||
         str.includes('"') ||
@@ -322,9 +359,9 @@ const EmployeeDetails = () => {
       ) {
         return `"${str.replace(/"/g, '""')}"`;
       }
-
       return str;
     };
+
     const escapeCSV = (value) => {
       if (value === null || value === undefined || value === "") return "";
       const stringValue = String(value);
@@ -351,8 +388,8 @@ const EmployeeDetails = () => {
 
     const dataToExport =
       selectedRows.length > 0
-        ? filteredEmployees.filter((emp) => selectedRows.includes(emp.id))
-        : filteredEmployees;
+        ? employees.filter((emp) => selectedRows.includes(emp.id))
+        : employees;
 
     const companyName = "TAD Group";
     const reportDate = new Date().toLocaleDateString("en-US", {
@@ -393,13 +430,14 @@ const EmployeeDetails = () => {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-  }, [employees, filteredEmployees, selectedRows]);
+  }, [employees, selectedRows]);
 
   const clearAllFilters = useCallback(() => {
     setSearchQuery("");
     setDesignationFilter("");
     setDepartmentFilter("");
     setBirthdateFilter("");
+    setCurrentPage(1);
   }, []);
 
   const closeDropdowns = useCallback(() => {
@@ -432,6 +470,15 @@ const EmployeeDetails = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [closeDropdowns]);
 
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (e) => {
+    setItemsPerPage(parseInt(e.target.value));
+    setCurrentPage(1);
+  };
+
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <FaSort className="sort-icon" />;
     return sortConfig.direction === "asc" ? (
@@ -461,10 +508,8 @@ const EmployeeDetails = () => {
       "AB-negative": { color: "#b45309" },
     };
 
-    // Normalize the blood group string to handle different formats
     const normalizedGroup = bloodGroup?.toLowerCase().replace(/\s+/g, "");
 
-    // Check for matches
     if (normalizedGroup?.includes("a")) return bloodGroupColors["A+"];
     if (normalizedGroup?.includes("b") && !normalizedGroup?.includes("ab"))
       return bloodGroupColors["B+"];
@@ -474,8 +519,114 @@ const EmployeeDetails = () => {
     return bloodGroupColors[bloodGroup] || { color: "#334155" };
   };
 
+  // Pagination component
+  const Pagination = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div style={styles.paginationContainer}>
+        <div style={styles.paginationInfo}>
+          Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+          {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}{" "}
+          records
+          {isFiltering && <span style={styles.filteringIndicator}> ⟳</span>}
+        </div>
+
+        <div style={styles.paginationControls}>
+          <div style={styles.pageSizeSelector}>
+            <span style={styles.pageSizeLabel}>Show:</span>
+            <select
+              value={itemsPerPage}
+              onChange={handleItemsPerPageChange}
+              style={styles.pageSizeSelect}
+            >
+              {[ 100].map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={styles.paginationButtons}>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={styles.paginationButton}
+            >
+              ‹
+            </button>
+
+            {startPage > 1 && (
+              <>
+                <button
+                  onClick={() => handlePageChange(1)}
+                  style={styles.paginationButton}
+                >
+                  1
+                </button>
+                {startPage > 2 && (
+                  <span style={styles.paginationEllipsis}>...</span>
+                )}
+              </>
+            )}
+
+            {pageNumbers.map((number) => (
+              <button
+                key={number}
+                onClick={() => handlePageChange(number)}
+                style={{
+                  ...styles.paginationButton,
+                  ...(currentPage === number
+                    ? styles.paginationButtonActive
+                    : {}),
+                }}
+              >
+                {number}
+              </button>
+            ))}
+
+            {endPage < totalPages && (
+              <>
+                {endPage < totalPages - 1 && (
+                  <span style={styles.paginationEllipsis}>...</span>
+                )}
+                <button
+                  onClick={() => handlePageChange(totalPages)}
+                  style={styles.paginationButton}
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={styles.paginationButton}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Loading and error states
-  if (loading) {
+  if (loading && employees.length === 0) {
     return (
       <div style={styles.appContainer}>
         <Sidebars />
@@ -529,14 +680,13 @@ const EmployeeDetails = () => {
               <h1 style={styles.pageTitle}>Employees</h1>
               <div style={styles.headerBadge}>
                 <FaUsers />
-                <span>{employees.length} Total</span>
+                <span>{totalItems} Total</span>
               </div>
             </div>
             <div style={styles.headerActions}>
               <button style={styles.btnExport} onClick={handleExport}>
                 <FaDownload /> Export CSV
               </button>
-
               <button
                 style={styles.btnPrimary}
                 onClick={() => navigate("/add-employee")}
@@ -554,7 +704,7 @@ const EmployeeDetails = () => {
               </div>
               <div style={styles.statContent}>
                 <span style={styles.statLabel}>Total Employees</span>
-                <span style={styles.statValue}>{employees.length}</span>
+                <span style={styles.statValue}>{totalItems}</span>
               </div>
             </div>
             <div style={styles.statCard}>
@@ -563,7 +713,7 @@ const EmployeeDetails = () => {
               </div>
               <div style={styles.statContent}>
                 <span style={styles.statLabel}>Departments</span>
-                <span style={styles.statValue}>{uniqueDepartments.length}</span>
+                <span style={styles.statValue}>{allDepartments.length}</span>
               </div>
             </div>
             <div style={styles.statCard}>
@@ -572,9 +722,7 @@ const EmployeeDetails = () => {
               </div>
               <div style={styles.statContent}>
                 <span style={styles.statLabel}>Designations</span>
-                <span style={styles.statValue}>
-                  {uniqueDesignations.length}
-                </span>
+                <span style={styles.statValue}>{allDesignations.length}</span>
               </div>
             </div>
             <div style={styles.statCard}>
@@ -582,8 +730,8 @@ const EmployeeDetails = () => {
                 <FaFilter />
               </div>
               <div style={styles.statContent}>
-                <span style={styles.statLabel}>Filtered</span>
-                <span style={styles.statValue}>{filteredEmployees.length}</span>
+                <span style={styles.statLabel}>Current Page</span>
+                <span style={styles.statValue}>{employees.length}</span>
               </div>
             </div>
           </div>
@@ -881,12 +1029,7 @@ const EmployeeDetails = () => {
                   Employee Directory
                 </h3>
                 <span style={styles.resultCount}>
-                  {filteredEmployees.length} records
-                </span>
-              </div>
-              <div style={styles.tableActions}>
-                <span style={styles.selectionInfo}>
-                  {selectedRows.length > 0 && `${selectedRows.length} selected`}
+                  {totalItems} total records
                 </span>
               </div>
             </div>
@@ -926,8 +1069,8 @@ const EmployeeDetails = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEmployees.length > 0 ? (
-                    filteredEmployees.map((employee) => (
+                  {employees.length > 0 ? (
+                    employees.map((employee) => (
                       <tr
                         key={employee.id}
                         style={{
@@ -1051,7 +1194,7 @@ const EmployeeDetails = () => {
                     ))
                   ) : (
                     <tr style={styles.emptyRow}>
-                      <td colSpan="8" style={{ padding: "60px 20px" }}>
+                      <td colSpan="9" style={{ padding: "60px 20px" }}>
                         <div style={styles.emptyState}>
                           <FaUsers style={styles.emptyIcon} />
                           <h4 style={{ fontSize: "18px", color: "#334155" }}>
@@ -1073,6 +1216,9 @@ const EmployeeDetails = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalItems > 0 && <Pagination />}
           </div>
         </div>
       </div>
@@ -1453,13 +1599,13 @@ const styles = {
   },
   tableContainer: {
     overflowX: "auto",
-    maxHeight: "calc(100vh - 400px)",
+    maxHeight: "calc(100vh - 500px)",
     overflowY: "auto",
   },
   employeeTable: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1200px",
+    minWidth: "1400px",
   },
   tableHeaderCell: {
     padding: "14px 20px",
@@ -1474,14 +1620,19 @@ const styles = {
     top: 0,
     zIndex: 10,
   },
-  sortable: {
-    cursor: "pointer",
-    userSelect: "none",
-  },
   checkboxCell: {
     width: "40px",
     textAlign: "center",
     padding: "14px 20px",
+    background: "#f9fafb",
+    borderBottom: "1px solid #e2e8f0",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+  },
+  sortable: {
+    cursor: "pointer",
+    userSelect: "none",
   },
   checkbox: {
     position: "relative",
@@ -1589,10 +1740,6 @@ const styles = {
     gap: "6px",
     fontWeight: 500,
   },
-  bloodGroupApositive: { color: "#2563eb" },
-  bloodGroupBpositive: { color: "#7c3aed" },
-  bloodGroupOpositive: { color: "#059669" },
-  bloodGroupABpositive: { color: "#b45309" },
   birthdateInfo: {
     display: "flex",
     alignItems: "center",
@@ -1604,11 +1751,11 @@ const styles = {
   },
   actionButtons: {
     display: "flex",
-    gap: "4px",
+    gap: "8px",
   },
   actionBtn: {
-    width: "30px",
-    height: "30px",
+    width: "32px",
+    height: "32px",
     borderRadius: "6px",
     border: "none",
     cursor: "pointer",
@@ -1616,11 +1763,22 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     transition: "all 0.2s",
+    background: "white",
+    color: "#64748b",
+    border: "1px solid #e2e8f0",
   },
   actionBtnAttachment: {
     "&:hover": {
       background: "#fff3cd",
       color: "#f59e0b",
+      borderColor: "#f59e0b",
+    },
+  },
+  actionBtnDelete: {
+    "&:hover": {
+      background: "#fee2e2",
+      color: "#ef4444",
+      borderColor: "#ef4444",
     },
   },
   emptyRow: {
@@ -1675,6 +1833,87 @@ const styles = {
     fontWeight: "bold",
     marginBottom: "16px",
   },
+  // Pagination Styles
+  paginationContainer: {
+    padding: "5px 20px",
+    borderTop: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "16px",
+  },
+  paginationInfo: {
+    fontSize: "14px",
+    color: "#4a5568",
+    fontWeight: 500,
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  filteringIndicator: {
+    fontSize: "14px",
+    color: "#4299e1",
+    animation: "spin 1s linear infinite",
+    display: "inline-block",
+  },
+  paginationControls: {
+    display: "flex",
+    alignItems: "center",
+    gap: "24px",
+    flexWrap: "wrap",
+  },
+  pageSizeSelector: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  pageSizeLabel: {
+    fontSize: "14px",
+    color: "#4a5568",
+  },
+  pageSizeSelect: {
+    padding: "6px 5px",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    fontSize: "14px",
+    backgroundColor: "white",
+    cursor: "pointer",
+    outline: "none",
+  },
+  paginationButtons: {
+    display: "flex",
+    alignItems: "center",
+
+    gap: "4px",
+  },
+  paginationButton: {
+    padding: "6px 1px",
+    border: "1px solid #d1d5db",
+    backgroundColor: "white",
+    borderRadius: "6px",
+    fontSize: "14px",
+    fontWeight: 500,
+    color: "#4a5568",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    minWidth: "40px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "1px",
+  },
+  paginationButtonActive: {
+    backgroundColor: "#2563eb",
+    borderColor: "#2563eb",
+    color: "white",
+  },
+  paginationEllipsis: {
+    padding: "8px 4px",
+    color: "#6b7280",
+    fontSize: "14px",
+  },
 };
 
 // Add keyframe animations
@@ -1708,6 +1947,12 @@ styleSheet.textContent = `
   .action-btn.attachment:hover {
     background: #fff3cd;
     color: #f59e0b;
+    border-color: #f59e0b;
+  }
+  .action-btn.delete:hover {
+    background: #fee2e2;
+    color: #ef4444;
+    border-color: #ef4444;
   }
   .filter-select:hover, .filter-select.active {
     border-color: #2563eb;
@@ -1782,6 +2027,19 @@ styleSheet.textContent = `
   .table-header-cell.sortable:hover {
     color: #2563eb;
   }
+  .pagination-button:hover:not(:disabled) {
+    background-color: #f7fafc;
+    border-color: #94a3b8;
+  }
+  .pagination-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pagination-button-active {
+    background-color: #2563eb;
+    border-color: #2563eb;
+    color: white;
+  }
   
   /* Custom scrollbar styles */
   .table-container::-webkit-scrollbar {
@@ -1801,6 +2059,19 @@ styleSheet.textContent = `
   
   .table-container::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+  }
+
+  .dropdown-options::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .dropdown-options::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  
+  .dropdown-options::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
   }
 `;
 document.head.appendChild(styleSheet);

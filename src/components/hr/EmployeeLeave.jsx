@@ -241,14 +241,6 @@ const EmployeeLeave = () => {
     setCurrentPage(page);
   };
 
-  const goToFirstPage = () => {
-    setCurrentPage(1);
-  };
-
-  const goToLastPage = () => {
-    setCurrentPage(totalPages);
-  };
-
   const goToPreviousPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
@@ -1394,96 +1386,6 @@ const EmployeeLeave = () => {
             </div>
           </div>
         )}
-
-        {/* Summary Footer */}
-        {/* {filteredLeaves.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{
-              marginTop: "20px",
-              padding: "16px 20px",
-              background: "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)",
-              color: "white",
-              borderRadius: "12px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexShrink: 0,
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  marginBottom: "4px",
-                }}
-              >
-                Showing {paginatedLeaves.length} leave records on page {currentPage} of {totalPages}
-              </div>
-              <div
-                style={{
-                  fontSize: "12px",
-                  opacity: 0.8,
-                }}
-              >
-                Sorted by {sortBy} •{" "}
-                {sortOrder === "asc" ? "Ascending" : "Descending"}
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                style={{
-                  padding: "8px 16px",
-                  background: "rgba(255, 255, 255, 0.1)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  borderRadius: "8px",
-                  color: "white",
-                  fontSize: "13px",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background =
-                    "rgba(255, 255, 255, 0.15)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    "rgba(255, 255, 255, 0.1)")
-                }
-              >
-                Generate Report
-              </button>
-              <button
-                style={{
-                  padding: "8px 16px",
-                  background: "white",
-                  color: "#1E293B",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#F1F5F9")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "white")
-                }
-              >
-                <BarChart3 size={14} />
-                View Analytics
-              </button>
-            </div>
-          </motion.div>
-        )} */}
       </div>
 
       {/* Delete Confirmation Modal */}
