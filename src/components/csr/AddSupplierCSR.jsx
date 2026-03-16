@@ -254,6 +254,13 @@ const AddSupplierCSR = () => {
     // Contact Information
     email: "",
     phone: "",
+
+    // OSH Committee
+    osh_committee_safety: false,
+    osh_safety_policy: false,
+    iso_45001_validity: "",
+    iso_45001_validity_days_remaining: "",
+    osh_file: null,
   });
 
   // File states
@@ -305,6 +312,7 @@ const AddSupplierCSR = () => {
     pc_meeting_minutes: null,
     safety_committee_formation_document: null,
     safety_committee_meeting_minutes: null,
+    osh_file: null,
   });
 
   // Multiple image states
@@ -374,12 +382,13 @@ const AddSupplierCSR = () => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    // Handle empty strings for number fields
+    // Handle different input types
     let processedValue = value;
-    if (type === "number" && value === "") {
-      processedValue = "";
-    } else if (type === "checkbox") {
+    
+    if (type === "checkbox") {
       processedValue = checked;
+    } else if (type === "number" && value === "") {
+      processedValue = "";
     } else if (value === "") {
       processedValue = null;
     } else {
@@ -393,44 +402,41 @@ const AddSupplierCSR = () => {
       };
 
       // Auto-calculate days remaining when validity date changes
-      if (
-        name.includes("_validity") &&
-        !name.includes("days_remaining") &&
-        value
-      ) {
-        const daysRemainingField = name.replace(
-          "_validity",
-          "_validity_days_remaining",
-        );
-        const calculatedDays = calculateDaysRemaining(value);
-        newData[daysRemainingField] = calculatedDays;
-      }
-
-      // Handle specific license fields
-      if (name === "trade_license_validity" && value) {
-        newData.trade_license_days_remaining = calculateDaysRemaining(value);
-      }
-      if (name === "factory_license_validity" && value) {
-        newData.factory_license_days_remaining = calculateDaysRemaining(value);
-      }
-      if (name === "fire_license_validity" && value) {
-        newData.fire_license_days_remaining = calculateDaysRemaining(value);
-      }
-      if (name === "membership_validity" && value) {
-        newData.membership_days_remaining = calculateDaysRemaining(value);
-      }
-      if (name === "group_insurance_validity" && value) {
-        newData.group_insurance_days_remaining = calculateDaysRemaining(value);
-      }
-      if (name === "boiler_license_validity" && value) {
-        newData.boiler_license_days_remaining = calculateDaysRemaining(value);
-      }
-      if (name === "berc_license_validity" && value) {
-        newData.berc_days_remaining = calculateDaysRemaining(value);
-      }
-      if (name === "drinking_water_license_validity" && value) {
-        newData.drinking_water_license_days_remaining =
-          calculateDaysRemaining(value);
+      if (name.includes("_validity") && !name.includes("days_remaining") && value) {
+        // Handle certification validity fields
+        if (name.includes("_validity") && !name.includes("license") && !name.includes("_validity")) {
+          const daysRemainingField = name.replace("_validity", "_validity_days_remaining");
+          newData[daysRemainingField] = calculateDaysRemaining(value);
+        }
+        
+        // Handle specific license fields
+        if (name === "trade_license_validity") {
+          newData.trade_license_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "factory_license_validity") {
+          newData.factory_license_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "fire_license_validity") {
+          newData.fire_license_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "membership_validity") {
+          newData.membership_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "group_insurance_validity") {
+          newData.group_insurance_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "boiler_license_validity") {
+          newData.boiler_license_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "berc_license_validity") {
+          newData.berc_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "drinking_water_license_validity") {
+          newData.drinking_water_license_days_remaining = calculateDaysRemaining(value);
+        }
+        if (name === "iso_45001_validity") {
+          newData.iso_45001_validity_days_remaining = calculateDaysRemaining(value);
+        }
       }
 
       return newData;
@@ -454,10 +460,12 @@ const AddSupplierCSR = () => {
     const { name } = e.target;
     const file = e.target.files[0];
 
-    setFiles((prev) => ({
-      ...prev,
-      [name]: file,
-    }));
+    if (file) {
+      setFiles((prev) => ({
+        ...prev,
+        [name]: file,
+      }));
+    }
   };
 
   const handleBlur = (e) => {
@@ -503,22 +511,57 @@ const AddSupplierCSR = () => {
     setError(null);
 
     try {
-      // Create a deep copy of formData
-      const formDataCopy = JSON.parse(JSON.stringify(formData));
-
-      // Calculate total manpower if not provided
-      if (!formDataCopy.total_manpower) {
-        const total =
-          (parseInt(formDataCopy.manpower_workers_male) || 0) +
-          (parseInt(formDataCopy.manpower_workers_female) || 0) +
-          (parseInt(formDataCopy.other_gender_workers) || 0) +
-          (parseInt(formDataCopy.disabled_workers) || 0) +
-          (parseInt(formDataCopy.manpower_staff_male) || 0) +
-          (parseInt(formDataCopy.manpower_staff_female) || 0);
-        formDataCopy.total_manpower = total > 0 ? total : "";
-      }
-
+      // Create FormData object
       const formDataToSend = new FormData();
+
+      // List of all date fields that need special handling
+      const dateFields = [
+        "bsci_last_audit_date",
+        "bsci_validity",
+        "sedex_last_audit_date",
+        "sedex_validity",
+        "wrap_last_audit_date",
+        "wrap_validity",
+        "security_audit_last_date",
+        "security_audit_validity",
+        "oeko_tex_validity",
+        "gots_validity",
+        "ocs_validity",
+        "grs_validity",
+        "rcs_validity",
+        "iso_9001_validity",
+        "iso_14001_validity",
+        "iso_45001_validity",
+        "trade_license_validity",
+        "factory_license_validity",
+        "fire_license_validity",
+        "membership_validity",
+        "group_insurance_validity",
+        "boiler_license_validity",
+        "berc_license_validity",
+        "drinking_water_license_validity",
+        "last_fire_training_by_fscd",
+        "fscd_next_fire_training_date",
+        "last_fire_drill_record_by_fscd",
+        "fscd_next_drill_date",
+        "water_test_report_doe",
+        "zdhc_water_test_report",
+        "co2_report",
+        "solar_energy",
+        "green_energy",
+        "structural_initial_audit_date",
+        "structural_last_follow_up_audit_date",
+        "fire_initial_audit_date",
+        "fire_last_follow_up_audit_date",
+        "electrical_initial_audit_date",
+        "electrical_last_follow_up_audit_date",
+        "last_pc_election_date",
+        "last_pc_meeting_date",
+        "last_safety_committee_formation_date",
+        "last_safety_committee_meeting_date",
+        "last_grievance_resolution_date",
+        "last_safety_audit_date",
+      ];
 
       // List of single file fields
       const singleFileFields = [
@@ -568,20 +611,31 @@ const AddSupplierCSR = () => {
         "additional_document_2",
         "additional_document_3",
         "additional_document_4",
+        "osh_file",
       ];
 
-      // Add ALL form data fields
-      Object.entries(formDataCopy).forEach(([key, value]) => {
-        // Skip file fields
+      // Add all form data fields to FormData
+      Object.entries(formData).forEach(([key, value]) => {
+        // Skip file fields - we'll handle them separately
         if (singleFileFields.includes(key)) {
           return;
         }
 
-        // Add non-file fields if they have values
-        if (value !== null && value !== undefined && value !== "") {
+        // Handle date fields - ensure they're in YYYY-MM-DD format
+        if (dateFields.includes(key) && value) {
+          try {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              const formattedDate = date.toISOString().split('T')[0];
+              formDataToSend.append(key, formattedDate);
+            }
+          } catch (e) {
+            console.error(`Error formatting date for ${key}:`, e);
+          }
+        }
+        // Handle other fields
+        else if (value !== null && value !== undefined && value !== "") {
           if (typeof value === "boolean") {
-            formDataToSend.append(key, value.toString());
-          } else if (typeof value === "number") {
             formDataToSend.append(key, value.toString());
           } else {
             formDataToSend.append(key, String(value));
@@ -594,6 +648,7 @@ const AddSupplierCSR = () => {
         buildingImages.forEach((image) => {
           formDataToSend.append("building_images", image);
         });
+        console.log(`Added ${buildingImages.length} building images`);
       }
 
       // Add multiple fire images
@@ -601,26 +656,39 @@ const AddSupplierCSR = () => {
         fireImages.forEach((image) => {
           formDataToSend.append("fire_images", image);
         });
+        console.log(`Added ${fireImages.length} fire images`);
       }
 
       // Add single files
       Object.entries(files).forEach(([key, file]) => {
         if (file && file instanceof File) {
           formDataToSend.append(key, file);
+          console.log(`Added file: ${key} - ${file.name}`);
         }
       });
 
-      // DEBUG: Log FormData contents as object
+      // Calculate total manpower if needed
+      const total = 
+        (parseInt(formData.manpower_workers_male) || 0) +
+        (parseInt(formData.manpower_workers_female) || 0) +
+        (parseInt(formData.other_gender_workers) || 0) +
+        (parseInt(formData.disabled_workers) || 0) +
+        (parseInt(formData.manpower_staff_male) || 0) +
+        (parseInt(formData.manpower_staff_female) || 0);
+      
+      if (total > 0) {
+        formDataToSend.append("total_manpower", total.toString());
+      }
+
+      // DEBUG: Log FormData contents
       console.log("=== FORM DATA CONTENTS ===");
-      const debugObj = {};
       for (let pair of formDataToSend.entries()) {
         if (pair[1] instanceof File) {
-          debugObj[pair[0]] = `[File] ${pair[1].name} (${pair[1].type})`;
+          console.log(`${pair[0]}: [File] ${pair[1].name} (${pair[1].type})`);
         } else {
-          debugObj[pair[0]] = pair[1];
+          console.log(`${pair[0]}: ${pair[1]}`);
         }
       }
-      console.log(JSON.stringify(debugObj, null, 2));
 
       const response = await createSupplier(formDataToSend);
       console.log("✅ Supplier created:", response.data);
@@ -630,11 +698,10 @@ const AddSupplierCSR = () => {
     } catch (err) {
       console.error("❌ Error adding supplier:", err);
 
-      // Log the error response if available
+      // Log detailed error response
       if (err.response) {
         console.error("Error response data:", err.response.data);
         console.error("Error response status:", err.response.status);
-        console.error("Error response headers:", err.response.headers);
       }
 
       let errorMessage = "Error adding supplier. Please try again.";
@@ -666,6 +733,7 @@ const AddSupplierCSR = () => {
       setIsLoading(false);
     }
   };
+
   const handleNext = () => {
     // Validate required fields before proceeding
     if (activeTab === "basic") {
@@ -690,7 +758,7 @@ const AddSupplierCSR = () => {
     }
   };
 
-  // Tabs array
+  // Tabs array with OSH Committee
   const tabs = [
     { id: "basic", label: "General Info", icon: "🏢" },
     { id: "building", label: "Building & Manpower", icon: "🏭" },
@@ -699,6 +767,7 @@ const AddSupplierCSR = () => {
     { id: "licenses", label: "Licenses", icon: "📋" },
     { id: "safety", label: "Safety", icon: "🚨" },
     { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
+    { id: "osh", label: "OSH Committee", icon: "🛡️" },
     { id: "environment", label: "Environment", icon: "🌱" },
     { id: "rsc", label: "RSC Audit", icon: "🔍" },
     { id: "csr", label: "CSR", icon: "🤝" },
@@ -1114,6 +1183,7 @@ const AddSupplierCSR = () => {
 
         <div style={formStyle}>
           <div style={tabContentStyle}>
+            {/* Basic Info Tab */}
             {activeTab === "basic" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1207,6 +1277,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* Building & Manpower Tab */}
             {activeTab === "building" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1286,6 +1357,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* Production Tab */}
             {activeTab === "production" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1344,6 +1416,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* Certifications Tab */}
             {activeTab === "certifications" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1409,6 +1482,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* Licenses Tab */}
             {activeTab === "licenses" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1452,7 +1526,7 @@ const AddSupplierCSR = () => {
                     </div>
                   </div>
 
-                  {/* BERC License - Custom section */}
+                  {/* BERC License */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>BERC License</h4>
@@ -1519,6 +1593,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* Fire Safety Tab */}
             {activeTab === "safety" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1614,6 +1689,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* PC & Safety Committee Tab */}
             {activeTab === "pcSafety" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1690,6 +1766,68 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* OSH Committee Tab */}
+            {activeTab === "osh" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🛡️</span> OSH Committee
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Occupational Safety and Health Committee information
+                  </p>
+                </div>
+                
+                <div style={cardsContainerStyle}>
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>OSH Committee Details</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={checkboxGridStyle}>
+                        {renderCheckbox(
+                          "OSH Committee Formed",
+                          "osh_committee_safety",
+                          "Check if OSH committee has been formed"
+                        )}
+                        {renderCheckbox(
+                          "OSH Safety Policy Available",
+                          "osh_safety_policy",
+                          "Check if OSH safety policy document is available"
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>ISO 45001 Certification</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderInput(
+                          "ISO 45001 Validity",
+                          "iso_45001_validity",
+                          "date"
+                        )}
+                        {renderInput(
+                          "Days Remaining",
+                          "iso_45001_validity_days_remaining",
+                          "number"
+                        )}
+                        {renderFileInput(
+                          "OSH Committee Document",
+                          "osh_file",
+                          ".pdf,.jpg,.png"
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Environment Tab */}
             {activeTab === "environment" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1754,6 +1892,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* RSC Audit Tab */}
             {activeTab === "rsc" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1785,6 +1924,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* CSR Tab */}
             {activeTab === "csr" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1901,6 +2041,7 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* Documents Tab */}
             {activeTab === "documents" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>

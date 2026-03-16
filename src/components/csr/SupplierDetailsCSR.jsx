@@ -235,9 +235,6 @@ const DocumentGrid = ({ documents }) => {
     e.stopPropagation();
 
     const correctUrl = getCorrectFileUrl(url);
-    // console.log("Opening document URL:", correctUrl);
-
-    // Open in new tab
     window.open(correctUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -278,7 +275,6 @@ const ImageGallery = ({ images, title }) => {
 
   const handleImageClick = (url) => {
     const correctUrl = getCorrectFileUrl(url);
-    // console.log("Opening image URL:", correctUrl);
     window.open(correctUrl, "_blank");
   };
 
@@ -388,40 +384,12 @@ const SupplierDetailsCSR = () => {
   const [customMessage, setCustomMessage] = useState("");
   const [selectedItems, setSelectedItems] = useState({});
 
-  // Notification days constant - ONLY these days trigger notifications
-  const NOTIFICATION_DAYS = [90, 75, 60];
+  // Notification days constant - MUST MATCH BACKEND
+  const NOTIFICATION_DAYS = [90, 75, 60, 45, 30, 15];
 
   useEffect(() => {
     fetchSupplierDetails();
   }, [id]);
-
-  // Debug logging for images
-  useEffect(() => {
-    if (supplier) {
-      // console.log("=== Supplier Data Debug ===");
-      // console.log("Building images:", supplier.building_images);
-      // console.log("Fire images:", supplier.fire_images);
-      // console.log("All certificates:", supplier.all_certificates);
-
-      // Test image URLs
-      if (supplier.building_images) {
-        supplier.building_images.forEach((url, i) => {
-          // console.log(
-          //   `Building image ${i + 1} corrected URL:`,
-          //   getCorrectFileUrl(url),
-          // );
-        });
-      }
-      if (supplier.fire_images) {
-        supplier.fire_images.forEach((url, i) => {
-          // console.log(
-          //   `Fire image ${i + 1} corrected URL:`,
-          //   getCorrectFileUrl(url),
-          // );
-        });
-      }
-    }
-  }, [supplier]);
 
   const fetchSupplierDetails = async () => {
     try {
@@ -553,6 +521,15 @@ const SupplierDetailsCSR = () => {
         icon: "📜",
         category: "certification",
       },
+      {
+        id: "iso_45001",
+        name: "ISO 45001 Certification",
+        days: supplier.iso_45001_validity_days_remaining,
+        expiry: supplier.iso_45001_validity,
+        status: "OSH Certification",
+        icon: "🛡️",
+        category: "certification",
+      },
 
       // Licenses
       {
@@ -645,7 +622,7 @@ const SupplierDetailsCSR = () => {
     return items.sort((a, b) => a.days_remaining - b.days_remaining);
   };
 
-  // FIXED: Get notification count - ONLY items at notification days (90, 75, 60)
+  // FIXED: Get notification count - ONLY items at notification days
   const getNotificationCount = () => {
     if (!supplier) return 0;
 
@@ -700,7 +677,7 @@ const SupplierDetailsCSR = () => {
         custom_message: customMessage,
       };
 
-      // console.log("Sending notification request:", requestData);
+      console.log("Sending notification request:", requestData);
 
       const response = await fetch(
         `http://119.148.51.38:8000/api/merchandiser/api/supplier/${id}/send-expiry-notifications/`,
@@ -717,12 +694,12 @@ const SupplierDetailsCSR = () => {
       );
 
       // Log the response status
-      // console.log("Response status:", response.status);
+      console.log("Response status:", response.status);
 
       // Try to get the response body
       let result;
       const responseText = await response.text();
-      // console.log("Response text:", responseText);
+      console.log("Response text:", responseText);
 
       try {
         result = JSON.parse(responseText);
@@ -731,17 +708,17 @@ const SupplierDetailsCSR = () => {
         result = {
           error: "Invalid JSON response",
           rawResponse: responseText,
-          notifications: [], // Ensure notifications is an array
+          notifications: [],
         };
       }
 
-      // console.log("Response data:", result);
+      console.log("Response data:", result);
 
       if (response.ok && result.success) {
         setNotificationResult({
           success: true,
           message: `✅ Notifications sent successfully to ${supplier.email}`,
-          details: result.notifications || [], // Ensure details is an array
+          details: result.notifications || [],
         });
 
         setSelectedItems({});
@@ -753,10 +730,21 @@ const SupplierDetailsCSR = () => {
           setNotificationResult(null);
         }, 3000);
       } else {
+        // Handle the specific error from backend
+        let errorMessage = result.error || result.message || "Unknown error";
+        
+        // If the error contains information about available items, show it
+        if (result.available_items) {
+          errorMessage += `\nAvailable items: ${result.available_items.join(', ')}`;
+        }
+        if (result.notification_days) {
+          errorMessage += `\nNotification days: ${result.notification_days.join(', ')}`;
+        }
+        
         setNotificationResult({
           success: false,
-          message: `❌ Failed to send notifications: ${result.error || result.message || "Unknown error"}`,
-          details: result.notifications || [], // Ensure details is an array
+          message: `❌ Failed to send notifications: ${errorMessage}`,
+          details: result.notifications || [],
           rawError: result,
         });
       }
@@ -765,7 +753,7 @@ const SupplierDetailsCSR = () => {
       setNotificationResult({
         success: false,
         message: `❌ Error: ${error.message}`,
-        details: [], // Ensure details is an array
+        details: [],
       });
     } finally {
       setSendingNotifications(false);
@@ -914,6 +902,12 @@ const SupplierDetailsCSR = () => {
         validity: supplier.iso_14001_validity,
         status: supplier.iso_14001_status,
       },
+      {
+        name: "ISO 45001",
+        days: supplier.iso_45001_validity_days_remaining,
+        validity: supplier.iso_45001_validity,
+        status: "OSH Certification",
+      },
     ],
     licenses: [
       {
@@ -985,6 +979,24 @@ const SupplierDetailsCSR = () => {
         value: supplier.fire_safety_protection,
       },
       { label: "Remarks", value: supplier.fire_safety_remarks },
+    ],
+    osh: [
+      {
+        label: "OSH Committee Formed",
+        value: getBooleanDisplay(supplier.osh_committee_safety),
+      },
+      {
+        label: "OSH Safety Policy",
+        value: getBooleanDisplay(supplier.osh_safety_policy),
+      },
+      {
+        label: "ISO 45001 Validity",
+        value: formatDate(supplier.iso_45001_validity),
+      },
+      {
+        label: "ISO 45001 Days Remaining",
+        value: supplier.iso_45001_validity_days_remaining,
+      },
     ],
     compliance: [
       {
@@ -1428,6 +1440,7 @@ const SupplierDetailsCSR = () => {
             { id: "compliance", label: "Compliance", icon: "✅" },
             { id: "safety", label: "Safety", icon: "🚨" },
             { id: "environment", label: "Environment", icon: "🌱" },
+            { id: "osh", label: "OSH Committee", icon: "🛡️" },
             { id: "documents", label: "Documents", icon: "📎" },
           ].map((tab) => (
             <button
@@ -1793,6 +1806,48 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
+        {/* OSH Committee Tab */}
+        {activeTab === "osh" && (
+          <div style={styles.oshGrid}>
+            <InfoCard title="OSH Committee Information" icon="🛡️" colSpan={2}>
+              <div style={styles.twoColumn}>
+                <InfoRow
+                  label="OSH Committee Formed"
+                  value={getBooleanDisplay(supplier.osh_committee_safety)}
+                />
+                <InfoRow
+                  label="OSH Safety Policy"
+                  value={getBooleanDisplay(supplier.osh_safety_policy)}
+                />
+                <InfoRow
+                  label="ISO 45001 Validity"
+                  value={formatDate(supplier.iso_45001_validity)}
+                />
+                {supplier.iso_45001_validity_days_remaining && (
+                  <div style={styles.infoRow}>
+                    <span style={styles.infoLabel}>ISO 45001 Days Remaining:</span>
+                    <DaysRemainingBadge days={supplier.iso_45001_validity_days_remaining} />
+                  </div>
+                )}
+              </div>
+            </InfoCard>
+
+            {/* OSH Document */}
+            {supplier.osh_file && (
+              <InfoCard title="OSH Document" icon="📄">
+                <DocumentGrid
+                  documents={[
+                    {
+                      name: "OSH Committee Document",
+                      url: supplier.osh_file,
+                    },
+                  ]}
+                />
+              </InfoCard>
+            )}
+          </div>
+        )}
+
         {/* Documents Tab */}
         {activeTab === "documents" && (
           <div style={styles.documentsTab}>
@@ -1853,7 +1908,7 @@ const SupplierDetailsCSR = () => {
                   }
                 >
                   <p>{notificationResult.message}</p>
-                  {notificationResult.details && (
+                  {notificationResult.details && notificationResult.details.length > 0 && (
                     <div style={styles.notificationDetails}>
                       <h4>Sent Notifications:</h4>
                       <ul>
@@ -2556,6 +2611,11 @@ const styles = {
     gap: "1.5rem",
   },
   environmentGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "1.5rem",
+  },
+  oshGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
     gap: "1.5rem",

@@ -255,9 +255,15 @@ const EditSupplierCSR = () => {
     // Contact Information
     email: "",
     phone: "",
+
+    // OSH Committee
+    osh_committee_safety: false,
+    osh_safety_policy: false,
+    iso_45001_validity: "",
+    iso_45001_validity_days_remaining: "",
   });
 
-  // File states
+  // File states - WITHOUT profile_picture
   const [files, setFiles] = useState({
     // Single file fields
     card_image: null,
@@ -306,6 +312,7 @@ const EditSupplierCSR = () => {
     pc_meeting_minutes: null,
     safety_committee_formation_document: null,
     safety_committee_meeting_minutes: null,
+    osh_file: null,
   });
 
   // Multiple image states
@@ -317,7 +324,7 @@ const EditSupplierCSR = () => {
   const [fireImagePreviews, setFireImagePreviews] = useState([]);
   const [existingFireImages, setExistingFireImages] = useState([]);
 
-  // Existing file URLs for display
+  // Existing file URLs for display - WITHOUT profile_picture
   const [existingFiles, setExistingFiles] = useState({});
 
   const [isLoading, setIsLoading] = useState(false);
@@ -361,14 +368,6 @@ const EditSupplierCSR = () => {
   const removeExistingBuildingImage = async (imageUrl) => {
     if (window.confirm("Are you sure you want to delete this image?")) {
       try {
-        // Extract the filename from the URL
-        const filename = imageUrl.split("/").pop();
-
-        // Call API to delete the image
-        await supplierApi.delete(`supplier/${id}/delete-building-image/`, {
-          data: { image_url: imageUrl, type: "building" },
-        });
-
         setExistingBuildingImages((prev) =>
           prev.filter((url) => url !== imageUrl),
         );
@@ -383,14 +382,6 @@ const EditSupplierCSR = () => {
   const removeExistingFireImage = async (imageUrl) => {
     if (window.confirm("Are you sure you want to delete this image?")) {
       try {
-        // Extract the filename from the URL
-        const filename = imageUrl.split("/").pop();
-
-        // Call API to delete the image
-        await supplierApi.delete(`supplier/${id}/delete-building-image/`, {
-          data: { image_url: imageUrl, type: "fire" },
-        });
-
         setExistingFireImages((prev) => prev.filter((url) => url !== imageUrl));
         console.log("✅ Fire image deleted successfully");
       } catch (error) {
@@ -442,6 +433,10 @@ const EditSupplierCSR = () => {
       {
         field: "iso_14001_validity",
         daysField: "iso_14001_validity_days_remaining",
+      },
+      {
+        field: "iso_45001_validity",
+        daysField: "iso_45001_validity_days_remaining",
       },
       {
         field: "trade_license_validity",
@@ -540,6 +535,7 @@ const EditSupplierCSR = () => {
       "rcs_validity",
       "iso_9001_validity",
       "iso_14001_validity",
+      "iso_45001_validity",
       "trade_license_validity",
       "factory_license_validity",
       "fire_license_validity",
@@ -567,9 +563,10 @@ const EditSupplierCSR = () => {
     setIsLoading(true);
     try {
       const response = await getSupplierById(id);
+      const supplierData = response.data;
 
       // Format date fields for input type="date"
-      const formattedData = { ...response.data };
+      const formattedData = { ...supplierData };
       const dateFields = [
         "bsci_last_audit_date",
         "bsci_validity",
@@ -586,6 +583,7 @@ const EditSupplierCSR = () => {
         "rcs_validity",
         "iso_9001_validity",
         "iso_14001_validity",
+        "iso_45001_validity",
         "trade_license_validity",
         "factory_license_validity",
         "fire_license_validity",
@@ -616,9 +614,13 @@ const EditSupplierCSR = () => {
 
       dateFields.forEach((field) => {
         if (formattedData[field]) {
-          const date = new Date(formattedData[field]);
-          if (!isNaN(date.getTime())) {
-            formattedData[field] = date.toISOString().split("T")[0];
+          try {
+            const date = new Date(formattedData[field]);
+            if (!isNaN(date.getTime())) {
+              formattedData[field] = date.toISOString().split("T")[0];
+            }
+          } catch (e) {
+            console.error(`Error formatting date for ${field}:`, e);
           }
         }
       });
@@ -636,6 +638,7 @@ const EditSupplierCSR = () => {
         "rcs_validity_days_remaining",
         "iso_9001_validity_days_remaining",
         "iso_14001_validity_days_remaining",
+        "iso_45001_validity_days_remaining",
         "trade_license_days_remaining",
         "factory_license_days_remaining",
         "fire_license_days_remaining",
@@ -659,7 +662,7 @@ const EditSupplierCSR = () => {
 
       setFormData(formattedData);
 
-      // Store existing file URLs for display
+      // Store existing file URLs for display - WITHOUT profile_picture
       const fileFields = {
         card_image: formattedData.card_image_url,
         bsci_certificate: formattedData.bsci_certificate_url,
@@ -713,6 +716,7 @@ const EditSupplierCSR = () => {
           formattedData.safety_committee_formation_document_url,
         safety_committee_meeting_minutes:
           formattedData.safety_committee_meeting_minutes_url,
+        osh_file: formattedData.osh_file_url,
       };
 
       setExistingFiles(fileFields);
@@ -735,22 +739,61 @@ const EditSupplierCSR = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    let processedValue = value === "" ? null : value;
+
+    // Handle different input types
+    let processedValue = value;
+
+    if (type === "checkbox") {
+      processedValue = checked;
+    } else if (type === "number" && value === "") {
+      processedValue = "";
+    } else if (value === "") {
+      processedValue = null;
+    } else {
+      processedValue = value;
+    }
 
     setFormData((prev) => {
       const newData = {
         ...prev,
-        [name]: type === "checkbox" ? checked : processedValue,
+        [name]: processedValue,
       };
 
       // Auto-calculate days remaining when validity date changes
-      if (name.includes("_validity") && !name.includes("days_remaining")) {
-        const daysRemainingField = name.replace(
-          "_validity",
-          "_validity_days_remaining",
-        );
-        const calculatedDays = calculateDaysRemaining(value);
-        newData[daysRemainingField] = calculatedDays;
+      if (
+        name.includes("_validity") &&
+        !name.includes("days_remaining") &&
+        value
+      ) {
+        if (name === "trade_license_validity") {
+          newData.trade_license_days_remaining = calculateDaysRemaining(value);
+        } else if (name === "factory_license_validity") {
+          newData.factory_license_days_remaining =
+            calculateDaysRemaining(value);
+        } else if (name === "fire_license_validity") {
+          newData.fire_license_days_remaining = calculateDaysRemaining(value);
+        } else if (name === "membership_validity") {
+          newData.membership_days_remaining = calculateDaysRemaining(value);
+        } else if (name === "group_insurance_validity") {
+          newData.group_insurance_days_remaining =
+            calculateDaysRemaining(value);
+        } else if (name === "boiler_license_validity") {
+          newData.boiler_license_days_remaining = calculateDaysRemaining(value);
+        } else if (name === "berc_license_validity") {
+          newData.berc_days_remaining = calculateDaysRemaining(value);
+        } else if (name === "drinking_water_license_validity") {
+          newData.drinking_water_license_days_remaining =
+            calculateDaysRemaining(value);
+        } else if (name === "iso_45001_validity") {
+          newData.iso_45001_validity_days_remaining =
+            calculateDaysRemaining(value);
+        } else if (name.includes("_validity") && !name.includes("license")) {
+          const daysRemainingField = name.replace(
+            "_validity",
+            "_validity_days_remaining",
+          );
+          newData[daysRemainingField] = calculateDaysRemaining(value);
+        }
       }
 
       return newData;
@@ -764,10 +807,12 @@ const EditSupplierCSR = () => {
     const { name } = e.target;
     const file = e.target.files[0];
 
-    setFiles((prev) => ({
-      ...prev,
-      [name]: file,
-    }));
+    if (file) {
+      setFiles((prev) => ({
+        ...prev,
+        [name]: file,
+      }));
+    }
   };
 
   const handleBlur = (e) => {
@@ -785,86 +830,70 @@ const EditSupplierCSR = () => {
     setError(null);
 
     try {
-      // Create a deep copy of formData
-      const formDataCopy = JSON.parse(JSON.stringify(formData));
-
-      // Calculate total manpower if not provided
-      if (!formDataCopy.total_manpower) {
-        const total =
-          (parseInt(formDataCopy.manpower_workers_male) || 0) +
-          (parseInt(formDataCopy.manpower_workers_female) || 0) +
-          (parseInt(formDataCopy.other_gender_workers) || 0) +
-          (parseInt(formDataCopy.disabled_workers) || 0) +
-          (parseInt(formDataCopy.manpower_staff_male) || 0) +
-          (parseInt(formDataCopy.manpower_staff_female) || 0);
-        formDataCopy.total_manpower = total > 0 ? total : null;
-      }
-
-      // Recalculate days remaining fields
-      const dateFields = [
-        { field: "bsci_validity", daysField: "bsci_validity_days_remaining" },
-        { field: "sedex_validity", daysField: "sedex_validity_days_remaining" },
-        { field: "wrap_validity", daysField: "wrap_validity_days_remaining" },
-        {
-          field: "security_audit_validity",
-          daysField: "security_audit_validity_days_remaining",
-        },
-        {
-          field: "oeko_tex_validity",
-          daysField: "oeko_tex_validity_days_remaining",
-        },
-        { field: "gots_validity", daysField: "gots_validity_days_remaining" },
-        { field: "ocs_validity", daysField: "ocs_validity_days_remaining" },
-        { field: "grs_validity", daysField: "grs_validity_days_remaining" },
-        { field: "rcs_validity", daysField: "rcs_validity_days_remaining" },
-        {
-          field: "iso_9001_validity",
-          daysField: "iso_9001_validity_days_remaining",
-        },
-        {
-          field: "iso_14001_validity",
-          daysField: "iso_14001_validity_days_remaining",
-        },
-        {
-          field: "trade_license_validity",
-          daysField: "trade_license_days_remaining",
-        },
-        {
-          field: "factory_license_validity",
-          daysField: "factory_license_days_remaining",
-        },
-        {
-          field: "fire_license_validity",
-          daysField: "fire_license_days_remaining",
-        },
-        {
-          field: "membership_validity",
-          daysField: "membership_days_remaining",
-        },
-        {
-          field: "group_insurance_validity",
-          daysField: "group_insurance_days_remaining",
-        },
-        {
-          field: "boiler_license_validity",
-          daysField: "boiler_license_days_remaining",
-        },
-        { field: "berc_license_validity", daysField: "berc_days_remaining" },
-        {
-          field: "drinking_water_license_validity",
-          daysField: "drinking_water_license_days_remaining",
-        },
-      ];
-
-      dateFields.forEach(({ field, daysField }) => {
-        if (formDataCopy[field]) {
-          formDataCopy[daysField] = calculateDaysRemaining(formDataCopy[field]);
-        }
-      });
-
       const formDataToSend = new FormData();
 
-      // List of single file fields (we'll handle them separately)
+      // DEBUGGING: Log all formData entries before processing
+      console.log("🔍 RAW formData object:", formData);
+      console.log("🔍 Files object:", files);
+
+      // Check if profile_picture exists in formData
+      if ("profile_picture" in formData) {
+        console.warn(
+          "⚠️ profile_picture found in formData with value:",
+          formData.profile_picture,
+        );
+        // Remove it from formData
+        delete formData.profile_picture;
+        console.log("✅ profile_picture removed from formData");
+      }
+
+      // List of all date fields that need special handling
+      const dateFields = [
+        "bsci_last_audit_date",
+        "bsci_validity",
+        "sedex_last_audit_date",
+        "sedex_validity",
+        "wrap_last_audit_date",
+        "wrap_validity",
+        "security_audit_last_date",
+        "security_audit_validity",
+        "oeko_tex_validity",
+        "gots_validity",
+        "ocs_validity",
+        "grs_validity",
+        "rcs_validity",
+        "iso_9001_validity",
+        "iso_14001_validity",
+        "iso_45001_validity",
+        "trade_license_validity",
+        "factory_license_validity",
+        "fire_license_validity",
+        "membership_validity",
+        "group_insurance_validity",
+        "boiler_license_validity",
+        "berc_license_validity",
+        "drinking_water_license_validity",
+        "last_fire_training_by_fscd",
+        "fscd_next_fire_training_date",
+        "last_fire_drill_record_by_fscd",
+        "fscd_next_drill_date",
+        "structural_initial_audit_date",
+        "structural_last_follow_up_audit_date",
+        "fire_initial_audit_date",
+        "fire_last_follow_up_audit_date",
+        "electrical_initial_audit_date",
+        "electrical_last_follow_up_audit_date",
+        "last_pc_election_date",
+        "last_pc_meeting_date",
+        "last_safety_committee_formation_date",
+        "last_safety_committee_meeting_date",
+        "water_test_report_doe",
+        "zdhc_water_test_report",
+        "last_grievance_resolution_date",
+        "last_safety_audit_date",
+      ];
+
+      // List of single file fields - WITHOUT profile_picture
       const singleFileFields = [
         "card_image",
         "bsci_certificate",
@@ -912,36 +941,44 @@ const EditSupplierCSR = () => {
         "additional_document_2",
         "additional_document_3",
         "additional_document_4",
+        "osh_file",
       ];
 
-      // Add ALL non-file fields (skip file fields)
-      Object.entries(formDataCopy).forEach(([key, value]) => {
-        // Skip file fields - we'll handle them separately
+      // Add ALL non-file fields to FormData
+      Object.entries(formData).forEach(([key, value]) => {
+        // Skip file fields
         if (singleFileFields.includes(key)) {
           return;
         }
 
-        // Skip the JSON fields that will be handled by the backend
+        // Skip JSON fields that will be handled separately
         if (key === "building_images_json" || key === "fire_images_json") {
           return;
         }
 
-        // Add non-file fields
-        if (value !== null && value !== undefined && value !== "") {
+        // Handle date fields - ensure they're in YYYY-MM-DD format
+        if (dateFields.includes(key) && value) {
+          try {
+            const date = new Date(value);
+            if (!isNaN(date.getTime())) {
+              const formattedDate = date.toISOString().split("T")[0];
+              formDataToSend.append(key, formattedDate);
+            }
+          } catch (e) {
+            console.error(`Error formatting date for ${key}:`, e);
+          }
+        }
+        // Handle other fields
+        else if (value !== null && value !== undefined && value !== "") {
           if (typeof value === "boolean") {
             formDataToSend.append(key, value.toString());
-          } else if (typeof value === "number") {
-            formDataToSend.append(key, value.toString());
-          } else if (typeof value === "string") {
-            formDataToSend.append(key, value);
           } else {
             formDataToSend.append(key, String(value));
           }
         }
       });
 
-      // CRITICAL FIX: Add multiple building images with the correct field name
-      // The backend expects 'building_images' (plural) for multiple files
+      // Add multiple building images
       if (buildingImages.length > 0) {
         buildingImages.forEach((image) => {
           formDataToSend.append("building_images", image);
@@ -949,29 +986,12 @@ const EditSupplierCSR = () => {
         console.log(`📸 Added ${buildingImages.length} new building images`);
       }
 
-      // CRITICAL FIX: Add multiple fire images with the correct field name
-      // The backend expects 'fire_images' (plural) for multiple files
+      // Add multiple fire images
       if (fireImages.length > 0) {
         fireImages.forEach((image) => {
           formDataToSend.append("fire_images", image);
         });
         console.log(`📸 Added ${fireImages.length} new fire images`);
-      }
-
-      // Track which existing images to keep
-      // The backend needs to know which existing images to keep
-      if (existingBuildingImages.length > 0) {
-        // If you need to specify which existing images to keep,
-        // you might need to send their paths or IDs
-        console.log(
-          `📸 Keeping ${existingBuildingImages.length} existing building images`,
-        );
-      }
-
-      if (existingFireImages.length > 0) {
-        console.log(
-          `📸 Keeping ${existingFireImages.length} existing fire images`,
-        );
       }
 
       // Add single files ONLY if a new file was selected
@@ -982,14 +1002,36 @@ const EditSupplierCSR = () => {
         }
       });
 
+      // Calculate total manpower if needed
+      const total =
+        (parseInt(formData.manpower_workers_male) || 0) +
+        (parseInt(formData.manpower_workers_female) || 0) +
+        (parseInt(formData.other_gender_workers) || 0) +
+        (parseInt(formData.disabled_workers) || 0) +
+        (parseInt(formData.manpower_staff_male) || 0) +
+        (parseInt(formData.manpower_staff_female) || 0);
+
+      if (total > 0) {
+        formDataToSend.append("total_manpower", total.toString());
+      }
+
       // Log what we're sending (for debugging)
       console.log("📦 Sending FormData with fields:");
+      const sentFields = [];
       for (let pair of formDataToSend.entries()) {
+        sentFields.push(pair[0]);
         if (pair[1] instanceof File) {
           console.log(`  ${pair[0]}: [File] ${pair[1].name} (${pair[1].type})`);
         } else {
           console.log(`  ${pair[0]}: ${pair[1]}`);
         }
+      }
+
+      // Check if profile_picture is in the sent fields
+      if (sentFields.includes("profile_picture")) {
+        console.error("❌ profile_picture is still being sent!");
+      } else {
+        console.log("✅ profile_picture is NOT being sent");
       }
 
       const response = await updateSupplier(id, formDataToSend);
@@ -1003,7 +1045,6 @@ const EditSupplierCSR = () => {
       if (err.response?.data) {
         const errorData = err.response.data;
 
-        // Format error messages
         if (typeof errorData === "object") {
           const errorMessages = [];
           Object.entries(errorData).forEach(([field, errors]) => {
@@ -1025,6 +1066,7 @@ const EditSupplierCSR = () => {
       setIsUpdating(false);
     }
   };
+
   const handleNext = () => {
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
     if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1].id);
@@ -1035,7 +1077,7 @@ const EditSupplierCSR = () => {
     if (currentIndex > 0) setActiveTab(tabs[currentIndex - 1].id);
   };
 
-  // Updated tabs array with new Documents tab
+  // Updated tabs array with OSH Committee
   const tabs = [
     { id: "basic", label: "General Info", icon: "🏢" },
     { id: "building", label: "Building & Manpower", icon: "🏭" },
@@ -1044,27 +1086,25 @@ const EditSupplierCSR = () => {
     { id: "licenses", label: "Licenses", icon: "📋" },
     { id: "safety", label: "Safety", icon: "🚨" },
     { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
+    { id: "osh", label: "OSH Committee", icon: "🛡️" },
     { id: "environment", label: "Environment", icon: "🌱" },
     { id: "rsc", label: "RSC Audit", icon: "🔍" },
     { id: "csr", label: "CSR", icon: "🤝" },
     { id: "documents", label: "Documents", icon: "📎" },
   ];
 
-  // Function to get correct file URL (point to Django server)
+  // Function to get correct file URL
   const getCorrectFileUrl = (url) => {
     if (!url) return "#";
 
-    // If the URL starts with /media/, point it to Django server
     if (url.startsWith("/media/")) {
       return `http://119.148.51.38:8000${url}`;
     }
 
-    // If it's a relative URL that doesn't start with http, add Django server
     if (!url.startsWith("http")) {
       return `http://119.148.51.38:8000${url.startsWith("/") ? url : "/" + url}`;
     }
 
-    // If it's already an absolute URL but pointing to port 3000, fix it
     if (url.includes("119.148.51.38:3000")) {
       return url.replace(":3000", ":8000");
     }
@@ -1092,6 +1132,7 @@ const EditSupplierCSR = () => {
     onRemove,
     onChange,
     existingImages = [],
+    onRemoveExisting,
   ) => {
     return (
       <div style={formGroupStyle}>
@@ -1128,13 +1169,7 @@ const EditSupplierCSR = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    if (name === "building_images") {
-                      removeExistingBuildingImage(imageUrl);
-                    } else {
-                      removeExistingFireImage(imageUrl);
-                    }
-                  }}
+                  onClick={() => onRemoveExisting(imageUrl)}
                   style={removeImageButtonStyle}
                 >
                   ×
@@ -1307,7 +1342,7 @@ const EditSupplierCSR = () => {
     return (
       <div style={formGroupStyle}>
         <label style={labelStyle}>{label}</label>
-        {existingFile && (
+        {existingFile && !file && (
           <div style={existingFileStyle}>
             <span>📄</span>
             <span>Existing file: </span>
@@ -1691,6 +1726,7 @@ const EditSupplierCSR = () => {
                       removeBuildingImage,
                       handleBuildingImagesChange,
                       existingBuildingImages,
+                      removeExistingBuildingImage,
                     )}
                   </div>
                 </div>
@@ -2044,6 +2080,7 @@ const EditSupplierCSR = () => {
                         removeFireImage,
                         handleFireImagesChange,
                         existingFireImages,
+                        removeExistingFireImage,
                       )}
                     </div>
                   </div>
@@ -2130,6 +2167,67 @@ const EditSupplierCSR = () => {
                         {renderFileInput(
                           "Meeting Minutes",
                           "safety_committee_meeting_minutes",
+                          ".pdf,.jpg,.png",
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* OSH Committee Tab */}
+            {activeTab === "osh" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🛡️</span> OSH Committee
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Occupational Safety and Health Committee information
+                  </p>
+                </div>
+
+                <div style={cardsContainerStyle}>
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>OSH Committee Details</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={checkboxGridStyle}>
+                        {renderCheckbox(
+                          "OSH Committee Formed",
+                          "osh_committee_safety",
+                          "Check if OSH committee has been formed",
+                        )}
+                        {renderCheckbox(
+                          "OSH Safety Policy Available",
+                          "osh_safety_policy",
+                          "Check if OSH safety policy document is available",
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>ISO 45001 Certification</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderInput(
+                          "ISO 45001 Validity",
+                          "iso_45001_validity",
+                          "date",
+                        )}
+                        {renderInput(
+                          "Days Remaining",
+                          "iso_45001_validity_days_remaining",
+                          "number",
+                        )}
+                        {renderFileInput(
+                          "OSH Committee Document",
+                          "osh_file",
                           ".pdf,.jpg,.png",
                         )}
                       </div>
@@ -2509,7 +2607,7 @@ const EditSupplierCSR = () => {
   );
 };
 
-// Style constants
+// Style constants (keep all existing style constants)
 const containerStyle = {
   backgroundColor: "#f3f4f6",
   minHeight: "100vh",

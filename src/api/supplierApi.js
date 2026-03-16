@@ -253,7 +253,8 @@ export const createSupplier = async (supplierData) => {
       const debugObj = {};
       for (let pair of supplierData.entries()) {
         if (pair[1] instanceof File) {
-          debugObj[pair[0]] = `[File] ${pair[1].name} (${pair[1].type}, ${pair[1].size} bytes)`;
+          debugObj[pair[0]] =
+            `[File] ${pair[1].name} (${pair[1].type}, ${pair[1].size} bytes)`;
           console.log(`  ${pair[0]}: File - ${pair[1].name} (${pair[1].type})`);
         } else {
           debugObj[pair[0]] = pair[1];
@@ -311,6 +312,7 @@ export const updateSupplier = async (id, supplierData) => {
         }
       }
 
+      // Make sure we're using the correct endpoint and method
       const response = await supplierApi.patch(
         `supplier/${id}/`,
         supplierData,

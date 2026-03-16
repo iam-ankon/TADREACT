@@ -552,7 +552,7 @@ const EmployeeDetails = () => {
               onChange={handleItemsPerPageChange}
               style={styles.pageSizeSelect}
             >
-              {[ 100].map((size) => (
+              {[100].map((size) => (
                 <option key={size} value={size}>
                   {size} per page
                 </option>
@@ -1234,22 +1234,30 @@ const styles = {
     fontFamily:
       "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     color: "#0f172a",
+    height: "100vh", // Add fixed height
+    overflow: "hidden", // Prevent scrolling on container
   },
   mainContent: {
     flex: 1,
-    padding: "24px",
+    padding: "2px 24px",
     overflowY: "auto",
-    height: "100vh",
+    height: "100vh", // Keep fixed height
+    display: "flex",
+    flexDirection: "column",
   },
   employeeDashboard: {
     margin: "0 auto",
     maxWidth: "1590px",
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    flex: 1, // This will make it expand
   },
   pageHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "24px",
+    marginBottom: "2px",
   },
   headerLeft: {
     display: "flex",
@@ -1325,12 +1333,12 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
     gap: "20px",
-    marginBottom: "24px",
+    marginBottom: "10px",
   },
   statCard: {
     background: "white",
     borderRadius: "8px",
-    padding: "20px",
+    padding: "10px",
     display: "flex",
     alignItems: "center",
     gap: "16px",
@@ -1380,8 +1388,8 @@ const styles = {
   filtersSection: {
     background: "white",
     borderRadius: "8px",
-    padding: "20px",
-    marginBottom: "24px",
+    padding: "10px",
+    marginBottom: "10px", // Reduced from 24px to 10px
     boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
     border: "1px solid #e2e8f0",
   },
@@ -1573,9 +1581,13 @@ const styles = {
     boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
     border: "1px solid #e2e8f0",
     overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    flex: 1, // This will make it expand
+    marginBottom: "0", // Ensure no bottom margin
   },
   tableHeader: {
-    padding: "16px 20px",
+    padding: "10px 10px",
     borderBottom: "1px solid #e2e8f0",
     display: "flex",
     justifyContent: "space-between",
@@ -1599,7 +1611,9 @@ const styles = {
   },
   tableContainer: {
     overflowX: "auto",
-    maxHeight: "calc(100vh - 500px)",
+    flex: 1, // This will make the table area expand
+    minHeight: "300px", // Minimum height when no data
+    maxHeight: "calc(100vh - 355px)", // Adjusted to leave space for pagination
     overflowY: "auto",
   },
   employeeTable: {
@@ -1608,7 +1622,7 @@ const styles = {
     minWidth: "1400px",
   },
   tableHeaderCell: {
-    padding: "14px 20px",
+    padding: "10px 24px",
     textAlign: "left",
     fontSize: "13px",
     fontWeight: 500,
@@ -1623,7 +1637,7 @@ const styles = {
   checkboxCell: {
     width: "40px",
     textAlign: "center",
-    padding: "14px 20px",
+    padding: "10px 20px",
     background: "#f9fafb",
     borderBottom: "1px solid #e2e8f0",
     position: "sticky",
@@ -1660,7 +1674,7 @@ const styles = {
     transition: "all 0.2s",
   },
   tableCell: {
-    padding: "16px 20px",
+    padding: "10px 25px",
     borderBottom: "1px solid #e2e8f0",
     fontSize: "14px",
     color: "#334155",
@@ -1766,6 +1780,8 @@ const styles = {
     background: "white",
     color: "#64748b",
     border: "1px solid #e2e8f0",
+    marginTop: "4px",
+    marginBottom: "5px",
   },
   actionBtnAttachment: {
     "&:hover": {
@@ -1802,6 +1818,7 @@ const styles = {
     justifyContent: "center",
     minHeight: "400px",
     textAlign: "center",
+    flex: 1,
   },
   spinner: {
     width: "40px",
@@ -1819,6 +1836,7 @@ const styles = {
     justifyContent: "center",
     minHeight: "400px",
     textAlign: "center",
+    flex: 1,
   },
   errorIcon: {
     width: "48px",
@@ -1843,6 +1861,8 @@ const styles = {
     alignItems: "center",
     flexWrap: "wrap",
     gap: "16px",
+    marginTop: "auto", // This pushes it to the bottom
+    marginBottom: "0", // Ensure no bottom margin
   },
   paginationInfo: {
     fontSize: "14px",
@@ -1885,7 +1905,6 @@ const styles = {
   paginationButtons: {
     display: "flex",
     alignItems: "center",
-
     gap: "4px",
   },
   paginationButton: {
