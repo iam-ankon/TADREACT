@@ -1768,34 +1768,14 @@ const styles = {
     gap: "8px",
   },
   actionBtn: {
-    width: "32px",
-    height: "32px",
-    borderRadius: "6px",
-    border: "none",
-    cursor: "pointer",
     display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.2s",
-    background: "white",
-    color: "#64748b",
+    cursor: "pointer",
+    color: "#f59e0b",
+    borderColor: "#f59e0b",
+    background: "#fff3cd",
     border: "1px solid #e2e8f0",
     marginTop: "4px",
     marginBottom: "5px",
-  },
-  actionBtnAttachment: {
-    "&:hover": {
-      background: "#fff3cd",
-      color: "#f59e0b",
-      borderColor: "#f59e0b",
-    },
-  },
-  actionBtnDelete: {
-    "&:hover": {
-      background: "#fee2e2",
-      color: "#ef4444",
-      borderColor: "#ef4444",
-    },
   },
   emptyRow: {
     textAlign: "center",

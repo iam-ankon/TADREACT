@@ -468,11 +468,16 @@ const styles = {
   container: {
     display: "flex",
     minHeight: "100vh",
-    backgroundColor: "#f8fafc",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    background: "#f1f5f9",
+    fontFamily:
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    color: "#0f172a",
+    height: "100vh", // Add fixed height
+    overflow: "hidden", // Prevent scrolling on container
   },
   content: {
     flex: 1,
+    padding: "2px 24px",
     overflow: "auto",
     position: "relative",
   },
@@ -589,6 +594,8 @@ const styles = {
     gap: "8px",
     padding: "10px 24px",
     backgroundColor: "#3b82f6",
+    marginTop: "10px",
+    marginBottom: "2px",
     color: "white",
     border: "none",
     borderRadius: "8px",
