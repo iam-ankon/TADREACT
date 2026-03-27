@@ -1,298 +1,135 @@
 // pages/orders/AddOrder.jsx
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Grid,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Divider,
-  Alert,
-  Snackbar,
-  CircularProgress,
-  Card,
-  CardContent,
-  IconButton,
-  InputAdornment,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
-  Avatar,
-  FormHelperText,
-} from '@mui/material';
-import {
-  Save,
-  Cancel,
-  ArrowBack,
-  ArrowForward,
-  CheckCircle,
-  AttachMoney,
-  Inventory,
-  LocalShipping,
-  Description,
-  Business,
-  Person,
-  CalendarToday,
-  Science,
-  Factory,
-  Group,
-  Add,
-  Delete,
-} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { DatePicker } from '@mui/x-date-pickers';
 import { createOrder } from '../../api/merchandiser';
+import Sidebar from '../merchandiser/Sidebar';
+import {
+  FaArrowLeft,
+  FaSave,
+  FaTimes,
+  FaChevronRight,
+  FaChevronLeft,
+  FaInfoCircle,
+  FaDollarSign,
+  FaTruck,
+  FaFlask,
+  FaCheckCircle,
+  FaBuilding,
+  FaUser,
+  FaBoxes,
+  FaCalendarAlt,
+  FaIndustry,
+  FaRuler,
+  FaChartLine,
+  FaClipboardList,
+  FaShoppingCart,
+} from "react-icons/fa";
 
 const statusOptions = [
-  { value: 'Running', label: 'Running', color: 'success' },
-  { value: 'Shipped', label: 'Shipped', color: 'info' },
-  { value: 'Pending', label: 'Pending', color: 'warning' },
-  { value: 'Cancelled', label: 'Cancelled', color: 'error' },
+  { value: 'Running', label: 'Running', color: '#10b981', bg: '#d1fae5' },
+  { value: 'Shipped', label: 'Shipped', color: '#3b82f6', bg: '#dbeafe' },
+  { value: 'Pending', label: 'Pending', color: '#f59e0b', bg: '#fed7aa' },
+  { value: 'Cancelled', label: 'Cancelled', color: '#ef4444', bg: '#fee2e2' },
 ];
 
 const garmentOptions = [
-  'T-Shirt',
-  'Polo Shirt',
-  'Henley',
-  'Tank Top',
-  'Shirt',
-  'Blouse',
-  'Dress',
-  'Skirt',
-  'Pants',
-  'Jeans',
-  'Shorts',
-  'Jacket',
-  'Hoodie',
-  'Sweater',
-  'Cardigan',
-  'Vest',
-  'Jumpsuit',
-  'Romper',
-  'Activewear',
-  'Swimwear',
-  'Underwear',
-  'Socks',
-  'Accessories',
+  'T-Shirt', 'Polo Shirt', 'Henley', 'Tank Top', 'Shirt', 'Blouse', 'Dress',
+  'Skirt', 'Pants', 'Jeans', 'Shorts', 'Jacket', 'Hoodie', 'Sweater',
+  'Cardigan', 'Vest', 'Jumpsuit', 'Romper', 'Activewear', 'Swimwear',
+  'Underwear', 'Socks', 'Accessories',
 ];
 
 const steps = [
-  {
-    label: 'Basic Information',
-    description: 'Enter order basic details',
-    icon: <Description />,
-  },
-  {
-    label: 'Pricing & Quantity',
-    description: 'Set pricing and quantities',
-    icon: <AttachMoney />,
-  },
-  {
-    label: 'Dates & Shipping',
-    description: 'Schedule and shipping details',
-    icon: <LocalShipping />,
-  },
-  {
-    label: 'Test Results & Remarks',
-    description: 'Quality control and notes',
-    icon: <Science />,
-  },
+  { id: 0, label: 'Basic Information', icon: <FaInfoCircle /> },
+  { id: 1, label: 'Pricing & Quantity', icon: <FaDollarSign /> },
+  { id: 2, label: 'Dates & Shipping', icon: <FaTruck /> },
+  { id: 3, label: 'Test Results', icon: <FaFlask /> },
 ];
 
 const AddOrder = () => {
   const navigate = useNavigate();
-  
-  // State for form data
-  const [formData, setFormData] = useState({
-    // Basic Information
-    style: '',
-    po_no: '',
-    department: '',
-    customer: '',
-    garment: '',
-    ref_no: '',
-    supplier: '',
-    shipment_month: '',
-    gender: '',
-    item: '',
-    fabrication: '',
-    size_range: '',
-    wgr: '',
-    
-    // Pricing and Quantity
-    unit_price: '',
-    total_qty: '',
-    total_value: '',
-    factory_value: '',
-    status: 'Running',
-    
-    // Shipping Information
-    shipped_qty: 0,
-    shipped_value: 0,
-    
-    // Dates
-    final_inspection_date: null,
-    ex_factory: null,
-    etd: null,
-    eta: null,
-    shipment_date: null,
-    
-    // Test Results
-    physical_test: '',
-    chemical_test: '',
-    during_production_inspection: '',
-    final_random_inspection: '',
-    
-    // Additional Information
-    group_name: '',
-    remarks: '',
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const stored = localStorage.getItem("sidebarsOpenState");
+    return stored !== null ? JSON.parse(stored) : true;
   });
 
-  // UI State
+  const [formData, setFormData] = useState({
+    style: '', po_no: '', department: '', customer: '', garment: '',
+    ref_no: '', supplier: '', shipment_month: '', gender: '', item: '',
+    fabrication: '', size_range: '', wgr: '', unit_price: '', total_qty: '',
+    total_value: '', factory_value: '', status: 'Running', shipped_qty: 0,
+    shipped_value: 0, final_inspection_date: null, ex_factory: null,
+    etd: null, eta: null, shipment_date: null, physical_test: '',
+    chemical_test: '', during_production_inspection: '', final_random_inspection: '',
+    group_name: '', remarks: '',
+  });
+
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' });
   const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
 
-  // Validation
-  const validateField = (name, value) => {
-    switch (name) {
-      case 'style':
-      case 'po_no':
-      case 'customer':
-      case 'supplier':
-        return !value ? `${name.replace('_', ' ')} is required` : '';
-      
-      case 'unit_price':
-      case 'total_qty':
-      case 'total_value':
-        if (!value && value !== 0) return `${name.replace('_', ' ')} is required`;
-        if (isNaN(value) || Number(value) < 0) return 'Must be a positive number';
-        return '';
-      
-      default:
-        return '';
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    const requiredFields = ['style', 'po_no', 'customer', 'supplier', 'unit_price', 'total_qty', 'total_value'];
-    
-    requiredFields.forEach(field => {
-      const error = validateField(field, formData[field]);
-      if (error) newErrors[field] = error;
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem("sidebarsOpenState");
+      setIsSidebarOpen(stored !== null ? JSON.parse(stored) : true);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Mark field as touched
-    setTouched(prev => ({ ...prev, [name]: true }));
-
-    // Validate field
-    const error = validateField(name, value);
-    setErrors(prev => ({ ...prev, [name]: error }));
-
-    // Auto-calculate total value if unit price and quantity are present
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
     if (name === 'unit_price' || name === 'total_qty') {
       const unitPrice = name === 'unit_price' ? parseFloat(value) : parseFloat(formData.unit_price);
       const quantity = name === 'total_qty' ? parseInt(value) : parseInt(formData.total_qty);
-      
       if (!isNaN(unitPrice) && !isNaN(quantity) && unitPrice > 0 && quantity > 0) {
-        const totalValue = (unitPrice * quantity).toFixed(2);
-        setFormData(prev => ({
-          ...prev,
-          total_value: totalValue,
-        }));
+        setFormData(prev => ({ ...prev, total_value: (unitPrice * quantity).toFixed(2) }));
       }
     }
   };
 
   const handleDateChange = (name, date) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: date,
-    }));
-    setTouched(prev => ({ ...prev, [name]: true }));
+    setFormData(prev => ({ ...prev, [name]: date }));
+  };
+
+  const validateStep = () => {
+    if (activeStep === 0) {
+      const required = ['style', 'po_no', 'customer', 'supplier'];
+      const missing = required.filter(field => !formData[field]);
+      if (missing.length) {
+        setSnackbar({ open: true, message: 'Please fill in all required fields', type: 'warning' });
+        return false;
+      }
+    } else if (activeStep === 1) {
+      if (!formData.unit_price || !formData.total_qty || !formData.total_value) {
+        setSnackbar({ open: true, message: 'Please enter valid pricing information', type: 'warning' });
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleNext = () => {
-    // Validate current step before proceeding
-    if (activeStep === 0) {
-      const stepFields = ['style', 'po_no', 'customer', 'supplier'];
-      const stepErrors = {};
-      stepFields.forEach(field => {
-        const error = validateField(field, formData[field]);
-        if (error) stepErrors[field] = error;
-      });
-      
-      if (Object.keys(stepErrors).length > 0) {
-        setErrors(prev => ({ ...prev, ...stepErrors }));
-        setSnackbar({
-          open: true,
-          message: 'Please fill in all required fields',
-          severity: 'warning',
-        });
-        return;
-      }
-    } else if (activeStep === 1) {
-      const stepFields = ['unit_price', 'total_qty', 'total_value'];
-      const stepErrors = {};
-      stepFields.forEach(field => {
-        const error = validateField(field, formData[field]);
-        if (error) stepErrors[field] = error;
-      });
-      
-      if (Object.keys(stepErrors).length > 0) {
-        setErrors(prev => ({ ...prev, ...stepErrors }));
-        setSnackbar({
-          open: true,
-          message: 'Please enter valid pricing information',
-          severity: 'warning',
-        });
-        return;
-      }
+    if (validateStep()) {
+      setActiveStep(prev => prev + 1);
     }
-
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
 
   const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    setActiveStep(prev => prev - 1);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      setSnackbar({
-        open: true,
-        message: 'Please fix the errors before submitting',
-        severity: 'error',
-      });
+  const handleSubmit = async () => {
+    if (!formData.style || !formData.po_no || !formData.customer || !formData.supplier) {
+      setSnackbar({ open: true, message: 'Please fill in all required fields', type: 'warning' });
       return;
     }
 
     setLoading(true);
-
     try {
-      // Format dates
       const formattedData = {
         ...formData,
         final_inspection_date: formData.final_inspection_date?.toISOString().split('T')[0] || null,
@@ -309,550 +146,519 @@ const AddOrder = () => {
       };
 
       const response = await createOrder(formattedData);
-      
-      setSnackbar({
-        open: true,
-        message: 'Order created successfully!',
-        severity: 'success',
-      });
-
-      // Navigate to the new order detail page
-      setTimeout(() => {
-        navigate(`/orders/${response.data.id}`);
-      }, 1500);
-
+      setSnackbar({ open: true, message: 'Order created successfully!', type: 'success' });
+      setTimeout(() => navigate(`/orders/${response.data.id}`), 1500);
     } catch (error) {
-      console.error('Error creating order:', error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || error.response?.data?.detail || 'Error creating order',
-        severity: 'error',
-      });
+      setSnackbar({ open: true, message: error.response?.data?.message || 'Error creating order', type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  const getFieldError = (field) => {
-    return touched[field] && errors[field] ? errors[field] : '';
-  };
-
-  const renderStepContent = (step) => {
-    switch (step) {
+  const renderStepContent = () => {
+    switch (activeStep) {
       case 0:
         return (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Style"
-                name="style"
-                value={formData.style}
-                onChange={handleChange}
-                error={!!getFieldError('style')}
-                helperText={getFieldError('style')}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Inventory color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+          <div style={styles.stepContent}>
+            <div style={styles.formGrid}>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Style <span style={styles.required}>*</span></label>
+                <div style={styles.inputWrapper}>
+                  <FaBoxes style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="style"
+                    value={formData.style}
+                    onChange={handleChange}
+                    placeholder="Enter style name"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="PO Number"
-                name="po_no"
-                value={formData.po_no}
-                onChange={handleChange}
-                error={!!getFieldError('po_no')}
-                helperText={getFieldError('po_no')}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Description color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>PO Number <span style={styles.required}>*</span></label>
+                <div style={styles.inputWrapper}>
+                  <FaClipboardList style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="po_no"
+                    value={formData.po_no}
+                    onChange={handleChange}
+                    placeholder="Enter PO number"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Department"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Department</label>
+                <div style={styles.inputWrapper}>
+                  <FaBuilding style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    placeholder="Enter department"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Customer"
-                name="customer"
-                value={formData.customer}
-                onChange={handleChange}
-                error={!!getFieldError('customer')}
-                helperText={getFieldError('customer')}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Business color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Customer <span style={styles.required}>*</span></label>
+                <div style={styles.inputWrapper}>
+                  <FaBuilding style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="customer"
+                    value={formData.customer}
+                    onChange={handleChange}
+                    placeholder="Enter customer name"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Garment</InputLabel>
-                <Select
-                  name="garment"
-                  value={formData.garment}
-                  label="Garment"
-                  onChange={handleChange}
-                >
-                  <MenuItem value="">None</MenuItem>
-                  {garmentOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Garment</label>
+                <div style={styles.inputWrapper}>
+                  <FaShoppingCart style={styles.inputIcon} />
+                  <select
+                    name="garment"
+                    value={formData.garment}
+                    onChange={handleChange}
+                    style={styles.select}
+                  >
+                    <option value="">Select garment type</option>
+                    {garmentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Ref No"
-                name="ref_no"
-                value={formData.ref_no}
-                onChange={handleChange}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Ref No</label>
+                <div style={styles.inputWrapper}>
+                  <FaClipboardList style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="ref_no"
+                    value={formData.ref_no}
+                    onChange={handleChange}
+                    placeholder="Enter reference number"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Supplier"
-                name="supplier"
-                value={formData.supplier}
-                onChange={handleChange}
-                error={!!getFieldError('supplier')}
-                helperText={getFieldError('supplier')}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Person color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Supplier <span style={styles.required}>*</span></label>
+                <div style={styles.inputWrapper}>
+                  <FaIndustry style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="supplier"
+                    value={formData.supplier}
+                    onChange={handleChange}
+                    placeholder="Enter supplier name"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Shipment Month"
-                name="shipment_month"
-                value={formData.shipment_month}
-                onChange={handleChange}
-                placeholder="e.g., January 2024"
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Shipment Month</label>
+                <div style={styles.inputWrapper}>
+                  <FaCalendarAlt style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="shipment_month"
+                    value={formData.shipment_month}
+                    onChange={handleChange}
+                    placeholder="e.g., January 2024"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Gender"
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Gender</label>
+                <div style={styles.inputWrapper}>
+                  <FaUser style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    placeholder="Enter gender"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Item"
-                name="item"
-                value={formData.item}
-                onChange={handleChange}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Item</label>
+                <div style={styles.inputWrapper}>
+                  <FaShoppingCart style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="item"
+                    value={formData.item}
+                    onChange={handleChange}
+                    placeholder="Enter item name"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Fabrication"
-                name="fabrication"
-                value={formData.fabrication}
-                onChange={handleChange}
-                multiline
-                rows={2}
-                placeholder="Enter fabrication details..."
-              />
-            </Grid>
+              <div style={styles.formFieldFull}>
+                <label style={styles.formLabel}>Fabrication</label>
+                <div style={styles.inputWrapper}>
+                  <FaIndustry style={styles.inputIcon} />
+                  <textarea
+                    name="fabrication"
+                    value={formData.fabrication}
+                    onChange={handleChange}
+                    placeholder="Enter fabrication details..."
+                    rows={3}
+                    style={styles.textarea}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Size Range"
-                name="size_range"
-                value={formData.size_range}
-                onChange={handleChange}
-                placeholder="e.g., S-XXL"
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Size Range</label>
+                <div style={styles.inputWrapper}>
+                  <FaRuler style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="size_range"
+                    value={formData.size_range}
+                    onChange={handleChange}
+                    placeholder="e.g., S-XXL"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="WGR"
-                name="wgr"
-                value={formData.wgr}
-                onChange={handleChange}
-              />
-            </Grid>
-          </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>WGR</label>
+                <div style={styles.inputWrapper}>
+                  <FaChartLine style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="wgr"
+                    value={formData.wgr}
+                    onChange={handleChange}
+                    placeholder="Enter WGR"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         );
 
       case 1:
         return (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                required
-                label="Unit Price ($)"
-                name="unit_price"
-                type="number"
-                value={formData.unit_price}
-                onChange={handleChange}
-                error={!!getFieldError('unit_price')}
-                helperText={getFieldError('unit_price')}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  inputProps: { min: 0, step: 0.01 }
-                }}
-              />
-            </Grid>
+          <div style={styles.stepContent}>
+            <div style={styles.formGrid}>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Unit Price ($) <span style={styles.required}>*</span></label>
+                <div style={styles.inputWrapper}>
+                  <FaDollarSign style={styles.inputIcon} />
+                  <input
+                    type="number"
+                    name="unit_price"
+                    value={formData.unit_price}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                required
-                label="Total Quantity"
-                name="total_qty"
-                type="number"
-                value={formData.total_qty}
-                onChange={handleChange}
-                error={!!getFieldError('total_qty')}
-                helperText={getFieldError('total_qty')}
-                InputProps={{
-                  inputProps: { min: 0 }
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Total Quantity <span style={styles.required}>*</span></label>
+                <div style={styles.inputWrapper}>
+                  <FaBoxes style={styles.inputIcon} />
+                  <input
+                    type="number"
+                    name="total_qty"
+                    value={formData.total_qty}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                required
-                label="Total Value ($)"
-                name="total_value"
-                type="number"
-                value={formData.total_value}
-                onChange={handleChange}
-                error={!!getFieldError('total_value')}
-                helperText={getFieldError('total_value')}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  inputProps: { min: 0, step: 0.01 }
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Total Value ($) <span style={styles.required}>*</span></label>
+                <div style={styles.inputWrapper}>
+                  <FaDollarSign style={styles.inputIcon} />
+                  <input
+                    type="number"
+                    name="total_value"
+                    value={formData.total_value}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Factory Value ($)"
-                name="factory_value"
-                type="number"
-                value={formData.factory_value}
-                onChange={handleChange}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  inputProps: { min: 0, step: 0.01 }
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Factory Value ($)</label>
+                <div style={styles.inputWrapper}>
+                  <FaIndustry style={styles.inputIcon} />
+                  <input
+                    type="number"
+                    name="factory_value"
+                    value={formData.factory_value}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={formData.status}
-                  label="Status"
-                  onChange={handleChange}
-                  required
-                >
-                  {statusOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Status</label>
+                <div style={styles.inputWrapper}>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    style={styles.select}
+                  >
+                    {statusOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Shipped Quantity"
-                name="shipped_qty"
-                type="number"
-                value={formData.shipped_qty}
-                onChange={handleChange}
-                InputProps={{
-                  inputProps: { min: 0 }
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Shipped Quantity</label>
+                <div style={styles.inputWrapper}>
+                  <FaTruck style={styles.inputIcon} />
+                  <input
+                    type="number"
+                    name="shipped_qty"
+                    value={formData.shipped_qty}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Shipped Value ($)"
-                name="shipped_value"
-                type="number"
-                value={formData.shipped_value}
-                onChange={handleChange}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  inputProps: { min: 0, step: 0.01 }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                <CheckCircle color="success" sx={{ fontSize: 16, mr: 1, verticalAlign: 'middle' }} />
-                Total value auto-calculated from unit price × quantity
-              </Typography>
-            </Grid>
-          </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Shipped Value ($)</label>
+                <div style={styles.inputWrapper}>
+                  <FaDollarSign style={styles.inputIcon} />
+                  <input
+                    type="number"
+                    name="shipped_value"
+                    value={formData.shipped_value}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+            </div>
+            <div style={styles.infoMessage}>
+              <FaCheckCircle style={{ color: '#10b981', marginRight: '8px' }} />
+              <span>Total value auto-calculated from unit price × quantity</span>
+            </div>
+          </div>
         );
 
       case 2:
         return (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <DatePicker
-                label="Final Inspection Date"
-                value={formData.final_inspection_date}
-                onChange={(date) => handleDateChange('final_inspection_date', date)}
-                slotProps={{ 
-                  textField: { 
-                    fullWidth: true,
-                    InputProps: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <CalendarToday color="primary" />
-                        </InputAdornment>
-                      ),
-                    }
-                  } 
-                }}
-              />
-            </Grid>
+          <div style={styles.stepContent}>
+            <div style={styles.formGrid}>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Final Inspection Date</label>
+                <div style={styles.inputWrapper}>
+                  <FaCalendarAlt style={styles.inputIcon} />
+                  <input
+                    type="date"
+                    name="final_inspection_date"
+                    value={formData.final_inspection_date ? formData.final_inspection_date.toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleDateChange('final_inspection_date', e.target.value ? new Date(e.target.value) : null)}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <DatePicker
-                label="Ex-Factory Date"
-                value={formData.ex_factory}
-                onChange={(date) => handleDateChange('ex_factory', date)}
-                slotProps={{ 
-                  textField: { 
-                    fullWidth: true,
-                    InputProps: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Factory color="primary" />
-                        </InputAdornment>
-                      ),
-                    }
-                  } 
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Ex-Factory Date</label>
+                <div style={styles.inputWrapper}>
+                  <FaIndustry style={styles.inputIcon} />
+                  <input
+                    type="date"
+                    name="ex_factory"
+                    value={formData.ex_factory ? formData.ex_factory.toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleDateChange('ex_factory', e.target.value ? new Date(e.target.value) : null)}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <DatePicker
-                label="ETD (Estimated Time of Departure)"
-                value={formData.etd}
-                onChange={(date) => handleDateChange('etd', date)}
-                slotProps={{ 
-                  textField: { 
-                    fullWidth: true,
-                    InputProps: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LocalShipping color="primary" />
-                        </InputAdornment>
-                      ),
-                    }
-                  } 
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>ETD</label>
+                <div style={styles.inputWrapper}>
+                  <FaTruck style={styles.inputIcon} />
+                  <input
+                    type="date"
+                    name="etd"
+                    value={formData.etd ? formData.etd.toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleDateChange('etd', e.target.value ? new Date(e.target.value) : null)}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <DatePicker
-                label="ETA (Estimated Time of Arrival)"
-                value={formData.eta}
-                onChange={(date) => handleDateChange('eta', date)}
-                slotProps={{ 
-                  textField: { 
-                    fullWidth: true,
-                    InputProps: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LocalShipping color="primary" />
-                        </InputAdornment>
-                      ),
-                    }
-                  } 
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>ETA</label>
+                <div style={styles.inputWrapper}>
+                  <FaTruck style={styles.inputIcon} />
+                  <input
+                    type="date"
+                    name="eta"
+                    value={formData.eta ? formData.eta.toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleDateChange('eta', e.target.value ? new Date(e.target.value) : null)}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <DatePicker
-                label="Shipment Date"
-                value={formData.shipment_date}
-                onChange={(date) => handleDateChange('shipment_date', date)}
-                slotProps={{ 
-                  textField: { 
-                    fullWidth: true,
-                    InputProps: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <CalendarToday color="primary" />
-                        </InputAdornment>
-                      ),
-                    }
-                  } 
-                }}
-              />
-            </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Shipment Date</label>
+                <div style={styles.inputWrapper}>
+                  <FaCalendarAlt style={styles.inputIcon} />
+                  <input
+                    type="date"
+                    name="shipment_date"
+                    value={formData.shipment_date ? formData.shipment_date.toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleDateChange('shipment_date', e.target.value ? new Date(e.target.value) : null)}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Group Name"
-                name="group_name"
-                value={formData.group_name}
-                onChange={handleChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Group color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-          </Grid>
+              <div style={styles.formField}>
+                <label style={styles.formLabel}>Group Name</label>
+                <div style={styles.inputWrapper}>
+                  <FaUser style={styles.inputIcon} />
+                  <input
+                    type="text"
+                    name="group_name"
+                    value={formData.group_name}
+                    onChange={handleChange}
+                    placeholder="Enter group name"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         );
 
       case 3:
         return (
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Physical Test"
-                name="physical_test"
-                value={formData.physical_test}
-                onChange={handleChange}
-                multiline
-                rows={3}
-                placeholder="Enter physical test results..."
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                      <Science color="primary" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
+          <div style={styles.stepContent}>
+            <div style={styles.formGrid}>
+              <div style={styles.formFieldFull}>
+                <label style={styles.formLabel}>Physical Test</label>
+                <div style={styles.inputWrapper}>
+                  <FaFlask style={styles.inputIcon} />
+                  <textarea
+                    name="physical_test"
+                    value={formData.physical_test}
+                    onChange={handleChange}
+                    placeholder="Enter physical test results..."
+                    rows={3}
+                    style={styles.textarea}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Chemical Test"
-                name="chemical_test"
-                value={formData.chemical_test}
-                onChange={handleChange}
-                multiline
-                rows={3}
-                placeholder="Enter chemical test results..."
-              />
-            </Grid>
+              <div style={styles.formFieldFull}>
+                <label style={styles.formLabel}>Chemical Test</label>
+                <div style={styles.inputWrapper}>
+                  <FaFlask style={styles.inputIcon} />
+                  <textarea
+                    name="chemical_test"
+                    value={formData.chemical_test}
+                    onChange={handleChange}
+                    placeholder="Enter chemical test results..."
+                    rows={3}
+                    style={styles.textarea}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="During Production Inspection"
-                name="during_production_inspection"
-                value={formData.during_production_inspection}
-                onChange={handleChange}
-                multiline
-                rows={3}
-                placeholder="Enter production inspection details..."
-              />
-            </Grid>
+              <div style={styles.formFieldFull}>
+                <label style={styles.formLabel}>During Production Inspection</label>
+                <div style={styles.inputWrapper}>
+                  <FaClipboardList style={styles.inputIcon} />
+                  <textarea
+                    name="during_production_inspection"
+                    value={formData.during_production_inspection}
+                    onChange={handleChange}
+                    placeholder="Enter production inspection details..."
+                    rows={3}
+                    style={styles.textarea}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Final Random Inspection"
-                name="final_random_inspection"
-                value={formData.final_random_inspection}
-                onChange={handleChange}
-                multiline
-                rows={3}
-                placeholder="Enter final inspection results..."
-              />
-            </Grid>
+              <div style={styles.formFieldFull}>
+                <label style={styles.formLabel}>Final Random Inspection</label>
+                <div style={styles.inputWrapper}>
+                  <FaClipboardList style={styles.inputIcon} />
+                  <textarea
+                    name="final_random_inspection"
+                    value={formData.final_random_inspection}
+                    onChange={handleChange}
+                    placeholder="Enter final inspection results..."
+                    rows={3}
+                    style={styles.textarea}
+                  />
+                </div>
+              </div>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Remarks"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleChange}
-                multiline
-                rows={3}
-                placeholder="Enter any additional remarks..."
-              />
-            </Grid>
-          </Grid>
+              <div style={styles.formFieldFull}>
+                <label style={styles.formLabel}>Remarks</label>
+                <div style={styles.inputWrapper}>
+                  <FaInfoCircle style={styles.inputIcon} />
+                  <textarea
+                    name="remarks"
+                    value={formData.remarks}
+                    onChange={handleChange}
+                    placeholder="Enter any additional remarks..."
+                    rows={3}
+                    style={styles.textarea}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         );
 
       default:
@@ -861,152 +667,409 @@ const AddOrder = () => {
   };
 
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold" gutterBottom>
-            Create New Order
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Fill in the details below to create a new order
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<Cancel />}
-          onClick={() => navigate('/orders')}
-          sx={{ textTransform: 'none' }}
-        >
-          Cancel
-        </Button>
-      </Box>
+    <div style={styles.appContainer}>
+      <Sidebar />
+      <div style={styles.mainContent}>
+        <div style={styles.addOrderContainer}>
+          {/* Header */}
+          <div style={styles.pageHeader}>
+            <div style={styles.headerLeft}>
+              <button style={styles.backButton} onClick={() => navigate('/orders')}>
+                <FaArrowLeft />
+              </button>
+              <div>
+                <h1 style={styles.pageTitle}>Create New Order</h1>
+                <p style={styles.pageSubtitle}>Fill in the details below to create a new order</p>
+              </div>
+            </div>
+            <button style={styles.btnCancel} onClick={() => navigate('/orders')}>
+              <FaTimes style={{ marginRight: '8px' }} /> Cancel
+            </button>
+          </div>
 
-      {/* Main Form */}
-      <Paper elevation={0} sx={{ p: 3, borderRadius: 2 }}>
-        <form onSubmit={handleSubmit}>
           {/* Stepper */}
-          <Stepper activeStep={activeStep} orientation="vertical" sx={{ mb: 4 }}>
+          <div style={styles.stepperContainer}>
             {steps.map((step, index) => (
-              <Step key={step.label}>
-                <StepLabel StepIconComponent={() => (
-                  <Avatar sx={{ bgcolor: activeStep >= index ? 'primary.main' : 'grey.300', width: 32, height: 32 }}>
-                    {step.icon}
-                  </Avatar>
-                )}>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    {step.label}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {step.description}
-                  </Typography>
-                </StepLabel>
-                <StepContent>
-                  {renderStepContent(index)}
-                  
-                  <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-                    <Button
-                      disabled={index === 0}
-                      onClick={handleBack}
-                      startIcon={<ArrowBack />}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={index === steps.length - 1 ? handleSubmit : handleNext}
-                      endIcon={index === steps.length - 1 ? <Save /> : <ArrowForward />}
-                      disabled={loading}
-                    >
-                      {index === steps.length - 1 
-                        ? (loading ? 'Creating...' : 'Create Order') 
-                        : 'Continue'}
-                    </Button>
-                  </Box>
-                </StepContent>
-              </Step>
+              <div
+                key={step.id}
+                style={{
+                  ...styles.stepItem,
+                  ...(activeStep === index ? styles.stepItemActive : {}),
+                  ...(activeStep > index ? styles.stepItemCompleted : {}),
+                }}
+                onClick={() => activeStep > index && setActiveStep(index)}
+              >
+                <div style={styles.stepIcon}>
+                  {activeStep > index ? <FaCheckCircle /> : step.icon}
+                </div>
+                <div style={styles.stepLabel}>{step.label}</div>
+                {index < steps.length - 1 && <div style={styles.stepConnector} />}
+              </div>
             ))}
-          </Stepper>
+          </div>
 
-          {/* Summary Card for last step */}
-          {activeStep === steps.length && (
-            <Card sx={{ mt: 2, bgcolor: '#f8fafc' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <CheckCircle color="success" sx={{ fontSize: 40 }} />
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
-                      Ready to Create Order
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Please review all information before submitting
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="subtitle2" color="primary">
-                      PO Number
-                    </Typography>
-                    <Typography variant="body1">{formData.po_no || 'N/A'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="subtitle2" color="primary">
-                      Style
-                    </Typography>
-                    <Typography variant="body1">{formData.style || 'N/A'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="subtitle2" color="primary">
-                      Total Value
-                    </Typography>
-                    <Typography variant="body1" fontWeight="bold" color="success.main">
-                      ${formData.total_value || '0'}
-                    </Typography>
-                  </Grid>
-                </Grid>
+          {/* Form Card */}
+          <div style={styles.formCard}>
+            {renderStepContent()}
 
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={() => setActiveStep(0)}
-                  >
-                    Edit Information
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleSubmit}
-                    startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-                    disabled={loading}
-                    size="large"
-                  >
-                    {loading ? 'Creating...' : 'Create Order'}
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
+            {/* Navigation Buttons */}
+            <div style={styles.navigationButtons}>
+              <button
+                style={{ ...styles.btnOutline, visibility: activeStep === 0 ? 'hidden' : 'visible' }}
+                onClick={handleBack}
+                disabled={activeStep === 0}
+              >
+                <FaChevronLeft style={{ marginRight: '8px' }} /> Back
+              </button>
+              {activeStep === steps.length - 1 ? (
+                <button
+                  style={styles.btnPrimary}
+                  onClick={handleSubmit}
+                  disabled={loading}
+                >
+                  {loading ? 'Creating...' : (
+                    <>
+                      <FaSave style={{ marginRight: '8px' }} /> Create Order
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button style={styles.btnPrimary} onClick={handleNext}>
+                  Continue <FaChevronRight style={{ marginLeft: '8px' }} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Snackbar */}
+          {snackbar.open && (
+            <div style={{
+              ...styles.snackbar,
+              backgroundColor: snackbar.type === 'success' ? '#10b981' : snackbar.type === 'error' ? '#ef4444' : '#f59e0b',
+            }}>
+              <span>{snackbar.message}</span>
+              <button onClick={() => setSnackbar({ ...snackbar, open: false })} style={styles.snackbarClose}>×</button>
+            </div>
           )}
-        </form>
-      </Paper>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert 
-          severity={snackbar.severity} 
-          sx={{ width: '100%', borderRadius: 2 }}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 };
+
+const styles = {
+  appContainer: {
+    display: "flex",
+    minHeight: "100vh",
+    background: "#f1f5f9",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    color: "#0f172a",
+    height: "100vh",
+    overflow: "hidden",
+  },
+  mainContent: {
+    flex: 1,
+    padding: "24px",
+    overflowY: "auto",
+    height: "100vh",
+  },
+  addOrderContainer: {
+    maxWidth: "1000px",
+    margin: "0 auto",
+  },
+  pageHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "32px",
+  },
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+  },
+  backButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    border: "1px solid #e2e8f0",
+    background: "white",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    color: "#475569",
+  },
+  pageTitle: {
+    fontSize: "28px",
+    fontWeight: 600,
+    color: "#0f172a",
+    margin: 0,
+    marginBottom: "4px",
+  },
+  pageSubtitle: {
+    fontSize: "14px",
+    color: "#64748b",
+    margin: 0,
+  },
+  btnCancel: {
+    display: "flex",
+    alignItems: "center",
+    padding: "8px 20px",
+    borderRadius: "8px",
+    fontWeight: 500,
+    fontSize: "14px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    border: "1px solid #e2e8f0",
+    background: "white",
+    color: "#475569",
+  },
+  btnPrimary: {
+    display: "flex",
+    alignItems: "center",
+    padding: "10px 24px",
+    borderRadius: "8px",
+    fontWeight: 500,
+    fontSize: "14px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+  },
+  btnOutline: {
+    display: "flex",
+    alignItems: "center",
+    padding: "10px 24px",
+    borderRadius: "8px",
+    fontWeight: 500,
+    fontSize: "14px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    border: "1px solid #e2e8f0",
+    background: "white",
+    color: "#475569",
+  },
+  stepperContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    background: "white",
+    borderRadius: "16px",
+    padding: "24px 32px",
+    marginBottom: "24px",
+    border: "1px solid #e2e8f0",
+    position: "relative",
+  },
+  stepItem: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    position: "relative",
+    flex: 1,
+    cursor: "pointer",
+  },
+  stepItemActive: {
+    cursor: "default",
+  },
+  stepItemCompleted: {
+    cursor: "pointer",
+  },
+  stepIcon: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    background: "#f1f5f9",
+    border: "2px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "18px",
+    color: "#94a3b8",
+    transition: "all 0.2s",
+  },
+  stepItemActive: {
+    "& .step-icon": {
+      background: "#2563eb",
+      borderColor: "#2563eb",
+      color: "white",
+    },
+  },
+  stepItemCompleted: {
+    "& .step-icon": {
+      background: "#10b981",
+      borderColor: "#10b981",
+      color: "white",
+    },
+  },
+  stepLabel: {
+    fontSize: "13px",
+    fontWeight: 500,
+    marginTop: "8px",
+    color: "#64748b",
+  },
+  stepConnector: {
+    position: "absolute",
+    top: "20px",
+    left: "calc(50% + 20px)",
+    width: "calc(100% - 40px)",
+    height: "2px",
+    background: "#e2e8f0",
+    zIndex: 0,
+  },
+  formCard: {
+    background: "white",
+    borderRadius: "16px",
+    border: "1px solid #e2e8f0",
+    overflow: "hidden",
+  },
+  stepContent: {
+    padding: "32px",
+  },
+  formGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "24px",
+  },
+  formField: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  formFieldFull: {
+    display: "flex",
+    flexDirection: "column",
+    gridColumn: "span 2",
+  },
+  formLabel: {
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "#334155",
+    marginBottom: "6px",
+  },
+  required: {
+    color: "#ef4444",
+  },
+  inputWrapper: {
+    position: "relative",
+  },
+  inputIcon: {
+    position: "absolute",
+    left: "12px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "#94a3b8",
+    fontSize: "16px",
+  },
+  input: {
+    width: "100%",
+    height: "44px",
+    padding: "0 12px 0 38px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    fontSize: "14px",
+    outline: "none",
+    transition: "all 0.2s",
+    fontFamily: "inherit",
+  },
+  select: {
+    width: "100%",
+    height: "44px",
+    padding: "0 12px 0 38px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    fontSize: "14px",
+    outline: "none",
+    background: "white",
+    fontFamily: "inherit",
+  },
+  textarea: {
+    width: "100%",
+    padding: "10px 12px 10px 38px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    fontSize: "14px",
+    outline: "none",
+    fontFamily: "inherit",
+    resize: "vertical",
+  },
+  infoMessage: {
+    marginTop: "24px",
+    padding: "12px 16px",
+    background: "#f0fdf4",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    fontSize: "13px",
+    color: "#166534",
+  },
+  navigationButtons: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "20px 32px",
+    borderTop: "1px solid #e2e8f0",
+    background: "#fafafa",
+  },
+  snackbar: {
+    position: "fixed",
+    bottom: "24px",
+    right: "24px",
+    padding: "12px 20px",
+    borderRadius: "10px",
+    color: "white",
+    fontSize: "14px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    zIndex: 1000,
+    animation: "slideIn 0.3s ease",
+  },
+  snackbarClose: {
+    background: "none",
+    border: "none",
+    color: "white",
+    fontSize: "20px",
+    cursor: "pointer",
+    padding: "0 4px",
+  },
+};
+
+// Add keyframes
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  input:focus, select:focus, textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+  
+  button:hover {
+    transform: translateY(-1px);
+  }
+  
+  .btn-primary:hover {
+    background: #1d4ed8;
+  }
+  
+  .btn-outline:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+  
+  .back-button:hover, .btn-cancel:hover {
+    background: #f1f5f9;
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default AddOrder;

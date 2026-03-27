@@ -63,7 +63,14 @@ const checkBirthdateMatch = (employeeDate, filterDate) => {
 const EmployeeDetails = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      const saved = localStorage.getItem("employeeItemsPerPage");
+      return saved ? parseInt(saved) : 100;
+    } catch {
+      return 100;
+    }
+  });
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -72,11 +79,35 @@ const EmployeeDetails = () => {
   const [allDesignations, setAllDesignations] = useState([]);
   const [allDepartments, setAllDepartments] = useState([]);
 
-  // Filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [designationFilter, setDesignationFilter] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("");
-  const [birthdateFilter, setBirthdateFilter] = useState("");
+  // Filter state - Initialize with values from localStorage
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try {
+      return localStorage.getItem("employeeSearchQuery") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [designationFilter, setDesignationFilter] = useState(() => {
+    try {
+      return localStorage.getItem("employeeDesignationFilter") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [departmentFilter, setDepartmentFilter] = useState(() => {
+    try {
+      return localStorage.getItem("employeeDepartmentFilter") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [birthdateFilter, setBirthdateFilter] = useState(() => {
+    try {
+      return localStorage.getItem("employeeBirthdateFilter") || "";
+    } catch {
+      return "";
+    }
+  });
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -86,13 +117,20 @@ const EmployeeDetails = () => {
   const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
   const [designationSearch, setDesignationSearch] = useState("");
   const [departmentSearch, setDepartmentSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: "name",
-    direction: "asc",
+  const [sortConfig, setSortConfig] = useState(() => {
+    try {
+      return {
+        key: localStorage.getItem("employeeSortKey") || "name",
+        direction: localStorage.getItem("employeeSortDirection") || "asc",
+      };
+    } catch {
+      return { key: "name", direction: "asc" };
+    }
   });
   const [selectedRows, setSelectedRows] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const navigate = useNavigate();
   const isInitialMount = useRef(true);
@@ -102,42 +140,6 @@ const EmployeeDetails = () => {
   const designationDropdownRef = useRef(null);
   const departmentDropdownRef = useRef(null);
   const birthdateDropdownRef = useRef(null);
-
-  // Load from localStorage
-  useEffect(() => {
-    try {
-      const savedSearchQuery = localStorage.getItem("employeeSearchQuery");
-      const savedDesignationFilter = localStorage.getItem(
-        "employeeDesignationFilter",
-      );
-      const savedDepartmentFilter = localStorage.getItem(
-        "employeeDepartmentFilter",
-      );
-      const savedBirthdateFilter = localStorage.getItem(
-        "employeeBirthdateFilter",
-      );
-      const savedItemsPerPage = localStorage.getItem("employeeItemsPerPage");
-      const savedSortKey = localStorage.getItem("employeeSortKey");
-      const savedSortDirection = localStorage.getItem("employeeSortDirection");
-
-      if (savedSearchQuery !== null) setSearchQuery(savedSearchQuery);
-      if (savedDesignationFilter !== null)
-        setDesignationFilter(savedDesignationFilter);
-      if (savedDepartmentFilter !== null)
-        setDepartmentFilter(savedDepartmentFilter);
-      if (savedBirthdateFilter !== null)
-        setBirthdateFilter(savedBirthdateFilter);
-      if (savedItemsPerPage) setItemsPerPage(parseInt(savedItemsPerPage));
-      if (savedSortKey && savedSortDirection) {
-        setSortConfig({
-          key: savedSortKey,
-          direction: savedSortDirection,
-        });
-      }
-    } catch (err) {
-      console.error("Error reading from localStorage:", err);
-    }
-  }, []);
 
   // Build filter parameters for API
   const buildFilterParams = useCallback(() => {
@@ -235,6 +237,7 @@ const EmployeeDetails = () => {
       } finally {
         setLoading(false);
         setIsFiltering(false);
+        setIsInitialLoad(false);
       }
     };
 
@@ -251,10 +254,12 @@ const EmployeeDetails = () => {
 
   // Save filters to localStorage with debounce
   useEffect(() => {
+    // Skip saving on initial mount to avoid overwriting
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
+    
     if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current);
     filterTimeoutRef.current = setTimeout(() => {
       try {
@@ -281,9 +286,11 @@ const EmployeeDetails = () => {
     sortConfig,
   ]);
 
-  // Reset to first page when filters change
+  // Reset to first page when filters change (but not on initial load)
   useEffect(() => {
-    setCurrentPage(1);
+    if (!isInitialLoad) {
+      setCurrentPage(1);
+    }
   }, [
     searchQuery,
     designationFilter,
@@ -626,7 +633,7 @@ const EmployeeDetails = () => {
   };
 
   // Loading and error states
-  if (loading && employees.length === 0) {
+  if (loading && employees.length === 0 && isInitialLoad) {
     return (
       <div style={styles.appContainer}>
         <Sidebars />
@@ -1194,7 +1201,7 @@ const EmployeeDetails = () => {
                     ))
                   ) : (
                     <tr style={styles.emptyRow}>
-                      <td colSpan="9" style={{ padding: "60px 20px" }}>
+                      <td colSpan="8" style={{ padding: "60px 20px" }}>
                         <div style={styles.emptyState}>
                           <FaUsers style={styles.emptyIcon} />
                           <h4 style={{ fontSize: "18px", color: "#334155" }}>
@@ -1210,8 +1217,8 @@ const EmployeeDetails = () => {
                             Clear filters
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                       </td>
+                     </tr>
                   )}
                 </tbody>
               </table>
@@ -1234,14 +1241,14 @@ const styles = {
     fontFamily:
       "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     color: "#0f172a",
-    height: "100vh", // Add fixed height
-    overflow: "hidden", // Prevent scrolling on container
+    height: "100vh",
+    overflow: "hidden",
   },
   mainContent: {
     flex: 1,
     padding: "2px 24px",
     overflowY: "auto",
-    height: "100vh", // Keep fixed height
+    height: "100vh",
     display: "flex",
     flexDirection: "column",
   },
@@ -1251,7 +1258,7 @@ const styles = {
     width: "100%",
     display: "flex",
     flexDirection: "column",
-    flex: 1, // This will make it expand
+    flex: 1,
   },
   pageHeader: {
     display: "flex",
@@ -1389,7 +1396,7 @@ const styles = {
     background: "white",
     borderRadius: "8px",
     padding: "10px",
-    marginBottom: "10px", // Reduced from 24px to 10px
+    marginBottom: "10px",
     boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
     border: "1px solid #e2e8f0",
   },
@@ -1583,8 +1590,8 @@ const styles = {
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    flex: 1, // This will make it expand
-    marginBottom: "0", // Ensure no bottom margin
+    flex: 1,
+    marginBottom: "0",
   },
   tableHeader: {
     padding: "10px 10px",
@@ -1611,9 +1618,9 @@ const styles = {
   },
   tableContainer: {
     overflowX: "auto",
-    flex: 1, // This will make the table area expand
-    minHeight: "300px", // Minimum height when no data
-    maxHeight: "calc(100vh - 355px)", // Adjusted to leave space for pagination
+    flex: 1,
+    minHeight: "300px",
+    maxHeight: "calc(100vh - 355px)",
     overflowY: "auto",
   },
   employeeTable: {
@@ -1634,44 +1641,9 @@ const styles = {
     top: 0,
     zIndex: 10,
   },
-  checkboxCell: {
-    width: "40px",
-    textAlign: "center",
-    padding: "10px 20px",
-    background: "#f9fafb",
-    borderBottom: "1px solid #e2e8f0",
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-  },
   sortable: {
     cursor: "pointer",
     userSelect: "none",
-  },
-  checkbox: {
-    position: "relative",
-    display: "inline-block",
-    width: "18px",
-    height: "18px",
-    cursor: "pointer",
-  },
-  checkboxInput: {
-    position: "absolute",
-    opacity: 0,
-    cursor: "pointer",
-    height: 0,
-    width: 0,
-  },
-  checkmark: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    height: "18px",
-    width: "18px",
-    backgroundColor: "white",
-    border: "2px solid #cbd5e1",
-    borderRadius: "4px",
-    transition: "all 0.2s",
   },
   tableCell: {
     padding: "10px 25px",
@@ -1841,8 +1813,8 @@ const styles = {
     alignItems: "center",
     flexWrap: "wrap",
     gap: "16px",
-    marginTop: "auto", // This pushes it to the bottom
-    marginBottom: "0", // Ensure no bottom margin
+    marginTop: "auto",
+    marginBottom: "0",
   },
   paginationInfo: {
     fontSize: "14px",

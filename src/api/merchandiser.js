@@ -352,6 +352,8 @@ export const loginUser = async (payload) => {
  * @param {Object|boolean} options - Either filter params or boolean for allPages
  * @returns {Promise<Object>} - Response with data and pagination info
  */
+// services/merchandiser.js - Update the getOrders function
+
 export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
   try {
     // Handle backward compatibility and allPages flag
@@ -365,20 +367,44 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
       filters = options.filters || {};
     }
 
+    // If options is an object and doesn't have the allPages property, use it directly as filters
+    if (
+      typeof options === "object" &&
+      !options.allPages &&
+      Object.keys(options).length > 0
+    ) {
+      filters = options;
+    }
+
     if (allPages) {
-      // Fetch all pages
+      // Fetch all pages code...
       let allOrders = [];
       let currentPage = 1;
       let hasMore = true;
 
       while (hasMore) {
-        const params = new URLSearchParams({
-          page: currentPage,
-          page_size: pageSize,
-          ...filters,
+        const params = new URLSearchParams();
+        params.append("page", currentPage);
+        params.append("page_size", pageSize);
+
+        // Add all filters
+        Object.keys(filters).forEach((key) => {
+          if (
+            filters[key] !== null &&
+            filters[key] !== undefined &&
+            filters[key] !== ""
+          ) {
+            params.append(key, filters[key]);
+          }
         });
 
-        const response = await merchandiserApi.get(`orders/?${params.toString()}`);
+        console.log(
+          `📡 Fetching orders page ${currentPage} with params:`,
+          params.toString(),
+        );
+        const response = await merchandiserApi.get(
+          `orders/?${params.toString()}`,
+        );
 
         if (response.data && response.data.results) {
           allOrders = [...allOrders, ...response.data.results];
@@ -393,7 +419,6 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
         }
       }
 
-      console.log(`✅ Fetched ${allOrders.length} total orders`);
       return {
         data: allOrders,
         pagination: {
@@ -403,15 +428,36 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
       };
     } else {
       // Fetch single page
-      const params = new URLSearchParams({
-        page: page,
-        page_size: pageSize,
-        ...filters,
+      const params = new URLSearchParams();
+
+      // Add pagination
+      params.append("page", page);
+      params.append("page_size", pageSize);
+
+      // Add all filters
+      Object.keys(filters).forEach((key) => {
+        if (
+          filters[key] !== null &&
+          filters[key] !== undefined &&
+          filters[key] !== ""
+        ) {
+          // Special handling for status - ensure it's properly encoded
+          if (key === "status") {
+            console.log(`📌 Adding status filter: ${filters[key]}`);
+          }
+          params.append(key, filters[key]);
+        }
       });
 
-      const response = await merchandiserApi.get(`orders/?${params.toString()}`);
+      const url = `orders/?${params.toString()}`;
+      console.log("📡 Full API URL:", url);
+
+      const response = await merchandiserApi.get(url);
 
       if (response.data && response.data.results) {
+        console.log(
+          `✅ Found ${response.data.results.length} orders out of ${response.data.count} total`,
+        );
         return {
           data: response.data.results,
           pagination: {
@@ -443,10 +489,115 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
   }
 };
 
+export const getOrderStatsWithFilters = async (filters = {}) => {
+  try {
+    // Build query parameters from filters
+    const params = new URLSearchParams();
+
+    // Add all filter parameters
+    Object.keys(filters).forEach((key) => {
+      if (
+        filters[key] !== null &&
+        filters[key] !== undefined &&
+        filters[key] !== ""
+      ) {
+        params.append(key, filters[key]);
+      }
+    });
+
+    const url = `orders/stats/${params.toString() ? `?${params.toString()}` : ""}`;
+    console.log("📊 Fetching stats with filters:", url);
+
+    const response = await merchandiserApi.get(url);
+    console.log("📊 Stats response:", response.data);
+
+    // Ensure the response has the expected structure
+    return {
+      total_orders: response.data.total_orders || 0,
+      total_value: response.data.total_value || 0,
+      total_quantity: response.data.total_quantity || 0,
+      avg_price_per_unit: response.data.avg_price_per_unit || 0,
+      garment_stats: response.data.garment_stats || {
+        knit: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        woven: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        sweater: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        underwear: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        other: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+      },
+    };
+  } catch (error) {
+    console.error("❌ Error fetching order stats:", error);
+    return {
+      total_orders: 0,
+      total_value: 0,
+      total_quantity: 0,
+      avg_price_per_unit: 0,
+      garment_stats: {
+        knit: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        woven: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        sweater: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        underwear: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+        other: {
+          total_orders: 0,
+          total_quantity: 0,
+          total_value: 0,
+          avg_price: 0,
+        },
+      },
+    };
+  }
+};
 export const getOrderById = (id) => merchandiserApi.get(`orders/${id}/`);
 export const createOrder = (data) => merchandiserApi.post("orders/", data);
-export const updateOrder = (id, data) => merchandiserApi.put(`orders/${id}/`, data);
-export const patchOrder = (id, data) => merchandiserApi.patch(`orders/${id}/`, data);
+export const updateOrder = (id, data) =>
+  merchandiserApi.put(`orders/${id}/`, data);
+export const patchOrder = (id, data) =>
+  merchandiserApi.patch(`orders/${id}/`, data);
 export const deleteOrder = (id) => merchandiserApi.delete(`orders/${id}/`);
 export const getOrderStats = () => merchandiserApi.get("orders/stats/");
 
@@ -485,7 +636,9 @@ export const getInquiries = async (page = 1, pageSize = 100, options = {}) => {
           ...filters,
         });
 
-        const response = await merchandiserApi.get(`inquiry/?${params.toString()}`);
+        const response = await merchandiserApi.get(
+          `inquiry/?${params.toString()}`,
+        );
 
         if (response.data && response.data.results) {
           allInquiries = [...allInquiries, ...response.data.results];
@@ -511,7 +664,9 @@ export const getInquiries = async (page = 1, pageSize = 100, options = {}) => {
         ...filters,
       });
 
-      const response = await merchandiserApi.get(`inquiry/?${params.toString()}`);
+      const response = await merchandiserApi.get(
+        `inquiry/?${params.toString()}`,
+      );
 
       if (response.data && response.data.results) {
         return {
@@ -598,7 +753,9 @@ export const getSuppliers = async (page = 1, pageSize = 100, options = {}) => {
           ...filters,
         });
 
-        const response = await merchandiserApi.get(`supplier/?${params.toString()}`);
+        const response = await merchandiserApi.get(
+          `supplier/?${params.toString()}`,
+        );
 
         if (response.data && response.data.results) {
           allSuppliers = [...allSuppliers, ...response.data.results];
@@ -624,7 +781,9 @@ export const getSuppliers = async (page = 1, pageSize = 100, options = {}) => {
         ...filters,
       });
 
-      const response = await merchandiserApi.get(`supplier/?${params.toString()}`);
+      const response = await merchandiserApi.get(
+        `supplier/?${params.toString()}`,
+      );
 
       if (response.data && response.data.results) {
         return {
@@ -673,7 +832,10 @@ export const patchSupplier = (id, data) => {
 export const deleteSupplier = (id) => merchandiserApi.delete(`supplier/${id}/`);
 
 export const sendExpiryNotifications = (supplierId, data) => {
-  return merchandiserApi.post(`supplier/${supplierId}/send-expiry-notifications/`, data);
+  return merchandiserApi.post(
+    `supplier/${supplierId}/send-expiry-notifications/`,
+    data,
+  );
 };
 
 export const getDashboardExpirySummary = () => {
@@ -689,9 +851,12 @@ export const recalculateAllDays = () => {
 };
 
 export const deleteBuildingImage = (supplierId, imageUrl) => {
-  return merchandiserApi.delete(`supplier/${supplierId}/delete-building-image/`, {
-    data: { image_url: imageUrl }
-  });
+  return merchandiserApi.delete(
+    `supplier/${supplierId}/delete-building-image/`,
+    {
+      data: { image_url: imageUrl },
+    },
+  );
 };
 
 /* -------------------------------------------------------------------------- */
@@ -705,7 +870,11 @@ export const deleteBuildingImage = (supplierId, imageUrl) => {
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getCustomers = async (page = 1, pageSize = 100, allPages = false) => {
+export const getCustomers = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allCustomers = [];
@@ -767,8 +936,10 @@ export const getCustomers = async (page = 1, pageSize = 100, allPages = false) =
 
 export const getCustomerById = (id) => merchandiserApi.get(`customer/${id}/`);
 export const createCustomer = (data) => merchandiserApi.post("customer/", data);
-export const updateCustomer = (id, data) => merchandiserApi.put(`customer/${id}/`, data);
-export const patchCustomer = (id, data) => merchandiserApi.patch(`customer/${id}/`, data);
+export const updateCustomer = (id, data) =>
+  merchandiserApi.put(`customer/${id}/`, data);
+export const patchCustomer = (id, data) =>
+  merchandiserApi.patch(`customer/${id}/`, data);
 export const deleteCustomer = (id) => merchandiserApi.delete(`customer/${id}/`);
 
 /* -------------------------------------------------------------------------- */
@@ -844,8 +1015,10 @@ export const getBuyers = async (page = 1, pageSize = 100, allPages = false) => {
 
 export const getBuyerById = (id) => merchandiserApi.get(`buyer/${id}/`);
 export const createBuyer = (data) => merchandiserApi.post("buyer/", data);
-export const updateBuyer = (id, data) => merchandiserApi.put(`buyer/${id}/`, data);
-export const patchBuyer = (id, data) => merchandiserApi.patch(`buyer/${id}/`, data);
+export const updateBuyer = (id, data) =>
+  merchandiserApi.put(`buyer/${id}/`, data);
+export const patchBuyer = (id, data) =>
+  merchandiserApi.patch(`buyer/${id}/`, data);
 export const deleteBuyer = (id) => merchandiserApi.delete(`buyer/${id}/`);
 
 /* -------------------------------------------------------------------------- */
@@ -921,8 +1094,10 @@ export const getAgents = async (page = 1, pageSize = 100, allPages = false) => {
 
 export const getAgentById = (id) => merchandiserApi.get(`agent/${id}/`);
 export const createAgent = (data) => merchandiserApi.post("agent/", data);
-export const updateAgent = (id, data) => merchandiserApi.put(`agent/${id}/`, data);
-export const patchAgent = (id, data) => merchandiserApi.patch(`agent/${id}/`, data);
+export const updateAgent = (id, data) =>
+  merchandiserApi.put(`agent/${id}/`, data);
+export const patchAgent = (id, data) =>
+  merchandiserApi.patch(`agent/${id}/`, data);
 export const deleteAgent = (id) => merchandiserApi.delete(`agent/${id}/`);
 
 /* -------------------------------------------------------------------------- */
@@ -998,7 +1173,8 @@ export const getStyles = async (page = 1, pageSize = 100, allPages = false) => {
 
 export const getStyleById = (id) => merchandiserApi.get(`style/${id}/`);
 export const createStyle = (data) => merchandiserApi.post("style/", data);
-export const updateStyle = (id, data) => merchandiserApi.put(`style/${id}/`, data);
+export const updateStyle = (id, data) =>
+  merchandiserApi.put(`style/${id}/`, data);
 export const deleteStyle = (id) => merchandiserApi.delete(`style/${id}/`);
 
 /* -------------------------------------------------------------------------- */
@@ -1074,7 +1250,8 @@ export const getItems = async (page = 1, pageSize = 100, allPages = false) => {
 
 export const getItemById = (id) => merchandiserApi.get(`item/${id}/`);
 export const createItem = (data) => merchandiserApi.post("item/", data);
-export const updateItem = (id, data) => merchandiserApi.put(`item/${id}/`, data);
+export const updateItem = (id, data) =>
+  merchandiserApi.put(`item/${id}/`, data);
 export const deleteItem = (id) => merchandiserApi.delete(`item/${id}/`);
 
 /* -------------------------------------------------------------------------- */
@@ -1088,7 +1265,11 @@ export const deleteItem = (id) => merchandiserApi.delete(`item/${id}/`);
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getFabrications = async (page = 1, pageSize = 100, allPages = false) => {
+export const getFabrications = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allFabrications = [];
@@ -1148,10 +1329,14 @@ export const getFabrications = async (page = 1, pageSize = 100, allPages = false
   }
 };
 
-export const getFabricationById = (id) => merchandiserApi.get(`fabrication/${id}/`);
-export const createFabrication = (data) => merchandiserApi.post("fabrication/", data);
-export const updateFabrication = (id, data) => merchandiserApi.put(`fabrication/${id}/`, data);
-export const deleteFabrication = (id) => merchandiserApi.delete(`fabrication/${id}/`);
+export const getFabricationById = (id) =>
+  merchandiserApi.get(`fabrication/${id}/`);
+export const createFabrication = (data) =>
+  merchandiserApi.post("fabrication/", data);
+export const updateFabrication = (id, data) =>
+  merchandiserApi.put(`fabrication/${id}/`, data);
+export const deleteFabrication = (id) =>
+  merchandiserApi.delete(`fabrication/${id}/`);
 
 /* -------------------------------------------------------------------------- */
 /*  16.  REPEAT OF APIs                                                       */
@@ -1164,7 +1349,11 @@ export const deleteFabrication = (id) => merchandiserApi.delete(`fabrication/${i
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getRepeatOfs = async (page = 1, pageSize = 100, allPages = false) => {
+export const getRepeatOfs = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allRepeatOfs = [];
@@ -1225,9 +1414,12 @@ export const getRepeatOfs = async (page = 1, pageSize = 100, allPages = false) =
 };
 
 export const getRepeatOfById = (id) => merchandiserApi.get(`repeat_of/${id}/`);
-export const createRepeatOf = (data) => merchandiserApi.post("repeat_of/", data);
-export const updateRepeatOf = (id, data) => merchandiserApi.put(`repeat_of/${id}/`, data);
-export const deleteRepeatOf = (id) => merchandiserApi.delete(`repeat_of/${id}/`);
+export const createRepeatOf = (data) =>
+  merchandiserApi.post("repeat_of/", data);
+export const updateRepeatOf = (id, data) =>
+  merchandiserApi.put(`repeat_of/${id}/`, data);
+export const deleteRepeatOf = (id) =>
+  merchandiserApi.delete(`repeat_of/${id}/`);
 
 /* -------------------------------------------------------------------------- */
 /*  17.  NEGOTIATION APIs                                                     */
@@ -1240,7 +1432,11 @@ export const deleteRepeatOf = (id) => merchandiserApi.delete(`repeat_of/${id}/`)
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getNegotiations = async (page = 1, pageSize = 100, allPages = false) => {
+export const getNegotiations = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allNegotiations = [];
@@ -1300,11 +1496,15 @@ export const getNegotiations = async (page = 1, pageSize = 100, allPages = false
   }
 };
 
-export const getNegotiationById = (id) => merchandiserApi.get(`negotiation/${id}/`);
-export const createNegotiation = (data) => merchandiserApi.post("negotiation/", data);
-export const updateNegotiation = (id, data) => merchandiserApi.put(`negotiation/${id}/`, data);
-export const deleteNegotiation = (id) => merchandiserApi.delete(`negotiation/${id}/`);
-export const clearNegotiationHistory = (inquiryId) => 
+export const getNegotiationById = (id) =>
+  merchandiserApi.get(`negotiation/${id}/`);
+export const createNegotiation = (data) =>
+  merchandiserApi.post("negotiation/", data);
+export const updateNegotiation = (id, data) =>
+  merchandiserApi.put(`negotiation/${id}/`, data);
+export const deleteNegotiation = (id) =>
+  merchandiserApi.delete(`negotiation/${id}/`);
+export const clearNegotiationHistory = (inquiryId) =>
   merchandiserApi.delete(`negotiation/clear-history/${inquiryId}/`);
 
 /* -------------------------------------------------------------------------- */
@@ -1318,7 +1518,11 @@ export const clearNegotiationHistory = (inquiryId) =>
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getColorSizeGroups = async (page = 1, pageSize = 100, allPages = false) => {
+export const getColorSizeGroups = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allGroups = [];
@@ -1378,10 +1582,14 @@ export const getColorSizeGroups = async (page = 1, pageSize = 100, allPages = fa
   }
 };
 
-export const getColorSizeGroupById = (id) => merchandiserApi.get(`color_size_group/${id}/`);
-export const createColorSizeGroup = (data) => merchandiserApi.post("color_size_group/", data);
-export const updateColorSizeGroup = (id, data) => merchandiserApi.put(`color_size_group/${id}/`, data);
-export const deleteColorSizeGroup = (id) => merchandiserApi.delete(`color_size_group/${id}/`);
+export const getColorSizeGroupById = (id) =>
+  merchandiserApi.get(`color_size_group/${id}/`);
+export const createColorSizeGroup = (data) =>
+  merchandiserApi.post("color_size_group/", data);
+export const updateColorSizeGroup = (id, data) =>
+  merchandiserApi.put(`color_size_group/${id}/`, data);
+export const deleteColorSizeGroup = (id) =>
+  merchandiserApi.delete(`color_size_group/${id}/`);
 
 /* -------------------------------------------------------------------------- */
 /*  19.  SIZE QUANTITY APIs                                                   */
@@ -1394,7 +1602,11 @@ export const deleteColorSizeGroup = (id) => merchandiserApi.delete(`color_size_g
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getSizeQuantities = async (page = 1, pageSize = 100, allPages = false) => {
+export const getSizeQuantities = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allQuantities = [];
@@ -1454,10 +1666,14 @@ export const getSizeQuantities = async (page = 1, pageSize = 100, allPages = fal
   }
 };
 
-export const getSizeQuantityById = (id) => merchandiserApi.get(`size_quantity/${id}/`);
-export const createSizeQuantity = (data) => merchandiserApi.post("size_quantity/", data);
-export const updateSizeQuantity = (id, data) => merchandiserApi.put(`size_quantity/${id}/`, data);
-export const deleteSizeQuantity = (id) => merchandiserApi.delete(`size_quantity/${id}/`);
+export const getSizeQuantityById = (id) =>
+  merchandiserApi.get(`size_quantity/${id}/`);
+export const createSizeQuantity = (data) =>
+  merchandiserApi.post("size_quantity/", data);
+export const updateSizeQuantity = (id, data) =>
+  merchandiserApi.put(`size_quantity/${id}/`, data);
+export const deleteSizeQuantity = (id) =>
+  merchandiserApi.delete(`size_quantity/${id}/`);
 
 /* -------------------------------------------------------------------------- */
 /*  20.  INQUIRY ATTACHMENT APIs                                              */
@@ -1470,7 +1686,11 @@ export const deleteSizeQuantity = (id) => merchandiserApi.delete(`size_quantity/
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getInquiryAttachments = async (page = 1, pageSize = 100, allPages = false) => {
+export const getInquiryAttachments = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allAttachments = [];
@@ -1530,7 +1750,8 @@ export const getInquiryAttachments = async (page = 1, pageSize = 100, allPages =
   }
 };
 
-export const getInquiryAttachmentById = (id) => merchandiserApi.get(`inquiry_attachment/${id}/`);
+export const getInquiryAttachmentById = (id) =>
+  merchandiserApi.get(`inquiry_attachment/${id}/`);
 
 export const createInquiryAttachment = (formData) => {
   return merchandiserApi.post("inquiry_attachment/", formData, {
@@ -1538,7 +1759,8 @@ export const createInquiryAttachment = (formData) => {
   });
 };
 
-export const deleteInquiryAttachment = (id) => merchandiserApi.delete(`inquiry_attachment/${id}/`);
+export const deleteInquiryAttachment = (id) =>
+  merchandiserApi.delete(`inquiry_attachment/${id}/`);
 
 /* -------------------------------------------------------------------------- */
 /*  21.  DASHBOARD APIs                                                       */
@@ -1546,11 +1768,11 @@ export const deleteInquiryAttachment = (id) => merchandiserApi.delete(`inquiry_a
 
 export const getDashboardData = (params = {}) => {
   const queryParams = new URLSearchParams();
-  
-  if (params.year) queryParams.append('year', params.year);
-  if (params.season) queryParams.append('season', params.season);
-  
-  const url = `dashboard/data/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+  if (params.year) queryParams.append("year", params.year);
+  if (params.season) queryParams.append("season", params.season);
+
+  const url = `dashboard/data/${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
   return merchandiserApi.get(url);
 };
 
@@ -1565,7 +1787,11 @@ export const getDashboardData = (params = {}) => {
  * @param {boolean} allPages - Whether to fetch all pages
  * @returns {Promise<Object>} - Response with data and pagination
  */
-export const getColorTotals = async (page = 1, pageSize = 100, allPages = false) => {
+export const getColorTotals = async (
+  page = 1,
+  pageSize = 100,
+  allPages = false,
+) => {
   try {
     if (allPages) {
       let allTotals = [];
@@ -1625,10 +1851,14 @@ export const getColorTotals = async (page = 1, pageSize = 100, allPages = false)
   }
 };
 
-export const getColorTotalById = (id) => merchandiserApi.get(`color_total/${id}/`);
-export const createColorTotal = (data) => merchandiserApi.post("color_total/", data);
-export const updateColorTotal = (id, data) => merchandiserApi.put(`color_total/${id}/`, data);
-export const deleteColorTotal = (id) => merchandiserApi.delete(`color_total/${id}/`);
+export const getColorTotalById = (id) =>
+  merchandiserApi.get(`color_total/${id}/`);
+export const createColorTotal = (data) =>
+  merchandiserApi.post("color_total/", data);
+export const updateColorTotal = (id, data) =>
+  merchandiserApi.put(`color_total/${id}/`, data);
+export const deleteColorTotal = (id) =>
+  merchandiserApi.delete(`color_total/${id}/`);
 
 /* -------------------------------------------------------------------------- */
 /*  EXPORT DEFAULT – ALL EXPORTS IN ONE OBJECT                                */

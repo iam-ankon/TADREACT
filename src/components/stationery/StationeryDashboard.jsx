@@ -799,7 +799,7 @@ const StationeryDashboard = () => {
               textAlign: "center",
             }}
           >
-            © 2024 Stationery Management System • Version 2.1.0
+            © Stationery Management System • TAD GROUP
           </div>
         </div>
       </div>
