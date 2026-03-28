@@ -356,7 +356,7 @@ export const loginUser = async (payload) => {
 
 export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
   try {
-    // Handle backward compatibility and allPages flag
+    // Handle different options formats
     let allPages = false;
     let filters = {};
 
@@ -376,116 +376,108 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
       filters = options;
     }
 
-    if (allPages) {
-      // Fetch all pages code...
-      let allOrders = [];
-      let currentPage = 1;
-      let hasMore = true;
+    // Build URL with params
+    const params = new URLSearchParams();
+    params.append("page", page);
+    params.append("page_size", pageSize);
 
-      while (hasMore) {
-        const params = new URLSearchParams();
-        params.append("page", currentPage);
-        params.append("page_size", pageSize);
-
-        // Add all filters
-        Object.keys(filters).forEach((key) => {
-          if (
-            filters[key] !== null &&
-            filters[key] !== undefined &&
-            filters[key] !== ""
-          ) {
-            params.append(key, filters[key]);
-          }
-        });
-
-        console.log(
-          `📡 Fetching orders page ${currentPage} with params:`,
-          params.toString(),
-        );
-        const response = await merchandiserApi.get(
-          `orders/?${params.toString()}`,
-        );
-
-        if (response.data && response.data.results) {
-          allOrders = [...allOrders, ...response.data.results];
-          hasMore = response.data.next ? true : false;
-          currentPage++;
-        } else {
-          const data = extractDataFromResponse(response);
-          if (data.length > 0) {
-            allOrders = [...allOrders, ...data];
-          }
-          hasMore = false;
-        }
+    // Add all filters
+    Object.keys(filters).forEach((key) => {
+      if (
+        filters[key] !== null &&
+        filters[key] !== undefined &&
+        filters[key] !== ""
+      ) {
+        params.append(key, filters[key]);
       }
+    });
 
+    const url = `orders/?${params.toString()}`;
+    console.log("📡 Full API URL:", url);
+
+    const response = await merchandiserApi.get(url);
+    console.log("📡 API Response status:", response.status);
+    console.log("📡 API Response data:", response.data);
+
+    // Handle paginated response with results array
+    if (
+      response.data &&
+      response.data.results &&
+      Array.isArray(response.data.results)
+    ) {
+      console.log(
+        `✅ Found ${response.data.results.length} orders out of ${response.data.count} total`,
+      );
       return {
-        data: allOrders,
+        data: response.data.results,
         pagination: {
-          count: allOrders.length,
-          total_pages: 1,
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          current_page: page,
+          page_size: pageSize,
+          total_pages: Math.ceil(response.data.count / pageSize),
         },
       };
-    } else {
-      // Fetch single page
-      const params = new URLSearchParams();
+    }
 
-      // Add pagination
-      params.append("page", page);
-      params.append("page_size", pageSize);
-
-      // Add all filters
-      Object.keys(filters).forEach((key) => {
-        if (
-          filters[key] !== null &&
-          filters[key] !== undefined &&
-          filters[key] !== ""
-        ) {
-          // Special handling for status - ensure it's properly encoded
-          if (key === "status") {
-            console.log(`📌 Adding status filter: ${filters[key]}`);
-          }
-          params.append(key, filters[key]);
-        }
-      });
-
-      const url = `orders/?${params.toString()}`;
-      console.log("📡 Full API URL:", url);
-
-      const response = await merchandiserApi.get(url);
-
-      if (response.data && response.data.results) {
-        console.log(
-          `✅ Found ${response.data.results.length} orders out of ${response.data.count} total`,
-        );
-        return {
-          data: response.data.results,
-          pagination: {
-            count: response.data.count,
-            next: response.data.next,
-            previous: response.data.previous,
-            current_page: page,
-            page_size: pageSize,
-            total_pages: Math.ceil(response.data.count / pageSize),
-          },
-        };
-      }
-
-      // Fallback for non-paginated response
-      const data = extractDataFromResponse(response);
+    // Handle direct array response
+    if (response.data && Array.isArray(response.data)) {
+      console.log(`✅ Found ${response.data.length} orders`);
       return {
-        data: data,
+        data: response.data,
         pagination: {
-          count: data.length,
-          current_page: 1,
-          page_size: data.length,
+          count: response.data.length,
+          current_page: page,
+          page_size: pageSize,
+          total_pages: Math.ceil(response.data.length / pageSize),
+        },
+      };
+    }
+
+    // Handle single object response
+    if (
+      response.data &&
+      typeof response.data === "object" &&
+      response.data.id
+    ) {
+      console.log(`✅ Found single order`);
+      return {
+        data: [response.data],
+        pagination: {
+          count: 1,
+          current_page: page,
+          page_size: pageSize,
           total_pages: 1,
         },
       };
     }
+
+    // If we get here, something went wrong
+    console.warn("⚠️ Unexpected response format:", response.data);
+    return {
+      data: [],
+      pagination: {
+        count: 0,
+        current_page: page,
+        page_size: pageSize,
+        total_pages: 1,
+      },
+    };
   } catch (error) {
     console.error("❌ Error fetching orders:", error);
-    return { data: [], pagination: { count: 0 } };
+    if (error.response) {
+      console.error("Error response:", error.response.data);
+    }
+    return {
+      data: [],
+      pagination: {
+        count: 0,
+        current_page: page,
+        page_size: pageSize,
+        total_pages: 1,
+      },
+    };
   }
 };
 
@@ -592,6 +584,7 @@ export const getOrderStatsWithFilters = async (filters = {}) => {
     };
   }
 };
+
 export const getOrderById = (id) => merchandiserApi.get(`orders/${id}/`);
 export const createOrder = (data) => merchandiserApi.post("orders/", data);
 export const updateOrder = (id, data) =>

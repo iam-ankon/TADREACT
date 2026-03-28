@@ -1072,7 +1072,7 @@ const SupplierDashboardCSR = () => {
       )}
 
       {/* Overall Compliance Score */}
-      <div style={styles.complianceScoreCard}>
+      {/* <div style={styles.complianceScoreCard}>
         <div style={styles.scoreHeader}>
           <h3 style={styles.scoreTitle}>Overall Compliance Score</h3>
           <span style={styles.scoreUpdated}>Updated just now</span>
@@ -1117,7 +1117,7 @@ const SupplierDashboardCSR = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Key Metrics Grid */}
       <div style={styles.metricsGrid}>

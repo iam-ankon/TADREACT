@@ -44,6 +44,7 @@ import {
   FaCalendar,
   FaChartLine,
   FaSyncAlt,
+  FaCalendarWeek,
 } from "react-icons/fa";
 
 // Utility functions
@@ -228,6 +229,13 @@ const OrderList = () => {
       return "";
     }
   });
+  const [shipmentYearFilter, setShipmentYearFilter] = useState(() => {
+    try {
+      return localStorage.getItem("orderShipmentYear") || "";
+    } catch {
+      return "";
+    }
+  });
   const [minValueFilter, setMinValueFilter] = useState(() => {
     try {
       return localStorage.getItem("orderMinValue") || "";
@@ -248,6 +256,7 @@ const OrderList = () => {
   const [error, setError] = useState(null);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(() => {
     try {
       const saved = localStorage.getItem("orderShowAdvancedFilters");
@@ -258,6 +267,7 @@ const OrderList = () => {
   });
   const [statusSearch, setStatusSearch] = useState("");
   const [monthSearch, setMonthSearch] = useState("");
+  const [yearSearch, setYearSearch] = useState("");
   const [sortConfig, setSortConfig] = useState(() => {
     try {
       return {
@@ -271,10 +281,12 @@ const OrderList = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
+  const [searchTerms, setSearchTerms] = useState([]);
 
   // Refs for dropdowns and timeouts
   const statusDropdownRef = useRef(null);
   const monthDropdownRef = useRef(null);
+  const yearDropdownRef = useRef(null);
   const filterTimeoutRef = useRef(null);
   const searchTimeoutRef = useRef(null);
   const isInitialMount = useRef(true);
@@ -296,12 +308,34 @@ const OrderList = () => {
     "December",
   ];
 
+  // Generate available years (from 2020 to current year + 2)
+  const getAvailableYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let year = 2020; year <= currentYear + 2; year++) {
+      years.push(year);
+    }
+    return years;
+  };
+
+  const availableYears = getAvailableYears();
+
+  // Parse search query into terms for display
+  useEffect(() => {
+    if (debouncedSearchQuery && debouncedSearchQuery.trim()) {
+      const terms = debouncedSearchQuery.trim().split(/\s+/);
+      setSearchTerms(terms);
+    } else {
+      setSearchTerms([]);
+    }
+  }, [debouncedSearchQuery]);
+
   // Debounce search query
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 100);
+    }, 500);
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
@@ -321,8 +355,26 @@ const OrderList = () => {
   const buildFilterParams = useCallback(() => {
     const params = {};
 
+    // Handle multiple search terms with space separator
     if (debouncedSearchQuery && debouncedSearchQuery.trim()) {
-      params.search = debouncedSearchQuery.trim();
+      // Split by space to get multiple terms
+      const searchTerms = debouncedSearchQuery.trim().split(/\s+/);
+
+      if (searchTerms.length === 1) {
+        // Single term - simple search
+        params.search = debouncedSearchQuery.trim();
+      } else {
+        // Multiple terms - send as pipe-separated for OR logic
+        // Using pipe as separator to avoid issues with spaces in URL
+        const searchParam = searchTerms.join("|");
+        params.search = searchParam;
+        console.log(
+          "Multiple search terms:",
+          searchTerms,
+          "Search param:",
+          searchParam,
+        );
+      }
     }
 
     if (statusFilter && statusFilter !== "") {
@@ -339,6 +391,10 @@ const OrderList = () => {
 
     if (shipmentMonthFilter) {
       params.shipment_month = shipmentMonthFilter;
+    }
+
+    if (shipmentYearFilter) {
+      params.shipment_year = shipmentYearFilter;
     }
 
     if (minValueFilter && minValueFilter !== "") {
@@ -360,6 +416,7 @@ const OrderList = () => {
     customerFilter,
     supplierFilter,
     shipmentMonthFilter,
+    shipmentYearFilter,
     minValueFilter,
     maxValueFilter,
     sortConfig,
@@ -372,22 +429,60 @@ const OrderList = () => {
       setIsFiltering(true);
 
       const filters = buildFilterParams();
+      console.log("Fetching orders with filters:", filters);
 
       const response = await getOrders(currentPage, itemsPerPage, filters);
+      console.log("Full API response:", response);
 
       let ordersData = [];
       let total = 0;
 
-      if (response.data && Array.isArray(response.data)) {
-        ordersData = response.data;
-        total = response.pagination?.count || ordersData.length;
-      } else if (response.data && response.data.results) {
-        ordersData = response.data.results;
-        total = response.data.count || 0;
+      // Handle different response formats
+      if (response && response.data) {
+        if (Array.isArray(response.data)) {
+          ordersData = response.data;
+          total = response.pagination?.count || ordersData.length;
+          console.log(
+            "Case 1: response.data is array, found",
+            ordersData.length,
+            "orders",
+          );
+        } else if (
+          response.data.results &&
+          Array.isArray(response.data.results)
+        ) {
+          ordersData = response.data.results;
+          total = response.data.count || 0;
+          console.log(
+            "Case 2: response.data has results array, found",
+            ordersData.length,
+            "orders",
+          );
+        } else if (typeof response.data === "object") {
+          ordersData = [response.data];
+          total = 1;
+          console.log("Case 3: single object response");
+        } else {
+          ordersData = [];
+          total = 0;
+          console.log("Case 4: no orders found");
+        }
       } else if (Array.isArray(response)) {
         ordersData = response;
         total = response.length;
+        console.log(
+          "Case 5: response is array, found",
+          ordersData.length,
+          "orders",
+        );
+      } else {
+        ordersData = [];
+        total = 0;
+        console.log("Case 6: unknown response format");
       }
+
+      console.log("Extracted orders:", ordersData);
+      console.log("Total items:", total);
 
       setOrders(ordersData);
       setTotalItems(total);
@@ -397,7 +492,9 @@ const OrderList = () => {
           1,
       );
 
+      // Fetch stats with the same filters
       const statsData = await getOrderStatsWithFilters(filters);
+      console.log("Stats data:", statsData);
       setStats(statsData);
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -432,6 +529,7 @@ const OrderList = () => {
         localStorage.setItem("orderCustomerFilter", customerFilter);
         localStorage.setItem("orderSupplierFilter", supplierFilter);
         localStorage.setItem("orderShipmentMonth", shipmentMonthFilter);
+        localStorage.setItem("orderShipmentYear", shipmentYearFilter);
         localStorage.setItem("orderMinValue", minValueFilter);
         localStorage.setItem("orderMaxValue", maxValueFilter);
         localStorage.setItem("orderItemsPerPage", itemsPerPage.toString());
@@ -450,6 +548,7 @@ const OrderList = () => {
     customerFilter,
     supplierFilter,
     shipmentMonthFilter,
+    shipmentYearFilter,
     minValueFilter,
     maxValueFilter,
     itemsPerPage,
@@ -467,6 +566,7 @@ const OrderList = () => {
     customerFilter,
     supplierFilter,
     shipmentMonthFilter,
+    shipmentYearFilter,
     minValueFilter,
     maxValueFilter,
     sortConfig,
@@ -496,6 +596,12 @@ const OrderList = () => {
       ) {
         setShowMonthDropdown(false);
       }
+      if (
+        yearDropdownRef.current &&
+        !yearDropdownRef.current.contains(event.target)
+      ) {
+        setShowYearDropdown(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -515,6 +621,13 @@ const OrderList = () => {
       month.toLowerCase().includes(monthSearch.toLowerCase()),
     );
   }, [monthSearch]);
+
+  // Filtered years list
+  const filteredYears = useMemo(() => {
+    return availableYears.filter((year) =>
+      year.toString().includes(yearSearch.toLowerCase()),
+    );
+  }, [yearSearch, availableYears]);
 
   // Event handlers
   const handleSort = (key) => {
@@ -624,6 +737,7 @@ const OrderList = () => {
     setCustomerFilter("");
     setSupplierFilter("");
     setShipmentMonthFilter("");
+    setShipmentYearFilter("");
     setMinValueFilter("");
     setMaxValueFilter("");
     setCurrentPage(1);
@@ -818,6 +932,7 @@ const OrderList = () => {
       customerFilter,
       supplierFilter,
       shipmentMonthFilter,
+      shipmentYearFilter,
       minValueFilter,
       maxValueFilter,
     ].filter(Boolean).length + (searchQuery ? 1 : 0);
@@ -1015,7 +1130,7 @@ const OrderList = () => {
                 <FaSearch style={styles.searchIcon} />
                 <input
                   type="text"
-                  placeholder="Search by PO, Style, Customer, Supplier..."
+                  placeholder="Search: PO123 StyleABC SupplierXYZ (space-separated for multiple)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={styles.searchInput}
@@ -1040,6 +1155,7 @@ const OrderList = () => {
                   onClick={() => {
                     setShowStatusDropdown(!showStatusDropdown);
                     setShowMonthDropdown(false);
+                    setShowYearDropdown(false);
                   }}
                 >
                   <span style={statusFilter ? {} : styles.placeholder}>
@@ -1156,6 +1272,7 @@ const OrderList = () => {
                   onClick={() => {
                     setShowMonthDropdown(!showMonthDropdown);
                     setShowStatusDropdown(false);
+                    setShowYearDropdown(false);
                   }}
                 >
                   <FaCalendar
@@ -1227,6 +1344,88 @@ const OrderList = () => {
                 )}
               </div>
 
+              {/* Shipment Year Filter */}
+              <div style={styles.filterWrapper} ref={yearDropdownRef}>
+                <div
+                  style={{
+                    ...styles.filterSelect,
+                    ...(showYearDropdown ? styles.filterSelectActive : {}),
+                  }}
+                  onClick={() => {
+                    setShowYearDropdown(!showYearDropdown);
+                    setShowStatusDropdown(false);
+                    setShowMonthDropdown(false);
+                  }}
+                >
+                  <FaCalendarWeek
+                    style={{ color: "#94a3b8", marginRight: "8px" }}
+                  />
+                  <span style={shipmentYearFilter ? {} : styles.placeholder}>
+                    {shipmentYearFilter || "Shipment Year"}
+                  </span>
+                  {shipmentYearFilter && (
+                    <FaTimes
+                      style={styles.clearIcon}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShipmentYearFilter("");
+                      }}
+                    />
+                  )}
+                  <FaChevronDown style={styles.chevron} />
+                </div>
+                {showYearDropdown && (
+                  <div style={styles.dropdownMenu}>
+                    <div style={styles.dropdownSearch}>
+                      <FaSearch
+                        style={{ color: "#94a3b8", fontSize: "14px" }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Search year..."
+                        value={yearSearch}
+                        onChange={(e) => setYearSearch(e.target.value)}
+                        style={styles.dropdownSearchInput}
+                        autoFocus
+                      />
+                    </div>
+                    <div style={styles.dropdownOptions}>
+                      <div
+                        style={{
+                          ...styles.dropdownOption,
+                          ...(!shipmentYearFilter
+                            ? styles.dropdownOptionSelected
+                            : {}),
+                        }}
+                        onClick={() => {
+                          setShipmentYearFilter("");
+                          setShowYearDropdown(false);
+                        }}
+                      >
+                        All Years
+                      </div>
+                      {filteredYears.map((year) => (
+                        <div
+                          key={year}
+                          style={{
+                            ...styles.dropdownOption,
+                            ...(shipmentYearFilter === year.toString()
+                              ? styles.dropdownOptionSelected
+                              : {}),
+                          }}
+                          onClick={() => {
+                            setShipmentYearFilter(year.toString());
+                            setShowYearDropdown(false);
+                          }}
+                        >
+                          {year}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Advanced Filters Toggle */}
               <button
                 style={{
@@ -1244,6 +1443,21 @@ const OrderList = () => {
                 />
               </button>
             </div>
+
+            {/* Search Terms Display */}
+            {searchTerms.length > 0 && (
+              <div style={styles.searchTermsContainer}>
+                <span style={styles.searchTermsLabel}>Searching for:</span>
+                {searchTerms.map((term, index) => (
+                  <span key={index} style={styles.searchTermTag}>
+                    {term}
+                  </span>
+                ))}
+                <span style={styles.searchLogicHint}>
+                  (Matches ANY of these terms)
+                </span>
+              </div>
+            )}
 
             {/* Advanced Filters */}
             {showAdvancedFilters && (
@@ -1326,6 +1540,17 @@ const OrderList = () => {
                     <button
                       style={styles.filterTagButton}
                       onClick={() => setShipmentMonthFilter("")}
+                    >
+                      <FaTimes />
+                    </button>
+                  </span>
+                )}
+                {shipmentYearFilter && (
+                  <span style={styles.filterTag}>
+                    Year: {shipmentYearFilter}
+                    <button
+                      style={styles.filterTagButton}
+                      onClick={() => setShipmentYearFilter("")}
                     >
                       <FaTimes />
                     </button>
@@ -1738,7 +1963,7 @@ const styles = {
     boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
     border: "1px solid #e2e8f0",
     transition: "all 0.2s",
-    minWidth: "0", // Allow flex items to shrink
+    minWidth: "0",
   },
   statIcon: {
     width: "52px",
@@ -1754,8 +1979,8 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     flex: 1,
-    minWidth: "0", // Allow content to shrink
-    overflow: "hidden", // Prevent overflow
+    minWidth: "0",
+    overflow: "hidden",
   },
   statLabel: {
     fontSize: "14px",
@@ -1768,7 +1993,7 @@ const styles = {
     fontWeight: 700,
     color: "#0f172a",
     marginBottom: "4px",
-    wordBreak: "break-word", // Break long numbers
+    wordBreak: "break-word",
     overflowWrap: "break-word",
     lineHeight: "1.3",
   },
@@ -1807,33 +2032,6 @@ const styles = {
   statIconRed: {
     background: "#fee2e2",
     color: "#ef4444",
-  },
-  statContent: {
-    display: "flex",
-    flexDirection: "column",
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#64748b",
-    marginBottom: "8px",
-  },
-  statValue: {
-    fontSize: "28px",
-    fontWeight: 700,
-    color: "#0f172a",
-    marginBottom: "4px",
-  },
-  statSubInfo: {
-    fontSize: "13px",
-    color: "#475569",
-    marginTop: "2px",
-  },
-  statSmallInfo: {
-    fontSize: "11px",
-    color: "#64748b",
-    marginTop: "4px",
   },
   filtersSection: {
     background: "white",
@@ -1986,6 +2184,35 @@ const styles = {
   dropdownOptionSelected: {
     background: "#2563eb",
     color: "white",
+  },
+  searchTermsContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "8px",
+    marginTop: "12px",
+    paddingTop: "12px",
+    borderTop: "1px solid #e2e8f0",
+  },
+  searchTermsLabel: {
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "#64748b",
+  },
+  searchTermTag: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 12px",
+    background: "#eff6ff",
+    border: "1px solid #2563eb",
+    borderRadius: "20px",
+    fontSize: "13px",
+    color: "#2563eb",
+  },
+  searchLogicHint: {
+    fontSize: "12px",
+    color: "#94a3b8",
+    fontStyle: "italic",
   },
   advancedFilters: {
     marginTop: "20px",
@@ -2296,7 +2523,7 @@ const styles = {
     marginBottom: "16px",
   },
   paginationContainer: {
-    padding: "16px 20px",
+    padding: "5px 20px",
     borderTop: "1px solid #e2e8f0",
     background: "#f8fafc",
     display: "flex",
@@ -2349,7 +2576,7 @@ const styles = {
     gap: "6px",
   },
   paginationButton: {
-    padding: "6px 12px",
+    padding: "6px 10px",
     border: "1px solid #d1d5db",
     backgroundColor: "white",
     borderRadius: "6px",
@@ -2362,6 +2589,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: "1px",
   },
   paginationButtonActive: {
     backgroundColor: "#2563eb",

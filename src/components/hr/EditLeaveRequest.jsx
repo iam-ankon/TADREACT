@@ -1,11 +1,10 @@
-// EditLeaveRequest.jsx - Updated with Email Button and Link
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getEmployeeLeaveById,
   updateEmployeeLeave,
   getEmployeeDetailsByCode,
-  sendLeaveEmailToMD, // You'll need to create this API function
+  sendLeaveEmailToMD,
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
 
@@ -64,24 +63,57 @@ const EditLeaveRequest = () => {
           name: employeeName,
         });
 
+        // Try to get designation from different sources
         if (data.employee && typeof data.employee === "object") {
           correctDesignation = data.employee.designation || "";
           console.log(
             "📝 Found designation in employee object:",
-            correctDesignation
+            correctDesignation,
           );
         } else if (data.designation) {
           correctDesignation = data.designation;
           console.log("📝 Found designation in main data:", correctDesignation);
         }
 
+        // If still no designation, fetch from employee API
         if (!correctDesignation && employeeCode) {
           try {
-            console.log("🔄 Fetching employee details for designation...");
+            console.log("🔄 Fetching employee details for code:", employeeCode);
             const employeeData = await getEmployeeDetailsByCode(employeeCode);
 
+            console.log("📦 Employee API Response:", employeeData);
+
+            // Handle different response structures
             if (employeeData) {
-              correctDesignation = employeeData.designation || "";
+              // Case 1: Direct employee object
+              if (employeeData.designation) {
+                correctDesignation = employeeData.designation;
+              }
+              // Case 2: Paginated response with results array
+              else if (
+                employeeData.data &&
+                employeeData.data.results &&
+                employeeData.data.results.length > 0
+              ) {
+                correctDesignation =
+                  employeeData.data.results[0].designation || "";
+              }
+              // Case 3: Data wrapped in data property
+              else if (employeeData.data && employeeData.data.length > 0) {
+                correctDesignation = employeeData.data[0].designation || "";
+              }
+              // Case 4: Array response
+              else if (Array.isArray(employeeData) && employeeData.length > 0) {
+                correctDesignation = employeeData[0].designation || "";
+              }
+              // Case 5: Employee data in a different structure
+              else if (
+                employeeData.results &&
+                employeeData.results.length > 0
+              ) {
+                correctDesignation = employeeData.results[0].designation || "";
+              }
+
               console.log("✅ Fetched designation:", correctDesignation);
             } else {
               console.warn("⚠️ No employee data found for code:", employeeCode);
@@ -367,8 +399,8 @@ const EditLeaveRequest = () => {
                         formData.status === "approved"
                           ? "#e8f5e8"
                           : formData.status === "rejected"
-                          ? "#fde8e8"
-                          : "#fff",
+                            ? "#fde8e8"
+                            : "#fff",
                     }}
                     disabled={loading}
                   >

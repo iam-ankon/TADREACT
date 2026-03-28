@@ -1696,32 +1696,97 @@ export const getEmployeeDetailsByCode = async (employeeCode) => {
   try {
     console.log("🔍 Fetching employee details for code:", employeeCode);
 
-    const response = await hrmsApi.get(
-      `employees/?employee_id=${employeeCode}`,
-    );
-    const employees = extractDataFromResponse(response);
+    // Make sure we have a valid employee code
+    if (!employeeCode) {
+      console.warn("⚠️ No employee code provided");
+      return null;
+    }
 
-    if (employees && employees.length > 0) {
-      const exactEmployee = employees.find(
+    // Try different filtering methods
+    let response = null;
+    let employees = [];
+
+    // Method 1: Filter by employee_id
+    try {
+      response = await hrmsApi.get(`employees/?employee_id=${employeeCode}`);
+      employees = extractDataFromResponse(response);
+
+      if (employees && employees.length > 0) {
+        const exactEmployee = employees.find(
+          (emp) =>
+            emp.employee_id === employeeCode ||
+            emp.employee_id?.toString() === employeeCode?.toString(),
+        );
+
+        if (exactEmployee) {
+          console.log(
+            "🎯 Found exact employee:",
+            exactEmployee.name,
+            "-",
+            exactEmployee.designation,
+          );
+          return exactEmployee;
+        }
+      }
+    } catch (error) {
+      console.warn("Method 1 failed:", error.message);
+    }
+
+    // Method 2: Filter by search parameter
+    try {
+      response = await hrmsApi.get(`employees/?search=${employeeCode}`);
+      employees = extractDataFromResponse(response);
+
+      if (employees && employees.length > 0) {
+        const matchedEmployee = employees.find(
+          (emp) =>
+            emp.employee_id === employeeCode ||
+            emp.employee_id?.toString() === employeeCode?.toString() ||
+            emp.name?.toLowerCase().includes(employeeCode.toLowerCase()),
+        );
+
+        if (matchedEmployee) {
+          console.log(
+            "🎯 Found employee via search:",
+            matchedEmployee.name,
+            "-",
+            matchedEmployee.designation,
+          );
+          return matchedEmployee;
+        }
+      }
+    } catch (error) {
+      console.warn("Method 2 failed:", error.message);
+    }
+
+    // Method 3: Get all employees and filter client-side (fallback)
+    try {
+      const allEmployeesResponse = await getEmployees(1, 200, false);
+      const allEmployees = allEmployeesResponse.data || [];
+
+      const foundEmployee = allEmployees.find(
         (emp) =>
           emp.employee_id === employeeCode ||
           emp.employee_id?.toString() === employeeCode?.toString(),
       );
 
-      if (exactEmployee) {
+      if (foundEmployee) {
         console.log(
-          "🎯 Found exact employee:",
-          exactEmployee.name,
+          "🎯 Found employee in full list:",
+          foundEmployee.name,
           "-",
-          exactEmployee.designation,
+          foundEmployee.designation,
         );
-        return exactEmployee;
+        return foundEmployee;
       }
+    } catch (error) {
+      console.warn("Method 3 failed:", error.message);
     }
 
+    console.log("❌ No employee found for code:", employeeCode);
     return null;
   } catch (error) {
-    console.error("❌ Error fetching employee details:", error);
+    console.error("❌ Error in getEmployeeDetailsByCode:", error);
     return null;
   }
 };

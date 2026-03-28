@@ -148,10 +148,15 @@ const EmployeeDetails = () => {
     if (searchQuery) params.search = searchQuery;
     if (designationFilter) params.designation = designationFilter;
     if (departmentFilter) params.department = departmentFilter;
+
+    // Fix birthday filter - send month and day separately
     if (birthdateFilter) {
       const [year, month, day] = birthdateFilter.split("-");
-      params.birth_month = month;
-      params.birth_day = day;
+      // Send month and day as separate parameters
+      params.birth_month = parseInt(month, 10); // Convert to number
+      params.birth_day = parseInt(day, 10);
+
+      console.log(`🎂 Birthday filter: Month=${month}, Day=${day}`);
     }
 
     // Add sorting
@@ -160,6 +165,7 @@ const EmployeeDetails = () => {
         sortConfig.direction === "desc" ? `-${sortConfig.key}` : sortConfig.key;
     }
 
+    console.log("📤 Sending filters to API:", params);
     return params;
   }, [
     searchQuery,
@@ -259,7 +265,7 @@ const EmployeeDetails = () => {
       isInitialMount.current = false;
       return;
     }
-    
+
     if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current);
     filterTimeoutRef.current = setTimeout(() => {
       try {
@@ -948,8 +954,8 @@ const EmployeeDetails = () => {
                 >
                   <span style={birthdateFilter ? {} : styles.placeholder}>
                     {birthdateFilter
-                      ? formatDateForDisplay(birthdateFilter)
-                      : "Birth Date"}
+                      ? formatDateForDisplay(birthdateFilter) // Shows as DD/MM/YYYY but only month/day matters
+                      : "Birth Date (Month/Day)"}
                   </span>
                   <div style={styles.selectIcons}>
                     {birthdateFilter && (
@@ -966,6 +972,16 @@ const EmployeeDetails = () => {
                 </div>
                 {showBirthdatePicker && (
                   <div style={{ ...styles.dropdownMenu, ...styles.datePicker }}>
+                    <div
+                      style={{
+                        padding: "8px",
+                        textAlign: "center",
+                        color: "#64748b",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Select any date (only month and day will be used)
+                    </div>
                     <input
                       type="date"
                       value={birthdateFilter}
@@ -973,7 +989,6 @@ const EmployeeDetails = () => {
                         setBirthdateFilter(e.target.value);
                         setShowBirthdatePicker(false);
                       }}
-                      max={new Date().toISOString().split("T")[0]}
                       style={styles.dateInput}
                       autoFocus
                     />
@@ -1217,8 +1232,8 @@ const EmployeeDetails = () => {
                             Clear filters
                           </button>
                         </div>
-                       </td>
-                     </tr>
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
