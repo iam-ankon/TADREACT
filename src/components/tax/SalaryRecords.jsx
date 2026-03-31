@@ -47,7 +47,7 @@ const calculateOTPay = (
   if (!monthlySalary || !otMinutes || otMinutes <= 0) return 0;
 
   // Basic salary is 60% of gross salary
-  const basicSalary = monthlySalary * 0.6;
+  const basicSalary = monthlySalary ;
 
   // Input is in minutes where 60 = 60 minutes (1 hour)
   // Convert minutes to hours for calculation

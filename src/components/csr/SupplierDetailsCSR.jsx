@@ -1,4 +1,4 @@
-// SupplierDetailsCSR.jsx - Complete Fixed Version with Working Notifications
+// SupplierDetailsCSR.jsx - Complete Version with All Supplier Model Fields
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getSupplierById } from "../../api/supplierApi";
@@ -117,17 +117,14 @@ const getCorrectFileUrl = (url) => {
 
   const backendUrl = "http://119.148.51.38:8000";
 
-  // If the URL starts with /media/, point it to Django server
   if (url.startsWith("/media/")) {
     return `${backendUrl}${url}`;
   }
 
-  // If it's a relative URL that doesn't start with http, add Django server
   if (!url.startsWith("http")) {
     return `${backendUrl}${url.startsWith("/") ? url : "/" + url}`;
   }
 
-  // If it's already an absolute URL but pointing to port 3000, fix it
   if (url.includes(":3000")) {
     return url.replace(":3000", ":8000");
   }
@@ -263,7 +260,7 @@ const DocumentGrid = ({ documents }) => {
   );
 };
 
-// Image Gallery Component with improved error handling
+// Image Gallery Component
 const ImageGallery = ({ images, title }) => {
   if (!images || images.length === 0) return null;
 
@@ -278,7 +275,6 @@ const ImageGallery = ({ images, title }) => {
     window.open(correctUrl, "_blank");
   };
 
-  // Generate fallback SVG
   const FallbackImage = () => (
     <svg
       width="100%"
@@ -384,7 +380,7 @@ const SupplierDetailsCSR = () => {
   const [customMessage, setCustomMessage] = useState("");
   const [selectedItems, setSelectedItems] = useState({});
 
-  // Notification days constant - MUST MATCH BACKEND
+  // Notification days constant
   const NOTIFICATION_DAYS = [90, 75, 60, 45, 30, 15];
 
   useEffect(() => {
@@ -413,13 +409,12 @@ const SupplierDetailsCSR = () => {
     });
   };
 
-  // Get ALL expiring items - FIXED to only include items with days_remaining fields
+  // Get ALL expiring items
   const getExpiringItems = () => {
     if (!supplier) return [];
 
     const items = [];
 
-    // ONLY include items that have dedicated days_remaining fields in the database
     const certItems = [
       // Certifications
       {
@@ -606,9 +601,7 @@ const SupplierDetailsCSR = () => {
       },
     ];
 
-    // Add certification and license items - ONLY those with days_remaining fields
     certItems.forEach((item) => {
-      // Only include items that have a days value (could be 0, positive, or negative)
       if (item.days !== null && item.days !== undefined) {
         items.push({
           ...item,
@@ -622,22 +615,15 @@ const SupplierDetailsCSR = () => {
     return items.sort((a, b) => a.days_remaining - b.days_remaining);
   };
 
-  // FIXED: Get notification count - ONLY items at notification days
   const getNotificationCount = () => {
     if (!supplier) return 0;
-
-    // Get all expiring items
     const allItems = getExpiringItems();
-
-    // Filter to only include items where days_remaining is in NOTIFICATION_DAYS
     const notificationItems = allItems.filter((item) =>
       NOTIFICATION_DAYS.includes(item.days_remaining),
     );
-
     return notificationItems.length;
   };
 
-  // FIXED: sendExpiryNotifications function with better error handling
   const sendExpiryNotifications = async () => {
     const selected = Object.entries(selectedItems)
       .filter(([_, isSelected]) => isSelected)
@@ -659,18 +645,15 @@ const SupplierDetailsCSR = () => {
     try {
       const token = localStorage.getItem("token");
 
-      // Get CSRF token from multiple sources
       let csrfToken = document
         .querySelector('meta[name="csrf-token"]')
         ?.getAttribute("content");
 
-      // Try to get from cookie if not in meta
       if (!csrfToken) {
         const cookieMatch = document.cookie.match(/csrftoken=([^;]+)/);
         csrfToken = cookieMatch ? cookieMatch[1] : null;
       }
 
-      // Log the request data for debugging
       const requestData = {
         items: selected,
         from_email: "compliance@texweave.net",
@@ -693,18 +676,11 @@ const SupplierDetailsCSR = () => {
         },
       );
 
-      // Log the response status
-      console.log("Response status:", response.status);
-
-      // Try to get the response body
-      let result;
       const responseText = await response.text();
-      console.log("Response text:", responseText);
-
+      let result;
       try {
         result = JSON.parse(responseText);
       } catch (e) {
-        console.error("Failed to parse JSON response:", e);
         result = {
           error: "Invalid JSON response",
           rawResponse: responseText,
@@ -712,35 +688,26 @@ const SupplierDetailsCSR = () => {
         };
       }
 
-      console.log("Response data:", result);
-
       if (response.ok && result.success) {
         setNotificationResult({
           success: true,
           message: `✅ Notifications sent successfully to ${supplier.email}`,
           details: result.notifications || [],
         });
-
         setSelectedItems({});
         setCustomMessage("");
-
-        // Close modal after 3 seconds on success
         setTimeout(() => {
           setShowNotificationModal(false);
           setNotificationResult(null);
         }, 3000);
       } else {
-        // Handle the specific error from backend
         let errorMessage = result.error || result.message || "Unknown error";
-        
-        // If the error contains information about available items, show it
         if (result.available_items) {
-          errorMessage += `\nAvailable items: ${result.available_items.join(', ')}`;
+          errorMessage += `\nAvailable items: ${result.available_items.join(", ")}`;
         }
         if (result.notification_days) {
-          errorMessage += `\nNotification days: ${result.notification_days.join(', ')}`;
+          errorMessage += `\nNotification days: ${result.notification_days.join(", ")}`;
         }
-        
         setNotificationResult({
           success: false,
           message: `❌ Failed to send notifications: ${errorMessage}`,
@@ -771,17 +738,19 @@ const SupplierDetailsCSR = () => {
       },
       { label: "Category", value: supplier.supplier_category },
       { label: "Year Established", value: supplier.year_of_establishment },
+      { label: "Sister Concern", value: supplier.sister_concern },
       { label: "Location", value: supplier.location },
       { label: "Factory Location", value: supplier.location_factory },
       { label: "Bank Account", value: supplier.bank_account },
       { label: "Bank Branch", value: supplier.bank_branch },
       { label: "Bank BIN", value: supplier.bank_bin },
+      { label: "Bank Branch Address", value: supplier.bank_branch_address },
       { label: "Weekly Holiday", value: supplier.weekly_holiday },
       { label: "BGMEA Number", value: supplier.bgmea_number },
       { label: "BKMEA Number", value: supplier.bkmea_number },
       { label: "RSC", value: supplier.rsc },
       {
-        label: "TAD Group Order Status",
+        label: "Order Status",
         value: supplier.tad_group_order_status,
       },
     ],
@@ -1106,67 +1075,40 @@ const SupplierDetailsCSR = () => {
         value: supplier.progress_rate ? `${supplier.progress_rate}%` : null,
       },
       {
+        label: "Escalation Status",
+        value: getBooleanDisplay(supplier.escalation_status),
+      },
+      {
+        label: "No Color Certificate",
+        value: getBooleanDisplay(supplier.no_color_certificate),
+      },
+      {
+        label: "Recognition Letter",
+        value: getBooleanDisplay(supplier.recognitoion_letter),
+      },
+      {
         label: "Structural - Initial Audit",
         value: formatDate(supplier.structural_initial_audit_date),
       },
       {
-        label: "Structural - Initial Findings",
-        value: supplier.structural_initial_findings,
-      },
-      {
-        label: "Structural - Total Findings",
-        value: supplier.structural_total_findings,
-      },
-      {
-        label: "Structural - Corrected",
-        value: supplier.structural_total_corrected,
-      },
-      {
-        label: "Structural - In Progress",
-        value: supplier.structural_total_in_progress,
-      },
-      {
-        label: "Structural - Pending Verification",
-        value: supplier.structural_total_pending_verification,
+        label: "Structural - Last Follow-up",
+        value: formatDate(supplier.structural_last_follow_up_audit_date),
       },
       {
         label: "Fire - Initial Audit",
         value: formatDate(supplier.fire_initial_audit_date),
       },
       {
-        label: "Fire - Initial Findings",
-        value: supplier.fire_initial_findings,
-      },
-      { label: "Fire - Total Findings", value: supplier.fire_total_findings },
-      { label: "Fire - Corrected", value: supplier.fire_total_corrected },
-      { label: "Fire - In Progress", value: supplier.fire_total_in_progress },
-      {
-        label: "Fire - Pending Verification",
-        value: supplier.fire_total_pending_verification,
+        label: "Fire - Last Follow-up",
+        value: formatDate(supplier.fire_last_follow_up_audit_date),
       },
       {
         label: "Electrical - Initial Audit",
         value: formatDate(supplier.electrical_initial_audit_date),
       },
       {
-        label: "Electrical - Initial Findings",
-        value: supplier.electrical_initial_findings,
-      },
-      {
-        label: "Electrical - Total Findings",
-        value: supplier.electrical_total_findings,
-      },
-      {
-        label: "Electrical - Corrected",
-        value: supplier.electrical_total_corrected,
-      },
-      {
-        label: "Electrical - In Progress",
-        value: supplier.electrical_total_in_progress,
-      },
-      {
-        label: "Electrical - Pending Verification",
-        value: supplier.electrical_total_pending_verification,
+        label: "Electrical - Last Follow-up",
+        value: formatDate(supplier.electrical_last_follow_up_audit_date),
       },
     ],
     csr: [
@@ -1186,6 +1128,242 @@ const SupplierDetailsCSR = () => {
       {
         label: "Gift During Festival",
         value: getBooleanDisplay(supplier.any_gift_provided_during_festival),
+      },
+    ],
+    zeroTolerance: [
+      {
+        label: "Full Facility Walkthrough Allowed",
+        value: getBooleanDisplay(supplier.zero_tolerance_walkthrough_allowed),
+      },
+      {
+        label: "No Underage Workers",
+        value: getBooleanDisplay(supplier.zero_tolerance_no_underage_workers),
+      },
+      {
+        label: "No Suspected Young Workers",
+        value: getBooleanDisplay(
+          supplier.zero_tolerance_no_suspected_young_workers,
+        ),
+      },
+      {
+        label: "Minimum Wage Guaranteed",
+        value: getBooleanDisplay(
+          supplier.zero_tolerance_minimum_wage_guaranteed,
+        ),
+      },
+      {
+        label: "Authentic Records",
+        value: getBooleanDisplay(supplier.zero_tolerance_authentic_records),
+      },
+      {
+        label: "No Forced Labor",
+        value: getBooleanDisplay(supplier.zero_tolerance_no_forced_labor),
+      },
+    ],
+    fireEquipment: [
+      {
+        label: "Sufficient Fire Fighting Equipment",
+        value: getBooleanDisplay(supplier.fire_fighting_equipment_sufficient),
+      },
+      {
+        label: "Trained Fire Fighters",
+        value: getBooleanDisplay(supplier.fire_fighting_trained_personnel),
+      },
+      {
+        label: "Fire Hose System",
+        value: getBooleanDisplay(supplier.fire_fighting_hose_system),
+      },
+    ],
+    fireAlarm: [
+      {
+        label: "Fire Alarm System Present",
+        value: getBooleanDisplay(supplier.fire_alarm_system_present),
+      },
+      {
+        label: "Fire Alarm Audible All Areas",
+        value: getBooleanDisplay(supplier.fire_alarm_audible_all_areas),
+      },
+      {
+        label: "Visual Fire Alarm",
+        value: getBooleanDisplay(supplier.fire_alarm_visual_noisy_areas),
+      },
+      {
+        label: "Fire Alarm IPS Backup",
+        value: getBooleanDisplay(supplier.fire_alarm_ips_backup),
+      },
+      {
+        label: "Smoke Detectors",
+        value: getBooleanDisplay(supplier.fire_alarm_smoke_detectors),
+      },
+      {
+        label: "Marked Fire Alarm Switches",
+        value: getBooleanDisplay(supplier.fire_alarm_switches_marked),
+      },
+    ],
+    emergencyLights: [
+      {
+        label: "Emergency Lights Installed",
+        value: getBooleanDisplay(supplier.emergency_lights_installed),
+      },
+      {
+        label: "Emergency Lights IPS Backup",
+        value: getBooleanDisplay(supplier.emergency_lights_ips_backup),
+      },
+    ],
+    drinkingWater: [
+      {
+        label: "Sufficient Drinking Water",
+        value: getBooleanDisplay(supplier.drinking_water_sufficient),
+      },
+      {
+        label: "Valid Water Test Report",
+        value: getBooleanDisplay(supplier.drinking_water_test_report_valid),
+      },
+      {
+        label: "Parameters Acceptable",
+        value: getBooleanDisplay(supplier.drinking_water_parameters_acceptable),
+      },
+      {
+        label: "Arsenic Within Limits",
+        value: getBooleanDisplay(supplier.drinking_water_arsenic_limit),
+      },
+      {
+        label: "Fecal Coliform Within Limits",
+        value: getBooleanDisplay(supplier.drinking_water_fecal_coliform_limit),
+      },
+      {
+        label: "Total Coliform Within Limits",
+        value: getBooleanDisplay(supplier.drinking_water_total_coliform_limit),
+      },
+      {
+        label: "pH Within Limits",
+        value: getBooleanDisplay(supplier.drinking_water_ph_limit),
+      },
+      {
+        label: "TDS Within Limits",
+        value: getBooleanDisplay(supplier.drinking_water_tds_limit),
+      },
+      {
+        label: "Iron Within Limits",
+        value: getBooleanDisplay(supplier.drinking_water_iron_limit),
+      },
+    ],
+    paSystem: [
+      {
+        label: "PA System Present",
+        value: getBooleanDisplay(supplier.pa_system_present),
+      },
+      {
+        label: "PA System Audible All Areas",
+        value: getBooleanDisplay(supplier.pa_system_audible_all_areas),
+      },
+    ],
+    emergencyExits: [
+      {
+        label: "Two Exits per Floor",
+        value: getBooleanDisplay(supplier.emergency_exits_two_per_floor),
+      },
+      {
+        label: "Workers Trained on Evacuation",
+        value: getBooleanDisplay(supplier.emergency_exits_trained_workers),
+      },
+    ],
+    grievanceAdditional: [
+      {
+        label: "Grievance Committee Established",
+        value: getBooleanDisplay(supplier.grievance_committee_established),
+      },
+      {
+        label: "Complain Box Installed",
+        value: getBooleanDisplay(supplier.grievance_complain_box_installed),
+      },
+    ],
+    wetProcess: [
+      {
+        label: "Wet Process Unit Exists",
+        value: getBooleanDisplay(supplier.wet_process_unit_exists),
+      },
+      {
+        label: "Environmental Licenses",
+        value: getBooleanDisplay(supplier.wet_process_environmental_licenses),
+      },
+      {
+        label: "Wastewater Treatment Plant",
+        value: getBooleanDisplay(
+          supplier.wet_process_wastewater_treatment_plant,
+        ),
+      },
+      {
+        label: "WTP Functional",
+        value: getBooleanDisplay(supplier.wet_process_wtp_functional),
+      },
+      {
+        label: "Valid Test Report",
+        value: getBooleanDisplay(supplier.wet_process_valid_test_report),
+      },
+      {
+        label: "Parameters Within Limits",
+        value: getBooleanDisplay(supplier.wet_process_parameters_within_limits),
+      },
+      {
+        label: "pH Within Limits",
+        value: getBooleanDisplay(supplier.wet_process_ph_within_limits),
+      },
+      {
+        label: "TDS Within Limits",
+        value: getBooleanDisplay(supplier.wet_process_tds_within_limits),
+      },
+      {
+        label: "BOD Within Limits",
+        value: getBooleanDisplay(supplier.wet_process_bod_within_limits),
+      },
+      {
+        label: "COD Within Limits",
+        value: getBooleanDisplay(supplier.wet_process_cod_within_limits),
+      },
+      {
+        label: "DO Within Limits",
+        value: getBooleanDisplay(supplier.wet_process_do_within_limits),
+      },
+      {
+        label: "TSS Within Limits",
+        value: getBooleanDisplay(supplier.wet_process_tss_within_limits),
+      },
+    ],
+    harassment: [
+      {
+        label: "No Physical Harassment",
+        value: getBooleanDisplay(supplier.no_physical_harassment),
+      },
+      {
+        label: "No Sexual Harassment",
+        value: getBooleanDisplay(supplier.no_sexual_harassment),
+      },
+      {
+        label: "No Psychological Harassment",
+        value: getBooleanDisplay(supplier.no_psychological_harassment),
+      },
+      {
+        label: "No Verbal Harassment",
+        value: getBooleanDisplay(supplier.no_verbal_harassment),
+      },
+    ],
+    firstVisit: [
+      {
+        label: "First Visit Date",
+        value: formatDate(supplier.first_visit_date),
+      },
+      {
+        label: "First Visit Status",
+        value: supplier.first_visit_status,
+      },
+      {
+        label: "First Visit Findings",
+        value: supplier.first_visit_findings,
+      },
+      {
+        label: "First Visit Completed",
+        value: getBooleanDisplay(supplier.first_visit_completed),
       },
     ],
     safetyDocuments: [
@@ -1298,10 +1476,25 @@ const SupplierDetailsCSR = () => {
       </div>
 
       {/* Supplier Profile Card */}
+      {/* Supplier Profile Card */}
       <div style={styles.profileCard}>
         <div style={styles.profileLeft}>
           <div style={styles.avatar}>
-            {supplier.supplier_name?.charAt(0) || "S"}
+            {supplier.image ? (
+              <img
+                src={getCorrectFileUrl(supplier.image)}
+                alt={supplier.supplier_name || "Supplier"}
+                style={styles.avatarImage}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.style.display = "none";
+                  e.target.parentElement.innerHTML =
+                    supplier.supplier_name?.charAt(0) || "S";
+                }}
+              />
+            ) : (
+              supplier.supplier_name?.charAt(0) || "S"
+            )}
           </div>
           <div style={styles.profileInfo}>
             <h1 style={styles.supplierName}>
@@ -1375,7 +1568,7 @@ const SupplierDetailsCSR = () => {
         </div>
       </div>
 
-      {/* Expiry Summary Cards - Show all expiring items for visibility */}
+      {/* Expiry Summary Cards */}
       {expiringItems.filter((item) =>
         NOTIFICATION_DAYS.includes(item.days_remaining),
       ).length > 0 && (
@@ -1440,7 +1633,9 @@ const SupplierDetailsCSR = () => {
             { id: "compliance", label: "Compliance", icon: "✅" },
             { id: "safety", label: "Safety", icon: "🚨" },
             { id: "environment", label: "Environment", icon: "🌱" },
+            { id: "rsc audit", label: "RSC Audit", icon: "🔍" },
             { id: "osh", label: "OSH Committee", icon: "🛡️" },
+            { id: "checklist", label: "Checklist", icon: "📋" },
             { id: "documents", label: "Documents", icon: "📎" },
           ].map((tab) => (
             <button
@@ -1460,7 +1655,7 @@ const SupplierDetailsCSR = () => {
 
       {/* Tab Content */}
       <div style={styles.tabContent}>
-        {/* Overview Tab */}
+        {/* Overview Tab - Same as before, keep existing */}
         {activeTab === "overview" && (
           <div style={styles.overview}>
             <InfoCard title="Basic Information" icon="🏢" colSpan={2}>
@@ -1548,7 +1743,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Details Tab */}
+        {/* Details Tab - Keep existing */}
         {activeTab === "details" && (
           <div style={styles.details}>
             <InfoCard title="General Information" icon="🏢">
@@ -1619,7 +1814,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Certifications Tab */}
+        {/* Certifications Tab - Keep existing */}
         {activeTab === "certifications" && (
           <div style={styles.certificationsGrid}>
             {groupedData.certifications.map(
@@ -1666,7 +1861,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Licenses Tab */}
+        {/* Licenses Tab - Keep existing */}
         {activeTab === "licenses" && (
           <div style={styles.licensesGrid}>
             {groupedData.licenses.map(
@@ -1710,7 +1905,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Compliance Tab */}
+        {/* Compliance Tab - Keep existing */}
         {activeTab === "compliance" && (
           <div style={styles.complianceGrid}>
             <InfoCard title="Compliance Status" icon="✅">
@@ -1766,7 +1961,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Safety Tab */}
+        {/* Safety Tab - Keep existing */}
         {activeTab === "safety" && (
           <div style={styles.safetyGrid}>
             <InfoCard title="Fire Safety" icon="🔥" colSpan={2}>
@@ -1781,7 +1976,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Environment Tab */}
+        {/* Environment Tab - Keep existing */}
         {activeTab === "environment" && (
           <div style={styles.environmentGrid}>
             <InfoCard title="Environmental Data" icon="🌱" colSpan={2}>
@@ -1793,7 +1988,11 @@ const SupplierDetailsCSR = () => {
                   ))}
               </div>
             </InfoCard>
-
+          </div>
+        )}
+        {/* {RSC AUDIT} */}
+        {activeTab === "rsc audit" && (
+          <div style={styles.environmentGrid}>
             <InfoCard title="RSC Audit" icon="🔍" colSpan={2}>
               <div style={styles.twoColumn}>
                 {groupedData.rsc
@@ -1806,7 +2005,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* OSH Committee Tab */}
+        {/* OSH Committee Tab - Keep existing */}
         {activeTab === "osh" && (
           <div style={styles.oshGrid}>
             <InfoCard title="OSH Committee Information" icon="🛡️" colSpan={2}>
@@ -1825,14 +2024,17 @@ const SupplierDetailsCSR = () => {
                 />
                 {supplier.iso_45001_validity_days_remaining && (
                   <div style={styles.infoRow}>
-                    <span style={styles.infoLabel}>ISO 45001 Days Remaining:</span>
-                    <DaysRemainingBadge days={supplier.iso_45001_validity_days_remaining} />
+                    <span style={styles.infoLabel}>
+                      ISO 45001 Days Remaining:
+                    </span>
+                    <DaysRemainingBadge
+                      days={supplier.iso_45001_validity_days_remaining}
+                    />
                   </div>
                 )}
               </div>
             </InfoCard>
 
-            {/* OSH Document */}
             {supplier.osh_file && (
               <InfoCard title="OSH Document" icon="📄">
                 <DocumentGrid
@@ -1848,14 +2050,139 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Documents Tab */}
+        {/* Checklist Tab - NEW with all compliance checklist fields */}
+        {activeTab === "checklist" && (
+          <div style={styles.checklistGrid}>
+            {/* Zero Tolerance Section */}
+            <InfoCard title="Zero Tolerance Policy" icon="⚠️" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.zeroTolerance
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Fire Fighting Equipment */}
+            <InfoCard title="Fire Fighting Equipment" icon="🧯">
+              <div style={styles.verticalList}>
+                {groupedData.fireEquipment
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Fire Alarm System */}
+            <InfoCard title="Fire Alarm System" icon="🚨">
+              <div style={styles.verticalList}>
+                {groupedData.fireAlarm
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Emergency Lights */}
+            <InfoCard title="Emergency Lights" icon="💡">
+              <div style={styles.verticalList}>
+                {groupedData.emergencyLights
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Drinking Water */}
+            <InfoCard title="Drinking Water" icon="💧" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.drinkingWater
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Public Announce System */}
+            <InfoCard title="Public Announce System" icon="📢">
+              <div style={styles.verticalList}>
+                {groupedData.paSystem
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Emergency Exits */}
+            <InfoCard title="Emergency Exits" icon="🚪">
+              <div style={styles.verticalList}>
+                {groupedData.emergencyExits
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Grievance Mechanism Additional */}
+            <InfoCard title="Grievance Mechanism" icon="⚖️">
+              <div style={styles.verticalList}>
+                {groupedData.grievanceAdditional
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Wet Process Unit */}
+            <InfoCard title="Wet Process Unit" icon="💧" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.wetProcess
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* Harassment Prevention */}
+            <InfoCard title="Harassment Prevention" icon="🛡️">
+              <div style={styles.verticalList}>
+                {groupedData.harassment
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            {/* First Visit Checklist */}
+            <InfoCard title="First Visit Checklist" icon="📝" colSpan={2}>
+              <div style={styles.twoColumn}>
+                {groupedData.firstVisit
+                  .filter((item) => item.value !== "Not specified")
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+          </div>
+        )}
+
+        {/* Documents Tab - Keep existing */}
         {activeTab === "documents" && (
           <div style={styles.documentsTab}>
             <InfoCard title="All Documents" icon="📎">
               <DocumentGrid documents={supplier.all_certificates || []} />
             </InfoCard>
 
-            {/* Building Images Gallery */}
             {supplier.building_images &&
               supplier.building_images.length > 0 && (
                 <InfoCard title="Building Images" icon="🏭">
@@ -1866,7 +2193,6 @@ const SupplierDetailsCSR = () => {
                 </InfoCard>
               )}
 
-            {/* Fire Safety Images Gallery */}
             {supplier.fire_images && supplier.fire_images.length > 0 && (
               <InfoCard title="Fire Safety Images" icon="🔥">
                 <ImageGallery
@@ -1879,7 +2205,7 @@ const SupplierDetailsCSR = () => {
         )}
       </div>
 
-      {/* Notification Modal */}
+      {/* Notification Modal - Keep existing */}
       {showNotificationModal && (
         <div style={styles.modalOverlay}>
           <div style={{ ...styles.modal, maxWidth: "600px" }}>
@@ -1908,21 +2234,22 @@ const SupplierDetailsCSR = () => {
                   }
                 >
                   <p>{notificationResult.message}</p>
-                  {notificationResult.details && notificationResult.details.length > 0 && (
-                    <div style={styles.notificationDetails}>
-                      <h4>Sent Notifications:</h4>
-                      <ul>
-                        {notificationResult.details.map((item, idx) => (
-                          <li key={idx}>
-                            <strong>{item.name}</strong> - {item.days_remaining}{" "}
-                            days remaining
-                            {item.expiry_date &&
-                              ` (Expires: ${item.expiry_date})`}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {notificationResult.details &&
+                    notificationResult.details.length > 0 && (
+                      <div style={styles.notificationDetails}>
+                        <h4>Sent Notifications:</h4>
+                        <ul>
+                          {notificationResult.details.map((item, idx) => (
+                            <li key={idx}>
+                              <strong>{item.name}</strong> -{" "}
+                              {item.days_remaining} days remaining
+                              {item.expiry_date &&
+                                ` (Expires: ${item.expiry_date})`}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   <button
                     onClick={() => {
                       setShowNotificationModal(false);
@@ -2236,16 +2563,24 @@ const styles = {
   },
   profileLeft: { display: "flex", alignItems: "center", gap: "2rem", flex: 1 },
   avatar: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "16px",
+    width: "100px",
+    height: "100px",
+    borderRadius: "12px",
     background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.purple} 100%)`,
     color: "white",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "2rem",
+    fontSize: "2.5rem",
     fontWeight: "600",
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    borderRadius: "12px",
   },
   profileInfo: { flex: 1 },
   supplierName: {
@@ -3032,6 +3367,12 @@ const styles = {
     cursor: "pointer",
     fontSize: "0.875rem",
     fontWeight: "500",
+  },
+
+  checklistGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "1.5rem",
   },
 };
 

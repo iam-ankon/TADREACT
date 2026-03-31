@@ -73,8 +73,11 @@ const AddSupplierCSR = () => {
     bank_account: "",
     bank_branch: "",
     bank_bin: "",
+    bank_branch_address: "",
+    bank_swift_code: "",
     supplier_category: "",
     year_of_establishment: "",
+    sister_concern: "",
     rented_building: false,
     share_building: false,
     own_property: false,
@@ -102,6 +105,7 @@ const AddSupplierCSR = () => {
     weekly_holiday: "Friday",
     bgmea_number: "",
     bkmea_number: "",
+
     rsc: "",
     tad_group_order_status: "",
 
@@ -204,27 +208,15 @@ const AddSupplierCSR = () => {
     // RSC Audit
     rsc_id: "",
     progress_rate: "",
+    escalation_status: false,
+    no_color_certificate: false,
+    recognitoion_letter: false,
     structural_initial_audit_date: "",
-    structural_initial_findings: "",
     structural_last_follow_up_audit_date: "",
-    structural_total_findings: "",
-    structural_total_corrected: "",
-    structural_total_in_progress: "",
-    structural_total_pending_verification: "",
     fire_initial_audit_date: "",
-    fire_initial_findings: "",
     fire_last_follow_up_audit_date: "",
-    fire_total_findings: "",
-    fire_total_corrected: "",
-    fire_total_in_progress: "",
-    fire_total_pending_verification: "",
     electrical_initial_audit_date: "",
-    electrical_initial_findings: "",
     electrical_last_follow_up_audit_date: "",
-    electrical_total_findings: "",
-    electrical_total_corrected: "",
-    electrical_total_in_progress: "",
-    electrical_total_pending_verification: "",
 
     // PC & Safety Committee
     last_pc_election_date: "",
@@ -239,7 +231,7 @@ const AddSupplierCSR = () => {
     fair_shop: false,
     any_gift_provided_during_festival: false,
 
-    // NEW: Compliance & Safety
+    // Compliance & Safety
     compliance_status: "under_review",
     compliance_remarks: "",
     grievance_mechanism: false,
@@ -251,6 +243,80 @@ const AddSupplierCSR = () => {
     last_safety_audit_date: "",
     safety_measures_remarks: "",
 
+    // Zero Tolerance & Compliance Checklist Fields
+    zero_tolerance_walkthrough_allowed: false,
+    zero_tolerance_no_underage_workers: false,
+    zero_tolerance_no_suspected_young_workers: false,
+    zero_tolerance_minimum_wage_guaranteed: false,
+    zero_tolerance_authentic_records: false,
+    zero_tolerance_no_forced_labor: false,
+
+    // Fire Fighting Equipment
+    fire_fighting_equipment_sufficient: false,
+    fire_fighting_trained_personnel: false,
+    fire_fighting_hose_system: false,
+
+    // Fire Alarm System
+    fire_alarm_system_present: false,
+    fire_alarm_audible_all_areas: false,
+    fire_alarm_visual_noisy_areas: false,
+    fire_alarm_ips_backup: false,
+    fire_alarm_smoke_detectors: false,
+    fire_alarm_switches_marked: false,
+
+    // Emergency Lights
+    emergency_lights_installed: false,
+    emergency_lights_ips_backup: false,
+
+    // Drinking Water
+    drinking_water_sufficient: false,
+    drinking_water_test_report_valid: false,
+    drinking_water_parameters_acceptable: false,
+    drinking_water_arsenic_limit: false,
+    drinking_water_fecal_coliform_limit: false,
+    drinking_water_total_coliform_limit: false,
+    drinking_water_ph_limit: false,
+    drinking_water_tds_limit: false,
+    drinking_water_iron_limit: false,
+
+    // Public Announce System
+    pa_system_present: false,
+    pa_system_audible_all_areas: false,
+
+    // Emergency Exits
+    emergency_exits_two_per_floor: false,
+    emergency_exits_trained_workers: false,
+
+    // Grievance Mechanism (Additional)
+    grievance_committee_established: false,
+    grievance_complain_box_installed: false,
+
+    // Wet Process Unit
+    wet_process_unit_exists: false,
+    wet_process_environmental_licenses: false,
+    wet_process_wastewater_treatment_plant: false,
+    wet_process_wtp_functional: false,
+    wet_process_valid_test_report: false,
+    wet_process_parameters_within_limits: false,
+    wet_process_ph_within_limits: false,
+    wet_process_tds_within_limits: false,
+    wet_process_bod_within_limits: false,
+    wet_process_cod_within_limits: false,
+    wet_process_do_within_limits: false,
+    wet_process_tss_within_limits: false,
+
+    // Harassment
+    no_physical_harassment: false,
+    no_sexual_harassment: false,
+    no_psychological_harassment: false,
+    no_verbal_harassment: false,
+
+    // First Visit Checklist
+    first_visit_date: "",
+    first_visit_status: "",
+    first_visit_findings: "",
+    first_visit_completed: false,
+
     // Contact Information
     email: "",
     phone: "",
@@ -260,12 +326,10 @@ const AddSupplierCSR = () => {
     osh_safety_policy: false,
     iso_45001_validity: "",
     iso_45001_validity_days_remaining: "",
-    osh_file: null,
   });
 
   // File states
   const [files, setFiles] = useState({
-    // Single file fields
     card_image: null,
     bsci_certificate: null,
     sedex_certificate: null,
@@ -313,12 +377,13 @@ const AddSupplierCSR = () => {
     safety_committee_formation_document: null,
     safety_committee_meeting_minutes: null,
     osh_file: null,
+    image: null,
+    fire_image: null,
   });
 
   // Multiple image states
   const [buildingImages, setBuildingImages] = useState([]);
   const [buildingImagePreviews, setBuildingImagePreviews] = useState([]);
-
   const [fireImages, setFireImages] = useState([]);
   const [fireImagePreviews, setFireImagePreviews] = useState([]);
 
@@ -332,8 +397,6 @@ const AddSupplierCSR = () => {
   const handleBuildingImagesChange = (e) => {
     const files = Array.from(e.target.files);
     setBuildingImages((prev) => [...prev, ...files]);
-
-    // Create preview URLs
     const newPreviews = files.map((file) => URL.createObjectURL(file));
     setBuildingImagePreviews((prev) => [...prev, ...newPreviews]);
   };
@@ -342,49 +405,36 @@ const AddSupplierCSR = () => {
   const handleFireImagesChange = (e) => {
     const files = Array.from(e.target.files);
     setFireImages((prev) => [...prev, ...files]);
-
-    // Create preview URLs
     const newPreviews = files.map((file) => URL.createObjectURL(file));
     setFireImagePreviews((prev) => [...prev, ...newPreviews]);
   };
 
-  // Remove building image
   const removeBuildingImage = (index) => {
     setBuildingImages((prev) => prev.filter((_, i) => i !== index));
     URL.revokeObjectURL(buildingImagePreviews[index]);
     setBuildingImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Remove fire image
   const removeFireImage = (index) => {
     setFireImages((prev) => prev.filter((_, i) => i !== index));
     URL.revokeObjectURL(fireImagePreviews[index]);
     setFireImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Function to calculate days remaining
   const calculateDaysRemaining = (validityDate) => {
     if (!validityDate) return "";
-
     const today = new Date();
     const validity = new Date(validityDate);
-
-    // Reset time part for accurate day calculation
     today.setHours(0, 0, 0, 0);
     validity.setHours(0, 0, 0, 0);
-
     const diffTime = validity - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
     return diffDays.toString();
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
-    // Handle different input types
     let processedValue = value;
-    
     if (type === "checkbox") {
       processedValue = checked;
     } else if (type === "number" && value === "") {
@@ -396,47 +446,65 @@ const AddSupplierCSR = () => {
     }
 
     setFormData((prev) => {
-      const newData = {
-        ...prev,
-        [name]: processedValue,
-      };
+      const newData = { ...prev, [name]: processedValue };
+
+      // Auto-calculate total manpower when any manpower field changes
+      const manpowerFields = [
+        "manpower_workers_male",
+        "manpower_workers_female",
+        "other_gender_workers",
+        "disabled_workers",
+        "manpower_staff_male",
+        "manpower_staff_female",
+      ];
+
+      if (manpowerFields.includes(name)) {
+        const total =
+          (parseInt(newData.manpower_workers_male) || 0) +
+          (parseInt(newData.manpower_workers_female) || 0) +
+          (parseInt(newData.other_gender_workers) || 0) +
+          (parseInt(newData.disabled_workers) || 0) +
+          (parseInt(newData.manpower_staff_male) || 0) +
+          (parseInt(newData.manpower_staff_female) || 0);
+
+        newData.total_manpower = total;
+      }
 
       // Auto-calculate days remaining when validity date changes
-      if (name.includes("_validity") && !name.includes("days_remaining") && value) {
-        // Handle certification validity fields
-        if (name.includes("_validity") && !name.includes("license") && !name.includes("_validity")) {
-          const daysRemainingField = name.replace("_validity", "_validity_days_remaining");
+      if (
+        name.includes("_validity") &&
+        !name.includes("days_remaining") &&
+        value
+      ) {
+        if (name.includes("_validity") && !name.includes("license")) {
+          const daysRemainingField = name.replace(
+            "_validity",
+            "_validity_days_remaining",
+          );
           newData[daysRemainingField] = calculateDaysRemaining(value);
         }
-        
-        // Handle specific license fields
-        if (name === "trade_license_validity") {
+        if (name === "trade_license_validity")
           newData.trade_license_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "factory_license_validity") {
-          newData.factory_license_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "fire_license_validity") {
+        if (name === "factory_license_validity")
+          newData.factory_license_days_remaining =
+            calculateDaysRemaining(value);
+        if (name === "fire_license_validity")
           newData.fire_license_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "membership_validity") {
+        if (name === "membership_validity")
           newData.membership_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "group_insurance_validity") {
-          newData.group_insurance_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "boiler_license_validity") {
+        if (name === "group_insurance_validity")
+          newData.group_insurance_days_remaining =
+            calculateDaysRemaining(value);
+        if (name === "boiler_license_validity")
           newData.boiler_license_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "berc_license_validity") {
+        if (name === "berc_license_validity")
           newData.berc_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "drinking_water_license_validity") {
-          newData.drinking_water_license_days_remaining = calculateDaysRemaining(value);
-        }
-        if (name === "iso_45001_validity") {
-          newData.iso_45001_validity_days_remaining = calculateDaysRemaining(value);
-        }
+        if (name === "drinking_water_license_validity")
+          newData.drinking_water_license_days_remaining =
+            calculateDaysRemaining(value);
+        if (name === "iso_45001_validity")
+          newData.iso_45001_validity_days_remaining =
+            calculateDaysRemaining(value);
       }
 
       return newData;
@@ -444,7 +512,6 @@ const AddSupplierCSR = () => {
 
     setTouchedFields((prev) => ({ ...prev, [name]: true }));
 
-    // Clear validation error for this field
     if (validationErrors[name]) {
       setValidationErrors((prev) => {
         const newErrors = { ...prev };
@@ -459,12 +526,8 @@ const AddSupplierCSR = () => {
   const handleFileChange = (e) => {
     const { name } = e.target;
     const file = e.target.files[0];
-
     if (file) {
-      setFiles((prev) => ({
-        ...prev,
-        [name]: file,
-      }));
+      setFiles((prev) => ({ ...prev, [name]: file }));
     }
   };
 
@@ -475,32 +538,18 @@ const AddSupplierCSR = () => {
 
   const validateForm = () => {
     const errors = {};
-
-    // Required fields validation
-    if (!formData.supplier_name?.trim()) {
+    if (!formData.supplier_name?.trim())
       errors.supplier_name = "Supplier name is required";
-    }
-
-    if (!formData.email?.trim()) {
-      errors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    if (!formData.email?.trim()) errors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(formData.email))
       errors.email = "Email is invalid";
-    }
-
-    if (!formData.phone?.trim()) {
-      errors.phone = "Phone is required";
-    }
-
-    if (!formData.location?.trim()) {
-      errors.location = "Location is required";
-    }
-
+    if (!formData.phone?.trim()) errors.phone = "Phone is required";
+    if (!formData.location?.trim()) errors.location = "Location is required";
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async () => {
-    // Validate required fields
     if (!validateForm()) {
       setError("Please fill in all required fields");
       setActiveTab("basic");
@@ -511,10 +560,8 @@ const AddSupplierCSR = () => {
     setError(null);
 
     try {
-      // Create FormData object
       const formDataToSend = new FormData();
 
-      // List of all date fields that need special handling
       const dateFields = [
         "bsci_last_audit_date",
         "bsci_validity",
@@ -561,9 +608,9 @@ const AddSupplierCSR = () => {
         "last_safety_committee_meeting_date",
         "last_grievance_resolution_date",
         "last_safety_audit_date",
+        "first_visit_date",
       ];
 
-      // List of single file fields
       const singleFileFields = [
         "card_image",
         "bsci_certificate",
@@ -612,29 +659,23 @@ const AddSupplierCSR = () => {
         "additional_document_3",
         "additional_document_4",
         "osh_file",
+        "image",
+        "fire_image",
       ];
 
-      // Add all form data fields to FormData
       Object.entries(formData).forEach(([key, value]) => {
-        // Skip file fields - we'll handle them separately
-        if (singleFileFields.includes(key)) {
-          return;
-        }
-
-        // Handle date fields - ensure they're in YYYY-MM-DD format
+        if (singleFileFields.includes(key)) return;
         if (dateFields.includes(key) && value) {
           try {
             const date = new Date(value);
             if (!isNaN(date.getTime())) {
-              const formattedDate = date.toISOString().split('T')[0];
+              const formattedDate = date.toISOString().split("T")[0];
               formDataToSend.append(key, formattedDate);
             }
           } catch (e) {
             console.error(`Error formatting date for ${key}:`, e);
           }
-        }
-        // Handle other fields
-        else if (value !== null && value !== undefined && value !== "") {
+        } else if (value !== null && value !== undefined && value !== "") {
           if (typeof value === "boolean") {
             formDataToSend.append(key, value.toString());
           } else {
@@ -643,82 +684,49 @@ const AddSupplierCSR = () => {
         }
       });
 
-      // Add multiple building images
       if (buildingImages.length > 0) {
-        buildingImages.forEach((image) => {
-          formDataToSend.append("building_images", image);
-        });
-        console.log(`Added ${buildingImages.length} building images`);
+        buildingImages.forEach((image) =>
+          formDataToSend.append("building_images", image),
+        );
       }
 
-      // Add multiple fire images
       if (fireImages.length > 0) {
-        fireImages.forEach((image) => {
-          formDataToSend.append("fire_images", image);
-        });
-        console.log(`Added ${fireImages.length} fire images`);
+        fireImages.forEach((image) =>
+          formDataToSend.append("fire_images", image),
+        );
       }
 
-      // Add single files
       Object.entries(files).forEach(([key, file]) => {
-        if (file && file instanceof File) {
-          formDataToSend.append(key, file);
-          console.log(`Added file: ${key} - ${file.name}`);
-        }
+        if (file && file instanceof File) formDataToSend.append(key, file);
       });
 
-      // Calculate total manpower if needed
-      const total = 
+      const total =
         (parseInt(formData.manpower_workers_male) || 0) +
         (parseInt(formData.manpower_workers_female) || 0) +
         (parseInt(formData.other_gender_workers) || 0) +
         (parseInt(formData.disabled_workers) || 0) +
         (parseInt(formData.manpower_staff_male) || 0) +
         (parseInt(formData.manpower_staff_female) || 0);
-      
-      if (total > 0) {
-        formDataToSend.append("total_manpower", total.toString());
-      }
 
-      // DEBUG: Log FormData contents
-      console.log("=== FORM DATA CONTENTS ===");
-      for (let pair of formDataToSend.entries()) {
-        if (pair[1] instanceof File) {
-          console.log(`${pair[0]}: [File] ${pair[1].name} (${pair[1].type})`);
-        } else {
-          console.log(`${pair[0]}: ${pair[1]}`);
-        }
-      }
+      if (total > 0) formDataToSend.append("total_manpower", total.toString());
 
       const response = await createSupplier(formDataToSend);
       console.log("✅ Supplier created:", response.data);
-
       alert("Supplier added successfully!");
       navigate("/suppliersCSR");
     } catch (err) {
       console.error("❌ Error adding supplier:", err);
-
-      // Log detailed error response
-      if (err.response) {
-        console.error("Error response data:", err.response.data);
-        console.error("Error response status:", err.response.status);
-      }
-
       let errorMessage = "Error adding supplier. Please try again.";
-
       if (err.response?.data) {
         const errorData = err.response.data;
-
         if (typeof errorData === "object") {
           const errorMessages = [];
           Object.entries(errorData).forEach(([field, errors]) => {
-            if (Array.isArray(errors)) {
+            if (Array.isArray(errors))
               errorMessages.push(`${field}: ${errors.join(", ")}`);
-            } else if (typeof errors === "string") {
+            else if (typeof errors === "string")
               errorMessages.push(`${field}: ${errors}`);
-            } else {
-              errorMessages.push(`${field}: ${JSON.stringify(errors)}`);
-            }
+            else errorMessages.push(`${field}: ${JSON.stringify(errors)}`);
           });
           errorMessage = errorMessages.join("\n");
         } else {
@@ -727,7 +735,6 @@ const AddSupplierCSR = () => {
       } else if (err.message) {
         errorMessage = err.message;
       }
-
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -735,14 +742,12 @@ const AddSupplierCSR = () => {
   };
 
   const handleNext = () => {
-    // Validate required fields before proceeding
     if (activeTab === "basic") {
       if (!formData.supplier_name || !formData.email || !formData.phone) {
         setError("Please fill in all required fields in General Information");
         return;
       }
     }
-
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
     if (currentIndex < tabs.length - 1) {
       setActiveTab(tabs[currentIndex + 1].id);
@@ -758,7 +763,6 @@ const AddSupplierCSR = () => {
     }
   };
 
-  // Tabs array with OSH Committee
   const tabs = [
     { id: "basic", label: "General Info", icon: "🏢" },
     { id: "building", label: "Building & Manpower", icon: "🏭" },
@@ -767,14 +771,14 @@ const AddSupplierCSR = () => {
     { id: "licenses", label: "Licenses", icon: "📋" },
     { id: "safety", label: "Safety", icon: "🚨" },
     { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
-    { id: "osh", label: "OSH Committee", icon: "🛡️" },
+    { id: "osh", label: "OHS Committee", icon: "🛡️" },
     { id: "environment", label: "Environment", icon: "🌱" },
     { id: "rsc", label: "RSC Audit", icon: "🔍" },
     { id: "csr", label: "CSR", icon: "🤝" },
+    { id: "compliance", label: "Factory Evaluation", icon: "✅" },
     { id: "documents", label: "Documents", icon: "📎" },
   ];
 
-  // Render multiple image upload function
   const renderMultipleImageUpload = (
     label,
     name,
@@ -782,62 +786,57 @@ const AddSupplierCSR = () => {
     previews,
     onRemove,
     onChange,
-  ) => {
-    return (
-      <div style={formGroupStyle}>
-        <label style={labelStyle}>{label}</label>
-        <div style={fileInputWrapperStyle}>
-          <input
-            type="file"
-            name={name}
-            onChange={onChange}
-            accept="image/*"
-            multiple
-            style={fileInputStyle}
-            disabled={isLoading}
-            id={`file-${name}`}
-          />
-          <label htmlFor={`file-${name}`} style={fileInputLabelStyle}>
-            Choose multiple images
-          </label>
-        </div>
-
-        {/* New Image Previews */}
-        {previews.length > 0 && (
-          <div style={imageGridStyle}>
-            {previews.map((preview, index) => (
-              <div key={index} style={imagePreviewContainerStyle}>
-                <img
-                  src={preview}
-                  alt={`Preview ${index + 1}`}
-                  style={imagePreviewStyle}
-                />
-                <button
-                  type="button"
-                  onClick={() => onRemove(index)}
-                  style={removeImageButtonStyle}
-                >
-                  ×
-                </button>
-                <div style={imageInfoStyle}>
-                  {images[index]?.name}
-                  <span style={fileSizeStyle}>
-                    ({(images[index]?.size / 1024).toFixed(2)} KB)
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {images.length > 0 && (
-          <div style={imageCountStyle}>
-            Total {images.length} image(s) selected
-          </div>
-        )}
+  ) => (
+    <div style={formGroupStyle}>
+      <label style={labelStyle}>{label}</label>
+      <div style={fileInputWrapperStyle}>
+        <input
+          type="file"
+          name={name}
+          onChange={onChange}
+          accept="image/*"
+          multiple
+          style={fileInputStyle}
+          disabled={isLoading}
+          id={`file-${name}`}
+        />
+        <label htmlFor={`file-${name}`} style={fileInputLabelStyle}>
+          Choose multiple images
+        </label>
       </div>
-    );
-  };
+      {previews.length > 0 && (
+        <div style={imageGridStyle}>
+          {previews.map((preview, index) => (
+            <div key={index} style={imagePreviewContainerStyle}>
+              <img
+                src={preview}
+                alt={`Preview ${index + 1}`}
+                style={imagePreviewStyle}
+              />
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                style={removeImageButtonStyle}
+              >
+                ×
+              </button>
+              <div style={imageInfoStyle}>
+                {images[index]?.name}
+                <span style={fileSizeStyle}>
+                  ({(images[index]?.size / 1024).toFixed(2)} KB)
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {images.length > 0 && (
+        <div style={imageCountStyle}>
+          Total {images.length} image(s) selected
+        </div>
+      )}
+    </div>
+  );
 
   const renderInput = (
     label,
@@ -845,13 +844,13 @@ const AddSupplierCSR = () => {
     type = "text",
     isRequired = false,
     rows = null,
+    isReadOnly = false,
   ) => {
     const value = formData[name] ?? "";
     const isError =
       (touchedFields[name] && isRequired && !value) || validationErrors[name];
     const errorMessage = validationErrors[name];
     const Component = rows ? "textarea" : "input";
-
     const isDaysRemaining =
       name.includes("_days_remaining") ||
       name.includes("_validity_days_remaining");
@@ -878,13 +877,14 @@ const AddSupplierCSR = () => {
             ...(isLoading ? inputDisabledStyle : {}),
             ...(rows ? textareaStyle : {}),
             ...(isDaysRemaining ? daysRemainingFieldStyle : {}),
+            ...(isReadOnly ? readOnlyFieldStyle : {}), // Add readOnly style
           }}
-          disabled={isLoading || isDaysRemaining}
+          disabled={isLoading || isDaysRemaining || isReadOnly}
           placeholder={
             isDaysRemaining ? "Auto-calculated" : `Enter ${label.toLowerCase()}`
           }
           rows={rows}
-          readOnly={isDaysRemaining}
+          readOnly={isDaysRemaining || isReadOnly}
         />
         {errorMessage && <div style={fieldErrorStyle}>{errorMessage}</div>}
       </div>
@@ -894,7 +894,6 @@ const AddSupplierCSR = () => {
   const renderSelect = (label, name, options, isRequired = false) => {
     const value = formData[name] ?? "";
     const isError = touchedFields[name] && isRequired && !value;
-
     return (
       <div style={formGroupStyle}>
         <label style={labelStyle}>
@@ -947,7 +946,6 @@ const AddSupplierCSR = () => {
 
   const renderFileInput = (label, name, accept = "*") => {
     const file = files[name];
-
     return (
       <div style={formGroupStyle}>
         <label style={labelStyle}>{label}</label>
@@ -1043,13 +1041,11 @@ const AddSupplierCSR = () => {
     </div>
   );
 
-  const renderAuditSectionWithFiles = (prefix, label) => (
+  const renderAuditSection = (prefix, label) => (
     <div style={cardStyle}>
       <div style={cardHeaderStyle}>
         <h4 style={cardTitleStyle}>{label}</h4>
       </div>
-
-      {/* Audit Details */}
       <div style={cardBodyStyle}>
         <div style={formGridStyle}>
           {renderInput(
@@ -1058,36 +1054,11 @@ const AddSupplierCSR = () => {
             "date",
           )}
           {renderInput(
-            "Initial Findings",
-            `${prefix}_initial_findings`,
-            "number",
-          )}
-          {renderInput(
             "Last Follow-up Audit Date",
             `${prefix}_last_follow_up_audit_date`,
             "date",
           )}
-          {renderInput("Total Findings", `${prefix}_total_findings`, "number")}
-          {renderInput(
-            "Total Corrected",
-            `${prefix}_total_corrected`,
-            "number",
-          )}
-          {renderInput(
-            "Total In Progress",
-            `${prefix}_total_in_progress`,
-            "number",
-          )}
-          {renderInput(
-            "Total Pending Verification",
-            `${prefix}_total_pending_verification`,
-            "number",
-          )}
         </div>
-      </div>
-
-      {/* Documents Section */}
-      <div style={cardBodyStyle}>
         <div style={formGridStyle}>
           {prefix === "structural" &&
             renderFileInput(
@@ -1136,11 +1107,7 @@ const AddSupplierCSR = () => {
             <div
               style={{
                 ...progressFillStyle,
-                width: `${
-                  ((tabs.findIndex((tab) => tab.id === activeTab) + 1) /
-                    tabs.length) *
-                  100
-                }%`,
+                width: `${((tabs.findIndex((tab) => tab.id === activeTab) + 1) / tabs.length) * 100}%`,
               }}
             />
           </div>
@@ -1227,6 +1194,7 @@ const AddSupplierCSR = () => {
                     "year_of_establishment",
                     "number",
                   )}
+                  {renderInput("Sister Concern", "sister_concern")}
                   {renderInput(
                     "Ownership Details",
                     "ownership_details",
@@ -1266,13 +1234,20 @@ const AddSupplierCSR = () => {
                   {renderInput("BKMEA Number", "bkmea_number")}
                   {renderInput("RSC ID", "rsc")}
                   {renderFileInput("Visiting Card", "card_image", "image/*")}
-
                   <div style={fullWidthStyle}>
                     <div style={subSectionTitleStyle}>Bank Details</div>
                   </div>
                   {renderInput("Bank Account", "bank_account")}
                   {renderInput("Bank Branch", "bank_branch")}
                   {renderInput("Bank BIN", "bank_bin")}
+                  {renderInput("Bank Swift Code", "bank_swift_code")}
+                  {renderInput(
+                    "Bank Branch Address",
+                    "bank_branch_address",
+                    "text",
+                    false,
+                    3,
+                  )}
                 </div>
               </div>
             )}
@@ -1306,9 +1281,10 @@ const AddSupplierCSR = () => {
                     3,
                   )}
                   {renderInput("Total Area (sq ft)", "total_area", "number")}
+                  {renderFileInput("Main Building Image", "image", "image/*")}
                   <div style={fullWidthStyle}>
                     {renderMultipleImageUpload(
-                      "Building Images",
+                      "Additional Building Images",
                       "building_images",
                       buildingImages,
                       buildingImagePreviews,
@@ -1351,7 +1327,15 @@ const AddSupplierCSR = () => {
                       "manpower_staff_female",
                       "number",
                     )}
-                    {renderInput("Total Manpower", "total_manpower", "number")}
+                    {renderInput(
+                      "Total Manpower",
+                      "total_manpower",
+                      "number",
+                      false,
+                      null,
+                      true,
+                    )}{" "}
+                    {/* Add readOnly prop */}
                   </div>
                 </div>
               </div>
@@ -1439,8 +1423,6 @@ const AddSupplierCSR = () => {
                   {renderSimpleCertGroup("rcs", "RCS")}
                   {renderSimpleCertGroup("iso_9001", "ISO 9001")}
                   {renderSimpleCertGroup("iso_14001", "ISO 14001")}
-
-                  {/* Additional Certificates */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>Additional Certificates</h4>
@@ -1468,7 +1450,6 @@ const AddSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={fullWidthStyle}>
                     {renderInput(
                       "Certification Remarks",
@@ -1499,7 +1480,6 @@ const AddSupplierCSR = () => {
                   {renderLicenseGroup("fire_license", "Fire License")}
                   {renderLicenseGroup("membership", "Membership")}
                   {renderLicenseGroup("group_insurance", "Group Insurance")}
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>Boiler License</h4>
@@ -1525,8 +1505,6 @@ const AddSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* BERC License */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>BERC License</h4>
@@ -1551,8 +1529,6 @@ const AddSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Drinking Water License */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>
@@ -1579,7 +1555,6 @@ const AddSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={fullWidthStyle}>
                     {renderInput(
                       "License Remarks",
@@ -1640,43 +1615,38 @@ const AddSupplierCSR = () => {
                     "fire_safety_protection",
                     "text",
                   )}
-                </div>
-
-                <div style={dividerStyle} />
-
-                <div>
-                  <h4 style={subSectionTitleStyle}>Fire Safety Documents</h4>
-                  <div style={formGridStyle}>
-                    {renderFileInput(
-                      "Fire Training Certificate",
-                      "fire_training_certificate",
-                      ".pdf,.jpg,.png",
+                  {renderFileInput(
+                    "Fire Training Certificate",
+                    "fire_training_certificate",
+                    ".pdf,.jpg,.png",
+                  )}
+                  {renderFileInput(
+                    "Fire Drill Record",
+                    "fire_drill_record",
+                    ".pdf,.jpg,.png",
+                  )}
+                  {renderFileInput(
+                    "Fire Safety Audit Report",
+                    "fire_safety_audit_report",
+                    ".pdf,.jpg,.png",
+                  )}
+                  {renderFileInput(
+                    "Main Fire Safety Image",
+                    "fire_image",
+                    "image/*",
+                  )}
+                  <div style={fullWidthStyle}>
+                    {renderMultipleImageUpload(
+                      "Additional Fire Safety Images",
+                      "fire_images",
+                      fireImages,
+                      fireImagePreviews,
+                      removeFireImage,
+                      handleFireImagesChange,
                     )}
-                    {renderFileInput(
-                      "Fire Drill Record",
-                      "fire_drill_record",
-                      ".pdf,.jpg,.png",
-                    )}
-                    {renderFileInput(
-                      "Fire Safety Audit Report",
-                      "fire_safety_audit_report",
-                      ".pdf,.jpg,.png",
-                    )}
-                    <div style={fullWidthStyle}>
-                      {renderMultipleImageUpload(
-                        "Fire Safety Images",
-                        "fire_images",
-                        fireImages,
-                        fireImagePreviews,
-                        removeFireImage,
-                        handleFireImagesChange,
-                      )}
-                    </div>
                   </div>
                 </div>
-
                 <div style={dividerStyle} />
-
                 <div style={fullWidthStyle}>
                   {renderInput(
                     "Fire Safety Remarks",
@@ -1701,7 +1671,6 @@ const AddSupplierCSR = () => {
                     Participation Committee and Safety Committee information
                   </p>
                 </div>
-
                 <div style={cardsContainerStyle}>
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
@@ -1732,7 +1701,6 @@ const AddSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>Safety Committee</h4>
@@ -1777,7 +1745,6 @@ const AddSupplierCSR = () => {
                     Occupational Safety and Health Committee information
                   </p>
                 </div>
-                
                 <div style={cardsContainerStyle}>
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
@@ -1788,17 +1755,16 @@ const AddSupplierCSR = () => {
                         {renderCheckbox(
                           "OSH Committee Formed",
                           "osh_committee_safety",
-                          "Check if OSH committee has been formed"
+                          "Check if OSH committee has been formed",
                         )}
                         {renderCheckbox(
                           "OSH Safety Policy Available",
                           "osh_safety_policy",
-                          "Check if OSH safety policy document is available"
+                          "Check if OSH safety policy document is available",
                         )}
                       </div>
                     </div>
                   </div>
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>ISO 45001 Certification</h4>
@@ -1808,17 +1774,17 @@ const AddSupplierCSR = () => {
                         {renderInput(
                           "ISO 45001 Validity",
                           "iso_45001_validity",
-                          "date"
+                          "date",
                         )}
                         {renderInput(
                           "Days Remaining",
                           "iso_45001_validity_days_remaining",
-                          "number"
+                          "number",
                         )}
                         {renderFileInput(
                           "OSH Committee Document",
                           "osh_file",
-                          ".pdf,.jpg,.png"
+                          ".pdf,.jpg,.png",
                         )}
                       </div>
                     </div>
@@ -1839,7 +1805,6 @@ const AddSupplierCSR = () => {
                     Environmental reports and assessments
                   </p>
                 </div>
-
                 <div style={formGridStyle}>
                   {renderInput(
                     "Water Test Report (DOE)",
@@ -1871,9 +1836,7 @@ const AddSupplierCSR = () => {
                     )}
                   </div>
                 </div>
-
                 <div style={dividerStyle} />
-
                 <div>
                   <h4 style={subSectionTitleStyle}>Environmental Documents</h4>
                   <div style={formGridStyle}>
@@ -1904,22 +1867,32 @@ const AddSupplierCSR = () => {
                     RSC audit and safety findings
                   </p>
                 </div>
-
                 <div style={formGridStyle}>
                   {renderInput("RSC ID", "rsc_id")}
                   {renderInput("Progress Rate", "progress_rate", "number")}
+                  <div style={fullWidthStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox("Escalation Status", "escalation_status")}
+                      {renderCheckbox(
+                        "No Color Certificate",
+                        "no_color_certificate",
+                      )}
+                      {renderCheckbox(
+                        "Recognition Letter",
+                        "recognitoion_letter",
+                      )}
+                    </div>
+                  </div>
+                  {renderFileInput(
+                    "RSC Certificate",
+                    "rsc_certificate",
+                    ".pdf,.jpg,.png",
+                  )}
                 </div>
-
                 <div style={cardsContainerStyle}>
-                  {renderAuditSectionWithFiles(
-                    "structural",
-                    "Structural Safety",
-                  )}
-                  {renderAuditSectionWithFiles("fire", "Fire Safety")}
-                  {renderAuditSectionWithFiles(
-                    "electrical",
-                    "Electrical Safety",
-                  )}
+                  {renderAuditSection("structural", "Structural Safety")}
+                  {renderAuditSection("fire", "Fire Safety")}
+                  {renderAuditSection("electrical", "Electrical Safety")}
                 </div>
               </div>
             )}
@@ -1992,7 +1965,6 @@ const AddSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>Grievance Management</h4>
@@ -2041,6 +2013,362 @@ const AddSupplierCSR = () => {
               </div>
             )}
 
+            {/* Compliance Checklist Tab */}
+            {activeTab === "compliance" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>✅</span> Zero Tolerance &
+                    Compliance Checklist
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Critical compliance requirements and facility safety
+                    checklist
+                  </p>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Zero Tolerance Policy</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Factory allows a full facility walkthrough",
+                        "zero_tolerance_walkthrough_allowed",
+                      )}
+                      {renderCheckbox(
+                        "No underage person(s) are working in the facility",
+                        "zero_tolerance_no_underage_workers",
+                      )}
+                      {renderCheckbox(
+                        "No suspected young looking person(s) are working without authentic age verification",
+                        "zero_tolerance_no_suspected_young_workers",
+                      )}
+                      {renderCheckbox(
+                        "Minimum wage is guaranteed for all employees",
+                        "zero_tolerance_minimum_wage_guaranteed",
+                      )}
+                      {renderCheckbox(
+                        "Presented records are authentic and not falsified",
+                        "zero_tolerance_authentic_records",
+                      )}
+                      {renderCheckbox(
+                        "Absence of Forced Labor is confirmed",
+                        "zero_tolerance_no_forced_labor",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Fire Fighting Equipment</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Sufficient fire fighting equipment as per local law",
+                        "fire_fighting_equipment_sufficient",
+                      )}
+                      {renderCheckbox(
+                        "Sufficient trained fire fighters assigned",
+                        "fire_fighting_trained_personnel",
+                      )}
+                      {renderCheckbox(
+                        "Fire hose/stand pipe system with sufficient water pressure",
+                        "fire_fighting_hose_system",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Fire Alarm System</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Fire alarm system present",
+                        "fire_alarm_system_present",
+                      )}
+                      {renderCheckbox(
+                        "Fire alarm audible in all areas",
+                        "fire_alarm_audible_all_areas",
+                      )}
+                      {renderCheckbox(
+                        "Visual fire alarm in noisy sections",
+                        "fire_alarm_visual_noisy_areas",
+                      )}
+                      {renderCheckbox(
+                        "Fire alarm connected with instant power supply",
+                        "fire_alarm_ips_backup",
+                      )}
+                      {renderCheckbox(
+                        "Sufficient smoke detectors with power backup",
+                        "fire_alarm_smoke_detectors",
+                      )}
+                      {renderCheckbox(
+                        "Fire alarm switches installed and marked with instructions",
+                        "fire_alarm_switches_marked",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Emergency Lights</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Sufficient emergency lights in workplace and stairway",
+                        "emergency_lights_installed",
+                      )}
+                      {renderCheckbox(
+                        "Emergency lights connected with instant power supply",
+                        "emergency_lights_ips_backup",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Drinking Water</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Drinking water point sufficient and accessible",
+                        "drinking_water_sufficient",
+                      )}
+                      {renderCheckbox(
+                        "Water test report valid",
+                        "drinking_water_test_report_valid",
+                      )}
+                      {renderCheckbox(
+                        "Water parameters in acceptable limits",
+                        "drinking_water_parameters_acceptable",
+                      )}
+                      {renderCheckbox(
+                        "Arsenic within limits",
+                        "drinking_water_arsenic_limit",
+                      )}
+                      {renderCheckbox(
+                        "Fecal Coliform within limits",
+                        "drinking_water_fecal_coliform_limit",
+                      )}
+                      {renderCheckbox(
+                        "Total Coliform within limits",
+                        "drinking_water_total_coliform_limit",
+                      )}
+                      {renderCheckbox(
+                        "pH within limits",
+                        "drinking_water_ph_limit",
+                      )}
+                      {renderCheckbox(
+                        "TDS within limits",
+                        "drinking_water_tds_limit",
+                      )}
+                      {renderCheckbox(
+                        "Iron within limits",
+                        "drinking_water_iron_limit",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Public Announce System</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Public Announce system present",
+                        "pa_system_present",
+                      )}
+                      {renderCheckbox(
+                        "PA system audible covering all areas with IPS backup",
+                        "pa_system_audible_all_areas",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Emergency Exits</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Two exits in each floor, not locked or obstructed",
+                        "emergency_exits_two_per_floor",
+                      )}
+                      {renderCheckbox(
+                        "Workers trained on fire drills and emergency evacuation",
+                        "emergency_exits_trained_workers",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Grievance Mechanism</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Grievance committee established and workers aware",
+                        "grievance_committee_established",
+                      )}
+                      {renderCheckbox(
+                        "Complain box installed in toilet/hidden area with procedure posted",
+                        "grievance_complain_box_installed",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Wet Process Unit</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Factory has a wet process unit",
+                        "wet_process_unit_exists",
+                      )}
+                      {renderCheckbox(
+                        "Legally required valid environmental licenses/permits",
+                        "wet_process_environmental_licenses",
+                      )}
+                      {renderCheckbox(
+                        "Wastewater treatment plant with inlet/outlet meter",
+                        "wet_process_wastewater_treatment_plant",
+                      )}
+                      {renderCheckbox(
+                        "Wastewater treatment plant functional",
+                        "wet_process_wtp_functional",
+                      )}
+                      {renderCheckbox(
+                        "Valid wastewater test report",
+                        "wet_process_valid_test_report",
+                      )}
+                      {renderCheckbox(
+                        "Wastewater parameters within legal limits",
+                        "wet_process_parameters_within_limits",
+                      )}
+                    </div>
+                    <div style={{ marginTop: "1rem" }}>
+                      <h5
+                        style={{
+                          fontSize: "0.875rem",
+                          fontWeight: "600",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        Wastewater Parameters
+                      </h5>
+                      <div style={checkboxGridStyle}>
+                        {renderCheckbox(
+                          "Wastewater pH within limits",
+                          "wet_process_ph_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater TDS within limits",
+                          "wet_process_tds_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater BOD within limits",
+                          "wet_process_bod_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater COD within limits",
+                          "wet_process_cod_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater DO within limits",
+                          "wet_process_do_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater TSS within limits",
+                          "wet_process_tss_within_limits",
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Harassment Prevention</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "No evidence of physical harassment",
+                        "no_physical_harassment",
+                      )}
+                      {renderCheckbox(
+                        "No evidence of sexual harassment",
+                        "no_sexual_harassment",
+                      )}
+                      {renderCheckbox(
+                        "No evidence of psychological harassment",
+                        "no_psychological_harassment",
+                      )}
+                      {renderCheckbox(
+                        "No evidence of verbal harassment",
+                        "no_verbal_harassment",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>First Visit Checklist</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={formGridStyle}>
+                      {renderInput(
+                        "First Visit Date",
+                        "first_visit_date",
+                        "date",
+                      )}
+                      {renderSelect(
+                        "First Visit Status",
+                        "first_visit_status",
+                        [
+                          { value: "correct", label: "Correct" },
+                          { value: "incorrect", label: "Incorrect" },
+                          { value: "pending", label: "Pending" },
+                        ],
+                      )}
+                      {renderInput(
+                        "First Visit Findings",
+                        "first_visit_findings",
+                        "text",
+                        false,
+                        3,
+                      )}
+                      {renderCheckbox(
+                        "First Visit Completed",
+                        "first_visit_completed",
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Documents Tab */}
             {activeTab === "documents" && (
               <div style={formSectionStyle}>
@@ -2053,7 +2381,6 @@ const AddSupplierCSR = () => {
                     Safety documents and general files
                   </p>
                 </div>
-
                 <div style={cardsContainerStyle}>
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
@@ -2107,7 +2434,6 @@ const AddSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>General Documents</h4>
@@ -2162,7 +2488,6 @@ const AddSupplierCSR = () => {
                     ← Previous
                   </button>
                 )}
-
                 {activeTab !== "documents" ? (
                   <button
                     type="button"
@@ -2184,8 +2509,7 @@ const AddSupplierCSR = () => {
                   >
                     {isLoading ? (
                       <span style={buttonContentStyle}>
-                        <span style={spinnerSmallStyle}></span>
-                        Saving...
+                        <span style={spinnerSmallStyle}></span>Saving...
                       </span>
                     ) : (
                       "Save Supplier"
@@ -2201,14 +2525,13 @@ const AddSupplierCSR = () => {
   );
 };
 
-// Style constants - Modern Professional Design
+// Style constants
 const containerStyle = {
   backgroundColor: "#f3f4f6",
   minHeight: "100vh",
   fontFamily:
     "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
-
 const headerStyle = {
   backgroundColor: colors.background,
   padding: "2rem 4rem",
@@ -2216,14 +2539,12 @@ const headerStyle = {
   boxShadow:
     "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
 };
-
 const headerContentStyle = {
   display: "flex",
   alignItems: "center",
   gap: "1.5rem",
   marginBottom: "1.5rem",
 };
-
 const backButtonStyle = {
   display: "flex",
   alignItems: "center",
@@ -2237,20 +2558,9 @@ const backButtonStyle = {
   fontWeight: "500",
   color: colors.gray,
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.light,
-    borderColor: colors.borderDark,
-  },
 };
-
-const backArrowStyle = {
-  fontSize: "1.125rem",
-};
-
-const titleSectionStyle = {
-  flex: 1,
-};
-
+const backArrowStyle = { fontSize: "1.125rem" };
+const titleSectionStyle = { flex: 1 };
 const titleStyle = {
   fontSize: "1.875rem",
   fontWeight: "600",
@@ -2258,17 +2568,12 @@ const titleStyle = {
   margin: "0 0 0.25rem 0",
   letterSpacing: "-0.025em",
 };
-
 const subtitleStyle = {
   fontSize: "0.875rem",
   color: colors.textSecondary,
   margin: 0,
 };
-
-const progressSectionStyle = {
-  maxWidth: "400px",
-};
-
+const progressSectionStyle = { maxWidth: "400px" };
 const progressTextStyle = {
   fontSize: "0.75rem",
   fontWeight: "600",
@@ -2277,21 +2582,18 @@ const progressTextStyle = {
   textTransform: "uppercase",
   letterSpacing: "0.05em",
 };
-
 const progressBarStyle = {
   height: "8px",
   backgroundColor: colors.border,
   borderRadius: "4px",
   overflow: "hidden",
 };
-
 const progressFillStyle = {
   height: "100%",
   backgroundColor: colors.primary,
   transition: "width 0.3s ease",
   borderRadius: "4px",
 };
-
 const errorAlertStyle = {
   backgroundColor: colors.dangerLight,
   color: colors.danger,
@@ -2304,26 +2606,14 @@ const errorAlertStyle = {
   gap: "0.75rem",
   boxShadow: "0 4px 6px -1px rgba(220, 38, 38, 0.1)",
 };
-
-const errorIconStyle = {
-  fontSize: "1.25rem",
-};
-
-const errorContentStyle = {
-  flex: 1,
-};
-
+const errorIconStyle = { fontSize: "1.25rem" };
+const errorContentStyle = { flex: 1 };
 const errorMessageStyle = {
   fontSize: "0.875rem",
   whiteSpace: "pre-wrap",
   marginTop: "0.25rem",
 };
-
-const contentWrapperStyle = {
-  margin: "0 auto",
-  padding: "2rem 3rem",
-};
-
+const contentWrapperStyle = { margin: "0 auto", padding: "2rem 3rem" };
 const tabsContainerStyle = {
   backgroundColor: colors.background,
   borderRadius: "12px 12px 0 0",
@@ -2331,13 +2621,7 @@ const tabsContainerStyle = {
   overflowX: "auto",
   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
 };
-
-const tabsStyle = {
-  display: "flex",
-  padding: "0 1rem",
-  gap: "0.25rem",
-};
-
+const tabsStyle = { display: "flex", padding: "0 1rem", gap: "0.25rem" };
 const tabButtonStyle = {
   padding: "1rem 1.5rem",
   backgroundColor: "transparent",
@@ -2352,16 +2636,8 @@ const tabButtonStyle = {
   gap: "0.5rem",
   position: "relative",
   whiteSpace: "nowrap",
-  ":hover": {
-    color: colors.textPrimary,
-  },
 };
-
-const activeTabStyle = {
-  color: colors.primary,
-  fontWeight: "600",
-};
-
+const activeTabStyle = { color: colors.primary, fontWeight: "600" };
 const activeTabIndicatorStyle = {
   position: "absolute",
   bottom: 0,
@@ -2371,30 +2647,16 @@ const activeTabIndicatorStyle = {
   backgroundColor: colors.primary,
   borderRadius: "2px 2px 0 0",
 };
-
-const tabIconStyle = {
-  fontSize: "1rem",
-};
-
+const tabIconStyle = { fontSize: "1rem" };
 const formStyle = {
   backgroundColor: colors.background,
   borderRadius: "0 0 12px 12px",
   boxShadow:
     "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
 };
-
-const tabContentStyle = {
-  padding: "2.5rem",
-};
-
-const formSectionStyle = {
-  animation: "fadeIn 0.3s ease",
-};
-
-const sectionHeaderStyle = {
-  marginBottom: "2rem",
-};
-
+const tabContentStyle = { padding: "2.5rem" };
+const formSectionStyle = { animation: "fadeIn 0.3s ease" };
+const sectionHeaderStyle = { marginBottom: "2rem" };
 const sectionTitleStyle = {
   fontSize: "1.5rem",
   fontWeight: "600",
@@ -2405,38 +2667,24 @@ const sectionTitleStyle = {
   marginBottom: "0.5rem",
   letterSpacing: "-0.025em",
 };
-
-const sectionIconStyle = {
-  fontSize: "1.5rem",
-};
-
+const sectionIconStyle = { fontSize: "1.5rem" };
 const sectionDescriptionStyle = {
   fontSize: "0.875rem",
   color: colors.textSecondary,
 };
-
 const subSectionTitleStyle = {
   fontSize: "1.125rem",
   fontWeight: "600",
   color: colors.textPrimary,
   marginBottom: "1.5rem",
 };
-
 const formGridStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
   gap: "1.5rem",
 };
-
-const fullWidthStyle = {
-  gridColumn: "1 / -1",
-};
-
-const formGroupStyle = {
-  display: "flex",
-  flexDirection: "column",
-};
-
+const fullWidthStyle = { gridColumn: "1 / -1" };
+const formGroupStyle = { display: "flex", flexDirection: "column" };
 const labelStyle = {
   fontSize: "0.875rem",
   fontWeight: "500",
@@ -2446,20 +2694,17 @@ const labelStyle = {
   alignItems: "center",
   gap: "0.5rem",
 };
-
 const autoUpdateBadgeStyle = {
   fontSize: "0.75rem",
   color: colors.info,
   marginLeft: "0.25rem",
   cursor: "help",
 };
-
 const daysRemainingFieldStyle = {
   backgroundColor: colors.light,
   color: colors.textSecondary,
   cursor: "not-allowed",
 };
-
 const inputStyle = {
   padding: "0.625rem 0.875rem",
   border: `1px solid ${colors.border}`,
@@ -2467,54 +2712,31 @@ const inputStyle = {
   fontSize: "0.875rem",
   transition: "all 0.2s",
   outline: "none",
-  ":focus": {
-    borderColor: colors.primary,
-    boxShadow: `0 0 0 3px ${colors.primary}20`,
-  },
 };
-
-const textareaStyle = {
-  minHeight: "100px",
-  resize: "vertical",
-};
-
-const inputErrorStyle = {
-  borderColor: colors.error,
-  ":focus": {
-    borderColor: colors.error,
-    boxShadow: `0 0 0 3px ${colors.error}20`,
-  },
-};
-
+const textareaStyle = { minHeight: "100px", resize: "vertical" };
+const inputErrorStyle = { borderColor: colors.error };
 const inputDisabledStyle = {
   backgroundColor: colors.light,
   color: colors.textMuted,
   cursor: "not-allowed",
 };
-
 const fieldErrorStyle = {
   fontSize: "0.75rem",
   color: colors.error,
   marginTop: "0.25rem",
 };
-
 const selectStyle = {
   ...inputStyle,
   backgroundColor: colors.background,
   cursor: "pointer",
 };
-
-const checkboxWrapperStyle = {
-  marginBottom: "0.5rem",
-};
-
+const checkboxWrapperStyle = { marginBottom: "0.5rem" };
 const checkboxLabelStyle = {
   display: "flex",
   alignItems: "flex-start",
   gap: "0.75rem",
   cursor: "pointer",
 };
-
 const checkboxStyle = {
   width: "1rem",
   height: "1rem",
@@ -2522,41 +2744,30 @@ const checkboxStyle = {
   accentColor: colors.primary,
   cursor: "pointer",
 };
-
-const checkboxContentStyle = {
-  flex: 1,
-};
-
+const checkboxContentStyle = { flex: 1 };
 const checkboxTextStyle = {
   fontSize: "0.875rem",
   fontWeight: "500",
   color: colors.textPrimary,
 };
-
 const checkboxDescriptionStyle = {
   fontSize: "0.75rem",
   color: colors.textSecondary,
   marginTop: "0.125rem",
 };
-
 const checkboxGridStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
   gap: "1rem",
   padding: "0.5rem 0",
 };
-
 const checkboxGroupTitleStyle = {
   fontSize: "0.875rem",
   fontWeight: "600",
   color: colors.textPrimary,
   marginBottom: "1rem",
 };
-
-const fileInputWrapperStyle = {
-  position: "relative",
-};
-
+const fileInputWrapperStyle = { position: "relative" };
 const fileInputStyle = {
   position: "absolute",
   width: "1px",
@@ -2567,7 +2778,6 @@ const fileInputStyle = {
   clip: "rect(0, 0, 0, 0)",
   border: 0,
 };
-
 const fileInputLabelStyle = {
   display: "inline-flex",
   alignItems: "center",
@@ -2580,12 +2790,7 @@ const fileInputLabelStyle = {
   cursor: "pointer",
   transition: "all 0.2s",
   width: "100%",
-  ":hover": {
-    backgroundColor: colors.border,
-    borderColor: colors.borderDark,
-  },
 };
-
 const filePreviewStyle = {
   display: "flex",
   alignItems: "center",
@@ -2598,52 +2803,36 @@ const filePreviewStyle = {
   borderRadius: "6px",
   border: `1px solid ${colors.border}`,
 };
-
-const fileSizeStyle = {
-  marginLeft: "auto",
-  color: colors.textMuted,
-};
-
+const fileSizeStyle = { marginLeft: "auto", color: colors.textMuted };
 const dividerStyle = {
   height: "1px",
   backgroundColor: colors.border,
   margin: "2rem 0",
 };
-
 const cardsContainerStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
   gap: "1.5rem",
 };
-
 const cardStyle = {
   backgroundColor: colors.background,
   border: `1px solid ${colors.border}`,
   borderRadius: "12px",
   overflow: "hidden",
   transition: "all 0.2s",
-  ":hover": {
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-  },
 };
-
 const cardHeaderStyle = {
   padding: "1rem 1.5rem",
   backgroundColor: colors.light,
   borderBottom: `1px solid ${colors.border}`,
 };
-
 const cardTitleStyle = {
   fontSize: "1rem",
   fontWeight: "600",
   color: colors.textPrimary,
   margin: 0,
 };
-
-const cardBodyStyle = {
-  padding: "1.5rem",
-};
-
+const cardBodyStyle = { padding: "1.5rem" };
 const formActionsStyle = {
   display: "flex",
   justifyContent: "space-between",
@@ -2652,22 +2841,9 @@ const formActionsStyle = {
   borderTop: `1px solid ${colors.border}`,
   backgroundColor: colors.light,
 };
-
-const requiredHintStyle = {
-  fontSize: "0.75rem",
-  color: colors.textSecondary,
-};
-
-const actionButtonsStyle = {
-  display: "flex",
-  gap: "1rem",
-};
-
-const navigationButtonsStyle = {
-  display: "flex",
-  gap: "0.75rem",
-};
-
+const requiredHintStyle = { fontSize: "0.75rem", color: colors.textSecondary };
+const actionButtonsStyle = { display: "flex", gap: "1rem" };
+const navigationButtonsStyle = { display: "flex", gap: "0.75rem" };
 const cancelButtonStyle = {
   padding: "0.625rem 1.5rem",
   backgroundColor: "transparent",
@@ -2678,12 +2854,7 @@ const cancelButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.background,
-    borderColor: colors.borderDark,
-  },
 };
-
 const previousButtonStyle = {
   padding: "0.625rem 1.5rem",
   backgroundColor: colors.background,
@@ -2694,12 +2865,7 @@ const previousButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.light,
-    borderColor: colors.borderDark,
-  },
 };
-
 const nextButtonStyle = {
   padding: "0.625rem 1.5rem",
   backgroundColor: colors.primary,
@@ -2710,11 +2876,7 @@ const nextButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.primaryDark,
-  },
 };
-
 const submitButtonStyle = {
   padding: "0.625rem 1.5rem",
   backgroundColor: colors.success,
@@ -2725,22 +2887,16 @@ const submitButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: "#047857",
-  },
 };
-
 const submitButtonDisabledStyle = {
   backgroundColor: colors.gray,
   cursor: "not-allowed",
 };
-
 const buttonContentStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.5rem",
 };
-
 const spinnerSmallStyle = {
   width: "1rem",
   height: "1rem",
@@ -2749,14 +2905,12 @@ const spinnerSmallStyle = {
   borderRadius: "50%",
   animation: "spin 0.6s linear infinite",
 };
-
 const imageGridStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
   gap: "1rem",
   marginTop: "1rem",
 };
-
 const imagePreviewContainerStyle = {
   position: "relative",
   border: `1px solid ${colors.border}`,
@@ -2764,14 +2918,12 @@ const imagePreviewContainerStyle = {
   padding: "0.5rem",
   backgroundColor: colors.light,
 };
-
 const imagePreviewStyle = {
   width: "100%",
   height: "120px",
   objectFit: "cover",
   borderRadius: "4px",
 };
-
 const removeImageButtonStyle = {
   position: "absolute",
   top: "0.25rem",
@@ -2788,44 +2940,34 @@ const removeImageButtonStyle = {
   justifyContent: "center",
   fontSize: "1rem",
   fontWeight: "bold",
-  ":hover": {
-    backgroundColor: "#b91c1c",
-  },
 };
-
 const imageInfoStyle = {
   fontSize: "0.75rem",
   marginTop: "0.5rem",
   color: colors.textSecondary,
   wordBreak: "break-all",
 };
-
 const imageCountStyle = {
   fontSize: "0.875rem",
   color: colors.primary,
   marginTop: "0.5rem",
   fontWeight: "500",
 };
+const readOnlyFieldStyle = {
+  backgroundColor: colors.light,
+  color: colors.textPrimary,
+  cursor: "not-allowed",
+  fontWeight: "500",
+};
 
-// Add CSS animations
 const styleSheet = document.styleSheets[0];
 if (styleSheet) {
   styleSheet.insertRule(
-    `
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `,
+    `@keyframes spin { to { transform: rotate(360deg); } }`,
     styleSheet.cssRules.length,
   );
-
   styleSheet.insertRule(
-    `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `,
+    `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`,
     styleSheet.cssRules.length,
   );
 }

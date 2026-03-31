@@ -1649,22 +1649,26 @@ export const getTeamLeaves = async (
           allLeaves = [...allLeaves, ...response.data.results];
           hasMore = response.data.next ? true : false;
           currentPage++;
+        } else if (Array.isArray(response.data)) {
+          allLeaves = [...allLeaves, ...response.data];
+          hasMore = false;
         } else {
-          const data = extractDataFromResponse(response);
-          if (data.length > 0) {
-            allLeaves = [...allLeaves, ...data];
-          }
           hasMore = false;
         }
       }
 
       return { data: allLeaves };
     } else {
+      // Make sure we're using the correct endpoint
       const response = await hrmsApi.get(
         `team_leaves/?page=${page}&page_size=${pageSize}`,
       );
 
+      console.log("📡 Team leaves API response:", response.data);
+
+      // Handle different response formats
       if (response.data && response.data.results) {
+        // Paginated response
         return {
           data: response.data.results,
           pagination: {
@@ -1676,14 +1680,21 @@ export const getTeamLeaves = async (
             total_pages: Math.ceil(response.data.count / pageSize),
           },
         };
+      } else if (Array.isArray(response.data)) {
+        // Direct array response
+        return { data: response.data };
+      } else if (response.data && response.data.data) {
+        // Nested data response
+        return { data: response.data.data };
+      } else {
+        console.warn("⚠️ Unexpected response format:", response.data);
+        return { data: [] };
       }
-
-      const data = extractDataFromResponse(response);
-      return { data: data };
     }
   } catch (error) {
     console.error("❌ Error in getTeamLeaves:", error);
-    return await getEmployeeLeaves(page, pageSize, allPages);
+    // Don't fallback to getEmployeeLeaves - return empty array
+    return { data: [] };
   }
 };
 

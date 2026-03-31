@@ -60,6 +60,11 @@ const holidayOptions = [
   { value: "Sunday", label: "Sunday" },
 ];
 
+// Helper function for fallback image
+const getFallbackImageDataUrl = () => {
+  return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='12'%3ENo Image%3C/text%3E%3C/svg%3E";
+};
+
 const EditSupplierCSR = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -74,8 +79,11 @@ const EditSupplierCSR = () => {
     bank_account: "",
     bank_branch: "",
     bank_bin: "",
+    bank_branch_address: "",
+    bank_swift_code: "",
     supplier_category: "",
     year_of_establishment: "",
+    sister_concern: "",
     rented_building: false,
     share_building: false,
     own_property: false,
@@ -205,27 +213,15 @@ const EditSupplierCSR = () => {
     // RSC Audit
     rsc_id: "",
     progress_rate: "",
+    escalation_status: false,
+    no_color_certificate: false,
+    recognitoion_letter: false,
     structural_initial_audit_date: "",
-    structural_initial_findings: "",
     structural_last_follow_up_audit_date: "",
-    structural_total_findings: "",
-    structural_total_corrected: "",
-    structural_total_in_progress: "",
-    structural_total_pending_verification: "",
     fire_initial_audit_date: "",
-    fire_initial_findings: "",
     fire_last_follow_up_audit_date: "",
-    fire_total_findings: "",
-    fire_total_corrected: "",
-    fire_total_in_progress: "",
-    fire_total_pending_verification: "",
     electrical_initial_audit_date: "",
-    electrical_initial_findings: "",
     electrical_last_follow_up_audit_date: "",
-    electrical_total_findings: "",
-    electrical_total_corrected: "",
-    electrical_total_in_progress: "",
-    electrical_total_pending_verification: "",
 
     // PC & Safety Committee
     last_pc_election_date: "",
@@ -240,7 +236,7 @@ const EditSupplierCSR = () => {
     fair_shop: false,
     any_gift_provided_during_festival: false,
 
-    // NEW: Compliance & Safety
+    // Compliance & Safety
     compliance_status: "under_review",
     compliance_remarks: "",
     grievance_mechanism: false,
@@ -251,6 +247,80 @@ const EditSupplierCSR = () => {
     safety_training_frequency: "",
     last_safety_audit_date: "",
     safety_measures_remarks: "",
+
+    // Zero Tolerance & Compliance Checklist Fields
+    zero_tolerance_walkthrough_allowed: false,
+    zero_tolerance_no_underage_workers: false,
+    zero_tolerance_no_suspected_young_workers: false,
+    zero_tolerance_minimum_wage_guaranteed: false,
+    zero_tolerance_authentic_records: false,
+    zero_tolerance_no_forced_labor: false,
+
+    // Fire Fighting Equipment
+    fire_fighting_equipment_sufficient: false,
+    fire_fighting_trained_personnel: false,
+    fire_fighting_hose_system: false,
+
+    // Fire Alarm System
+    fire_alarm_system_present: false,
+    fire_alarm_audible_all_areas: false,
+    fire_alarm_visual_noisy_areas: false,
+    fire_alarm_ips_backup: false,
+    fire_alarm_smoke_detectors: false,
+    fire_alarm_switches_marked: false,
+
+    // Emergency Lights
+    emergency_lights_installed: false,
+    emergency_lights_ips_backup: false,
+
+    // Drinking Water
+    drinking_water_sufficient: false,
+    drinking_water_test_report_valid: false,
+    drinking_water_parameters_acceptable: false,
+    drinking_water_arsenic_limit: false,
+    drinking_water_fecal_coliform_limit: false,
+    drinking_water_total_coliform_limit: false,
+    drinking_water_ph_limit: false,
+    drinking_water_tds_limit: false,
+    drinking_water_iron_limit: false,
+
+    // Public Announce System
+    pa_system_present: false,
+    pa_system_audible_all_areas: false,
+
+    // Emergency Exits
+    emergency_exits_two_per_floor: false,
+    emergency_exits_trained_workers: false,
+
+    // Grievance Mechanism (Additional)
+    grievance_committee_established: false,
+    grievance_complain_box_installed: false,
+
+    // Wet Process Unit
+    wet_process_unit_exists: false,
+    wet_process_environmental_licenses: false,
+    wet_process_wastewater_treatment_plant: false,
+    wet_process_wtp_functional: false,
+    wet_process_valid_test_report: false,
+    wet_process_parameters_within_limits: false,
+    wet_process_ph_within_limits: false,
+    wet_process_tds_within_limits: false,
+    wet_process_bod_within_limits: false,
+    wet_process_cod_within_limits: false,
+    wet_process_do_within_limits: false,
+    wet_process_tss_within_limits: false,
+
+    // Harassment
+    no_physical_harassment: false,
+    no_sexual_harassment: false,
+    no_psychological_harassment: false,
+    no_verbal_harassment: false,
+
+    // First Visit Checklist
+    first_visit_date: "",
+    first_visit_status: "",
+    first_visit_findings: "",
+    first_visit_completed: false,
 
     // Contact Information
     email: "",
@@ -263,9 +333,8 @@ const EditSupplierCSR = () => {
     iso_45001_validity_days_remaining: "",
   });
 
-  // File states - WITHOUT profile_picture
+  // File states
   const [files, setFiles] = useState({
-    // Single file fields
     card_image: null,
     bsci_certificate: null,
     sedex_certificate: null,
@@ -313,6 +382,8 @@ const EditSupplierCSR = () => {
     safety_committee_formation_document: null,
     safety_committee_meeting_minutes: null,
     osh_file: null,
+    image: null,
+    fire_image: null,
   });
 
   // Multiple image states
@@ -324,7 +395,7 @@ const EditSupplierCSR = () => {
   const [fireImagePreviews, setFireImagePreviews] = useState([]);
   const [existingFireImages, setExistingFireImages] = useState([]);
 
-  // Existing file URLs for display - WITHOUT profile_picture
+  // Existing file URLs for display
   const [existingFiles, setExistingFiles] = useState({});
 
   const [isLoading, setIsLoading] = useState(false);
@@ -338,8 +409,6 @@ const EditSupplierCSR = () => {
   const handleBuildingImagesChange = (e) => {
     const files = Array.from(e.target.files);
     setBuildingImages((prev) => [...prev, ...files]);
-
-    // Create preview URLs
     const newPreviews = files.map((file) => URL.createObjectURL(file));
     setBuildingImagePreviews((prev) => [...prev, ...newPreviews]);
   };
@@ -347,8 +416,6 @@ const EditSupplierCSR = () => {
   const handleFireImagesChange = (e) => {
     const files = Array.from(e.target.files);
     setFireImages((prev) => [...prev, ...files]);
-
-    // Create preview URLs
     const newPreviews = files.map((file) => URL.createObjectURL(file));
     setFireImagePreviews((prev) => [...prev, ...newPreviews]);
   };
@@ -365,50 +432,31 @@ const EditSupplierCSR = () => {
     setFireImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const removeExistingBuildingImage = async (imageUrl) => {
+  const removeExistingBuildingImage = (imageUrl) => {
     if (window.confirm("Are you sure you want to delete this image?")) {
-      try {
-        setExistingBuildingImages((prev) =>
-          prev.filter((url) => url !== imageUrl),
-        );
-        console.log("✅ Building image deleted successfully");
-      } catch (error) {
-        console.error("❌ Error deleting building image:", error);
-        alert("Failed to delete image. Please try again.");
-      }
+      setExistingBuildingImages((prev) =>
+        prev.filter((url) => url !== imageUrl),
+      );
     }
   };
 
-  const removeExistingFireImage = async (imageUrl) => {
+  const removeExistingFireImage = (imageUrl) => {
     if (window.confirm("Are you sure you want to delete this image?")) {
-      try {
-        setExistingFireImages((prev) => prev.filter((url) => url !== imageUrl));
-        console.log("✅ Fire image deleted successfully");
-      } catch (error) {
-        console.error("❌ Error deleting fire image:", error);
-        alert("Failed to delete image. Please try again.");
-      }
+      setExistingFireImages((prev) => prev.filter((url) => url !== imageUrl));
     }
   };
 
-  // Function to calculate days remaining
   const calculateDaysRemaining = (validityDate) => {
     if (!validityDate) return "";
-
     const today = new Date();
     const validity = new Date(validityDate);
-
-    // Reset time part for accurate day calculation
     today.setHours(0, 0, 0, 0);
     validity.setHours(0, 0, 0, 0);
-
     const diffTime = validity - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
     return diffDays.toString();
   };
 
-  // Function to update all days remaining fields
   const updateAllDaysRemaining = () => {
     const dateFields = [
       { field: "bsci_validity", daysField: "bsci_validity_days_remaining" },
@@ -488,76 +536,29 @@ const EditSupplierCSR = () => {
     });
   };
 
-  // Effect for real-time updates
   useEffect(() => {
     updateAllDaysRemaining();
-
-    const calculateInterval = setInterval(
-      updateAllDaysRemaining,
-      60 * 60 * 1000,
-    );
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        updateAllDaysRemaining();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const now = new Date();
-    const timeUntilMidnight =
-      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0) -
-      now;
-
-    const midnightTimeout = setTimeout(() => {
-      updateAllDaysRemaining();
-      setInterval(updateAllDaysRemaining, 24 * 60 * 60 * 1000);
-    }, timeUntilMidnight);
-
-    return () => {
-      clearInterval(calculateInterval);
-      clearTimeout(midnightTimeout);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    const interval = setInterval(updateAllDaysRemaining, 60 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    const validityFields = [
-      "bsci_validity",
-      "sedex_validity",
-      "wrap_validity",
-      "security_audit_validity",
-      "oeko_tex_validity",
-      "gots_validity",
-      "ocs_validity",
-      "grs_validity",
-      "rcs_validity",
-      "iso_9001_validity",
-      "iso_14001_validity",
-      "iso_45001_validity",
-      "trade_license_validity",
-      "factory_license_validity",
-      "fire_license_validity",
-      "membership_validity",
-      "group_insurance_validity",
-      "boiler_license_validity",
-      "berc_license_validity",
-      "drinking_water_license_validity",
-    ];
-
-    const justUpdatedValidity = validityFields.some((field) => {
-      return touchedFields[field];
-    });
-
-    if (justUpdatedValidity) {
-      updateAllDaysRemaining();
-    }
-  }, [formData, touchedFields]);
 
   useEffect(() => {
     fetchSupplierData();
   }, [id]);
+
+  const getCorrectFileUrl = (url) => {
+    if (!url) return "#";
+    if (url.startsWith("/media/")) {
+      return `http://119.148.51.38:8000${url}`;
+    }
+    if (!url.startsWith("http")) {
+      return `http://119.148.51.38:8000${url.startsWith("/") ? url : "/" + url}`;
+    }
+    if (url.includes("119.148.51.38:3000")) {
+      return url.replace(":3000", ":8000");
+    }
+    return url;
+  };
 
   const fetchSupplierData = async () => {
     setIsLoading(true);
@@ -565,7 +566,6 @@ const EditSupplierCSR = () => {
       const response = await getSupplierById(id);
       const supplierData = response.data;
 
-      // Format date fields for input type="date"
       const formattedData = { ...supplierData };
       const dateFields = [
         "bsci_last_audit_date",
@@ -610,6 +610,7 @@ const EditSupplierCSR = () => {
         "zdhc_water_test_report",
         "last_grievance_resolution_date",
         "last_safety_audit_date",
+        "first_visit_date",
       ];
 
       dateFields.forEach((field) => {
@@ -625,7 +626,7 @@ const EditSupplierCSR = () => {
         }
       });
 
-      // Recalculate days remaining based on current date
+      // Recalculate days remaining
       const daysRemainingFields = [
         "bsci_validity_days_remaining",
         "sedex_validity_days_remaining",
@@ -662,7 +663,7 @@ const EditSupplierCSR = () => {
 
       setFormData(formattedData);
 
-      // Store existing file URLs for display - WITHOUT profile_picture
+      // Store existing file URLs
       const fileFields = {
         card_image: formattedData.card_image_url,
         bsci_certificate: formattedData.bsci_certificate_url,
@@ -717,17 +718,24 @@ const EditSupplierCSR = () => {
         safety_committee_meeting_minutes:
           formattedData.safety_committee_meeting_minutes_url,
         osh_file: formattedData.osh_file_url,
+        image: formattedData.image_url,
+        fire_image: formattedData.fire_image_url,
       };
 
       setExistingFiles(fileFields);
 
       // Load existing multiple images
-      if (formattedData.building_images) {
-        setExistingBuildingImages(formattedData.building_images);
+      if (
+        formattedData.building_images_json &&
+        Array.isArray(formattedData.building_images_json)
+      ) {
+        setExistingBuildingImages(formattedData.building_images_json);
       }
-
-      if (formattedData.fire_images) {
-        setExistingFireImages(formattedData.fire_images);
+      if (
+        formattedData.fire_images_json &&
+        Array.isArray(formattedData.fire_images_json)
+      ) {
+        setExistingFireImages(formattedData.fire_images_json);
       }
     } catch (err) {
       console.error("Error fetching supplier:", err);
@@ -740,9 +748,7 @@ const EditSupplierCSR = () => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    // Handle different input types
     let processedValue = value;
-
     if (type === "checkbox") {
       processedValue = checked;
     } else if (type === "number" && value === "") {
@@ -754,10 +760,7 @@ const EditSupplierCSR = () => {
     }
 
     setFormData((prev) => {
-      const newData = {
-        ...prev,
-        [name]: processedValue,
-      };
+      const newData = { ...prev, [name]: processedValue };
 
       // Auto-calculate days remaining when validity date changes
       if (
@@ -765,35 +768,55 @@ const EditSupplierCSR = () => {
         !name.includes("days_remaining") &&
         value
       ) {
-        if (name === "trade_license_validity") {
+        const daysRemainingField = name.replace(
+          "_validity",
+          "_validity_days_remaining",
+        );
+        newData[daysRemainingField] = calculateDaysRemaining(value);
+
+        if (name === "trade_license_validity")
           newData.trade_license_days_remaining = calculateDaysRemaining(value);
-        } else if (name === "factory_license_validity") {
+        if (name === "factory_license_validity")
           newData.factory_license_days_remaining =
             calculateDaysRemaining(value);
-        } else if (name === "fire_license_validity") {
+        if (name === "fire_license_validity")
           newData.fire_license_days_remaining = calculateDaysRemaining(value);
-        } else if (name === "membership_validity") {
+        if (name === "membership_validity")
           newData.membership_days_remaining = calculateDaysRemaining(value);
-        } else if (name === "group_insurance_validity") {
+        if (name === "group_insurance_validity")
           newData.group_insurance_days_remaining =
             calculateDaysRemaining(value);
-        } else if (name === "boiler_license_validity") {
+        if (name === "boiler_license_validity")
           newData.boiler_license_days_remaining = calculateDaysRemaining(value);
-        } else if (name === "berc_license_validity") {
+        if (name === "berc_license_validity")
           newData.berc_days_remaining = calculateDaysRemaining(value);
-        } else if (name === "drinking_water_license_validity") {
+        if (name === "drinking_water_license_validity")
           newData.drinking_water_license_days_remaining =
             calculateDaysRemaining(value);
-        } else if (name === "iso_45001_validity") {
+        if (name === "iso_45001_validity")
           newData.iso_45001_validity_days_remaining =
             calculateDaysRemaining(value);
-        } else if (name.includes("_validity") && !name.includes("license")) {
-          const daysRemainingField = name.replace(
-            "_validity",
-            "_validity_days_remaining",
-          );
-          newData[daysRemainingField] = calculateDaysRemaining(value);
-        }
+      }
+
+      // Auto-calculate total manpower
+      const manpowerFields = [
+        "manpower_workers_male",
+        "manpower_workers_female",
+        "other_gender_workers",
+        "disabled_workers",
+        "manpower_staff_male",
+        "manpower_staff_female",
+      ];
+
+      if (manpowerFields.includes(name)) {
+        const total =
+          (parseInt(newData.manpower_workers_male) || 0) +
+          (parseInt(newData.manpower_workers_female) || 0) +
+          (parseInt(newData.other_gender_workers) || 0) +
+          (parseInt(newData.disabled_workers) || 0) +
+          (parseInt(newData.manpower_staff_male) || 0) +
+          (parseInt(newData.manpower_staff_female) || 0);
+        newData.total_manpower = total;
       }
 
       return newData;
@@ -806,12 +829,8 @@ const EditSupplierCSR = () => {
   const handleFileChange = (e) => {
     const { name } = e.target;
     const file = e.target.files[0];
-
     if (file) {
-      setFiles((prev) => ({
-        ...prev,
-        [name]: file,
-      }));
+      setFiles((prev) => ({ ...prev, [name]: file }));
     }
   };
 
@@ -820,34 +839,20 @@ const EditSupplierCSR = () => {
     setTouchedFields((prev) => ({ ...prev, [name]: true }));
   };
 
-  const handleSubmit = async () => {
-    if (activeTab !== "documents") {
-      setActiveTab("documents");
-      return;
-    }
+  const handleViewFile = (e, url) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const correctUrl = getCorrectFileUrl(url);
+    window.open(correctUrl, "_blank", "noopener,noreferrer");
+  };
 
+  const handleSubmit = async () => {
     setIsUpdating(true);
     setError(null);
 
     try {
       const formDataToSend = new FormData();
 
-      // DEBUGGING: Log all formData entries before processing
-      console.log("🔍 RAW formData object:", formData);
-      console.log("🔍 Files object:", files);
-
-      // Check if profile_picture exists in formData
-      if ("profile_picture" in formData) {
-        console.warn(
-          "⚠️ profile_picture found in formData with value:",
-          formData.profile_picture,
-        );
-        // Remove it from formData
-        delete formData.profile_picture;
-        console.log("✅ profile_picture removed from formData");
-      }
-
-      // List of all date fields that need special handling
       const dateFields = [
         "bsci_last_audit_date",
         "bsci_validity",
@@ -877,6 +882,11 @@ const EditSupplierCSR = () => {
         "fscd_next_fire_training_date",
         "last_fire_drill_record_by_fscd",
         "fscd_next_drill_date",
+        "water_test_report_doe",
+        "zdhc_water_test_report",
+        "co2_report",
+        "solar_energy",
+        "green_energy",
         "structural_initial_audit_date",
         "structural_last_follow_up_audit_date",
         "fire_initial_audit_date",
@@ -887,13 +897,11 @@ const EditSupplierCSR = () => {
         "last_pc_meeting_date",
         "last_safety_committee_formation_date",
         "last_safety_committee_meeting_date",
-        "water_test_report_doe",
-        "zdhc_water_test_report",
         "last_grievance_resolution_date",
         "last_safety_audit_date",
+        "first_visit_date",
       ];
 
-      // List of single file fields - WITHOUT profile_picture
       const singleFileFields = [
         "card_image",
         "bsci_certificate",
@@ -942,21 +950,13 @@ const EditSupplierCSR = () => {
         "additional_document_3",
         "additional_document_4",
         "osh_file",
+        "image",
+        "fire_image",
       ];
 
-      // Add ALL non-file fields to FormData
+      // Add all non-file fields
       Object.entries(formData).forEach(([key, value]) => {
-        // Skip file fields
-        if (singleFileFields.includes(key)) {
-          return;
-        }
-
-        // Skip JSON fields that will be handled separately
-        if (key === "building_images_json" || key === "fire_images_json") {
-          return;
-        }
-
-        // Handle date fields - ensure they're in YYYY-MM-DD format
+        if (singleFileFields.includes(key)) return;
         if (dateFields.includes(key) && value) {
           try {
             const date = new Date(value);
@@ -967,9 +967,7 @@ const EditSupplierCSR = () => {
           } catch (e) {
             console.error(`Error formatting date for ${key}:`, e);
           }
-        }
-        // Handle other fields
-        else if (value !== null && value !== undefined && value !== "") {
+        } else if (value !== null && value !== undefined && value !== "") {
           if (typeof value === "boolean") {
             formDataToSend.append(key, value.toString());
           } else {
@@ -983,7 +981,6 @@ const EditSupplierCSR = () => {
         buildingImages.forEach((image) => {
           formDataToSend.append("building_images", image);
         });
-        console.log(`📸 Added ${buildingImages.length} new building images`);
       }
 
       // Add multiple fire images
@@ -991,18 +988,32 @@ const EditSupplierCSR = () => {
         fireImages.forEach((image) => {
           formDataToSend.append("fire_images", image);
         });
-        console.log(`📸 Added ${fireImages.length} new fire images`);
       }
 
-      // Add single files ONLY if a new file was selected
+      // Add single files
       Object.entries(files).forEach(([key, file]) => {
         if (file && file instanceof File && singleFileFields.includes(key)) {
           formDataToSend.append(key, file);
-          console.log(`📎 Adding file: ${key} - ${file.name}`);
         }
       });
 
-      // Calculate total manpower if needed
+      // Track existing building images (to keep)
+      if (existingBuildingImages.length > 0) {
+        formDataToSend.append(
+          "existing_building_images",
+          JSON.stringify(existingBuildingImages),
+        );
+      }
+
+      // Track existing fire images (to keep)
+      if (existingFireImages.length > 0) {
+        formDataToSend.append(
+          "existing_fire_images",
+          JSON.stringify(existingFireImages),
+        );
+      }
+
+      // Calculate total manpower
       const total =
         (parseInt(formData.manpower_workers_male) || 0) +
         (parseInt(formData.manpower_workers_female) || 0) +
@@ -1015,28 +1026,8 @@ const EditSupplierCSR = () => {
         formDataToSend.append("total_manpower", total.toString());
       }
 
-      // Log what we're sending (for debugging)
-      console.log("📦 Sending FormData with fields:");
-      const sentFields = [];
-      for (let pair of formDataToSend.entries()) {
-        sentFields.push(pair[0]);
-        if (pair[1] instanceof File) {
-          console.log(`  ${pair[0]}: [File] ${pair[1].name} (${pair[1].type})`);
-        } else {
-          console.log(`  ${pair[0]}: ${pair[1]}`);
-        }
-      }
-
-      // Check if profile_picture is in the sent fields
-      if (sentFields.includes("profile_picture")) {
-        console.error("❌ profile_picture is still being sent!");
-      } else {
-        console.log("✅ profile_picture is NOT being sent");
-      }
-
       const response = await updateSupplier(id, formDataToSend);
       console.log("✅ Update response:", response.data);
-
       alert("Supplier updated successfully!");
       navigate("/suppliersCSR");
     } catch (err) {
@@ -1044,7 +1035,6 @@ const EditSupplierCSR = () => {
       let errorMessage = "Error updating supplier. Please try again.";
       if (err.response?.data) {
         const errorData = err.response.data;
-
         if (typeof errorData === "object") {
           const errorMessages = [];
           Object.entries(errorData).forEach(([field, errors]) => {
@@ -1077,7 +1067,6 @@ const EditSupplierCSR = () => {
     if (currentIndex > 0) setActiveTab(tabs[currentIndex - 1].id);
   };
 
-  // Updated tabs array with OSH Committee
   const tabs = [
     { id: "basic", label: "General Info", icon: "🏢" },
     { id: "building", label: "Building & Manpower", icon: "🏭" },
@@ -1090,38 +1079,9 @@ const EditSupplierCSR = () => {
     { id: "environment", label: "Environment", icon: "🌱" },
     { id: "rsc", label: "RSC Audit", icon: "🔍" },
     { id: "csr", label: "CSR", icon: "🤝" },
+    { id: "compliance", label: "Factory Evaluation", icon: "✅" },
     { id: "documents", label: "Documents", icon: "📎" },
   ];
-
-  // Function to get correct file URL
-  const getCorrectFileUrl = (url) => {
-    if (!url) return "#";
-
-    if (url.startsWith("/media/")) {
-      return `http://119.148.51.38:8000${url}`;
-    }
-
-    if (!url.startsWith("http")) {
-      return `http://119.148.51.38:8000${url.startsWith("/") ? url : "/" + url}`;
-    }
-
-    if (url.includes("119.148.51.38:3000")) {
-      return url.replace(":3000", ":8000");
-    }
-
-    return url;
-  };
-
-  const handleViewFile = (e, url) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const correctUrl = getCorrectFileUrl(url);
-    console.log("Opening file URL:", correctUrl);
-
-    // Open in new tab
-    window.open(correctUrl, "_blank", "noopener,noreferrer");
-  };
 
   // Render functions
   const renderMultipleImageUpload = (
@@ -1133,90 +1093,86 @@ const EditSupplierCSR = () => {
     onChange,
     existingImages = [],
     onRemoveExisting,
-  ) => {
-    return (
-      <div style={formGroupStyle}>
-        <label style={labelStyle}>{label}</label>
-        <div style={fileInputWrapperStyle}>
-          <input
-            type="file"
-            name={name}
-            onChange={onChange}
-            accept="image/*"
-            multiple
-            style={fileInputStyle}
-            disabled={isUpdating || isLoading}
-            id={`file-${name}`}
-          />
-          <label htmlFor={`file-${name}`} style={fileInputLabelStyle}>
-            Choose multiple images
-          </label>
-        </div>
-
-        {/* Existing Images */}
-        {existingImages.length > 0 && (
-          <div style={imageGridStyle}>
-            {existingImages.map((imageUrl, index) => (
-              <div key={`existing-${index}`} style={imagePreviewContainerStyle}>
-                <img
-                  src={getCorrectFileUrl(imageUrl)}
-                  alt={`Existing ${index + 1}`}
-                  style={imagePreviewStyle}
-                  onError={(e) => {
-                    e.target.src =
-                      "https://via.placeholder.com/150?text=Image+Not+Found";
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => onRemoveExisting(imageUrl)}
-                  style={removeImageButtonStyle}
-                >
-                  ×
-                </button>
-                <div style={imageInfoStyle}>Existing Image</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* New Image Previews */}
-        {previews.length > 0 && (
-          <div style={imageGridStyle}>
-            {previews.map((preview, index) => (
-              <div key={index} style={imagePreviewContainerStyle}>
-                <img
-                  src={preview}
-                  alt={`Preview ${index + 1}`}
-                  style={imagePreviewStyle}
-                />
-                <button
-                  type="button"
-                  onClick={() => onRemove(index)}
-                  style={removeImageButtonStyle}
-                >
-                  ×
-                </button>
-                <div style={imageInfoStyle}>
-                  {images[index]?.name}
-                  <span style={fileSizeStyle}>
-                    ({(images[index]?.size / 1024).toFixed(2)} KB)
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {(images.length > 0 || existingImages.length > 0) && (
-          <div style={imageCountStyle}>
-            Total {images.length + existingImages.length} image(s)
-            {images.length > 0 && ` (${images.length} new)`}
-          </div>
-        )}
+  ) => (
+    <div style={formGroupStyle}>
+      <label style={labelStyle}>{label}</label>
+      <div style={fileInputWrapperStyle}>
+        <input
+          type="file"
+          name={name}
+          onChange={onChange}
+          accept="image/*"
+          multiple
+          style={fileInputStyle}
+          disabled={isUpdating || isLoading}
+          id={`file-${name}`}
+        />
+        <label htmlFor={`file-${name}`} style={fileInputLabelStyle}>
+          Choose multiple images
+        </label>
       </div>
-    );
-  };
+
+      {existingImages.length > 0 && (
+        <div style={imageGridStyle}>
+          {existingImages.map((imageUrl, index) => (
+            <div key={`existing-${index}`} style={imagePreviewContainerStyle}>
+              <img
+                src={getCorrectFileUrl(imageUrl)}
+                alt={`Existing ${index + 1}`}
+                style={imagePreviewStyle}
+                onError={(e) => {
+                  e.target.src = getFallbackImageDataUrl();
+                  e.target.style.objectFit = "contain";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => onRemoveExisting(imageUrl)}
+                style={removeImageButtonStyle}
+              >
+                ×
+              </button>
+              <div style={imageInfoStyle}>Existing Image</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {previews.length > 0 && (
+        <div style={imageGridStyle}>
+          {previews.map((preview, index) => (
+            <div key={index} style={imagePreviewContainerStyle}>
+              <img
+                src={preview}
+                alt={`Preview ${index + 1}`}
+                style={imagePreviewStyle}
+              />
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                style={removeImageButtonStyle}
+              >
+                ×
+              </button>
+              <div style={imageInfoStyle}>
+                {images[index]?.name}
+                <span style={fileSizeStyle}>
+                  ({(images[index]?.size / 1024).toFixed(2)} KB)
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(images.length > 0 || existingImages.length > 0) && (
+        <div style={imageCountStyle}>
+          Total {images.length + existingImages.length} image(s)
+          {images.length > 0 && ` (${images.length} new)`}
+        </div>
+      )}
+    </div>
+  );
 
   const renderInput = (
     label,
@@ -1224,15 +1180,14 @@ const EditSupplierCSR = () => {
     type = "text",
     isRequired = false,
     rows = null,
+    isReadOnly = false,
   ) => {
     const value = formData[name] ?? "";
     const isError = touchedFields[name] && isRequired && !formData[name];
     const Component = rows ? "textarea" : "input";
-
     const isDaysRemaining =
       name.includes("_days_remaining") ||
       name.includes("_validity_days_remaining");
-
     const showAutoUpdate =
       isDaysRemaining &&
       formData[
@@ -1263,20 +1218,16 @@ const EditSupplierCSR = () => {
             ...(isUpdating || isLoading ? inputDisabledStyle : {}),
             ...(rows ? textareaStyle : {}),
             ...(isDaysRemaining ? daysRemainingFieldStyle : {}),
+            ...(isReadOnly ? readOnlyFieldStyle : {}),
           }}
-          disabled={isUpdating || isLoading || isDaysRemaining}
+          disabled={isUpdating || isLoading || isDaysRemaining || isReadOnly}
           placeholder={
             isDaysRemaining ? "Auto-calculated" : `Enter ${label.toLowerCase()}`
           }
           rows={rows}
-          readOnly={isDaysRemaining}
+          readOnly={isDaysRemaining || isReadOnly}
         />
         {isError && <div style={fieldErrorStyle}>This field is required</div>}
-        {isDaysRemaining && value && (
-          <div style={autoUpdateHintStyle}>
-            Last updated: {lastUpdateTime.toLocaleTimeString()}
-          </div>
-        )}
       </div>
     );
   };
@@ -1447,13 +1398,11 @@ const EditSupplierCSR = () => {
     </div>
   );
 
-  const renderAuditSectionWithFiles = (prefix, label) => (
+  const renderAuditSection = (prefix, label) => (
     <div style={cardStyle}>
       <div style={cardHeaderStyle}>
         <h4 style={cardTitleStyle}>{label}</h4>
       </div>
-
-      {/* Audit Details */}
       <div style={cardBodyStyle}>
         <div style={formGridStyle}>
           {renderInput(
@@ -1462,36 +1411,11 @@ const EditSupplierCSR = () => {
             "date",
           )}
           {renderInput(
-            "Initial Findings",
-            `${prefix}_initial_findings`,
-            "number",
-          )}
-          {renderInput(
             "Last Follow-up Audit Date",
             `${prefix}_last_follow_up_audit_date`,
             "date",
           )}
-          {renderInput("Total Findings", `${prefix}_total_findings`, "number")}
-          {renderInput(
-            "Total Corrected",
-            `${prefix}_total_corrected`,
-            "number",
-          )}
-          {renderInput(
-            "Total In Progress",
-            `${prefix}_total_in_progress`,
-            "number",
-          )}
-          {renderInput(
-            "Total Pending Verification",
-            `${prefix}_total_pending_verification`,
-            "number",
-          )}
         </div>
-      </div>
-
-      {/* Documents Section */}
-      <div style={cardBodyStyle}>
         <div style={formGridStyle}>
           {prefix === "structural" &&
             renderFileInput(
@@ -1549,11 +1473,7 @@ const EditSupplierCSR = () => {
             <div
               style={{
                 ...progressFillStyle,
-                width: `${(
-                  ((tabs.findIndex((tab) => tab.id === activeTab) + 1) /
-                    tabs.length) *
-                  100
-                ).toFixed(0)}%`,
+                width: `${(((tabs.findIndex((tab) => tab.id === activeTab) + 1) / tabs.length) * 100).toFixed(0)}%`,
               }}
             />
           </div>
@@ -1596,6 +1516,7 @@ const EditSupplierCSR = () => {
 
         <div style={formStyle}>
           <div style={tabContentStyle}>
+            {/* Basic Info Tab */}
             {activeTab === "basic" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1619,7 +1540,7 @@ const EditSupplierCSR = () => {
                     "Head Office Address",
                     "location",
                     "text",
-                    false,
+                    true,
                     3,
                   )}
                   {renderInput(
@@ -1639,6 +1560,7 @@ const EditSupplierCSR = () => {
                     "year_of_establishment",
                     "number",
                   )}
+                  {renderInput("Sister Concern", "sister_concern")}
                   {renderInput(
                     "Ownership Details",
                     "ownership_details",
@@ -1667,8 +1589,8 @@ const EditSupplierCSR = () => {
                     false,
                     2,
                   )}
-                  {renderInput("Email", "email", "email")}
-                  {renderInput("Phone", "phone", "tel")}
+                  {renderInput("Email", "email", "email", true)}
+                  {renderInput("Phone", "phone", "tel", true)}
                   {renderSelect(
                     "Weekly Holiday",
                     "weekly_holiday",
@@ -1678,17 +1600,25 @@ const EditSupplierCSR = () => {
                   {renderInput("BKMEA Number", "bkmea_number")}
                   {renderInput("RSC ID", "rsc")}
                   {renderFileInput("Visiting Card", "card_image", "image/*")}
-
                   <div style={fullWidthStyle}>
                     <div style={subSectionTitleStyle}>Bank Details</div>
                   </div>
                   {renderInput("Bank Account", "bank_account")}
                   {renderInput("Bank Branch", "bank_branch")}
                   {renderInput("Bank BIN", "bank_bin")}
+                  {renderInput("Bank Swift Code", "bank_swift_code")}
+                  {renderInput(
+                    "Bank Branch Address",
+                    "bank_branch_address",
+                    "text",
+                    false,
+                    3,
+                  )}
                 </div>
               </div>
             )}
 
+            {/* Building & Manpower Tab */}
             {activeTab === "building" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1717,9 +1647,10 @@ const EditSupplierCSR = () => {
                     3,
                   )}
                   {renderInput("Total Area (sq ft)", "total_area", "number")}
+                  {renderFileInput("Main Building Image", "image", "image/*")}
                   <div style={fullWidthStyle}>
                     {renderMultipleImageUpload(
-                      "Building Images",
+                      "Additional Building Images",
                       "building_images",
                       buildingImages,
                       buildingImagePreviews,
@@ -1764,12 +1695,20 @@ const EditSupplierCSR = () => {
                       "manpower_staff_female",
                       "number",
                     )}
-                    {renderInput("Total Manpower", "total_manpower", "number")}
+                    {renderInput(
+                      "Total Manpower",
+                      "total_manpower",
+                      "number",
+                      false,
+                      null,
+                      true,
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
+            {/* Production Tab */}
             {activeTab === "production" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1828,6 +1767,7 @@ const EditSupplierCSR = () => {
               </div>
             )}
 
+            {/* Certifications Tab */}
             {activeTab === "certifications" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1850,8 +1790,6 @@ const EditSupplierCSR = () => {
                   {renderSimpleCertGroup("rcs", "RCS")}
                   {renderSimpleCertGroup("iso_9001", "ISO 9001")}
                   {renderSimpleCertGroup("iso_14001", "ISO 14001")}
-
-                  {/* Additional Certificates */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>Additional Certificates</h4>
@@ -1879,7 +1817,6 @@ const EditSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={fullWidthStyle}>
                     {renderInput(
                       "Certification Remarks",
@@ -1893,6 +1830,7 @@ const EditSupplierCSR = () => {
               </div>
             )}
 
+            {/* Licenses Tab */}
             {activeTab === "licenses" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -1909,7 +1847,6 @@ const EditSupplierCSR = () => {
                   {renderLicenseGroup("fire_license", "Fire License")}
                   {renderLicenseGroup("membership", "Membership")}
                   {renderLicenseGroup("group_insurance", "Group Insurance")}
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>Boiler License</h4>
@@ -1935,8 +1872,6 @@ const EditSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* BERC License */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>BERC License</h4>
@@ -1961,8 +1896,6 @@ const EditSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Drinking Water License */}
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>
@@ -1989,7 +1922,6 @@ const EditSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={fullWidthStyle}>
                     {renderInput(
                       "License Remarks",
@@ -2003,6 +1935,7 @@ const EditSupplierCSR = () => {
               </div>
             )}
 
+            {/* Fire Safety Tab */}
             {activeTab === "safety" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -2049,45 +1982,40 @@ const EditSupplierCSR = () => {
                     "fire_safety_protection",
                     "text",
                   )}
-                </div>
-
-                <div style={dividerStyle} />
-
-                <div>
-                  <h4 style={subSectionTitleStyle}>Fire Safety Documents</h4>
-                  <div style={formGridStyle}>
-                    {renderFileInput(
-                      "Fire Training Certificate",
-                      "fire_training_certificate",
-                      ".pdf,.jpg,.png",
+                  {renderFileInput(
+                    "Fire Training Certificate",
+                    "fire_training_certificate",
+                    ".pdf,.jpg,.png",
+                  )}
+                  {renderFileInput(
+                    "Fire Drill Record",
+                    "fire_drill_record",
+                    ".pdf,.jpg,.png",
+                  )}
+                  {renderFileInput(
+                    "Fire Safety Audit Report",
+                    "fire_safety_audit_report",
+                    ".pdf,.jpg,.png",
+                  )}
+                  {renderFileInput(
+                    "Main Fire Safety Image",
+                    "fire_image",
+                    "image/*",
+                  )}
+                  <div style={fullWidthStyle}>
+                    {renderMultipleImageUpload(
+                      "Additional Fire Safety Images",
+                      "fire_images",
+                      fireImages,
+                      fireImagePreviews,
+                      removeFireImage,
+                      handleFireImagesChange,
+                      existingFireImages,
+                      removeExistingFireImage,
                     )}
-                    {renderFileInput(
-                      "Fire Drill Record",
-                      "fire_drill_record",
-                      ".pdf,.jpg,.png",
-                    )}
-                    {renderFileInput(
-                      "Fire Safety Audit Report",
-                      "fire_safety_audit_report",
-                      ".pdf,.jpg,.png",
-                    )}
-                    <div style={fullWidthStyle}>
-                      {renderMultipleImageUpload(
-                        "Fire Safety Images",
-                        "fire_images",
-                        fireImages,
-                        fireImagePreviews,
-                        removeFireImage,
-                        handleFireImagesChange,
-                        existingFireImages,
-                        removeExistingFireImage,
-                      )}
-                    </div>
                   </div>
                 </div>
-
                 <div style={dividerStyle} />
-
                 <div style={fullWidthStyle}>
                   {renderInput(
                     "Fire Safety Remarks",
@@ -2100,6 +2028,7 @@ const EditSupplierCSR = () => {
               </div>
             )}
 
+            {/* PC & Safety Committee Tab */}
             {activeTab === "pcSafety" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -2111,7 +2040,6 @@ const EditSupplierCSR = () => {
                     Participation Committee and Safety Committee information
                   </p>
                 </div>
-
                 <div style={cardsContainerStyle}>
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
@@ -2142,7 +2070,6 @@ const EditSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>Safety Committee</h4>
@@ -2187,7 +2114,6 @@ const EditSupplierCSR = () => {
                     Occupational Safety and Health Committee information
                   </p>
                 </div>
-
                 <div style={cardsContainerStyle}>
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
@@ -2198,17 +2124,14 @@ const EditSupplierCSR = () => {
                         {renderCheckbox(
                           "OSH Committee Formed",
                           "osh_committee_safety",
-                          "Check if OSH committee has been formed",
                         )}
                         {renderCheckbox(
                           "OSH Safety Policy Available",
                           "osh_safety_policy",
-                          "Check if OSH safety policy document is available",
                         )}
                       </div>
                     </div>
                   </div>
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>ISO 45001 Certification</h4>
@@ -2237,6 +2160,7 @@ const EditSupplierCSR = () => {
               </div>
             )}
 
+            {/* Environment Tab */}
             {activeTab === "environment" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -2248,7 +2172,6 @@ const EditSupplierCSR = () => {
                     Environmental reports and assessments
                   </p>
                 </div>
-
                 <div style={formGridStyle}>
                   {renderInput(
                     "Water Test Report (DOE)",
@@ -2280,9 +2203,7 @@ const EditSupplierCSR = () => {
                     )}
                   </div>
                 </div>
-
                 <div style={dividerStyle} />
-
                 <div>
                   <h4 style={subSectionTitleStyle}>Environmental Documents</h4>
                   <div style={formGridStyle}>
@@ -2301,6 +2222,7 @@ const EditSupplierCSR = () => {
               </div>
             )}
 
+            {/* RSC Audit Tab */}
             {activeTab === "rsc" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -2312,26 +2234,37 @@ const EditSupplierCSR = () => {
                     RSC audit and safety findings
                   </p>
                 </div>
-
                 <div style={formGridStyle}>
                   {renderInput("RSC ID", "rsc_id")}
                   {renderInput("Progress Rate", "progress_rate", "number")}
+                  <div style={fullWidthStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox("Escalation Status", "escalation_status")}
+                      {renderCheckbox(
+                        "No Color Certificate",
+                        "no_color_certificate",
+                      )}
+                      {renderCheckbox(
+                        "Recognition Letter",
+                        "recognitoion_letter",
+                      )}
+                    </div>
+                  </div>
+                  {renderFileInput(
+                    "RSC Certificate",
+                    "rsc_certificate",
+                    ".pdf,.jpg,.png",
+                  )}
                 </div>
-
                 <div style={cardsContainerStyle}>
-                  {renderAuditSectionWithFiles(
-                    "structural",
-                    "Structural Safety",
-                  )}
-                  {renderAuditSectionWithFiles("fire", "Fire Safety")}
-                  {renderAuditSectionWithFiles(
-                    "electrical",
-                    "Electrical Safety",
-                  )}
+                  {renderAuditSection("structural", "Structural Safety")}
+                  {renderAuditSection("fire", "Fire Safety")}
+                  {renderAuditSection("electrical", "Electrical Safety")}
                 </div>
               </div>
             )}
 
+            {/* CSR Tab */}
             {activeTab === "csr" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -2361,93 +2294,437 @@ const EditSupplierCSR = () => {
                     "any_gift_provided_during_festival",
                   )}
                 </div>
-                <div style={sectionHeaderStyle}>
-                  <h3 style={sectionTitleStyle}>
-                    <span style={sectionIconStyle}>✅</span> Compliance &
-                    Grievance
-                  </h3>
-                  <p style={sectionDescriptionStyle}>
-                    Compliance status and grievance management
-                  </p>
-                </div>
-                <div style={cardsContainerStyle}>
-                  <div style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>Compliance Status</h4>
-                    </div>
-                    <div style={cardBodyStyle}>
-                      <div style={formGridStyle}>
-                        {renderSelect(
-                          "Compliance Status",
-                          "compliance_status",
-                          complianceStatusOptions,
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Compliance Status</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={formGridStyle}>
+                      {renderSelect(
+                        "Compliance Status",
+                        "compliance_status",
+                        complianceStatusOptions,
+                      )}
+                      {renderFileInput(
+                        "Compliance Certificate",
+                        "compliance_certificate",
+                        ".pdf,.jpg,.png",
+                      )}
+                      <div style={fullWidthStyle}>
+                        {renderInput(
+                          "Compliance Remarks",
+                          "compliance_remarks",
+                          "text",
+                          false,
+                          3,
                         )}
-                        {renderFileInput(
-                          "Compliance Certificate",
-                          "compliance_certificate",
-                          ".pdf,.jpg,.png",
-                        )}
-                        <div style={fullWidthStyle}>
-                          {renderInput(
-                            "Compliance Remarks",
-                            "compliance_remarks",
-                            "text",
-                            false,
-                            3,
-                          )}
-                        </div>
                       </div>
                     </div>
                   </div>
-
-                  <div style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>Grievance Management</h4>
-                    </div>
-                    <div style={cardBodyStyle}>
-                      <div style={checkboxGridStyle}>
-                        {renderCheckbox(
-                          "Grievance Mechanism Available",
-                          "grievance_mechanism",
-                        )}
-                      </div>
-                      <div style={formGridStyle}>
-                        {renderFileInput(
-                          "Grievance Policy Document",
-                          "grievance_policy_document",
-                          ".pdf",
-                        )}
-                        {renderInput(
-                          "Grievance Resolution Procedure",
-                          "grievance_resolution_procedure",
-                          "text",
-                          false,
-                          3,
-                        )}
-                        {renderInput(
-                          "Last Grievance Resolution Date",
-                          "last_grievance_resolution_date",
-                          "date",
-                        )}
-                        {renderInput(
-                          "Grievance Resolution Rate (%)",
-                          "grievance_resolution_rate",
-                          "number",
-                        )}
-                        {renderInput(
-                          "Grievance Remarks",
-                          "grievance_remarks",
-                          "text",
-                          false,
-                          3,
-                        )}
-                      </div>
+                </div>
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Grievance</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={formGridStyle}>
+                      {renderFileInput(
+                        "Grievance Policy Document",
+                        "grievance_policy_document",
+                        ".pdf",
+                      )}
+                      {renderInput(
+                        "Grievance Resolution Procedure",
+                        "grievance_resolution_procedure",
+                        "text",
+                        false,
+                        3,
+                      )}
+                      {renderInput(
+                        "Last Grievance Resolution Date",
+                        "last_grievance_resolution_date",
+                        "date",
+                      )}
+                      {renderInput(
+                        "Grievance Resolution Rate (%)",
+                        "grievance_resolution_rate",
+                        "number",
+                      )}
+                      {renderInput(
+                        "Grievance Remarks",
+                        "grievance_remarks",
+                        "text",
+                        false,
+                        3,
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
+            {/* Factory Evaluation Tab */}
+            {activeTab === "compliance" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>✅</span> Zero Tolerance &
+                    Compliance Checklist
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Critical compliance requirements and facility safety
+                    checklist
+                  </p>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Zero Tolerance Policy</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Factory allows a full facility walkthrough",
+                        "zero_tolerance_walkthrough_allowed",
+                      )}
+                      {renderCheckbox(
+                        "No underage person(s) are working in the facility",
+                        "zero_tolerance_no_underage_workers",
+                      )}
+                      {renderCheckbox(
+                        "No suspected young looking person(s) are working without authentic age verification",
+                        "zero_tolerance_no_suspected_young_workers",
+                      )}
+                      {renderCheckbox(
+                        "Minimum wage is guaranteed for all employees",
+                        "zero_tolerance_minimum_wage_guaranteed",
+                      )}
+                      {renderCheckbox(
+                        "Presented records are authentic and not falsified",
+                        "zero_tolerance_authentic_records",
+                      )}
+                      {renderCheckbox(
+                        "Absence of Forced Labor is confirmed",
+                        "zero_tolerance_no_forced_labor",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Fire Fighting Equipment</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Sufficient fire fighting equipment as per local law",
+                        "fire_fighting_equipment_sufficient",
+                      )}
+                      {renderCheckbox(
+                        "Sufficient trained fire fighters assigned",
+                        "fire_fighting_trained_personnel",
+                      )}
+                      {renderCheckbox(
+                        "Fire hose/stand pipe system with sufficient water pressure",
+                        "fire_fighting_hose_system",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Fire Alarm System</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Fire alarm system present",
+                        "fire_alarm_system_present",
+                      )}
+                      {renderCheckbox(
+                        "Fire alarm audible in all areas",
+                        "fire_alarm_audible_all_areas",
+                      )}
+                      {renderCheckbox(
+                        "Visual fire alarm in noisy sections",
+                        "fire_alarm_visual_noisy_areas",
+                      )}
+                      {renderCheckbox(
+                        "Fire alarm connected with instant power supply",
+                        "fire_alarm_ips_backup",
+                      )}
+                      {renderCheckbox(
+                        "Sufficient smoke detectors with power backup",
+                        "fire_alarm_smoke_detectors",
+                      )}
+                      {renderCheckbox(
+                        "Fire alarm switches installed and marked with instructions",
+                        "fire_alarm_switches_marked",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Emergency Lights</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Sufficient emergency lights in workplace and stairway",
+                        "emergency_lights_installed",
+                      )}
+                      {renderCheckbox(
+                        "Emergency lights connected with instant power supply",
+                        "emergency_lights_ips_backup",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Drinking Water</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Drinking water point sufficient and accessible",
+                        "drinking_water_sufficient",
+                      )}
+                      {renderCheckbox(
+                        "Water test report valid",
+                        "drinking_water_test_report_valid",
+                      )}
+                      {renderCheckbox(
+                        "Water parameters in acceptable limits",
+                        "drinking_water_parameters_acceptable",
+                      )}
+                      {renderCheckbox(
+                        "Arsenic within limits",
+                        "drinking_water_arsenic_limit",
+                      )}
+                      {renderCheckbox(
+                        "Fecal Coliform within limits",
+                        "drinking_water_fecal_coliform_limit",
+                      )}
+                      {renderCheckbox(
+                        "Total Coliform within limits",
+                        "drinking_water_total_coliform_limit",
+                      )}
+                      {renderCheckbox(
+                        "pH within limits",
+                        "drinking_water_ph_limit",
+                      )}
+                      {renderCheckbox(
+                        "TDS within limits",
+                        "drinking_water_tds_limit",
+                      )}
+                      {renderCheckbox(
+                        "Iron within limits",
+                        "drinking_water_iron_limit",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Public Announce System</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Public Announce system present",
+                        "pa_system_present",
+                      )}
+                      {renderCheckbox(
+                        "PA system audible covering all areas with IPS backup",
+                        "pa_system_audible_all_areas",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Emergency Exits</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Two exits in each floor, not locked or obstructed",
+                        "emergency_exits_two_per_floor",
+                      )}
+                      {renderCheckbox(
+                        "Workers trained on fire drills and emergency evacuation",
+                        "emergency_exits_trained_workers",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Grievance Mechanism</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Grievance mechanism available",
+                        "grievance_mechanism",
+                      )}
+                      {renderCheckbox(
+                        "Grievance committee established and workers aware",
+                        "grievance_committee_established",
+                      )}
+                      {renderCheckbox(
+                        "Complain box installed in toilet/hidden area with procedure posted",
+                        "grievance_complain_box_installed",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Wet Process Unit</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "Factory has a wet process unit",
+                        "wet_process_unit_exists",
+                      )}
+                      {renderCheckbox(
+                        "Legally required valid environmental licenses/permits",
+                        "wet_process_environmental_licenses",
+                      )}
+                      {renderCheckbox(
+                        "Wastewater treatment plant with inlet/outlet meter",
+                        "wet_process_wastewater_treatment_plant",
+                      )}
+                      {renderCheckbox(
+                        "Wastewater treatment plant functional",
+                        "wet_process_wtp_functional",
+                      )}
+                      {renderCheckbox(
+                        "Valid wastewater test report",
+                        "wet_process_valid_test_report",
+                      )}
+                      {renderCheckbox(
+                        "Wastewater parameters within legal limits",
+                        "wet_process_parameters_within_limits",
+                      )}
+                    </div>
+                    <div style={{ marginTop: "1rem" }}>
+                      <h5
+                        style={{
+                          fontSize: "0.875rem",
+                          fontWeight: "600",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        Wastewater Parameters
+                      </h5>
+                      <div style={checkboxGridStyle}>
+                        {renderCheckbox(
+                          "Wastewater pH within limits",
+                          "wet_process_ph_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater TDS within limits",
+                          "wet_process_tds_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater BOD within limits",
+                          "wet_process_bod_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater COD within limits",
+                          "wet_process_cod_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater DO within limits",
+                          "wet_process_do_within_limits",
+                        )}
+                        {renderCheckbox(
+                          "Wastewater TSS within limits",
+                          "wet_process_tss_within_limits",
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>Harassment Prevention</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={checkboxGridStyle}>
+                      {renderCheckbox(
+                        "No evidence of physical harassment",
+                        "no_physical_harassment",
+                      )}
+                      {renderCheckbox(
+                        "No evidence of sexual harassment",
+                        "no_sexual_harassment",
+                      )}
+                      {renderCheckbox(
+                        "No evidence of psychological harassment",
+                        "no_psychological_harassment",
+                      )}
+                      {renderCheckbox(
+                        "No evidence of verbal harassment",
+                        "no_verbal_harassment",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={cardStyle}>
+                  <div style={cardHeaderStyle}>
+                    <h4 style={cardTitleStyle}>First Visit Checklist</h4>
+                  </div>
+                  <div style={cardBodyStyle}>
+                    <div style={formGridStyle}>
+                      {renderInput(
+                        "First Visit Date",
+                        "first_visit_date",
+                        "date",
+                      )}
+                      {renderSelect(
+                        "First Visit Status",
+                        "first_visit_status",
+                        [
+                          { value: "correct", label: "Correct" },
+                          { value: "incorrect", label: "Incorrect" },
+                          { value: "pending", label: "Pending" },
+                        ],
+                      )}
+                      {renderInput(
+                        "First Visit Findings",
+                        "first_visit_findings",
+                        "text",
+                        false,
+                        3,
+                      )}
+                      {renderCheckbox(
+                        "First Visit Completed",
+                        "first_visit_completed",
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Documents Tab */}
             {activeTab === "documents" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -2459,7 +2736,6 @@ const EditSupplierCSR = () => {
                     Safety documents and general files
                   </p>
                 </div>
-
                 <div style={cardsContainerStyle}>
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
@@ -2513,7 +2789,6 @@ const EditSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
                       <h4 style={cardTitleStyle}>General Documents</h4>
@@ -2568,7 +2843,6 @@ const EditSupplierCSR = () => {
                     ← Previous
                   </button>
                 )}
-
                 {activeTab !== "documents" ? (
                   <button
                     type="button"
@@ -2607,7 +2881,7 @@ const EditSupplierCSR = () => {
   );
 };
 
-// Style constants (keep all existing style constants)
+// Style constants
 const containerStyle = {
   backgroundColor: "#f3f4f6",
   minHeight: "100vh",
@@ -2643,19 +2917,11 @@ const backButtonStyle = {
   fontWeight: "500",
   color: colors.gray,
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.light,
-    borderColor: colors.borderDark,
-  },
 };
 
-const backArrowStyle = {
-  fontSize: "1.125rem",
-};
+const backArrowStyle = { fontSize: "1.125rem" };
 
-const titleSectionStyle = {
-  flex: 1,
-};
+const titleSectionStyle = { flex: 1 };
 
 const titleStyle = {
   fontSize: "1.875rem",
@@ -2671,9 +2937,7 @@ const subtitleStyle = {
   margin: 0,
 };
 
-const progressSectionStyle = {
-  maxWidth: "400px",
-};
+const progressSectionStyle = { maxWidth: "400px" };
 
 const progressTextStyle = {
   fontSize: "0.75rem",
@@ -2735,13 +2999,9 @@ const errorAlertStyle = {
   boxShadow: "0 4px 6px -1px rgba(220, 38, 38, 0.1)",
 };
 
-const errorIconStyle = {
-  fontSize: "1.25rem",
-};
+const errorIconStyle = { fontSize: "1.25rem" };
 
-const errorContentStyle = {
-  flex: 1,
-};
+const errorContentStyle = { flex: 1 };
 
 const errorMessageStyle = {
   fontSize: "0.875rem",
@@ -2782,15 +3042,9 @@ const tabButtonStyle = {
   gap: "0.5rem",
   position: "relative",
   whiteSpace: "nowrap",
-  ":hover": {
-    color: colors.textPrimary,
-  },
 };
 
-const activeTabStyle = {
-  color: colors.primary,
-  fontWeight: "600",
-};
+const activeTabStyle = { color: colors.primary, fontWeight: "600" };
 
 const activeTabIndicatorStyle = {
   position: "absolute",
@@ -2802,9 +3056,7 @@ const activeTabIndicatorStyle = {
   borderRadius: "2px 2px 0 0",
 };
 
-const tabIconStyle = {
-  fontSize: "1rem",
-};
+const tabIconStyle = { fontSize: "1rem" };
 
 const formStyle = {
   backgroundColor: colors.background,
@@ -2813,17 +3065,11 @@ const formStyle = {
     "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
 };
 
-const tabContentStyle = {
-  padding: "2.5rem",
-};
+const tabContentStyle = { padding: "2.5rem" };
 
-const formSectionStyle = {
-  animation: "fadeIn 0.3s ease",
-};
+const formSectionStyle = { animation: "fadeIn 0.3s ease" };
 
-const sectionHeaderStyle = {
-  marginBottom: "2rem",
-};
+const sectionHeaderStyle = { marginBottom: "2rem" };
 
 const sectionTitleStyle = {
   fontSize: "1.5rem",
@@ -2836,9 +3082,7 @@ const sectionTitleStyle = {
   letterSpacing: "-0.025em",
 };
 
-const sectionIconStyle = {
-  fontSize: "1.5rem",
-};
+const sectionIconStyle = { fontSize: "1.5rem" };
 
 const sectionDescriptionStyle = {
   fontSize: "0.875rem",
@@ -2858,14 +3102,9 @@ const formGridStyle = {
   gap: "1.5rem",
 };
 
-const fullWidthStyle = {
-  gridColumn: "1 / -1",
-};
+const fullWidthStyle = { gridColumn: "1 / -1" };
 
-const formGroupStyle = {
-  display: "flex",
-  flexDirection: "column",
-};
+const formGroupStyle = { display: "flex", flexDirection: "column" };
 
 const labelStyle = {
   fontSize: "0.875rem",
@@ -2884,17 +3123,17 @@ const autoUpdateBadgeStyle = {
   cursor: "help",
 };
 
-const autoUpdateHintStyle = {
-  fontSize: "0.7rem",
-  color: colors.textMuted,
-  marginTop: "0.25rem",
-  textAlign: "right",
-};
-
 const daysRemainingFieldStyle = {
   backgroundColor: colors.light,
   color: colors.textSecondary,
   cursor: "not-allowed",
+};
+
+const readOnlyFieldStyle = {
+  backgroundColor: colors.light,
+  color: colors.textPrimary,
+  cursor: "not-allowed",
+  fontWeight: "500",
 };
 
 const inputStyle = {
@@ -2904,24 +3143,11 @@ const inputStyle = {
   fontSize: "0.875rem",
   transition: "all 0.2s",
   outline: "none",
-  ":focus": {
-    borderColor: colors.primary,
-    boxShadow: `0 0 0 3px ${colors.primary}20`,
-  },
 };
 
-const textareaStyle = {
-  minHeight: "100px",
-  resize: "vertical",
-};
+const textareaStyle = { minHeight: "100px", resize: "vertical" };
 
-const inputErrorStyle = {
-  borderColor: colors.error,
-  ":focus": {
-    borderColor: colors.error,
-    boxShadow: `0 0 0 3px ${colors.error}20`,
-  },
-};
+const inputErrorStyle = { borderColor: colors.error };
 
 const inputDisabledStyle = {
   backgroundColor: colors.light,
@@ -2941,9 +3167,7 @@ const selectStyle = {
   cursor: "pointer",
 };
 
-const checkboxWrapperStyle = {
-  marginBottom: "0.5rem",
-};
+const checkboxWrapperStyle = { marginBottom: "0.5rem" };
 
 const checkboxLabelStyle = {
   display: "flex",
@@ -2960,9 +3184,7 @@ const checkboxStyle = {
   cursor: "pointer",
 };
 
-const checkboxContentStyle = {
-  flex: 1,
-};
+const checkboxContentStyle = { flex: 1 };
 
 const checkboxTextStyle = {
   fontSize: "0.875rem",
@@ -2990,9 +3212,7 @@ const checkboxGroupTitleStyle = {
   marginBottom: "1rem",
 };
 
-const fileInputWrapperStyle = {
-  position: "relative",
-};
+const fileInputWrapperStyle = { position: "relative" };
 
 const fileInputStyle = {
   position: "absolute",
@@ -3017,10 +3237,6 @@ const fileInputLabelStyle = {
   cursor: "pointer",
   transition: "all 0.2s",
   width: "100%",
-  ":hover": {
-    backgroundColor: colors.border,
-    borderColor: colors.borderDark,
-  },
 };
 
 const filePreviewStyle = {
@@ -3036,10 +3252,7 @@ const filePreviewStyle = {
   border: `1px solid ${colors.border}`,
 };
 
-const fileSizeStyle = {
-  marginLeft: "auto",
-  color: colors.textMuted,
-};
+const fileSizeStyle = { marginLeft: "auto", color: colors.textMuted };
 
 const existingFileStyle = {
   display: "flex",
@@ -3059,9 +3272,6 @@ const existingFileLinkStyle = {
   textDecoration: "none",
   marginLeft: "0.25rem",
   fontWeight: "500",
-  ":hover": {
-    textDecoration: "underline",
-  },
 };
 
 const dividerStyle = {
@@ -3082,9 +3292,6 @@ const cardStyle = {
   borderRadius: "12px",
   overflow: "hidden",
   transition: "all 0.2s",
-  ":hover": {
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-  },
 };
 
 const cardHeaderStyle = {
@@ -3100,9 +3307,7 @@ const cardTitleStyle = {
   margin: 0,
 };
 
-const cardBodyStyle = {
-  padding: "1.5rem",
-};
+const cardBodyStyle = { padding: "1.5rem" };
 
 const formActionsStyle = {
   display: "flex",
@@ -3113,20 +3318,11 @@ const formActionsStyle = {
   backgroundColor: colors.light,
 };
 
-const requiredHintStyle = {
-  fontSize: "0.75rem",
-  color: colors.textSecondary,
-};
+const requiredHintStyle = { fontSize: "0.75rem", color: colors.textSecondary };
 
-const actionButtonsStyle = {
-  display: "flex",
-  gap: "1rem",
-};
+const actionButtonsStyle = { display: "flex", gap: "1rem" };
 
-const navigationButtonsStyle = {
-  display: "flex",
-  gap: "0.75rem",
-};
+const navigationButtonsStyle = { display: "flex", gap: "0.75rem" };
 
 const cancelButtonStyle = {
   padding: "0.625rem 1.5rem",
@@ -3138,10 +3334,6 @@ const cancelButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.background,
-    borderColor: colors.borderDark,
-  },
 };
 
 const previousButtonStyle = {
@@ -3154,10 +3346,6 @@ const previousButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.light,
-    borderColor: colors.borderDark,
-  },
 };
 
 const nextButtonStyle = {
@@ -3170,9 +3358,6 @@ const nextButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: colors.primaryDark,
-  },
 };
 
 const submitButtonStyle = {
@@ -3185,9 +3370,6 @@ const submitButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-  ":hover": {
-    backgroundColor: "#047857",
-  },
 };
 
 const submitButtonDisabledStyle = {
@@ -3248,9 +3430,6 @@ const removeImageButtonStyle = {
   justifyContent: "center",
   fontSize: "1rem",
   fontWeight: "bold",
-  ":hover": {
-    backgroundColor: "#b91c1c",
-  },
 };
 
 const imageInfoStyle = {
@@ -3271,21 +3450,11 @@ const imageCountStyle = {
 const styleSheet = document.styleSheets[0];
 if (styleSheet) {
   styleSheet.insertRule(
-    `
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `,
+    `@keyframes spin { to { transform: rotate(360deg); } }`,
     styleSheet.cssRules.length,
   );
-
   styleSheet.insertRule(
-    `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `,
+    `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`,
     styleSheet.cssRules.length,
   );
 }

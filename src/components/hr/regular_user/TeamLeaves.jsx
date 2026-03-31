@@ -1,4 +1,3 @@
-
 // src/components/hr/regular_user/TeamLeaves.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +6,8 @@ import {
   updateEmployeeLeave,
   hrmsApi, // ADD THIS IMPORT
   getTeamLeaves, // ADD THIS IMPORT
-  addTeamLeaderComment
+  addTeamLeaderComment,
+  getEmployeeDetailsByCode,
 } from "../../../api/employeeApi";
 // Remove Sidebar import since it's already in the main layout
 // import Sidebar from "../Sidebar";
@@ -36,54 +36,117 @@ const TeamLeaves = () => {
     try {
       setLoading(true);
       console.log("🔍 Fetching team leaves for:", employeeInfo.name);
+      console.log("🔍 Employee ID:", employeeInfo.employee_id);
+      console.log("🔍 Reporting leader:", employeeInfo.reporting_leader);
 
-      // Try the new endpoint first
+      // Try the dedicated team leaves endpoint first
       const response = await getTeamLeaves();
+      console.log("📋 Team leaves response:", response);
 
-      // Check the response structure
+      let teamLeavesData = [];
+
+      // Handle different response structures
       if (response.data && Array.isArray(response.data)) {
-        // If it returns a direct array (legacy format)
-        console.log("📋 All leaves response (legacy format):", response.data);
+        teamLeavesData = response.data;
+      } else if (
+        response.data &&
+        response.data.data &&
+        Array.isArray(response.data.data)
+      ) {
+        teamLeavesData = response.data.data;
+      } else if (Array.isArray(response)) {
+        teamLeavesData = response;
+      } else {
+        console.warn("⚠️ Unexpected response format:", response);
+        teamLeavesData = [];
+      }
+
+      console.log("📊 Raw team leaves count:", teamLeavesData.length);
+
+      // If no data from API, try manual filtering
+      if (teamLeavesData.length === 0) {
+        console.log("🔄 No data from API, trying manual filtering...");
+
+        // Fetch all leaves
+        const allLeavesResponse = await getEmployeeLeaves(1, 500, true);
+        let allLeaves = [];
+
+        if (allLeavesResponse.data && Array.isArray(allLeavesResponse.data)) {
+          allLeaves = allLeavesResponse.data;
+        } else if (allLeavesResponse.data && allLeavesResponse.data.results) {
+          allLeaves = allLeavesResponse.data.results;
+        }
+
+        console.log("📊 Total leaves found:", allLeaves.length);
 
         // Filter leaves where current user is the reporting leader
-        const filteredLeaves = response.data.filter((leave) =>
-          isTeamLeave(leave)
-        );
-        console.log("👥 Team leaves found (filtered):", filteredLeaves.length);
-        setTeamLeaves(filteredLeaves);
-      } else if (response.data && response.data.data) {
-        // New endpoint format with nested data
-        console.log("📋 Team leaves response (new format):", response.data);
-        const teamLeavesData = response.data.data || [];
-        console.log("👥 Team leaves found (direct):", teamLeavesData.length);
-        setTeamLeaves(teamLeavesData);
-      } else {
-        console.log("⚠️ Unexpected response format:", response.data);
-        setTeamLeaves([]);
+        const filteredLeaves = allLeaves.filter((leave) => {
+          if (!leave) return false;
+
+          // Skip own leaves
+          const isOwnLeave =
+            leave.employee_code === employeeInfo.employee_id ||
+            (leave.employee &&
+              leave.employee.employee_id === employeeInfo.employee_id) ||
+            (leave.employee && leave.employee.name === employeeInfo.name) ||
+            leave.employee_name === employeeInfo.name;
+
+          if (isOwnLeave) {
+            console.log(
+              `Skipping own leave: ${leave.employee_name || "Unknown"}`,
+            );
+            return false;
+          }
+
+          // Get reporting leader from different possible locations
+          const reportingLeader =
+            leave.reporting_leader ||
+            (leave.employee && leave.employee.reporting_leader) ||
+            "";
+
+          if (!reportingLeader) {
+            console.log(
+              `No reporting leader for: ${leave.employee_name || "Unknown"}`,
+            );
+            return false;
+          }
+
+          const leaderLower = reportingLeader.toLowerCase();
+          const userNameLower = employeeInfo.name.toLowerCase();
+          const userIdLower = employeeInfo.employee_id.toLowerCase();
+
+          // Check if current user is the reporting leader
+          const isTeamLeader =
+            leaderLower.includes(userNameLower) ||
+            leaderLower.includes(userIdLower) ||
+            userNameLower.includes(leaderLower);
+
+          if (isTeamLeader) {
+            console.log(
+              `✅ Found team leave: ${leave.employee_name} (Reports to: ${reportingLeader})`,
+            );
+          } else {
+            console.log(
+              `❌ Not team leave: ${leave.employee_name} (Reports to: ${reportingLeader}, Current user: ${employeeInfo.name})`,
+            );
+          }
+
+          return isTeamLeader;
+        });
+
+        teamLeavesData = filteredLeaves;
+        console.log("👥 Filtered team leaves count:", teamLeavesData.length);
+      }
+
+      // Set the team leaves
+      setTeamLeaves(teamLeavesData);
+
+      if (teamLeavesData.length === 0) {
+        console.log("ℹ️ No team leaves found.");
       }
     } catch (error) {
       console.error("❌ Error fetching team leaves:", error);
-      // Fallback to using getEmployeeLeaves
-      try {
-        console.log("🔄 Falling back to getEmployeeLeaves...");
-        const allLeavesResponse = await getEmployeeLeaves();
-        console.log(
-          "📋 All leaves response (fallback):",
-          allLeavesResponse.data
-        );
-
-        const filteredLeaves = allLeavesResponse.data.filter((leave) =>
-          isTeamLeave(leave)
-        );
-        console.log(
-          "👥 Team leaves found (fallback filtered):",
-          filteredLeaves.length
-        );
-        setTeamLeaves(filteredLeaves);
-      } catch (fallbackError) {
-        console.error("❌ Fallback also failed:", fallbackError);
-        setTeamLeaves([]);
-      }
+      setTeamLeaves([]);
     } finally {
       setLoading(false);
     }
@@ -208,7 +271,7 @@ const TeamLeaves = () => {
       setUpdating(true);
       console.log(
         "💬 Submitting team leader comment for leave:",
-        selectedLeave.id
+        selectedLeave.id,
       );
       console.log("📝 Selected leave:", {
         id: selectedLeave.id,
@@ -220,7 +283,7 @@ const TeamLeaves = () => {
       // Use the new team leader comment endpoint
       const response = await addTeamLeaderComment(
         selectedLeave.id,
-        comment.trim()
+        comment.trim(),
       );
       console.log("✅ Comment added successfully:", response.data);
 
@@ -229,8 +292,8 @@ const TeamLeaves = () => {
         prev.map((leave) =>
           leave.id === selectedLeave.id
             ? { ...leave, teamleader: comment.trim() }
-            : leave
-        )
+            : leave,
+        ),
       );
 
       alert("✅ Comment added successfully!");
@@ -242,7 +305,7 @@ const TeamLeaves = () => {
 
       if (error.response?.status === 403) {
         alert(
-          "❌ You are not authorized to comment on this leave. You must be the reporting leader."
+          "❌ You are not authorized to comment on this leave. You must be the reporting leader.",
         );
       } else if (error.response?.status === 404) {
         alert("❌ Leave not found. Please refresh the page and try again.");
@@ -270,8 +333,8 @@ const TeamLeaves = () => {
       // Update local state
       setTeamLeaves((prev) =>
         prev.map((leave) =>
-          leave.id === leaveId ? { ...leave, status: newStatus } : leave
-        )
+          leave.id === leaveId ? { ...leave, status: newStatus } : leave,
+        ),
       );
 
       alert(`Leave request ${newStatus} successfully!`);
@@ -288,7 +351,8 @@ const TeamLeaves = () => {
       display: "flex",
       minHeight: "100vh",
       backgroundColor: "#f8f9fa",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily:
+        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       padding: "50px",
     },
     mainContent: {

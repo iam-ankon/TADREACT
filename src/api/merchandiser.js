@@ -354,6 +354,15 @@ export const loginUser = async (payload) => {
  */
 // services/merchandiser.js - Update the getOrders function
 
+// services/merchandiser.js - Complete getOrders function
+
+/**
+ * Get orders with pagination support
+ * @param {number} page - Page number (default: 1)
+ * @param {number} pageSize - Items per page (default: 100)
+ * @param {Object|boolean} options - Either filter params or boolean for allPages
+ * @returns {Promise<Object>} - Response with data and pagination info
+ */
 export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
   try {
     // Handle different options formats
@@ -376,30 +385,109 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
       filters = options;
     }
 
+    // Handle allPages mode - fetch all pages
+    if (allPages) {
+      let allOrders = [];
+      let currentPage = 1;
+      let hasMore = true;
+      const tempPageSize = 100;
+
+      while (hasMore) {
+        const params = new URLSearchParams();
+        params.append("page", currentPage);
+        params.append("page_size", tempPageSize);
+
+        // Add all filters
+        Object.keys(filters).forEach((key) => {
+          if (
+            filters[key] !== null &&
+            filters[key] !== undefined &&
+            filters[key] !== ""
+          ) {
+            params.append(key, filters[key]);
+          }
+        });
+
+        const response = await merchandiserApi.get(
+          `orders/?${params.toString()}`,
+        );
+
+        if (
+          response.data &&
+          response.data.results &&
+          Array.isArray(response.data.results)
+        ) {
+          allOrders = [...allOrders, ...response.data.results];
+          hasMore = response.data.next ? true : false;
+          currentPage++;
+        } else if (Array.isArray(response.data)) {
+          allOrders = [...allOrders, ...response.data];
+          hasMore = false;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Fetched ${allOrders.length} orders across all pages`);
+      return {
+        data: allOrders,
+        pagination: { count: allOrders.length, total_pages: 1 },
+      };
+    }
+
+    // Regular paginated request
     // Build URL with params
     const params = new URLSearchParams();
     params.append("page", page);
     params.append("page_size", pageSize);
 
-    // Add all filters
+    // Log all filters for debugging
+    console.log("🔍 Building filter params:", filters);
+
+    // Add all filters to params
     Object.keys(filters).forEach((key) => {
       if (
         filters[key] !== null &&
         filters[key] !== undefined &&
         filters[key] !== ""
       ) {
-        params.append(key, filters[key]);
+        // Special handling for year_month - already formatted as pipe-separated values
+        if (key === "year_month") {
+          console.log(`📅 Year-month filter value: ${filters[key]}`);
+          params.append(key, filters[key]);
+        }
+        // Special handling for search with pipe separator
+        else if (key === "search" && filters[key].includes("|")) {
+          console.log(`🔍 Multi-term search: ${filters[key]}`);
+          params.append(key, filters[key]);
+        }
+        // Special handling for multi-value filters (months, years)
+        else if (key === "shipment_month" && filters[key].includes("|")) {
+          console.log(`📆 Multi-month filter: ${filters[key]}`);
+          params.append(key, filters[key]);
+        } else if (key === "shipment_year" && filters[key].includes("|")) {
+          console.log(`📅 Multi-year filter: ${filters[key]}`);
+          params.append(key, filters[key]);
+        }
+        // Regular filters
+        else {
+          params.append(key, filters[key]);
+        }
       }
     });
 
     const url = `orders/?${params.toString()}`;
     console.log("📡 Full API URL:", url);
+    console.log("📡 Request params:", params.toString());
 
     const response = await merchandiserApi.get(url);
     console.log("📡 API Response status:", response.status);
-    console.log("📡 API Response data:", response.data);
+    console.log(
+      "📡 API Response data structure:",
+      Object.keys(response.data || {}),
+    );
 
-    // Handle paginated response with results array
+    // Handle paginated response with results array (Django REST Framework format)
     if (
       response.data &&
       response.data.results &&
@@ -423,7 +511,7 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
 
     // Handle direct array response
     if (response.data && Array.isArray(response.data)) {
-      console.log(`✅ Found ${response.data.length} orders`);
+      console.log(`✅ Found ${response.data.length} orders (direct array)`);
       return {
         data: response.data,
         pagination: {
@@ -439,13 +527,31 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
     if (
       response.data &&
       typeof response.data === "object" &&
-      response.data.id
+      response.data.id !== undefined
     ) {
       console.log(`✅ Found single order`);
       return {
         data: [response.data],
         pagination: {
           count: 1,
+          current_page: page,
+          page_size: pageSize,
+          total_pages: 1,
+        },
+      };
+    }
+
+    // Handle case where response.data is empty or unexpected format
+    if (
+      !response.data ||
+      (typeof response.data === "object" &&
+        Object.keys(response.data).length === 0)
+    ) {
+      console.log(`⚠️ No orders found, empty response`);
+      return {
+        data: [],
+        pagination: {
+          count: 0,
           current_page: page,
           page_size: pageSize,
           total_pages: 1,
@@ -466,9 +572,19 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
     };
   } catch (error) {
     console.error("❌ Error fetching orders:", error);
+
+    // Enhanced error logging
     if (error.response) {
-      console.error("Error response:", error.response.data);
+      console.error("Error response status:", error.response.status);
+      console.error("Error response data:", error.response.data);
+      console.error("Error response headers:", error.response.headers);
+    } else if (error.request) {
+      console.error("Error request (no response):", error.request);
+    } else {
+      console.error("Error message:", error.message);
     }
+
+    // Return empty data structure with error info
     return {
       data: [],
       pagination: {
@@ -477,10 +593,12 @@ export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
         page_size: pageSize,
         total_pages: 1,
       },
+      error: error.response?.data || error.message,
     };
   }
 };
 
+// Also export the enhanced getOrderStatsWithFilters function
 export const getOrderStatsWithFilters = async (filters = {}) => {
   try {
     // Build query parameters from filters
@@ -493,7 +611,24 @@ export const getOrderStatsWithFilters = async (filters = {}) => {
         filters[key] !== undefined &&
         filters[key] !== ""
       ) {
-        params.append(key, filters[key]);
+        // Special handling for year_month filter
+        if (key === "year_month") {
+          console.log(`📊 Stats - Year-month filter: ${filters[key]}`);
+          params.append(key, filters[key]);
+        }
+        // Special handling for search with pipe separator
+        else if (key === "search" && filters[key].includes("|")) {
+          params.append(key, filters[key]);
+        }
+        // Special handling for multi-value filters
+        else if (
+          (key === "shipment_month" || key === "shipment_year") &&
+          filters[key].includes("|")
+        ) {
+          params.append(key, filters[key]);
+        } else {
+          params.append(key, filters[key]);
+        }
       }
     });
 
@@ -544,6 +679,12 @@ export const getOrderStatsWithFilters = async (filters = {}) => {
     };
   } catch (error) {
     console.error("❌ Error fetching order stats:", error);
+
+    // Enhanced error logging for stats
+    if (error.response) {
+      console.error("Stats error response:", error.response.data);
+    }
+
     return {
       total_orders: 0,
       total_value: 0,
@@ -584,6 +725,7 @@ export const getOrderStatsWithFilters = async (filters = {}) => {
     };
   }
 };
+
 
 export const getOrderById = (id) => merchandiserApi.get(`orders/${id}/`);
 export const createOrder = (data) => merchandiserApi.post("orders/", data);

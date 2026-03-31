@@ -1,8 +1,8 @@
 // pages/orders/AddOrder.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { createOrder } from '../../api/merchandiser';
-import Sidebar from '../merchandiser/Sidebar';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { createOrder, getCustomers, } from "../../api/merchandiser";
+import Sidebar from "../merchandiser/Sidebar";
 import {
   FaArrowLeft,
   FaSave,
@@ -26,24 +26,43 @@ import {
 } from "react-icons/fa";
 
 const statusOptions = [
-  { value: 'Running', label: 'Running', color: '#10b981', bg: '#d1fae5' },
-  { value: 'Shipped', label: 'Shipped', color: '#3b82f6', bg: '#dbeafe' },
-  { value: 'Pending', label: 'Pending', color: '#f59e0b', bg: '#fed7aa' },
-  { value: 'Cancelled', label: 'Cancelled', color: '#ef4444', bg: '#fee2e2' },
+  { value: "Running", label: "Running", color: "#10b981", bg: "#d1fae5" },
+  { value: "Shipped", label: "Shipped", color: "#3b82f6", bg: "#dbeafe" },
+  { value: "Pending", label: "Pending", color: "#f59e0b", bg: "#fed7aa" },
+  { value: "Cancelled", label: "Cancelled", color: "#ef4444", bg: "#fee2e2" },
 ];
 
 const garmentOptions = [
-  'T-Shirt', 'Polo Shirt', 'Henley', 'Tank Top', 'Shirt', 'Blouse', 'Dress',
-  'Skirt', 'Pants', 'Jeans', 'Shorts', 'Jacket', 'Hoodie', 'Sweater',
-  'Cardigan', 'Vest', 'Jumpsuit', 'Romper', 'Activewear', 'Swimwear',
-  'Underwear', 'Socks', 'Accessories',
+  "T-Shirt",
+  "Polo Shirt",
+  "Henley",
+  "Tank Top",
+  "Shirt",
+  "Blouse",
+  "Dress",
+  "Skirt",
+  "Pants",
+  "Jeans",
+  "Shorts",
+  "Jacket",
+  "Hoodie",
+  "Sweater",
+  "Cardigan",
+  "Vest",
+  "Jumpsuit",
+  "Romper",
+  "Activewear",
+  "Swimwear",
+  "Underwear",
+  "Socks",
+  "Accessories",
 ];
 
 const steps = [
-  { id: 0, label: 'Basic Information', icon: <FaInfoCircle /> },
-  { id: 1, label: 'Pricing & Quantity', icon: <FaDollarSign /> },
-  { id: 2, label: 'Dates & Shipping', icon: <FaTruck /> },
-  { id: 3, label: 'Test Results', icon: <FaFlask /> },
+  { id: 0, label: "Basic Information", icon: <FaInfoCircle /> },
+  { id: 1, label: "Pricing & Quantity", icon: <FaDollarSign /> },
+  { id: 2, label: "Dates & Shipping", icon: <FaTruck /> },
+  { id: 3, label: "Test Results", icon: <FaFlask /> },
 ];
 
 const AddOrder = () => {
@@ -54,20 +73,82 @@ const AddOrder = () => {
   });
 
   const [formData, setFormData] = useState({
-    style: '', po_no: '', department: '', customer: '', garment: '',
-    ref_no: '', supplier: '', shipment_month: '', gender: '', item: '',
-    fabrication: '', size_range: '', wgr: '', unit_price: '', total_qty: '',
-    total_value: '', factory_value: '', status: 'Running', shipped_qty: 0,
-    shipped_value: 0, final_inspection_date: null, ex_factory: null,
-    etd: null, eta: null, shipment_date: null, physical_test: '',
-    chemical_test: '', during_production_inspection: '', final_random_inspection: '',
-    group_name: '', remarks: '',
+    style: "",
+    po_no: "",
+    department: "",
+    customer: "",
+    garment: "",
+    ref_no: "",
+    supplier: "",
+    shipment_month: "",
+    gender: "",
+    item: "",
+    fabrication: "",
+    size_range: "",
+    wgr: "",
+    unit_price: "",
+    total_qty: "",
+    total_value: "",
+    factory_value: "",
+    status: "Running",
+    shipped_qty: 0,
+    shipped_value: 0,
+    final_inspection_date: null,
+    ex_factory: null,
+    etd: null,
+    eta: null,
+    shipment_date: null,
+    physical_test: "",
+    chemical_test: "",
+    during_production_inspection: "",
+    final_random_inspection: "",
+    group_name: "",
+    remarks: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    type: "success",
+  });
   const [errors, setErrors] = useState({});
+
+  // Add state for customers
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
+
+  // Fetch customers on component mount
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await getCustomers(1, 100, false);
+      if (response && response.data) {
+        console.log("🔍 Customer API Response:", response.data);
+        console.log("📊 First customer object:", response.data[0]);
+        console.log(
+          "📋 Customer object keys:",
+          response.data[0] ? Object.keys(response.data[0]) : "No customers",
+        );
+        setCustomers(response.data);
+      } else {
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching customers:", error);
+      setSnackbar({
+        open: true,
+        message: "Error loading customers",
+        type: "error",
+      });
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -80,32 +161,56 @@ const AddOrder = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    if (name === 'unit_price' || name === 'total_qty') {
-      const unitPrice = name === 'unit_price' ? parseFloat(value) : parseFloat(formData.unit_price);
-      const quantity = name === 'total_qty' ? parseInt(value) : parseInt(formData.total_qty);
-      if (!isNaN(unitPrice) && !isNaN(quantity) && unitPrice > 0 && quantity > 0) {
-        setFormData(prev => ({ ...prev, total_value: (unitPrice * quantity).toFixed(2) }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "unit_price" || name === "total_qty") {
+      const unitPrice =
+        name === "unit_price"
+          ? parseFloat(value)
+          : parseFloat(formData.unit_price);
+      const quantity =
+        name === "total_qty" ? parseInt(value) : parseInt(formData.total_qty);
+      if (
+        !isNaN(unitPrice) &&
+        !isNaN(quantity) &&
+        unitPrice > 0 &&
+        quantity > 0
+      ) {
+        setFormData((prev) => ({
+          ...prev,
+          total_value: (unitPrice * quantity).toFixed(2),
+        }));
       }
     }
   };
 
   const handleDateChange = (name, date) => {
-    setFormData(prev => ({ ...prev, [name]: date }));
+    setFormData((prev) => ({ ...prev, [name]: date }));
   };
 
   const validateStep = () => {
     if (activeStep === 0) {
-      const required = ['style', 'po_no', 'customer', 'supplier'];
-      const missing = required.filter(field => !formData[field]);
+      const required = ["style", "po_no", "customer", "supplier"];
+      const missing = required.filter((field) => !formData[field]);
       if (missing.length) {
-        setSnackbar({ open: true, message: 'Please fill in all required fields', type: 'warning' });
+        setSnackbar({
+          open: true,
+          message: "Please fill in all required fields",
+          type: "warning",
+        });
         return false;
       }
     } else if (activeStep === 1) {
-      if (!formData.unit_price || !formData.total_qty || !formData.total_value) {
-        setSnackbar({ open: true, message: 'Please enter valid pricing information', type: 'warning' });
+      if (
+        !formData.unit_price ||
+        !formData.total_qty ||
+        !formData.total_value
+      ) {
+        setSnackbar({
+          open: true,
+          message: "Please enter valid pricing information",
+          type: "warning",
+        });
         return false;
       }
     }
@@ -114,17 +219,26 @@ const AddOrder = () => {
 
   const handleNext = () => {
     if (validateStep()) {
-      setActiveStep(prev => prev + 1);
+      setActiveStep((prev) => prev + 1);
     }
   };
 
   const handleBack = () => {
-    setActiveStep(prev => prev - 1);
+    setActiveStep((prev) => prev - 1);
   };
 
   const handleSubmit = async () => {
-    if (!formData.style || !formData.po_no || !formData.customer || !formData.supplier) {
-      setSnackbar({ open: true, message: 'Please fill in all required fields', type: 'warning' });
+    if (
+      !formData.style ||
+      !formData.po_no ||
+      !formData.customer ||
+      !formData.supplier
+    ) {
+      setSnackbar({
+        open: true,
+        message: "Please fill in all required fields",
+        type: "warning",
+      });
       return;
     }
 
@@ -132,24 +246,37 @@ const AddOrder = () => {
     try {
       const formattedData = {
         ...formData,
-        final_inspection_date: formData.final_inspection_date?.toISOString().split('T')[0] || null,
-        ex_factory: formData.ex_factory?.toISOString().split('T')[0] || null,
-        etd: formData.etd?.toISOString().split('T')[0] || null,
-        eta: formData.eta?.toISOString().split('T')[0] || null,
-        shipment_date: formData.shipment_date?.toISOString().split('T')[0] || null,
+        final_inspection_date:
+          formData.final_inspection_date?.toISOString().split("T")[0] || null,
+        ex_factory: formData.ex_factory?.toISOString().split("T")[0] || null,
+        etd: formData.etd?.toISOString().split("T")[0] || null,
+        eta: formData.eta?.toISOString().split("T")[0] || null,
+        shipment_date:
+          formData.shipment_date?.toISOString().split("T")[0] || null,
         unit_price: parseFloat(formData.unit_price) || null,
         total_qty: parseInt(formData.total_qty) || null,
         total_value: parseFloat(formData.total_value) || null,
         shipped_qty: parseInt(formData.shipped_qty) || 0,
         shipped_value: parseFloat(formData.shipped_value) || 0,
         factory_value: parseFloat(formData.factory_value) || null,
+        // Ensure customer is sent as integer
+        customer: formData.customer ? parseInt(formData.customer) : null,
       };
 
       const response = await createOrder(formattedData);
-      setSnackbar({ open: true, message: 'Order created successfully!', type: 'success' });
+      setSnackbar({
+        open: true,
+        message: "Order created successfully!",
+        type: "success",
+      });
       setTimeout(() => navigate(`/orders/${response.data.id}`), 1500);
     } catch (error) {
-      setSnackbar({ open: true, message: error.response?.data?.message || 'Error creating order', type: 'error' });
+      console.error("Error creating order:", error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || "Error creating order",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -162,7 +289,9 @@ const AddOrder = () => {
           <div style={styles.stepContent}>
             <div style={styles.formGrid}>
               <div style={styles.formField}>
-                <label style={styles.formLabel}>Style <span style={styles.required}>*</span></label>
+                <label style={styles.formLabel}>
+                  Style <span style={styles.required}>*</span>
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaBoxes style={styles.inputIcon} />
                   <input
@@ -177,7 +306,9 @@ const AddOrder = () => {
               </div>
 
               <div style={styles.formField}>
-                <label style={styles.formLabel}>PO Number <span style={styles.required}>*</span></label>
+                <label style={styles.formLabel}>
+                  PO Number <span style={styles.required}>*</span>
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaClipboardList style={styles.inputIcon} />
                   <input
@@ -206,19 +337,67 @@ const AddOrder = () => {
                 </div>
               </div>
 
+              {/* Updated Customer field - Now a dropdown */}
               <div style={styles.formField}>
-                <label style={styles.formLabel}>Customer <span style={styles.required}>*</span></label>
+                <label style={styles.formLabel}>
+                  Customer <span style={styles.required}>*</span>
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaBuilding style={styles.inputIcon} />
-                  <input
-                    type="text"
+                  <select
                     name="customer"
                     value={formData.customer}
                     onChange={handleChange}
-                    placeholder="Enter customer name"
-                    style={styles.input}
-                  />
+                    style={styles.select}
+                    disabled={customersLoading}
+                  >
+                    <option value="">Select Customer</option>
+                    {customers.map((customer) => {
+                      // Try different possible fields that might contain the customer name
+                      let displayName = "";
+
+                      if (customer.customer_name) {
+                        displayName = customer.customer_name;
+                      } else if (customer.name) {
+                        // If name is an object (ForeignKey), try to get customer_name from it
+                        if (
+                          typeof customer.name === "object" &&
+                          customer.name !== null
+                        ) {
+                          displayName =
+                            customer.name.customer_name ||
+                            customer.name.name ||
+                            `Customer ${customer.id}`;
+                        } else if (typeof customer.name === "string") {
+                          displayName = customer.name;
+                        } else {
+                          displayName = `Customer ${customer.id}`;
+                        }
+                      } else if (customer.customer_display_name) {
+                        displayName = customer.customer_display_name;
+                      } else {
+                        displayName = `Customer ${customer.id}`;
+                      }
+
+                      return (
+                        <option key={customer.id} value={customer.id}>
+                          {displayName}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
+                {customersLoading && (
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#64748b",
+                      marginTop: "4px",
+                    }}
+                  >
+                    Loading customers...
+                  </div>
+                )}
               </div>
 
               <div style={styles.formField}>
@@ -232,7 +411,11 @@ const AddOrder = () => {
                     style={styles.select}
                   >
                     <option value="">Select garment type</option>
-                    {garmentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {garmentOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -253,7 +436,9 @@ const AddOrder = () => {
               </div>
 
               <div style={styles.formField}>
-                <label style={styles.formLabel}>Supplier <span style={styles.required}>*</span></label>
+                <label style={styles.formLabel}>
+                  Supplier <span style={styles.required}>*</span>
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaIndustry style={styles.inputIcon} />
                   <input
@@ -365,7 +550,9 @@ const AddOrder = () => {
           <div style={styles.stepContent}>
             <div style={styles.formGrid}>
               <div style={styles.formField}>
-                <label style={styles.formLabel}>Unit Price ($) <span style={styles.required}>*</span></label>
+                <label style={styles.formLabel}>
+                  Unit Price ($) <span style={styles.required}>*</span>
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaDollarSign style={styles.inputIcon} />
                   <input
@@ -382,7 +569,9 @@ const AddOrder = () => {
               </div>
 
               <div style={styles.formField}>
-                <label style={styles.formLabel}>Total Quantity <span style={styles.required}>*</span></label>
+                <label style={styles.formLabel}>
+                  Total Quantity <span style={styles.required}>*</span>
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaBoxes style={styles.inputIcon} />
                   <input
@@ -398,7 +587,9 @@ const AddOrder = () => {
               </div>
 
               <div style={styles.formField}>
-                <label style={styles.formLabel}>Total Value ($) <span style={styles.required}>*</span></label>
+                <label style={styles.formLabel}>
+                  Total Value ($) <span style={styles.required}>*</span>
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaDollarSign style={styles.inputIcon} />
                   <input
@@ -440,8 +631,10 @@ const AddOrder = () => {
                     onChange={handleChange}
                     style={styles.select}
                   >
-                    {statusOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    {statusOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -481,8 +674,10 @@ const AddOrder = () => {
               </div>
             </div>
             <div style={styles.infoMessage}>
-              <FaCheckCircle style={{ color: '#10b981', marginRight: '8px' }} />
-              <span>Total value auto-calculated from unit price × quantity</span>
+              <FaCheckCircle style={{ color: "#10b981", marginRight: "8px" }} />
+              <span>
+                Total value auto-calculated from unit price × quantity
+              </span>
             </div>
           </div>
         );
@@ -498,8 +693,19 @@ const AddOrder = () => {
                   <input
                     type="date"
                     name="final_inspection_date"
-                    value={formData.final_inspection_date ? formData.final_inspection_date.toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleDateChange('final_inspection_date', e.target.value ? new Date(e.target.value) : null)}
+                    value={
+                      formData.final_inspection_date
+                        ? formData.final_inspection_date
+                            .toISOString()
+                            .split("T")[0]
+                        : ""
+                    }
+                    onChange={(e) =>
+                      handleDateChange(
+                        "final_inspection_date",
+                        e.target.value ? new Date(e.target.value) : null,
+                      )
+                    }
                     style={styles.input}
                   />
                 </div>
@@ -512,8 +718,17 @@ const AddOrder = () => {
                   <input
                     type="date"
                     name="ex_factory"
-                    value={formData.ex_factory ? formData.ex_factory.toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleDateChange('ex_factory', e.target.value ? new Date(e.target.value) : null)}
+                    value={
+                      formData.ex_factory
+                        ? formData.ex_factory.toISOString().split("T")[0]
+                        : ""
+                    }
+                    onChange={(e) =>
+                      handleDateChange(
+                        "ex_factory",
+                        e.target.value ? new Date(e.target.value) : null,
+                      )
+                    }
                     style={styles.input}
                   />
                 </div>
@@ -526,8 +741,17 @@ const AddOrder = () => {
                   <input
                     type="date"
                     name="etd"
-                    value={formData.etd ? formData.etd.toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleDateChange('etd', e.target.value ? new Date(e.target.value) : null)}
+                    value={
+                      formData.etd
+                        ? formData.etd.toISOString().split("T")[0]
+                        : ""
+                    }
+                    onChange={(e) =>
+                      handleDateChange(
+                        "etd",
+                        e.target.value ? new Date(e.target.value) : null,
+                      )
+                    }
                     style={styles.input}
                   />
                 </div>
@@ -540,8 +764,17 @@ const AddOrder = () => {
                   <input
                     type="date"
                     name="eta"
-                    value={formData.eta ? formData.eta.toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleDateChange('eta', e.target.value ? new Date(e.target.value) : null)}
+                    value={
+                      formData.eta
+                        ? formData.eta.toISOString().split("T")[0]
+                        : ""
+                    }
+                    onChange={(e) =>
+                      handleDateChange(
+                        "eta",
+                        e.target.value ? new Date(e.target.value) : null,
+                      )
+                    }
                     style={styles.input}
                   />
                 </div>
@@ -554,8 +787,17 @@ const AddOrder = () => {
                   <input
                     type="date"
                     name="shipment_date"
-                    value={formData.shipment_date ? formData.shipment_date.toISOString().split('T')[0] : ''}
-                    onChange={(e) => handleDateChange('shipment_date', e.target.value ? new Date(e.target.value) : null)}
+                    value={
+                      formData.shipment_date
+                        ? formData.shipment_date.toISOString().split("T")[0]
+                        : ""
+                    }
+                    onChange={(e) =>
+                      handleDateChange(
+                        "shipment_date",
+                        e.target.value ? new Date(e.target.value) : null,
+                      )
+                    }
                     style={styles.input}
                   />
                 </div>
@@ -614,7 +856,9 @@ const AddOrder = () => {
               </div>
 
               <div style={styles.formFieldFull}>
-                <label style={styles.formLabel}>During Production Inspection</label>
+                <label style={styles.formLabel}>
+                  During Production Inspection
+                </label>
                 <div style={styles.inputWrapper}>
                   <FaClipboardList style={styles.inputIcon} />
                   <textarea
@@ -674,16 +918,24 @@ const AddOrder = () => {
           {/* Header */}
           <div style={styles.pageHeader}>
             <div style={styles.headerLeft}>
-              <button style={styles.backButton} onClick={() => navigate('/orders')}>
+              <button
+                style={styles.backButton}
+                onClick={() => navigate("/orders")}
+              >
                 <FaArrowLeft />
               </button>
               <div>
                 <h1 style={styles.pageTitle}>Create New Order</h1>
-                <p style={styles.pageSubtitle}>Fill in the details below to create a new order</p>
+                <p style={styles.pageSubtitle}>
+                  Fill in the details below to create a new order
+                </p>
               </div>
             </div>
-            <button style={styles.btnCancel} onClick={() => navigate('/orders')}>
-              <FaTimes style={{ marginRight: '8px' }} /> Cancel
+            <button
+              style={styles.btnCancel}
+              onClick={() => navigate("/orders")}
+            >
+              <FaTimes style={{ marginRight: "8px" }} /> Cancel
             </button>
           </div>
 
@@ -703,7 +955,9 @@ const AddOrder = () => {
                   {activeStep > index ? <FaCheckCircle /> : step.icon}
                 </div>
                 <div style={styles.stepLabel}>{step.label}</div>
-                {index < steps.length - 1 && <div style={styles.stepConnector} />}
+                {index < steps.length - 1 && (
+                  <div style={styles.stepConnector} />
+                )}
               </div>
             ))}
           </div>
@@ -715,11 +969,14 @@ const AddOrder = () => {
             {/* Navigation Buttons */}
             <div style={styles.navigationButtons}>
               <button
-                style={{ ...styles.btnOutline, visibility: activeStep === 0 ? 'hidden' : 'visible' }}
+                style={{
+                  ...styles.btnOutline,
+                  visibility: activeStep === 0 ? "hidden" : "visible",
+                }}
                 onClick={handleBack}
                 disabled={activeStep === 0}
               >
-                <FaChevronLeft style={{ marginRight: '8px' }} /> Back
+                <FaChevronLeft style={{ marginRight: "8px" }} /> Back
               </button>
               {activeStep === steps.length - 1 ? (
                 <button
@@ -727,15 +984,17 @@ const AddOrder = () => {
                   onClick={handleSubmit}
                   disabled={loading}
                 >
-                  {loading ? 'Creating...' : (
+                  {loading ? (
+                    "Creating..."
+                  ) : (
                     <>
-                      <FaSave style={{ marginRight: '8px' }} /> Create Order
+                      <FaSave style={{ marginRight: "8px" }} /> Create Order
                     </>
                   )}
                 </button>
               ) : (
                 <button style={styles.btnPrimary} onClick={handleNext}>
-                  Continue <FaChevronRight style={{ marginLeft: '8px' }} />
+                  Continue <FaChevronRight style={{ marginLeft: "8px" }} />
                 </button>
               )}
             </div>
@@ -743,12 +1002,24 @@ const AddOrder = () => {
 
           {/* Snackbar */}
           {snackbar.open && (
-            <div style={{
-              ...styles.snackbar,
-              backgroundColor: snackbar.type === 'success' ? '#10b981' : snackbar.type === 'error' ? '#ef4444' : '#f59e0b',
-            }}>
+            <div
+              style={{
+                ...styles.snackbar,
+                backgroundColor:
+                  snackbar.type === "success"
+                    ? "#10b981"
+                    : snackbar.type === "error"
+                      ? "#ef4444"
+                      : "#f59e0b",
+              }}
+            >
               <span>{snackbar.message}</span>
-              <button onClick={() => setSnackbar({ ...snackbar, open: false })} style={styles.snackbarClose}>×</button>
+              <button
+                onClick={() => setSnackbar({ ...snackbar, open: false })}
+                style={styles.snackbarClose}
+              >
+                ×
+              </button>
             </div>
           )}
         </div>
@@ -762,7 +1033,8 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     background: "#f1f5f9",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily:
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     color: "#0f172a",
     height: "100vh",
     overflow: "hidden",
@@ -888,20 +1160,6 @@ const styles = {
     fontSize: "18px",
     color: "#94a3b8",
     transition: "all 0.2s",
-  },
-  stepItemActive: {
-    "& .step-icon": {
-      background: "#2563eb",
-      borderColor: "#2563eb",
-      color: "white",
-    },
-  },
-  stepItemCompleted: {
-    "& .step-icon": {
-      background: "#10b981",
-      borderColor: "#10b981",
-      color: "white",
-    },
   },
   stepLabel: {
     fontSize: "13px",

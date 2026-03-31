@@ -1,7 +1,7 @@
 // pages/orders/EditOrder.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getOrderById, updateOrder } from '../../api/merchandiser';
+import { getOrderById, updateOrder, getCustomers } from '../../api/merchandiser';
 import Sidebar from '../merchandiser/Sidebar';
 import {
   FaArrowLeft,
@@ -69,6 +69,31 @@ const EditOrder = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', type: 'success' });
   const [originalData, setOriginalData] = useState(null);
+  
+  // Add state for customers
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
+
+  // Fetch customers on component mount
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await getCustomers(1, 100, false);
+      if (response && response.data) {
+        console.log('✅ Customers loaded for edit:', response.data);
+        setCustomers(response.data);
+      } else {
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching customers:', error);
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -88,7 +113,25 @@ const EditOrder = () => {
     try {
       const response = await getOrderById(id);
       const orderData = response.data;
+      console.log('📦 Order data received:', orderData);
+      console.log('👤 Customer data in order:', orderData.customer);
+      
       setOriginalData(orderData);
+      
+      // Extract customer ID - handle both object and primitive cases
+      let customerId = '';
+      if (orderData.customer) {
+        if (typeof orderData.customer === 'object') {
+          // If customer is an object, get its ID
+          customerId = orderData.customer.id || '';
+          console.log('Customer is object with ID:', customerId);
+        } else {
+          // If customer is already an ID
+          customerId = orderData.customer;
+          console.log('Customer is primitive ID:', customerId);
+        }
+      }
+      
       setFormData({
         ...orderData,
         final_inspection_date: orderData.final_inspection_date ? new Date(orderData.final_inspection_date) : null,
@@ -102,8 +145,10 @@ const EditOrder = () => {
         factory_value: orderData.factory_value?.toString() || '',
         shipped_qty: orderData.shipped_qty || 0,
         shipped_value: orderData.shipped_value || 0,
+        customer: customerId, // Set the customer ID for the dropdown
       });
     } catch (error) {
+      console.error('Error loading order details:', error);
       setSnackbar({ open: true, message: 'Error loading order details', type: 'error' });
     } finally {
       setLoading(false);
@@ -129,6 +174,13 @@ const EditOrder = () => {
 
   const hasChanges = () => {
     if (!originalData) return false;
+    
+    // Create a copy of original data without the customer object
+    const originalCopy = { ...originalData };
+    if (originalCopy.customer && typeof originalCopy.customer === 'object') {
+      originalCopy.customer = originalCopy.customer.id || '';
+    }
+    
     const currentFormatted = {
       ...formData,
       final_inspection_date: formData.final_inspection_date?.toISOString().split('T')[0],
@@ -137,7 +189,8 @@ const EditOrder = () => {
       eta: formData.eta?.toISOString().split('T')[0],
       shipment_date: formData.shipment_date?.toISOString().split('T')[0],
     };
-    return JSON.stringify(currentFormatted) !== JSON.stringify(originalData);
+    
+    return JSON.stringify(currentFormatted) !== JSON.stringify(originalCopy);
   };
 
   const handleSubmit = async () => {
@@ -156,12 +209,15 @@ const EditOrder = () => {
         shipped_qty: parseInt(formData.shipped_qty) || 0,
         shipped_value: parseFloat(formData.shipped_value) || 0,
         factory_value: parseFloat(formData.factory_value) || null,
+        customer: formData.customer ? parseInt(formData.customer) : null, // Ensure customer is sent as integer
       };
 
+      console.log('Submitting order update:', formattedData);
       await updateOrder(id, formattedData);
       setSnackbar({ open: true, message: 'Order updated successfully!', type: 'success' });
       setTimeout(() => navigate(`/orders/${id}`), 1500);
     } catch (error) {
+      console.error('Error updating order:', error);
       setSnackbar({ open: true, message: error.response?.data?.message || 'Error updating order', type: 'error' });
     } finally {
       setSaving(false);
@@ -198,12 +254,31 @@ const EditOrder = () => {
                 </div>
               </div>
 
+              {/* Updated Customer field - Now a dropdown */}
               <div style={styles.formField}>
                 <label style={styles.formLabel}>Customer <span style={styles.required}>*</span></label>
                 <div style={styles.inputWrapper}>
                   <FaBuilding style={styles.inputIcon} />
-                  <input type="text" name="customer" value={formData.customer} onChange={handleChange} style={styles.input} />
+                  <select
+                    name="customer"
+                    value={formData.customer}
+                    onChange={handleChange}
+                    style={styles.select}
+                    disabled={customersLoading}
+                  >
+                    <option value="">Select Customer</option>
+                    {customers.map(customer => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.customer_display || customer.customer_name || `Customer ${customer.id}`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {customersLoading && (
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    Loading customers...
+                  </div>
+                )}
               </div>
 
               <div style={styles.formField}>
