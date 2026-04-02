@@ -406,7 +406,7 @@ const EmployeeDetailPage = () => {
                 </div>
                 <div class="detail-row">
                   <span>Job Title:</span>
-                  <span>${employee?.job_title || employee?.designation || 'N/A'}</span>
+                  <span>${ employee?.designation || 'N/A'}</span>
                 </div>
                 <div class="detail-row">
                   <span>Salary:</span>
@@ -662,7 +662,7 @@ const EmployeeDetailPage = () => {
                     </div>
                     <div className="info-row">
                       <span className="info-label">Job Title</span>
-                      <span className="info-value">{employee.job_title}</span>
+                      <span className="info-value">{employee.designation }</span>
                     </div>
                     <div className="info-row">
                       <span className="info-label">Customers</span>

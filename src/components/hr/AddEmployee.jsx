@@ -103,8 +103,6 @@ const AddEmployee = () => {
       newErrors.designation = "Designation is required";
     if (!formData.joining_date)
       newErrors.joining_date = "Joining date is required";
-    if (!formData.date_of_birth)
-      newErrors.date_of_birth = "Date of birth is required";
     
     // Email validation - only validate if there's content
     if (formData.email?.trim()) {
@@ -429,7 +427,7 @@ const AddEmployee = () => {
           { label: "Female", value: "F" },
           { label: "Other", value: "O" }
         ]},
-        { name: "date_of_birth", label: "Date of Birth", required: true, type: "date" },
+        { name: "date_of_birth", label: "Date of Birth", type: "date" },
         { name: "nid_number", label: "NID Number" },
         { name: "blood_group", label: "Blood Group", type: "select", options: [
           { label: "Select Blood Group", value: "" },

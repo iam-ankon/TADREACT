@@ -208,7 +208,13 @@ const DetailOrder = () => {
 
   const MetricCard = ({ title, value, icon, color }) => (
     <div style={styles.metricCard}>
-      <div style={{ ...styles.metricIcon, backgroundColor: color + "15", color: color }}>
+      <div
+        style={{
+          ...styles.metricIcon,
+          backgroundColor: color + "15",
+          color: color,
+        }}
+      >
         {icon}
       </div>
       <div style={styles.metricContent}>
@@ -264,7 +270,13 @@ const DetailOrder = () => {
         <div style={styles.mainContent}>
           <div style={styles.errorState}>
             <div style={styles.errorIcon}>!</div>
-            <h3 style={{ fontSize: "18px", color: "#0f172a", marginBottom: "8px" }}>
+            <h3
+              style={{
+                fontSize: "18px",
+                color: "#0f172a",
+                marginBottom: "8px",
+              }}
+            >
               {error || "Order not found"}
             </h3>
             <p style={{ color: "#64748b", marginBottom: "20px" }}>
@@ -305,12 +317,14 @@ const DetailOrder = () => {
               </div>
             </div>
             <div style={styles.headerActions}>
-              {daysToShipment !== null && daysToShipment <= 7 && daysToShipment > 0 && (
-                <div style={styles.warningBadge}>
-                  <FaExclamationTriangle />
-                  <span>{daysToShipment} days to shipment</span>
-                </div>
-              )}
+              {daysToShipment !== null &&
+                daysToShipment <= 7 &&
+                daysToShipment > 0 && (
+                  <div style={styles.warningBadge}>
+                    <FaExclamationTriangle />
+                    <span>{daysToShipment} days to shipment</span>
+                  </div>
+                )}
               {getStatusBadge(order.status)}
               <button
                 style={styles.btnIcon}
@@ -342,10 +356,7 @@ const DetailOrder = () => {
               {deleteConfirm ? (
                 <div style={styles.deleteConfirm}>
                   <span>Confirm delete?</span>
-                  <button
-                    style={styles.btnConfirm}
-                    onClick={handleDelete}
-                  >
+                  <button style={styles.btnConfirm} onClick={handleDelete}>
                     Yes
                   </button>
                   <button
@@ -376,7 +387,8 @@ const DetailOrder = () => {
                 </span>
               </div>
               <span style={styles.progressCount}>
-                {formatNumber(order.shipped_qty)} / {formatNumber(order.total_qty)} pcs shipped
+                {formatNumber(order.shipped_qty)} /{" "}
+                {formatNumber(order.total_qty)} pcs shipped
               </span>
             </div>
             <div style={styles.progressBarContainer}>
@@ -384,7 +396,8 @@ const DetailOrder = () => {
                 style={{
                   ...styles.progressBar,
                   width: `${completionPercentage}%`,
-                  backgroundColor: completionPercentage >= 100 ? "#10b981" : "#3b82f6",
+                  backgroundColor:
+                    completionPercentage >= 100 ? "#10b981" : "#3b82f6",
                 }}
               />
             </div>
@@ -459,7 +472,11 @@ const DetailOrder = () => {
                   <SectionCard title="Order Information" icon={<FaBuilding />}>
                     <InfoRow
                       label="Customer"
-                      value={order.customer}
+                      value={
+                        order.customer?.customer_name ||
+                        order.customer?.name ||
+                        "—"
+                      }
                       icon={<FaUser />}
                     />
                     <InfoRow
@@ -595,7 +612,10 @@ const DetailOrder = () => {
                     />
                   </SectionCard>
 
-                  <SectionCard title="Additional Information" icon={<FaUsers />}>
+                  <SectionCard
+                    title="Additional Information"
+                    icon={<FaUsers />}
+                  >
                     <InfoRow
                       label="Group Name"
                       value={order.group_name}
@@ -620,7 +640,9 @@ const DetailOrder = () => {
                       <div style={styles.timelineItem}>
                         <div style={styles.timelineDot} />
                         <div style={styles.timelineContent}>
-                          <div style={styles.timelineTitle}>Final Inspection</div>
+                          <div style={styles.timelineTitle}>
+                            Final Inspection
+                          </div>
                           <div style={styles.timelineDate}>
                             {formatDate(order.final_inspection_date)}
                           </div>
@@ -677,11 +699,17 @@ const DetailOrder = () => {
                     )}
 
                     <div style={styles.timelineItem}>
-                      <div style={{ ...styles.timelineDot, backgroundColor: statusConfigData.color }} />
+                      <div
+                        style={{
+                          ...styles.timelineDot,
+                          backgroundColor: statusConfigData.color,
+                        }}
+                      />
                       <div style={styles.timelineContent}>
                         <div style={styles.timelineTitle}>Current Status</div>
                         <div style={styles.timelineDate}>
-                          {order.status} • {completionPercentage.toFixed(1)}% completed
+                          {order.status} • {completionPercentage.toFixed(1)}%
+                          completed
                         </div>
                       </div>
                     </div>
@@ -696,25 +724,35 @@ const DetailOrder = () => {
                 <div style={styles.twoColumnGrid}>
                   <SectionCard title="Physical Test" icon={<FaFlask />}>
                     <div style={styles.testResult}>
-                      {order.physical_test || "No physical test results recorded"}
+                      {order.physical_test ||
+                        "No physical test results recorded"}
                     </div>
                   </SectionCard>
 
                   <SectionCard title="Chemical Test" icon={<FaFlask />}>
                     <div style={styles.testResult}>
-                      {order.chemical_test || "No chemical test results recorded"}
+                      {order.chemical_test ||
+                        "No chemical test results recorded"}
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="During Production Inspection" icon={<FaClipboardCheck />}>
+                  <SectionCard
+                    title="During Production Inspection"
+                    icon={<FaClipboardCheck />}
+                  >
                     <div style={styles.testResult}>
-                      {order.during_production_inspection || "No production inspection records"}
+                      {order.during_production_inspection ||
+                        "No production inspection records"}
                     </div>
                   </SectionCard>
 
-                  <SectionCard title="Final Random Inspection" icon={<FaClipboardCheck />}>
+                  <SectionCard
+                    title="Final Random Inspection"
+                    icon={<FaClipboardCheck />}
+                  >
                     <div style={styles.testResult}>
-                      {order.final_random_inspection || "No final inspection records"}
+                      {order.final_random_inspection ||
+                        "No final inspection records"}
                     </div>
                   </SectionCard>
                 </div>
@@ -725,9 +763,7 @@ const DetailOrder = () => {
           {/* Remarks Section */}
           {order.remarks && (
             <SectionCard title="Remarks" icon={<FaComments />}>
-              <div style={styles.remarksContent}>
-                {order.remarks}
-              </div>
+              <div style={styles.remarksContent}>{order.remarks}</div>
             </SectionCard>
           )}
 

@@ -12,6 +12,7 @@ import {
   deleteOrder,
   getOrderStatsWithFilters,
   getCustomers,
+  updateOrder,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
 import {
@@ -43,6 +44,11 @@ import {
   FaChartLine,
   FaCalendarWeek,
   FaCheck,
+  FaEye,
+  FaEyeSlash,
+  FaColumns,
+  FaSave,
+  FaStickyNote,
 } from "react-icons/fa";
 
 // Utility functions
@@ -71,6 +77,16 @@ const formatDateForDisplay = (dateString) => {
   }
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return "—";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB");
+  } catch {
+    return "—";
+  }
+};
+
 const getRelativeTime = (date) => {
   if (!date) return "";
   try {
@@ -90,59 +106,277 @@ const getRelativeTime = (date) => {
   }
 };
 
-// Helper function to get customer display name
 const getCustomerDisplayName = (customer) => {
   if (!customer) return "—";
-  if (typeof customer === 'object' && customer !== null) {
-    return customer.customer_display || customer.customer_name || customer.name || `Customer ${customer.id || ''}`;
+  if (typeof customer === "object" && customer !== null) {
+    return (
+      customer.customer_display ||
+      customer.customer_name ||
+      customer.name ||
+      `Customer ${customer.id || ""}`
+    );
   }
   return customer;
 };
 
-// Helper function to get supplier display name
 const getSupplierDisplayName = (supplier) => {
   if (!supplier) return "—";
-  if (typeof supplier === 'object' && supplier !== null) {
-    return supplier.supplier_name || supplier.name || `Supplier ${supplier.id || ''}`;
+  if (typeof supplier === "object" && supplier !== null) {
+    return (
+      supplier.supplier_name || supplier.name || `Supplier ${supplier.id || ""}`
+    );
   }
   return supplier;
+};
+
+const truncateText = (text, maxLength) => {
+  if (!text) return "—";
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
 };
 
 const statusConfig = {
   Running: {
     color: "#10b981",
     bg: "#d1fae5",
+    rowBg: "#ecfdf5",      // Light green row background
     icon: <FaCheckCircle />,
     label: "Running",
   },
   Shipped: {
     color: "#3b82f6",
     bg: "#dbeafe",
+    rowBg: "#eff6ff",      // Light blue row background
     icon: <FaTruck />,
     label: "Shipped",
   },
   Pending: {
     color: "#f59e0b",
     bg: "#fed7aa",
+    rowBg: "#fffbeb",      // Light orange/yellow row background
     icon: <FaHourglassHalf />,
     label: "Pending",
   },
   Cancelled: {
     color: "#ef4444",
     bg: "#fee2e2",
+    rowBg: "#fef2f2",      // Light red row background
     icon: <FaBan />,
     label: "Cancelled",
   },
   Draft: {
     color: "#6b7280",
     bg: "#f3f4f6",
+    rowBg: "#f9fafb",      // Light gray row background
     icon: <FaFileAlt />,
     label: "Draft",
   },
 };
 
+// Column configuration - ALL fields from Order model
+const ALL_COLUMNS = [
+  {
+    key: "po_no_style",
+    label: "PO No / Style",
+    sortable: true,
+    sortKey: "po_no",
+    width: "180px",
+  },
+  {
+    key: "customer",
+    label: "Customer",
+    sortable: true,
+    sortKey: "customer",
+    width: "150px",
+  },
+  {
+    key: "supplier",
+    label: "Supplier",
+    sortable: true,
+    sortKey: "supplier",
+    width: "150px",
+  },
+  {
+    key: "garment",
+    label: "Garment",
+    sortable: true,
+    sortKey: "garment",
+    width: "100px",
+  },
+  {
+    key: "quantity",
+    label: "Quantity",
+    sortable: true,
+    sortKey: "total_qty",
+    align: "right",
+    width: "100px",
+  },
+  {
+    key: "unit_price",
+    label: "Unit Price",
+    sortable: true,
+    sortKey: "unit_price",
+    align: "right",
+    width: "100px",
+  },
+  {
+    key: "total_value",
+    label: "Total Value",
+    sortable: true,
+    sortKey: "total_value",
+    align: "right",
+    width: "120px",
+  },
+  {
+    key: "shipment_date",
+    label: "Shipment Date",
+    sortable: true,
+    sortKey: "shipment_date",
+    width: "120px",
+  },
+  {
+    key: "status",
+    label: "Status",
+    sortable: true,
+    sortKey: "status",
+    width: "100px",
+  },
+  {
+    key: "style",
+    label: "Style",
+    sortable: true,
+    sortKey: "style",
+    width: "120px",
+  },
+  {
+    key: "department",
+    label: "Department",
+    sortable: true,
+    sortKey: "department",
+    width: "120px",
+  },
+  {
+    key: "ref_no",
+    label: "Ref No",
+    sortable: true,
+    sortKey: "ref_no",
+    width: "120px",
+  },
+  {
+    key: "shipment_month",
+    label: "Shipment Month",
+    sortable: true,
+    sortKey: "shipment_month",
+    width: "120px",
+  },
+  {
+    key: "gender",
+    label: "Gender",
+    sortable: true,
+    sortKey: "gender",
+    width: "100px",
+  },
+  {
+    key: "item",
+    label: "Item",
+    sortable: true,
+    sortKey: "item",
+    width: "120px",
+  },
+  {
+    key: "fabrication",
+    label: "Fabrication",
+    sortable: true,
+    sortKey: "fabrication",
+    width: "120px",
+  },
+  {
+    key: "size_range",
+    label: "Size Range",
+    sortable: true,
+    sortKey: "size_range",
+    width: "100px",
+  },
+  { key: "wgr", label: "WGR", sortable: true, sortKey: "wgr", width: "80px" },
+  {
+    key: "final_inspection_date",
+    label: "Final Inspection Date",
+    sortable: true,
+    sortKey: "final_inspection_date",
+    width: "130px",
+  },
+  {
+    key: "ex_factory",
+    label: "Ex-Factory",
+    sortable: true,
+    sortKey: "ex_factory",
+    width: "100px",
+  },
+  { key: "etd", label: "ETD", sortable: true, sortKey: "etd", width: "100px" },
+  { key: "eta", label: "ETA", sortable: true, sortKey: "eta", width: "100px" },
+  {
+    key: "shipped_qty",
+    label: "Shipped Qty",
+    sortable: true,
+    sortKey: "shipped_qty",
+    align: "right",
+    width: "100px",
+  },
+  {
+    key: "shipped_value",
+    label: "Shipped Value",
+    sortable: true,
+    sortKey: "shipped_value",
+    align: "right",
+    width: "120px",
+  },
+  {
+    key: "physical_test",
+    label: "Physical Test",
+    sortable: false,
+    width: "120px",
+  },
+  {
+    key: "chemical_test",
+    label: "Chemical Test",
+    sortable: false,
+    width: "120px",
+  },
+  {
+    key: "during_production_inspection",
+    label: "During Production Inspection",
+    sortable: false,
+    width: "150px",
+  },
+  {
+    key: "final_random_inspection",
+    label: "Final Random Inspection",
+    sortable: false,
+    width: "150px",
+  },
+  {
+    key: "factory_value",
+    label: "Factory Value",
+    sortable: true,
+    sortKey: "factory_value",
+    align: "right",
+    width: "120px",
+  },
+  {
+    key: "group_name",
+    label: "Group Name",
+    sortable: true,
+    sortKey: "group_name",
+    width: "120px",
+  },
+  { key: "remarks", label: "Remarks", sortable: false, width: "250px" },
+  { key: "actions", label: "Actions", sortable: false, width: "100px" },
+];
+
 const OrderList = () => {
   const navigate = useNavigate();
+  const [editingRemarksId, setEditingRemarksId] = useState(null);
+  const [editingRemarksValue, setEditingRemarksValue] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarsOpenState");
     return stored !== null ? JSON.parse(stored) : true;
@@ -161,6 +395,51 @@ const OrderList = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // UI state for stats visibility
+  const [showStats, setShowStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem("orderShowStats");
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [showStat, setShowStat] = useState(() => {
+    try {
+      const saved = localStorage.getItem("orderShowStats");
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try {
+      const saved = localStorage.getItem("orderVisibleColumns");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    // Default: show essential columns
+    return [
+      "po_no_style",
+      "customer",
+      "supplier",
+      "garment",
+      "quantity",
+      "unit_price",
+      "total_value",
+      "shipment_date",
+      "status",
+      "remarks",
+      "actions",
+    ];
+  });
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+  const columnSelectorRef = useRef(null);
+
   // Data state
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({
@@ -169,11 +448,36 @@ const OrderList = () => {
     total_quantity: 0,
     avg_price_per_unit: 0,
     garment_stats: {
-      knit: { total_orders: 0, total_quantity: 0, total_value: 0, avg_price: 0 },
-      woven: { total_orders: 0, total_quantity: 0, total_value: 0, avg_price: 0 },
-      sweater: { total_orders: 0, total_quantity: 0, total_value: 0, avg_price: 0 },
-      underwear: { total_orders: 0, total_quantity: 0, total_value: 0, avg_price: 0 },
-      other: { total_orders: 0, total_quantity: 0, total_value: 0, avg_price: 0 },
+      knit: {
+        total_orders: 0,
+        total_quantity: 0,
+        total_value: 0,
+        avg_price: 0,
+      },
+      woven: {
+        total_orders: 0,
+        total_quantity: 0,
+        total_value: 0,
+        avg_price: 0,
+      },
+      sweater: {
+        total_orders: 0,
+        total_quantity: 0,
+        total_value: 0,
+        avg_price: 0,
+      },
+      underwear: {
+        total_orders: 0,
+        total_quantity: 0,
+        total_value: 0,
+        avg_price: 0,
+      },
+      other: {
+        total_orders: 0,
+        total_quantity: 0,
+        total_value: 0,
+        avg_price: 0,
+      },
     },
   });
 
@@ -199,11 +503,18 @@ const OrderList = () => {
       return "";
     }
   });
-  const [customerFilter, setCustomerFilter] = useState(() => {
+  const [selectedCustomers, setSelectedCustomers] = useState(() => {
     try {
-      return localStorage.getItem("orderCustomerFilter") || "";
+      const saved = localStorage.getItem("orderCustomerFilter");
+      if (saved && saved !== "") {
+        if (saved.includes(",")) {
+          return saved.split(",");
+        }
+        return saved ? [saved] : [];
+      }
+      return [];
     } catch {
-      return "";
+      return [];
     }
   });
   const [supplierFilter, setSupplierFilter] = useState(() => {
@@ -220,19 +531,11 @@ const OrderList = () => {
       return "";
     }
   });
-  
-  // Customer dropdown state
+
   const [customerOptions, setCustomerOptions] = useState([]);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
-  const [customerSearchTerm, setCustomerSearchTerm] = useState(() => {
-    try {
-      return localStorage.getItem("orderCustomerFilter") || "";
-    } catch {
-      return "";
-    }
-  });
-  
-  // Year-Month selection state
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+
   const [selectedYearsWithMonths, setSelectedYearsWithMonths] = useState(() => {
     try {
       const saved = localStorage.getItem("selectedYearsWithMonths");
@@ -241,7 +544,7 @@ const OrderList = () => {
       return [];
     }
   });
-  
+
   const [minValueFilter, setMinValueFilter] = useState(() => {
     try {
       return localStorage.getItem("orderMinValue") || "";
@@ -257,7 +560,6 @@ const OrderList = () => {
     }
   });
 
-  // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
@@ -299,8 +601,18 @@ const OrderList = () => {
   const isFirstFetchDone = useRef(false);
 
   const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
   const getAvailableYears = () => {
@@ -313,38 +625,116 @@ const OrderList = () => {
   };
 
   const availableYears = getAvailableYears();
+  const customerFilterString = useMemo(() => {
+    if (selectedCustomers.length === 0) return "";
+    return selectedCustomers.join("|");
+  }, [selectedCustomers]);
 
-  // Fetch customer options
+  // Save column visibility to localStorage
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem(
+        "orderVisibleColumns",
+        JSON.stringify(visibleColumns),
+      );
+    }
+  }, [visibleColumns]);
+
+  // Close column selector on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        columnSelectorRef.current &&
+        !columnSelectorRef.current.contains(event.target)
+      ) {
+        setShowColumnSelector(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleColumn = (columnKey) => {
+    setVisibleColumns((prev) => {
+      if (prev.includes(columnKey)) {
+        return prev.filter((key) => key !== columnKey);
+      } else {
+        return [...prev, columnKey];
+      }
+    });
+  };
+
+  const resetColumns = () => {
+    setVisibleColumns([
+      "po_no_style",
+      "customer",
+      "supplier",
+      "garment",
+      "quantity",
+      "unit_price",
+      "total_value",
+      "shipment_date",
+      "status",
+      "remarks",
+      "actions",
+    ]);
+  };
+
   const fetchCustomerOptions = useCallback(async () => {
     try {
       const response = await getCustomers(1, 500, false);
       if (response && response.data) {
         setCustomerOptions(response.data);
-        console.log("📋 Fetched customer options:", response.data.length);
       }
     } catch (error) {
       console.error("Error fetching customers:", error);
     }
   }, []);
 
-  // Fetch customers when dropdown opens
   useEffect(() => {
     if (isCustomerDropdownOpen && customerOptions.length === 0) {
       fetchCustomerOptions();
     }
   }, [isCustomerDropdownOpen, fetchCustomerOptions, customerOptions.length]);
 
-  // Filtered customer options based on search term
   const filteredCustomerOptions = useMemo(() => {
     if (!customerSearchTerm) return customerOptions;
     const searchLower = customerSearchTerm.toLowerCase();
-    return customerOptions.filter(customer => {
+    return customerOptions.filter((customer) => {
       const customerName = getCustomerDisplayName(customer);
       return customerName.toLowerCase().includes(searchLower);
     });
   }, [customerOptions, customerSearchTerm]);
 
-  // Parse search query
+  const isCustomerSelected = (customerName) => {
+    return selectedCustomers.includes(customerName);
+  };
+
+  const toggleCustomerSelection = (customerName) => {
+    setSelectedCustomers((prev) => {
+      if (prev.includes(customerName)) {
+        return prev.filter((c) => c !== customerName);
+      } else {
+        return [...prev, customerName];
+      }
+    });
+  };
+
+  const removeCustomer = (customerName) => {
+    setSelectedCustomers((prev) => prev.filter((c) => c !== customerName));
+  };
+
+  const clearAllCustomers = () => {
+    setSelectedCustomers([]);
+    setCustomerSearchTerm("");
+  };
+
+  const getCustomerDisplayText = () => {
+    if (selectedCustomers.length === 0) return "All Customers";
+    if (selectedCustomers.length === 1) return selectedCustomers[0];
+    return `${selectedCustomers.length} customers selected`;
+  };
+
   useEffect(() => {
     if (debouncedSearchQuery && debouncedSearchQuery.trim()) {
       const terms = debouncedSearchQuery.trim().split(/\s+/);
@@ -354,7 +744,6 @@ const OrderList = () => {
     }
   }, [debouncedSearchQuery]);
 
-  // Debounce search
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
@@ -365,14 +754,27 @@ const OrderList = () => {
     };
   }, [searchQuery]);
 
-  // Save advanced filters state
   useEffect(() => {
     if (!isInitialMount.current) {
-      localStorage.setItem("orderShowAdvancedFilters", JSON.stringify(showAdvancedFilters));
+      localStorage.setItem(
+        "orderShowAdvancedFilters",
+        JSON.stringify(showAdvancedFilters),
+      );
     }
   }, [showAdvancedFilters]);
 
-  // Build filter parameters
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem("orderShowStats", JSON.stringify(showStats));
+    }
+  }, [showStats]);
+
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem("orderShowStats", JSON.stringify(showStat));
+    }
+  }, [showStat]);
+
   const buildFilterParams = useCallback(() => {
     const params = {};
 
@@ -389,8 +791,8 @@ const OrderList = () => {
       params.status = statusFilter;
     }
 
-    if (customerFilter && customerFilter.trim()) {
-      params.customer = customerFilter.trim();
+    if (customerFilterString && customerFilterString !== "") {
+      params.customer = customerFilterString;
     }
 
     if (supplierFilter && supplierFilter.trim()) {
@@ -401,12 +803,11 @@ const OrderList = () => {
       params.garment = garmentFilter.trim();
     }
 
-    // Build shipment filters from selected years and months
     if (selectedYearsWithMonths && selectedYearsWithMonths.length > 0) {
       const yearMonthFilters = [];
-      selectedYearsWithMonths.forEach(item => {
+      selectedYearsWithMonths.forEach((item) => {
         if (item.months && item.months.length > 0) {
-          item.months.forEach(month => {
+          item.months.forEach((month) => {
             yearMonthFilters.push(`${item.year}-${month}`);
           });
         }
@@ -430,60 +831,74 @@ const OrderList = () => {
 
     return params;
   }, [
-    debouncedSearchQuery, statusFilter, customerFilter, supplierFilter,
-    garmentFilter, selectedYearsWithMonths, minValueFilter, maxValueFilter, sortConfig
+    debouncedSearchQuery,
+    statusFilter,
+    customerFilterString,
+    supplierFilter,
+    garmentFilter,
+    selectedYearsWithMonths,
+    minValueFilter,
+    maxValueFilter,
+    sortConfig,
   ]);
 
-  // Toggle year selection
   const toggleYear = (year) => {
     const yearStr = year.toString();
-    const existingIndex = selectedYearsWithMonths.findIndex(item => item.year === yearStr);
-    
+    const existingIndex = selectedYearsWithMonths.findIndex(
+      (item) => item.year === yearStr,
+    );
+
     if (existingIndex >= 0) {
-      setSelectedYearsWithMonths(prev => prev.filter(item => item.year !== yearStr));
-      setExpandedYears(prev => {
+      setSelectedYearsWithMonths((prev) =>
+        prev.filter((item) => item.year !== yearStr),
+      );
+      setExpandedYears((prev) => {
         const { [yearStr]: _, ...rest } = prev;
         return rest;
       });
     } else {
-      setSelectedYearsWithMonths(prev => [...prev, { year: yearStr, months: [] }]);
+      setSelectedYearsWithMonths((prev) => [
+        ...prev,
+        { year: yearStr, months: [] },
+      ]);
     }
   };
 
-  // Toggle month for a specific year
   const toggleMonthForYear = (year, month) => {
-    setSelectedYearsWithMonths(prev => {
-      const yearIndex = prev.findIndex(item => item.year === year);
+    setSelectedYearsWithMonths((prev) => {
+      const yearIndex = prev.findIndex((item) => item.year === year);
       if (yearIndex === -1) return prev;
-      
+
       const updated = [...prev];
       const currentMonths = updated[yearIndex].months || [];
-      
+
       if (currentMonths.includes(month)) {
-        const newMonths = currentMonths.filter(m => m !== month);
+        const newMonths = currentMonths.filter((m) => m !== month);
         if (newMonths.length === 0) {
-          return prev.filter(item => item.year !== year);
+          return prev.filter((item) => item.year !== year);
         }
         updated[yearIndex] = { ...updated[yearIndex], months: newMonths };
       } else {
-        updated[yearIndex] = { ...updated[yearIndex], months: [...currentMonths, month] };
+        updated[yearIndex] = {
+          ...updated[yearIndex],
+          months: [...currentMonths, month],
+        };
       }
-      
+
       return updated;
     });
   };
 
-  // Select all months for a year
   const selectAllMonthsForYear = (year) => {
-    setSelectedYearsWithMonths(prev => {
-      const yearIndex = prev.findIndex(item => item.year === year);
+    setSelectedYearsWithMonths((prev) => {
+      const yearIndex = prev.findIndex((item) => item.year === year);
       if (yearIndex === -1) return prev;
-      
+
       const updated = [...prev];
       const currentMonths = updated[yearIndex].months || [];
-      
+
       if (currentMonths.length === months.length) {
-        return prev.filter(item => item.year !== year);
+        return prev.filter((item) => item.year !== year);
       } else {
         updated[yearIndex] = { ...updated[yearIndex], months: [...months] };
         return updated;
@@ -491,50 +906,77 @@ const OrderList = () => {
     });
   };
 
-  // Clear all years and months
   const clearAllYearsAndMonths = () => {
     setSelectedYearsWithMonths([]);
     setExpandedYears({});
   };
 
-  // Toggle year expansion for month dropdown
   const toggleYearExpansion = (year, e) => {
     e.stopPropagation();
-    setExpandedYears(prev => ({
+    setExpandedYears((prev) => ({
       ...prev,
-      [year]: !prev[year]
+      [year]: !prev[year],
     }));
   };
 
-  // Get display text for selections
   const getDisplayText = () => {
     if (selectedYearsWithMonths.length === 0) return "Shipment Date";
-    
-    const parts = selectedYearsWithMonths.map(item => {
+
+    const parts = selectedYearsWithMonths.map((item) => {
       if (item.months.length === 12) return `${item.year} (All)`;
       if (item.months.length === 0) return `${item.year}`;
-      return `${item.year} (${item.months.length} month${item.months.length > 1 ? 's' : ''})`;
+      return `${item.year} (${item.months.length} month${item.months.length > 1 ? "s" : ""})`;
     });
-    
+
     if (parts.length === 1) return parts[0];
     return `${parts.length} years selected`;
   };
 
-  const activeFilterCount = [
-    statusFilter, customerFilter, supplierFilter, garmentFilter,
-    minValueFilter, maxValueFilter,
-    ...(selectedYearsWithMonths.length > 0 ? [1] : [])
-  ].filter(Boolean).length + (searchQuery ? 1 : 0);
+  const handleSaveRemarks = async (orderId, newRemarks) => {
+    try {
+      await updateOrder(orderId, { remarks: newRemarks });
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderId ? { ...order, remarks: newRemarks } : order,
+        ),
+      );
+      setEditingRemarksId(null);
+      setEditingRemarksValue("");
+    } catch (error) {
+      console.error("Error saving remarks:", error);
+      setError("Failed to save remarks. Please try again.");
+    }
+  };
 
-  // Fetch orders
+  const handleEditRemarks = (order, e) => {
+    e.stopPropagation();
+    setEditingRemarksId(order.id);
+    setEditingRemarksValue(order.remarks || "");
+  };
+
+  const handleCancelEdit = (e) => {
+    e.stopPropagation();
+    setEditingRemarksId(null);
+    setEditingRemarksValue("");
+  };
+
+  const activeFilterCount =
+    [
+      statusFilter,
+      selectedCustomers.length > 0 ? 1 : 0,
+      supplierFilter,
+      garmentFilter,
+      minValueFilter,
+      maxValueFilter,
+      ...(selectedYearsWithMonths.length > 0 ? [1] : []),
+    ].filter(Boolean).length + (searchQuery ? 1 : 0);
+
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setIsFiltering(true);
 
       const filters = buildFilterParams();
-      console.log("Fetching orders with filters:", filters);
-
       const response = await getOrders(currentPage, itemsPerPage, filters);
 
       let ordersData = [];
@@ -544,7 +986,10 @@ const OrderList = () => {
         if (Array.isArray(response.data)) {
           ordersData = response.data;
           total = response.pagination?.count || ordersData.length;
-        } else if (response.data.results && Array.isArray(response.data.results)) {
+        } else if (
+          response.data.results &&
+          Array.isArray(response.data.results)
+        ) {
           ordersData = response.data.results;
           total = response.data.count || 0;
         } else if (typeof response.data === "object") {
@@ -564,7 +1009,11 @@ const OrderList = () => {
 
       setOrders(ordersData);
       setTotalItems(total);
-      setTotalPages(response.pagination?.total_pages || Math.ceil(total / itemsPerPage) || 1);
+      setTotalPages(
+        response.pagination?.total_pages ||
+          Math.ceil(total / itemsPerPage) ||
+          1,
+      );
 
       const statsData = await getOrderStatsWithFilters(filters);
       setStats(statsData);
@@ -585,7 +1034,6 @@ const OrderList = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Save filters to localStorage
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -597,10 +1045,16 @@ const OrderList = () => {
       try {
         localStorage.setItem("orderSearchQuery", searchQuery);
         localStorage.setItem("orderStatusFilter", statusFilter);
-        localStorage.setItem("orderCustomerFilter", customerFilter);
+        localStorage.setItem(
+          "orderCustomerFilter",
+          selectedCustomers.join(","),
+        );
         localStorage.setItem("orderSupplierFilter", supplierFilter);
         localStorage.setItem("orderGarmentFilter", garmentFilter);
-        localStorage.setItem("selectedYearsWithMonths", JSON.stringify(selectedYearsWithMonths));
+        localStorage.setItem(
+          "selectedYearsWithMonths",
+          JSON.stringify(selectedYearsWithMonths),
+        );
         localStorage.setItem("orderMinValue", minValueFilter);
         localStorage.setItem("orderMaxValue", maxValueFilter);
         localStorage.setItem("orderItemsPerPage", itemsPerPage.toString());
@@ -614,21 +1068,34 @@ const OrderList = () => {
       if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current);
     };
   }, [
-    searchQuery, statusFilter, customerFilter, supplierFilter, garmentFilter,
-    selectedYearsWithMonths, minValueFilter, maxValueFilter, itemsPerPage, sortConfig
+    searchQuery,
+    statusFilter,
+    selectedCustomers,
+    supplierFilter,
+    garmentFilter,
+    selectedYearsWithMonths,
+    minValueFilter,
+    maxValueFilter,
+    itemsPerPage,
+    sortConfig,
   ]);
 
-  // Reset to first page when filters change
   useEffect(() => {
     if (isFirstFetchDone.current) {
       setCurrentPage(1);
     }
   }, [
-    debouncedSearchQuery, statusFilter, customerFilter, supplierFilter,
-    garmentFilter, selectedYearsWithMonths, minValueFilter, maxValueFilter, sortConfig
+    debouncedSearchQuery,
+    statusFilter,
+    customerFilterString,
+    supplierFilter,
+    garmentFilter,
+    selectedYearsWithMonths,
+    minValueFilter,
+    maxValueFilter,
+    sortConfig,
   ]);
 
-  // Handle select all
   useEffect(() => {
     if (selectAll) {
       setSelectedRows(orders.map((order) => order.id));
@@ -637,20 +1104,31 @@ const OrderList = () => {
     }
   }, [selectAll, orders]);
 
-  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (searchInputRef.current && searchInputRef.current.contains(event.target)) {
+      if (
+        searchInputRef.current &&
+        searchInputRef.current.contains(event.target)
+      ) {
         return;
       }
-      
-      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(event.target)
+      ) {
         setShowStatusDropdown(false);
       }
-      if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target)) {
+      if (
+        yearDropdownRef.current &&
+        !yearDropdownRef.current.contains(event.target)
+      ) {
         setShowYearDropdown(false);
       }
-      if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target)) {
+      if (
+        customerDropdownRef.current &&
+        !customerDropdownRef.current.contains(event.target)
+      ) {
         setIsCustomerDropdownOpen(false);
       }
     };
@@ -659,31 +1137,35 @@ const OrderList = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filtered statuses
   const filteredStatuses = useMemo(() => {
     return Object.keys(statusConfig).filter((status) =>
-      status.toLowerCase().includes(statusSearch.toLowerCase())
+      status.toLowerCase().includes(statusSearch.toLowerCase()),
     );
   }, [statusSearch]);
 
-  // Filtered years
   const filteredYears = useMemo(() => {
     return availableYears.filter((year) =>
-      year.toString().includes(yearSearch.toLowerCase())
+      year.toString().includes(yearSearch.toLowerCase()),
     );
   }, [yearSearch, availableYears]);
 
-  // Event handlers
   const handleSort = (key) => {
     setSortConfig((prevConfig) => ({
       key,
-      direction: prevConfig.key === key && prevConfig.direction === "asc" ? "desc" : "asc",
+      direction:
+        prevConfig.key === key && prevConfig.direction === "asc"
+          ? "desc"
+          : "asc",
     }));
   };
 
-  const handleRowClick = useCallback((id) => {
-    navigate(`/orders/${id}`);
-  }, [navigate]);
+  const handleRowClick = useCallback(
+    (id) => {
+      console.log("Clicked order ID:", id);
+      navigate(`/orders/${id}`);
+    },
+    [navigate],
+  );
 
   const handleSelectRow = (id, e) => {
     e.stopPropagation();
@@ -722,7 +1204,12 @@ const OrderList = () => {
     const escapeCSV = (value) => {
       if (value === null || value === undefined || value === "") return "";
       const stringValue = String(value);
-      if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n") || stringValue.includes("\r")) {
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes('"') ||
+        stringValue.includes("\n") ||
+        stringValue.includes("\r")
+      ) {
         return `"${stringValue.replace(/"/g, '""')}"`;
       }
       return stringValue;
@@ -730,18 +1217,24 @@ const OrderList = () => {
 
     const getCustomerDisplay = (customer) => {
       if (!customer) return "—";
-      if (typeof customer === 'object' && customer !== null) {
-        return customer.customer_display || customer.customer_name || customer.name || `Customer ${customer.id || ''}`;
+      if (typeof customer === "object" && customer !== null) {
+        return (
+          customer.customer_display ||
+          customer.customer_name ||
+          customer.name ||
+          `Customer ${customer.id || ""}`
+        );
       }
       return customer;
     };
 
-    const dataToExport = selectedRows.length > 0
-      ? orders.filter((order) => selectedRows.includes(order.id))
-      : orders;
+    const dataToExport =
+      selectedRows.length > 0
+        ? orders.filter((order) => selectedRows.includes(order.id))
+        : orders;
 
     const csvContent = [
-      "PO Number,Style,Customer,Supplier,Garment,Quantity,Unit Price,Total Value,Shipment Date,Status",
+      "PO Number,Style,Customer,Supplier,Garment,Quantity,Unit Price,Total Value,Shipment Date,Status,Remarks",
       ...dataToExport.map((order) =>
         [
           escapeCSV(order.po_no),
@@ -754,11 +1247,14 @@ const OrderList = () => {
           order.total_value,
           formatDateForDisplay(order.shipment_date),
           order.status || "Draft",
-        ].join(",")
+          escapeCSV(order.remarks || ""),
+        ].join(","),
       ),
     ].join("\n");
 
-    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\ufeff" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -773,7 +1269,7 @@ const OrderList = () => {
     setSearchQuery("");
     setDebouncedSearchQuery("");
     setStatusFilter("");
-    setCustomerFilter("");
+    setSelectedCustomers([]);
     setCustomerSearchTerm("");
     setSupplierFilter("");
     setGarmentFilter("");
@@ -820,6 +1316,206 @@ const OrderList = () => {
     );
   };
 
+  // Get row background color based on status
+  const getRowBackgroundColor = (status, isSelected) => {
+    if (isSelected) return "#eff6ff"; // Selected rows override with blue
+    const config = statusConfig[status] || statusConfig.Draft;
+    return config.rowBg;
+  };
+
+  const renderCell = (order, columnKey) => {
+    switch (columnKey) {
+      case "po_no_style":
+        return (
+          <div style={styles.orderInfo}>
+            <div style={styles.orderDetails}>
+              <div style={styles.orderPoNo}>{order.style || "N/A"}</div>
+              <div style={styles.orderStyle}>
+                <FaTag style={styles.icon} />
+                {order.po_no || "No Style"}
+              </div>
+            </div>
+          </div>
+        );
+      case "customer":
+        return (
+          <div style={styles.companyInfo}>
+            <FaBuilding style={styles.icon} />
+            <span>{getCustomerDisplayName(order.customer)}</span>
+          </div>
+        );
+      case "supplier":
+        return (
+          <div style={styles.companyInfo}>
+            <FaUser style={styles.icon} />
+            <span>{getSupplierDisplayName(order.supplier)}</span>
+          </div>
+        );
+      case "garment":
+        return order.garment || "—";
+      case "quantity":
+        return (
+          <div>
+            <span style={{ fontWeight: 500 }}>
+              {formatNumber(order.total_qty)}
+            </span>
+            {order.shipped_qty > 0 && (
+              <div style={styles.shippedInfo}>
+                {((order.shipped_qty / order.total_qty) * 100).toFixed(0)}%
+                shipped
+              </div>
+            )}
+          </div>
+        );
+      case "unit_price":
+        return formatCurrency(order.unit_price);
+      case "total_value":
+        return (
+          <span style={styles.totalValue}>
+            {formatCurrency(order.total_value)}
+          </span>
+        );
+      case "shipment_date":
+        return (
+          <div style={styles.dateInfo}>
+            <FaCalendar style={styles.icon} />
+            {order.shipment_date ? (
+              <>
+                <span>{formatDateForDisplay(order.shipment_date)}</span>
+                <span style={styles.relativeDate}>
+                  ({getRelativeTime(order.shipment_date)})
+                </span>
+              </>
+            ) : (
+              "—"
+            )}
+          </div>
+        );
+      case "status":
+        return getStatusBadge(order.status);
+      case "style":
+        return order.style || "—";
+      case "department":
+        return order.department || "—";
+      case "ref_no":
+        return order.ref_no || "—";
+      case "shipment_month":
+        return order.shipment_month || "—";
+      case "gender":
+        return order.gender || "—";
+      case "item":
+        return order.item || "—";
+      case "fabrication":
+        return order.fabrication || "—";
+      case "size_range":
+        return order.size_range || "—";
+      case "wgr":
+        return order.wgr || "—";
+      case "final_inspection_date":
+        return formatDate(order.final_inspection_date);
+      case "ex_factory":
+        return formatDate(order.ex_factory);
+      case "etd":
+        return formatDate(order.etd);
+      case "eta":
+        return formatDate(order.eta);
+      case "shipped_qty":
+        return formatNumber(order.shipped_qty);
+      case "shipped_value":
+        return formatCurrency(order.shipped_value);
+      case "physical_test":
+        return truncateText(order.physical_test, 30);
+      case "chemical_test":
+        return truncateText(order.chemical_test, 30);
+      case "during_production_inspection":
+        return truncateText(order.during_production_inspection, 30);
+      case "final_random_inspection":
+        return truncateText(order.final_random_inspection, 30);
+      case "factory_value":
+        return formatCurrency(order.factory_value);
+      case "group_name":
+        return order.group_name || "—";
+      case "remarks":
+        // Inline editing for remarks
+        if (editingRemarksId === order.id) {
+          return (
+            <div style={styles.remarksInlineEdit} onClick={(e) => e.stopPropagation()}>
+              <textarea
+                value={editingRemarksValue}
+                onChange={(e) => setEditingRemarksValue(e.target.value)}
+                style={styles.remarksTextarea}
+                rows={2}
+                autoFocus
+                placeholder="Add remarks..."
+              />
+              <div style={styles.remarksInlineActions}>
+                <button
+                  style={styles.remarksSaveBtn}
+                  onClick={() => handleSaveRemarks(order.id, editingRemarksValue)}
+                  title="Save"
+                >
+                  <FaCheck size={12} />
+                </button>
+                <button
+                  style={styles.remarksCancelBtn}
+                  onClick={handleCancelEdit}
+                  title="Cancel"
+                >
+                  <FaTimes size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div style={styles.remarksCell} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.remarksDisplay}>
+              <span style={styles.remarksText}>
+                {order.remarks || <span style={styles.noRemarks}>No remarks</span>}
+              </span>
+              <button
+                style={styles.editRemarksBtn}
+                onClick={(e) => handleEditRemarks(order, e)}
+                title="Edit remarks"
+              >
+                <FaEdit size={12} />
+              </button>
+            </div>
+          </div>
+        );
+      case "actions":
+        return (
+          <div
+            style={styles.actionButtons}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              style={{ ...styles.actionBtn, ...styles.actionBtnEdit }}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/orders/edit/${order.id}`);
+              }}
+              title="Edit Order"
+            >
+              <FaEdit />
+            </button>
+            <button
+              style={{ ...styles.actionBtn, ...styles.actionBtnDelete }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(order);
+              }}
+              title="Delete Order"
+            >
+              <FaTrash />
+            </button>
+          </div>
+        );
+      default:
+        return "—";
+    }
+  };
+
   const Pagination = () => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
@@ -839,43 +1535,75 @@ const OrderList = () => {
       <div style={styles.paginationContainer}>
         <div style={styles.paginationInfo}>
           Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-          {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} records
+          {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}{" "}
+          records
           {isFiltering && <span style={styles.filteringIndicator}> ⟳</span>}
         </div>
         <div style={styles.paginationControls}>
           <div style={styles.pageSizeSelector}>
             <span style={styles.pageSizeLabel}>Show:</span>
-            <select value={itemsPerPage} onChange={handleItemsPerPageChange} style={styles.pageSizeSelect}>
+            <select
+              value={itemsPerPage}
+              onChange={handleItemsPerPageChange}
+              style={styles.pageSizeSelect}
+            >
               <option value={50}>50 per page</option>
               <option value={100}>100 per page</option>
             </select>
           </div>
           <div style={styles.paginationButtons}>
-            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} style={styles.paginationButton}>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={styles.paginationButton}
+            >
               <FaChevronLeft size={12} />
             </button>
             {startPage > 1 && (
               <>
-                <button onClick={() => handlePageChange(1)} style={styles.paginationButton}>1</button>
-                {startPage > 2 && <span style={styles.paginationEllipsis}>...</span>}
+                <button
+                  onClick={() => handlePageChange(1)}
+                  style={styles.paginationButton}
+                >
+                  1
+                </button>
+                {startPage > 2 && (
+                  <span style={styles.paginationEllipsis}>...</span>
+                )}
               </>
             )}
             {pageNumbers.map((number) => (
               <button
                 key={number}
                 onClick={() => handlePageChange(number)}
-                style={{ ...styles.paginationButton, ...(currentPage === number ? styles.paginationButtonActive : {}) }}
+                style={{
+                  ...styles.paginationButton,
+                  ...(currentPage === number
+                    ? styles.paginationButtonActive
+                    : {}),
+                }}
               >
                 {number}
               </button>
             ))}
             {endPage < totalPages && (
               <>
-                {endPage < totalPages - 1 && <span style={styles.paginationEllipsis}>...</span>}
-                <button onClick={() => handlePageChange(totalPages)} style={styles.paginationButton}>{totalPages}</button>
+                {endPage < totalPages - 1 && (
+                  <span style={styles.paginationEllipsis}>...</span>
+                )}
+                <button
+                  onClick={() => handlePageChange(totalPages)}
+                  style={styles.paginationButton}
+                >
+                  {totalPages}
+                </button>
               </>
             )}
-            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} style={styles.paginationButton}>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={styles.paginationButton}
+            >
               <FaChevronRight size={12} />
             </button>
           </div>
@@ -884,7 +1612,6 @@ const OrderList = () => {
     );
   };
 
-  // Loading and error states
   if (loading && !isFirstFetchDone.current) {
     return (
       <div style={styles.appContainer}>
@@ -906,9 +1633,22 @@ const OrderList = () => {
         <div style={styles.mainContent}>
           <div style={styles.errorState}>
             <div style={styles.errorIcon}>!</div>
-            <h3 style={{ fontSize: "18px", color: "#0f172a", marginBottom: "8px" }}>Unable to load data</h3>
+            <h3
+              style={{
+                fontSize: "18px",
+                color: "#0f172a",
+                marginBottom: "8px",
+              }}
+            >
+              Unable to load data
+            </h3>
             <p style={{ color: "#64748b", marginBottom: "20px" }}>{error}</p>
-            <button onClick={() => window.location.reload()} style={styles.btnPrimary}>Try Again</button>
+            <button
+              onClick={() => window.location.reload()}
+              style={styles.btnPrimary}
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </div>
@@ -933,563 +1673,898 @@ const OrderList = () => {
               <button style={styles.btnExport} onClick={handleExport}>
                 <FaDownload /> Export CSV
               </button>
-              <button style={styles.btnPrimary} onClick={() => navigate("/orders/add")}>
+              <button
+                style={styles.btnPrimary}
+                onClick={() => navigate("/orders/add")}
+              >
                 <FaPlus /> Add Order
               </button>
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, ...styles.statIconBlue }}>
-                <FaClipboardList />
-              </div>
-              <div style={styles.statContent}>
-                <span style={styles.statLabel}>Total Orders</span>
-                <span style={styles.statValue}>{formatNumber(stats.total_orders)}</span>
-              </div>
+          {/* Stats Section with Toggle Button */}
+          <div style={styles.statsSection}>
+            <div style={styles.statsHeader}>
+              <h3 style={styles.statsTitle}>Statistics Overview</h3>
+              <button
+                style={styles.toggleStatsBtn}
+                onClick={() => setShowStats(!showStats)}
+                title={showStats ? "Hide statistics" : "Show statistics"}
+              >
+                {showStats ? <FaEyeSlash /> : <FaEye />}
+                {showStats ? "Hide Stats" : "Show Stats"}
+              </button>
             </div>
-            
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, ...styles.statIconTeal }}>
-                <FaBoxes />
+            {showStats && (
+              <div style={styles.statsGrid}>
+                <div style={styles.statCard}>
+                  <div style={{ ...styles.statIcon, ...styles.statIconBlue }}>
+                    <FaClipboardList />
+                  </div>
+                  <div style={styles.statContent}>
+                    <span style={styles.statLabel}>Total Orders</span>
+                    <span style={styles.statValue}>
+                      {formatNumber(stats.total_orders)}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={styles.statCard}>
+                  <div style={{ ...styles.statIcon, ...styles.statIconTeal }}>
+                    <FaBoxes />
+                  </div>
+                  <div style={styles.statContent}>
+                    <span style={styles.statLabel}>Total Quantity</span>
+                    <span style={styles.statValue}>
+                      {formatNumber(stats.total_quantity)}
+                    </span>
+                    <div style={styles.statSubInfo}>
+                      units across all orders
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.statCard}>
+                  <div style={{ ...styles.statIcon, ...styles.statIconGreen }}>
+                    <FaDollarSign />
+                  </div>
+                  <div style={styles.statContent}>
+                    <span style={styles.statLabel}>Total Value</span>
+                    <span
+                      style={{
+                        ...styles.statValue,
+                        fontSize: getValueFontSize(stats.total_value),
+                      }}
+                    >
+                      {formatCurrency(stats.total_value)}
+                    </span>
+                    <div style={styles.statSubInfo}>
+                      Avg: {formatCurrency(stats.avg_price_per_unit)}/unit
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.statCard}>
+                  <div style={{ ...styles.statIcon, ...styles.statIconPurple }}>
+                    <FaChartLine />
+                  </div>
+                  <div style={styles.statContent}>
+                    <span style={styles.statLabel}>Knit</span>
+                    <div style={styles.statSubInfo}>
+                      Qty:{" "}
+                      {formatNumber(
+                        stats.garment_stats?.knit?.total_quantity || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSubInfo}>
+                      Value:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.knit?.total_value || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSmallInfo}>
+                      Avg:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.knit?.avg_price || 0,
+                      )}
+                      /unit
+                    </div>
+                  </div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={{ ...styles.statIcon, ...styles.statIconOrange }}>
+                    <FaChartLine />
+                  </div>
+                  <div style={styles.statContent}>
+                    <span style={styles.statLabel}>Woven</span>
+                    <div style={styles.statSubInfo}>
+                      Qty:{" "}
+                      {formatNumber(
+                        stats.garment_stats?.woven?.total_quantity || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSubInfo}>
+                      Value:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.woven?.total_value || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSmallInfo}>
+                      Avg:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.woven?.avg_price || 0,
+                      )}
+                      /unit
+                    </div>
+                  </div>
+                </div>
+                <div style={styles.statCard}>
+                  <div
+                    style={{ ...styles.statIcon, ...styles.statIconEmerald }}
+                  >
+                    <FaChartLine />
+                  </div>
+                  <div style={styles.statContent}>
+                    <span style={styles.statLabel}>Sweater</span>
+                    <div style={styles.statSubInfo}>
+                      Qty:{" "}
+                      {formatNumber(
+                        stats.garment_stats?.sweater?.total_quantity || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSubInfo}>
+                      Value:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.sweater?.total_value || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSmallInfo}>
+                      Avg:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.sweater?.avg_price || 0,
+                      )}
+                      /unit
+                    </div>
+                  </div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={{ ...styles.statIcon, ...styles.statIconRed }}>
+                    <FaChartLine />
+                  </div>
+                  <div style={styles.statContent}>
+                    <span style={styles.statLabel}>Underwear</span>
+                    <div style={styles.statSubInfo}>
+                      Qty:{" "}
+                      {formatNumber(
+                        stats.garment_stats?.underwear?.total_quantity || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSubInfo}>
+                      Value:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.underwear?.total_value || 0,
+                      )}
+                    </div>
+                    <div style={styles.statSmallInfo}>
+                      Avg:{" "}
+                      {formatCurrency(
+                        stats.garment_stats?.underwear?.avg_price || 0,
+                      )}
+                      /unit
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div style={styles.statContent}>
-                <span style={styles.statLabel}>Total Quantity</span>
-                <span style={styles.statValue}>{formatNumber(stats.total_quantity)}</span>
-                <div style={styles.statSubInfo}>units across all orders</div>
-              </div>
-            </div>
-            
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, ...styles.statIconGreen }}>
-                <FaDollarSign />
-              </div>
-              <div style={styles.statContent}>
-                <span style={styles.statLabel}>Total Value</span>
-                <span style={{ ...styles.statValue, fontSize: getValueFontSize(stats.total_value) }}>
-                  {formatCurrency(stats.total_value)}
-                </span>
-                <div style={styles.statSubInfo}>Avg: {formatCurrency(stats.avg_price_per_unit)}/unit</div>
-              </div>
-            </div>
-            
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, ...styles.statIconPurple }}>
-                <FaChartLine />
-              </div>
-              <div style={styles.statContent}>
-                <span style={styles.statLabel}>Knit</span>
-                <div style={styles.statSubInfo}>Qty: {formatNumber(stats.garment_stats?.knit?.total_quantity || 0)}</div>
-                <div style={styles.statSubInfo}>Value: {formatCurrency(stats.garment_stats?.knit?.total_value || 0)}</div>
-                <div style={styles.statSmallInfo}>Avg: {formatCurrency(stats.garment_stats?.knit?.avg_price || 0)}/unit</div>
-              </div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, ...styles.statIconOrange }}>
-                <FaChartLine />
-              </div>
-              <div style={styles.statContent}>
-                <span style={styles.statLabel}>Woven</span>
-                <div style={styles.statSubInfo}>Qty: {formatNumber(stats.garment_stats?.woven?.total_quantity || 0)}</div>
-                <div style={styles.statSubInfo}>Value: {formatCurrency(stats.garment_stats?.woven?.total_value || 0)}</div>
-                <div style={styles.statSmallInfo}>Avg: {formatCurrency(stats.garment_stats?.woven?.avg_price || 0)}/unit</div>
-              </div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, ...styles.statIconEmerald }}>
-                <FaChartLine />
-              </div>
-              <div style={styles.statContent}>
-                <span style={styles.statLabel}>Sweater</span>
-                <div style={styles.statSubInfo}>Qty: {formatNumber(stats.garment_stats?.sweater?.total_quantity || 0)}</div>
-                <div style={styles.statSubInfo}>Value: {formatCurrency(stats.garment_stats?.sweater?.total_value || 0)}</div>
-                <div style={styles.statSmallInfo}>Avg: {formatCurrency(stats.garment_stats?.sweater?.avg_price || 0)}/unit</div>
-              </div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={{ ...styles.statIcon, ...styles.statIconRed }}>
-                <FaChartLine />
-              </div>
-              <div style={styles.statContent}>
-                <span style={styles.statLabel}>Underwear</span>
-                <div style={styles.statSubInfo}>Qty: {formatNumber(stats.garment_stats?.underwear?.total_quantity || 0)}</div>
-                <div style={styles.statSubInfo}>Value: {formatCurrency(stats.garment_stats?.underwear?.total_value || 0)}</div>
-                <div style={styles.statSmallInfo}>Avg: {formatCurrency(stats.garment_stats?.underwear?.avg_price || 0)}/unit</div>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Filters Section */}
-          <div style={styles.filtersSection}>
-            <div style={styles.filtersHeader}>
-              <div style={styles.filtersTitle}>
-                <FaFilter style={{ color: "#94a3b8" }} />
-                <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#334155" }}>Filters</h3>
-              </div>
-              {activeFilterCount > 0 && (
-                <button style={styles.clearFilters} onClick={clearAllFilters}>
-                  <FaTimes /> Clear all
-                </button>
-              )}
-            </div>
-
-            <div style={styles.filtersGrid}>
-              {/* Search - Smaller */}
-              <div style={styles.searchWrapperSmall} ref={searchInputRef}>
-                <FaSearch style={styles.searchIconSmall} />
-                <input
-                  type="text"
-                  placeholder="Search orders..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={styles.searchInputSmall}
-                />
-                {searchQuery && (
-                  <button style={styles.clearSearchSmall} onClick={() => setSearchQuery("")}>
-                    <FaTimes />
-                  </button>
-                )}
-              </div>
-
-              {/* Status Filter */}
-              <div style={styles.filterWrapper} ref={statusDropdownRef}>
-                <div
-                  style={{ ...styles.filterSelect, ...(showStatusDropdown ? styles.filterSelectActive : {}) }}
-                  onClick={() => {
-                    setShowStatusDropdown(!showStatusDropdown);
-                    setShowYearDropdown(false);
-                    setIsCustomerDropdownOpen(false);
-                  }}
-                >
-                  <span style={statusFilter ? {} : styles.placeholder}>
-                    {statusFilter ? statusConfig[statusFilter]?.label || statusFilter : "All Status"}
-                  </span>
-                  <FaChevronDown style={styles.chevron} />
-                </div>
-                {showStatusDropdown && (
-                  <div style={styles.dropdownMenu}>
-                    <div style={styles.dropdownSearch}>
-                      <FaSearch style={{ color: "#94a3b8", fontSize: "14px" }} />
-                      <input
-                        type="text"
-                        placeholder="Search status..."
-                        value={statusSearch}
-                        onChange={(e) => setStatusSearch(e.target.value)}
-                        style={styles.dropdownSearchInput}
-                        autoFocus
-                      />
-                    </div>
-                    <div style={styles.dropdownOptions}>
-                      <div
-                        style={{ ...styles.dropdownOption, ...(!statusFilter ? styles.dropdownOptionSelected : {}) }}
-                        onClick={() => {
-                          setStatusFilter("");
-                          setShowStatusDropdown(false);
-                        }}
-                      >
-                        All Status
-                      </div>
-                      {filteredStatuses.map((status) => (
-                        <div
-                          key={status}
-                          style={{ ...styles.dropdownOption, ...(statusFilter === status ? styles.dropdownOptionSelected : {}) }}
-                          onClick={() => {
-                            setStatusFilter(status);
-                            setShowStatusDropdown(false);
-                          }}
-                        >
-                          {statusConfig[status]?.icon}
-                          <span style={{ marginLeft: "8px" }}>{statusConfig[status]?.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Customer Filter with Autocomplete */}
-              <div style={styles.filterWrapper} ref={customerDropdownRef}>
-                <div
-                  style={{ ...styles.filterSelect, ...(isCustomerDropdownOpen ? styles.filterSelectActive : {}) }}
-                  onClick={() => {
-                    setIsCustomerDropdownOpen(!isCustomerDropdownOpen);
-                    setShowStatusDropdown(false);
-                    setShowYearDropdown(false);
-                  }}
-                >
-                  <FaBuilding style={{ color: "#94a3b8", marginRight: "8px" }} />
-                  <input
-                    type="text"
-                    placeholder="Search customer..."
-                    value={customerSearchTerm}
-                    onChange={(e) => {
-                      setCustomerSearchTerm(e.target.value);
-                      if (e.target.value === "") {
-                        setCustomerFilter("");
-                      }
-                    }}
-                    style={styles.filterInput}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsCustomerDropdownOpen(true);
-                    }}
-                  />
-                  {customerFilter && (
-                    <FaTimes
-                      style={styles.clearIcon}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCustomerFilter("");
-                        setCustomerSearchTerm("");
-                      }}
-                    />
-                  )}
-                  <FaChevronDown style={styles.chevron} />
-                </div>
-                {isCustomerDropdownOpen && (
-                  <div style={styles.dropdownMenu}>
-                    <div style={styles.dropdownSearch}>
-                      <FaSearch style={{ color: "#94a3b8", fontSize: "14px" }} />
-                      <input
-                        type="text"
-                        placeholder="Search customer..."
-                        value={customerSearchTerm}
-                        onChange={(e) => setCustomerSearchTerm(e.target.value)}
-                        style={styles.dropdownSearchInput}
-                        autoFocus
-                      />
-                      {customerSearchTerm && (
-                        <FaTimes
-                          style={{ ...styles.clearIcon, cursor: "pointer" }}
-                          onClick={() => setCustomerSearchTerm("")}
-                        />
-                      )}
-                    </div>
-                    <div style={styles.dropdownOptions}>
-                      <div
-                        style={{ ...styles.dropdownOption, ...(!customerFilter ? styles.dropdownOptionSelected : {}) }}
-                        onClick={() => {
-                          setCustomerFilter("");
-                          setCustomerSearchTerm("");
-                          setIsCustomerDropdownOpen(false);
-                        }}
-                      >
-                        All Customers
-                      </div>
-                      {filteredCustomerOptions.length > 0 ? (
-                        filteredCustomerOptions.map((customer) => {
-                          const customerName = getCustomerDisplayName(customer);
-                          return (
-                            <div
-                              key={customer.id}
-                              style={{ ...styles.dropdownOption, ...(customerFilter === customerName ? styles.dropdownOptionSelected : {}) }}
-                              onClick={() => {
-                                setCustomerFilter(customerName);
-                                setCustomerSearchTerm(customerName);
-                                setIsCustomerDropdownOpen(false);
-                              }}
-                            >
-                              <FaBuilding style={{ marginRight: "8px", fontSize: "12px" }} />
-                              <span>{customerName}</span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div style={styles.noResultsMessage}>
-                          <span>No customers found</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Supplier Filter */}
-              <div style={styles.filterWrapper}>
-                <div style={styles.filterSelect}>
-                  <FaUser style={{ color: "#94a3b8", marginRight: "8px" }} />
-                  <input
-                    type="text"
-                    placeholder="Supplier"
-                    value={supplierFilter}
-                    onChange={(e) => setSupplierFilter(e.target.value)}
-                    style={styles.filterInput}
-                  />
-                  {supplierFilter && (
-                    <FaTimes style={styles.clearIcon} onClick={() => setSupplierFilter("")} />
-                  )}
-                </div>
-              </div>
-
-              {/* Garment Filter */}
-              <div style={styles.filterWrapper}>
-                <div style={styles.filterSelect}>
-                  <FaTag style={{ color: "#94a3b8", marginRight: "8px" }} />
-                  <input
-                    type="text"
-                    placeholder="Garment"
-                    value={garmentFilter}
-                    onChange={(e) => setGarmentFilter(e.target.value)}
-                    style={styles.filterInput}
-                  />
-                  {garmentFilter && (
-                    <FaTimes style={styles.clearIcon} onClick={() => setGarmentFilter("")} />
-                  )}
-                </div>
-              </div>
-
-              {/* Year & Month Filter */}
-              <div style={styles.filterWrapper} ref={yearDropdownRef}>
-                <div
-                  style={{ ...styles.filterSelect, ...(showYearDropdown ? styles.filterSelectActive : {}) }}
-                  onClick={() => {
-                    setShowYearDropdown(!showYearDropdown);
-                    setShowStatusDropdown(false);
-                    setIsCustomerDropdownOpen(false);
-                  }}
-                >
-                  <FaCalendarWeek style={{ color: "#94a3b8", marginRight: "8px" }} />
-                  <span style={selectedYearsWithMonths.length > 0 ? {} : styles.placeholder}>
-                    {getDisplayText()}
-                  </span>
-                  {selectedYearsWithMonths.length > 0 && (
-                    <FaTimes
-                      style={styles.clearIcon}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearAllYearsAndMonths();
-                      }}
-                    />
-                  )}
-                  <FaChevronDown style={styles.chevron} />
-                </div>
-                {showYearDropdown && (
-                  <div style={styles.yearMonthDropdown}>
-                    <div style={styles.dropdownSearch}>
-                      <FaSearch style={{ color: "#94a3b8", fontSize: "14px" }} />
-                      <input
-                        type="text"
-                        placeholder="Search year..."
-                        value={yearSearch}
-                        onChange={(e) => setYearSearch(e.target.value)}
-                        style={styles.dropdownSearchInput}
-                        autoFocus
-                      />
-                      {yearSearch && (
-                        <FaTimes
-                          style={{ ...styles.clearIcon, cursor: "pointer" }}
-                          onClick={() => setYearSearch("")}
-                        />
-                      )}
-                    </div>
-                    <div style={styles.yearsList}>
-                      {filteredYears.length > 0 ? (
-                        filteredYears.map((year) => {
-                          const yearStr = year.toString();
-                          const selectedYearData = selectedYearsWithMonths.find(item => item.year === yearStr);
-                          const isSelected = !!selectedYearData;
-                          const selectedMonths = selectedYearData?.months || [];
-                          const isExpanded = expandedYears[yearStr];
-                          
-                          return (
-                            <div key={year} style={styles.yearItem}>
-                              <div style={styles.yearHeader}>
-                                <div style={styles.yearCheckboxWrapper} onClick={() => toggleYear(year)}>
-                                  <div style={{ ...styles.customCheckbox, ...(isSelected ? styles.customCheckboxChecked : {}) }}>
-                                    {isSelected && <FaCheck size={10} />}
-                                  </div>
-                                  <span style={styles.yearLabel}>{year}</span>
-                                  {selectedMonths.length > 0 && (
-                                    <span style={styles.monthCount}>
-                                      ({selectedMonths.length} month{selectedMonths.length !== 1 ? 's' : ''})
-                                    </span>
-                                  )}
-                                </div>
-                                {isSelected && (
-                                  <button
-                                    style={styles.expandButton}
-                                    onClick={(e) => toggleYearExpansion(yearStr, e)}
-                                  >
-                                    <FaChevronDown
-                                      size={12}
-                                      style={{
-                                        transform: isExpanded ? 'rotate(180deg)' : 'none',
-                                        transition: 'transform 0.2s'
-                                      }}
-                                    />
-                                  </button>
-                                )}
-                              </div>
-                              
-                              {isExpanded && isSelected && (
-                                <div style={styles.monthsContainer}>
-                                  <button
-                                    style={styles.selectAllMonthsBtn}
-                                    onClick={() => selectAllMonthsForYear(yearStr)}
-                                  >
-                                    {selectedMonths.length === 12 ? "Deselect All" : "Select All"} Months
-                                  </button>
-                                  <div style={styles.monthsGrid}>
-                                    {months.map((month) => (
-                                      <div
-                                        key={month}
-                                        style={styles.monthItem}
-                                        onClick={() => toggleMonthForYear(yearStr, month)}
-                                      >
-                                        <div style={{ ...styles.monthCheckbox, ...(selectedMonths.includes(month) ? styles.monthCheckboxChecked : {}) }}>
-                                          {selectedMonths.includes(month) && <FaCheck size={8} />}
-                                        </div>
-                                        <span style={styles.monthName}>{month.substring(0, 3)}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div style={styles.noResultsMessage}>
-                          <span>No years found matching "{yearSearch}"</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Advanced Filters Toggle */}
+          <div style={styles.statsSection}>
+            <div style={styles.statsHeader}>
+              <h3 style={styles.statsTitle}>Statistics Overview</h3>
               <button
-                style={{ ...styles.btnOutlineSmall, ...(showAdvancedFilters ? styles.btnActiveSmall : {}) }}
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                style={styles.toggleStatsBtn}
+                onClick={() => setShowStat(!showStat)}
+                title={showStat ? "Hide statistics" : "Show statistics"}
               >
-                <FaFilter /> Advanced
-                <FaChevronDown
-                  style={{
-                    marginLeft: "8px",
-                    transform: showAdvancedFilters ? "rotate(180deg)" : "none",
-                  }}
-                />
+                {showStat ? <FaEyeSlash /> : <FaEye />}
+                {showStat ? "Hide Stats" : "Show Stats"}
               </button>
             </div>
+            {showStat && (
+              <div style={styles.filtersSection}>
+                <div style={styles.filtersHeader}>
+                  <div style={styles.filtersTitle}>
+                    <FaFilter style={{ color: "#94a3b8" }} />
+                    <h3
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        color: "#334155",
+                      }}
+                    >
+                      Filters
+                    </h3>
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <button
+                      style={styles.clearFilters}
+                      onClick={clearAllFilters}
+                    >
+                      <FaTimes /> Clear all
+                    </button>
+                  )}
+                </div>
 
-            {/* Search Terms Display */}
-            {searchTerms.length > 0 && (
-              <div style={styles.searchTermsContainer}>
-                <span style={styles.searchTermsLabel}>Searching for:</span>
-                {searchTerms.map((term, index) => (
-                  <span key={index} style={styles.searchTermTag}>{term}</span>
-                ))}
-                <span style={styles.searchLogicHint}>(Matches ANY of these terms)</span>
-              </div>
-            )}
+                <div style={styles.filtersGrid}>
+                  <div style={styles.searchWrapperSmall} ref={searchInputRef}>
+                    <FaSearch style={styles.searchIconSmall} />
+                    <input
+                      type="text"
+                      placeholder="Search orders..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={styles.searchInputSmall}
+                    />
+                    {searchQuery && (
+                      <button
+                        style={styles.clearSearchSmall}
+                        onClick={() => setSearchQuery("")}
+                      >
+                        <FaTimes />
+                      </button>
+                    )}
+                  </div>
 
-            {/* Advanced Filters */}
-            {showAdvancedFilters && (
-              <div style={styles.advancedFilters}>
-                <div style={styles.advancedFilterGroup}>
-                  <label style={styles.advancedFilterLabel}>Value Range (USD)</label>
-                  <div style={styles.rangeInputs}>
-                    <input
-                      type="number"
-                      placeholder="Min Value"
-                      value={minValueFilter}
-                      onChange={(e) => setMinValueFilter(e.target.value)}
-                      style={styles.rangeInput}
+                  <div style={styles.filterWrapper} ref={statusDropdownRef}>
+                    <div
+                      style={{
+                        ...styles.filterSelect,
+                        ...(showStatusDropdown
+                          ? styles.filterSelectActive
+                          : {}),
+                      }}
+                      onClick={() => {
+                        setShowStatusDropdown(!showStatusDropdown);
+                        setShowYearDropdown(false);
+                        setIsCustomerDropdownOpen(false);
+                      }}
+                    >
+                      <span style={statusFilter ? {} : styles.placeholder}>
+                        {statusFilter
+                          ? statusConfig[statusFilter]?.label || statusFilter
+                          : "All Status"}
+                      </span>
+                      <FaChevronDown style={styles.chevron} />
+                    </div>
+                    {showStatusDropdown && (
+                      <div style={styles.dropdownMenu}>
+                        <div style={styles.dropdownSearch}>
+                          <FaSearch
+                            style={{ color: "#94a3b8", fontSize: "14px" }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Search status..."
+                            value={statusSearch}
+                            onChange={(e) => setStatusSearch(e.target.value)}
+                            style={styles.dropdownSearchInput}
+                            autoFocus
+                          />
+                        </div>
+                        <div style={styles.dropdownOptions}>
+                          <div
+                            style={{
+                              ...styles.dropdownOption,
+                              ...(!statusFilter
+                                ? styles.dropdownOptionSelected
+                                : {}),
+                            }}
+                            onClick={() => {
+                              setStatusFilter("");
+                              setShowStatusDropdown(false);
+                            }}
+                          >
+                            All Status
+                          </div>
+                          {filteredStatuses.map((status) => (
+                            <div
+                              key={status}
+                              style={{
+                                ...styles.dropdownOption,
+                                ...(statusFilter === status
+                                  ? styles.dropdownOptionSelected
+                                  : {}),
+                              }}
+                              onClick={() => {
+                                setStatusFilter(status);
+                                setShowStatusDropdown(false);
+                              }}
+                            >
+                              {statusConfig[status]?.icon}
+                              <span style={{ marginLeft: "8px" }}>
+                                {statusConfig[status]?.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={styles.filterWrapper} ref={customerDropdownRef}>
+                    <div
+                      style={{
+                        ...styles.filterSelect,
+                        ...(isCustomerDropdownOpen
+                          ? styles.filterSelectActive
+                          : {}),
+                      }}
+                      onClick={() => {
+                        setIsCustomerDropdownOpen(!isCustomerDropdownOpen);
+                        setShowStatusDropdown(false);
+                        setShowYearDropdown(false);
+                      }}
+                    >
+                      <FaBuilding
+                        style={{ color: "#94a3b8", marginRight: "8px" }}
+                      />
+                      <span
+                        style={
+                          selectedCustomers.length === 0
+                            ? styles.placeholder
+                            : {}
+                        }
+                      >
+                        {getCustomerDisplayText()}
+                      </span>
+                      {selectedCustomers.length > 0 && (
+                        <FaTimes
+                          style={styles.clearIcon}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearAllCustomers();
+                          }}
+                        />
+                      )}
+                      <FaChevronDown style={styles.chevron} />
+                    </div>
+                    {isCustomerDropdownOpen && (
+                      <div style={styles.dropdownMenuMultiSelect}>
+                        <div style={styles.dropdownSearch}>
+                          <FaSearch
+                            style={{ color: "#94a3b8", fontSize: "14px" }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Search customers..."
+                            value={customerSearchTerm}
+                            onChange={(e) =>
+                              setCustomerSearchTerm(e.target.value)
+                            }
+                            style={styles.dropdownSearchInput}
+                            autoFocus
+                          />
+                        </div>
+                        <div style={styles.dropdownOptionsMultiSelect}>
+                          <div style={styles.multiSelectActions}>
+                            <button
+                              style={styles.multiSelectActionBtn}
+                              onClick={() => {
+                                const allCustomerNames = customerOptions.map(
+                                  (c) => getCustomerDisplayName(c),
+                                );
+                                setSelectedCustomers(allCustomerNames);
+                              }}
+                            >
+                              Select All
+                            </button>
+                            <button
+                              style={styles.multiSelectActionBtn}
+                              onClick={clearAllCustomers}
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                          {filteredCustomerOptions.length > 0 ? (
+                            filteredCustomerOptions.map((customer) => {
+                              const customerName =
+                                getCustomerDisplayName(customer);
+                              const isSelected =
+                                isCustomerSelected(customerName);
+                              return (
+                                <div
+                                  key={customer.id}
+                                  style={{
+                                    ...styles.dropdownOptionMultiSelect,
+                                    ...(isSelected
+                                      ? styles.dropdownOptionSelected
+                                      : {}),
+                                  }}
+                                  onClick={() =>
+                                    toggleCustomerSelection(customerName)
+                                  }
+                                >
+                                  <div
+                                    style={{
+                                      ...styles.customCheckbox,
+                                      ...(isSelected
+                                        ? styles.customCheckboxChecked
+                                        : {}),
+                                    }}
+                                  >
+                                    {isSelected && <FaCheck size={10} />}
+                                  </div>
+                                  <FaBuilding
+                                    style={{
+                                      marginRight: "8px",
+                                      fontSize: "12px",
+                                    }}
+                                  />
+                                  <span>{customerName}</span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div style={styles.noResultsMessage}>
+                              <span>No customers found</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={styles.filterWrapper}>
+                    <div style={styles.filterSelect}>
+                      <FaUser
+                        style={{ color: "#94a3b8", marginRight: "8px" }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Supplier"
+                        value={supplierFilter}
+                        onChange={(e) => setSupplierFilter(e.target.value)}
+                        style={styles.filterInput}
+                      />
+                      {supplierFilter && (
+                        <FaTimes
+                          style={styles.clearIcon}
+                          onClick={() => setSupplierFilter("")}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={styles.filterWrapper}>
+                    <div style={styles.filterSelect}>
+                      <FaTag style={{ color: "#94a3b8", marginRight: "8px" }} />
+                      <input
+                        type="text"
+                        placeholder="Garment"
+                        value={garmentFilter}
+                        onChange={(e) => setGarmentFilter(e.target.value)}
+                        style={styles.filterInput}
+                      />
+                      {garmentFilter && (
+                        <FaTimes
+                          style={styles.clearIcon}
+                          onClick={() => setGarmentFilter("")}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={styles.filterWrapper} ref={yearDropdownRef}>
+                    <div
+                      style={{
+                        ...styles.filterSelect,
+                        ...(showYearDropdown ? styles.filterSelectActive : {}),
+                      }}
+                      onClick={() => {
+                        setShowYearDropdown(!showYearDropdown);
+                        setShowStatusDropdown(false);
+                        setIsCustomerDropdownOpen(false);
+                      }}
+                    >
+                      <FaCalendarWeek
+                        style={{ color: "#94a3b8", marginRight: "8px" }}
+                      />
+                      <span
+                        style={
+                          selectedYearsWithMonths.length > 0
+                            ? {}
+                            : styles.placeholder
+                        }
+                      >
+                        {getDisplayText()}
+                      </span>
+                      {selectedYearsWithMonths.length > 0 && (
+                        <FaTimes
+                          style={styles.clearIcon}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearAllYearsAndMonths();
+                          }}
+                        />
+                      )}
+                      <FaChevronDown style={styles.chevron} />
+                    </div>
+                    {showYearDropdown && (
+                      <div style={styles.yearMonthDropdown}>
+                        <div style={styles.dropdownSearch}>
+                          <FaSearch
+                            style={{ color: "#94a3b8", fontSize: "14px" }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Search year..."
+                            value={yearSearch}
+                            onChange={(e) => setYearSearch(e.target.value)}
+                            style={styles.dropdownSearchInput}
+                            autoFocus
+                          />
+                        </div>
+                        <div style={styles.yearsList}>
+                          {filteredYears.length > 0 ? (
+                            filteredYears.map((year) => {
+                              const yearStr = year.toString();
+                              const selectedYearData =
+                                selectedYearsWithMonths.find(
+                                  (item) => item.year === yearStr,
+                                );
+                              const isSelected = !!selectedYearData;
+                              const selectedMonths =
+                                selectedYearData?.months || [];
+                              const isExpanded = expandedYears[yearStr];
+
+                              return (
+                                <div key={year} style={styles.yearItem}>
+                                  <div style={styles.yearHeader}>
+                                    <div
+                                      style={styles.yearCheckboxWrapper}
+                                      onClick={() => toggleYear(year)}
+                                    >
+                                      <div
+                                        style={{
+                                          ...styles.customCheckbox,
+                                          ...(isSelected
+                                            ? styles.customCheckboxChecked
+                                            : {}),
+                                        }}
+                                      >
+                                        {isSelected && <FaCheck size={10} />}
+                                      </div>
+                                      <span style={styles.yearLabel}>
+                                        {year}
+                                      </span>
+                                      {selectedMonths.length > 0 && (
+                                        <span style={styles.monthCount}>
+                                          ({selectedMonths.length} month
+                                          {selectedMonths.length !== 1
+                                            ? "s"
+                                            : ""}
+                                          )
+                                        </span>
+                                      )}
+                                    </div>
+                                    {isSelected && (
+                                      <button
+                                        style={styles.expandButton}
+                                        onClick={(e) =>
+                                          toggleYearExpansion(yearStr, e)
+                                        }
+                                      >
+                                        <FaChevronDown
+                                          size={12}
+                                          style={{
+                                            transform: isExpanded
+                                              ? "rotate(180deg)"
+                                              : "none",
+                                            transition: "transform 0.2s",
+                                          }}
+                                        />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {isExpanded && isSelected && (
+                                    <div style={styles.monthsContainer}>
+                                      <button
+                                        style={styles.selectAllMonthsBtn}
+                                        onClick={() =>
+                                          selectAllMonthsForYear(yearStr)
+                                        }
+                                      >
+                                        {selectedMonths.length === 12
+                                          ? "Deselect All"
+                                          : "Select All"}{" "}
+                                        Months
+                                      </button>
+                                      <div style={styles.monthsGrid}>
+                                        {months.map((month) => (
+                                          <div
+                                            key={month}
+                                            style={styles.monthItem}
+                                            onClick={() =>
+                                              toggleMonthForYear(yearStr, month)
+                                            }
+                                          >
+                                            <div
+                                              style={{
+                                                ...styles.monthCheckbox,
+                                                ...(selectedMonths.includes(
+                                                  month,
+                                                )
+                                                  ? styles.monthCheckboxChecked
+                                                  : {}),
+                                              }}
+                                            >
+                                              {selectedMonths.includes(
+                                                month,
+                                              ) && <FaCheck size={8} />}
+                                            </div>
+                                            <span style={styles.monthName}>
+                                              {month.substring(0, 3)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div style={styles.noResultsMessage}>
+                              <span>
+                                No years found matching "{yearSearch}"
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    style={{
+                      ...styles.btnOutlineSmall,
+                      ...(showAdvancedFilters ? styles.btnActiveSmall : {}),
+                    }}
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  >
+                    <FaFilter /> Advanced
+                    <FaChevronDown
+                      style={{
+                        marginLeft: "8px",
+                        transform: showAdvancedFilters
+                          ? "rotate(180deg)"
+                          : "none",
+                      }}
                     />
-                    <span style={{ color: "#64748b" }}>to</span>
-                    <input
-                      type="number"
-                      placeholder="Max Value"
-                      value={maxValueFilter}
-                      onChange={(e) => setMaxValueFilter(e.target.value)}
-                      style={styles.rangeInput}
-                    />
+                  </button>
+
+                  <div style={styles.filterWrapper} ref={columnSelectorRef}>
+                    <button
+                      style={{
+                        ...styles.btnOutlineSmall,
+                        ...(showColumnSelector ? styles.btnActiveSmall : {}),
+                      }}
+                      onClick={() => setShowColumnSelector(!showColumnSelector)}
+                    >
+                      <FaColumns /> Columns
+                      <FaChevronDown
+                        style={{
+                          marginLeft: "8px",
+                          transform: showColumnSelector
+                            ? "rotate(180deg)"
+                            : "none",
+                        }}
+                      />
+                    </button>
+                    {showColumnSelector && (
+                      <div style={styles.columnSelectorDropdown}>
+                        <div style={styles.columnSelectorHeader}>
+                          <span>Select Columns to Display</span>
+                          <button
+                            style={styles.resetColumnsBtn}
+                            onClick={resetColumns}
+                          >
+                            Reset
+                          </button>
+                        </div>
+                        <div style={styles.columnSelectorList}>
+                          {ALL_COLUMNS.map((column) => (
+                            <label
+                              key={column.key}
+                              style={styles.columnCheckboxLabel}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={visibleColumns.includes(column.key)}
+                                onChange={() => toggleColumn(column.key)}
+                                style={styles.columnCheckbox}
+                              />
+                              <span>{column.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Active Filters */}
-            {activeFilterCount > 0 && (
-              <div style={styles.activeFilters}>
-                {searchQuery && (
-                  <span style={styles.filterTag}>
-                    Search: {searchQuery}
-                    <button style={styles.filterTagButton} onClick={() => setSearchQuery("")}>
-                      <FaTimes />
-                    </button>
-                  </span>
+                {selectedCustomers.length > 0 && (
+                  <div style={styles.selectedTagsContainer}>
+                    <span style={styles.selectedTagsLabel}>
+                      Selected customers:
+                    </span>
+                    {selectedCustomers.map((customer, index) => (
+                      <span key={index} style={styles.selectedTag}>
+                        {customer}
+                        <button
+                          style={styles.selectedTagRemove}
+                          onClick={() => removeCustomer(customer)}
+                        >
+                          <FaTimes size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
-                {statusFilter && (
-                  <span style={styles.filterTag}>
-                    Status: {statusConfig[statusFilter]?.label}
-                    <button style={styles.filterTagButton} onClick={() => setStatusFilter("")}>
-                      <FaTimes />
-                    </button>
-                  </span>
+
+                {searchTerms.length > 0 && (
+                  <div style={styles.searchTermsContainer}>
+                    <span style={styles.searchTermsLabel}>Searching for:</span>
+                    {searchTerms.map((term, index) => (
+                      <span key={index} style={styles.searchTermTag}>
+                        {term}
+                      </span>
+                    ))}
+                    <span style={styles.searchLogicHint}>
+                      (Matches ANY of these terms)
+                    </span>
+                  </div>
                 )}
-                {customerFilter && (
-                  <span style={styles.filterTag}>
-                    Customer: {customerFilter}
-                    <button style={styles.filterTagButton} onClick={() => {
-                      setCustomerFilter("");
-                      setCustomerSearchTerm("");
-                    }}>
-                      <FaTimes />
-                    </button>
-                  </span>
+
+                {showAdvancedFilters && (
+                  <div style={styles.advancedFilters}>
+                    <div style={styles.advancedFilterGroup}>
+                      <label style={styles.advancedFilterLabel}>
+                        Value Range (USD)
+                      </label>
+                      <div style={styles.rangeInputs}>
+                        <input
+                          type="number"
+                          placeholder="Min Value"
+                          value={minValueFilter}
+                          onChange={(e) => setMinValueFilter(e.target.value)}
+                          style={styles.rangeInput}
+                        />
+                        <span style={{ color: "#64748b" }}>to</span>
+                        <input
+                          type="number"
+                          placeholder="Max Value"
+                          value={maxValueFilter}
+                          onChange={(e) => setMaxValueFilter(e.target.value)}
+                          style={styles.rangeInput}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 )}
-                {supplierFilter && (
-                  <span style={styles.filterTag}>
-                    Supplier: {supplierFilter}
-                    <button style={styles.filterTagButton} onClick={() => setSupplierFilter("")}>
-                      <FaTimes />
-                    </button>
-                  </span>
-                )}
-                {garmentFilter && (
-                  <span style={styles.filterTag}>
-                    Garment: {garmentFilter}
-                    <button style={styles.filterTagButton} onClick={() => setGarmentFilter("")}>
-                      <FaTimes />
-                    </button>
-                  </span>
-                )}
-                {selectedYearsWithMonths.map((item) => (
-                  <span key={item.year} style={styles.filterTag}>
-                    {item.year}: {item.months.length === 12 ? "All months" : item.months.join(", ")}
-                    <button style={styles.filterTagButton} onClick={() => toggleYear(item.year)}>
-                      <FaTimes />
-                    </button>
-                  </span>
-                ))}
-                {(minValueFilter || maxValueFilter) && (
-                  <span style={styles.filterTag}>
-                    Value: {minValueFilter || "0"} - {maxValueFilter || "∞"}
-                    <button style={styles.filterTagButton} onClick={() => {
-                      setMinValueFilter("");
-                      setMaxValueFilter("");
-                    }}>
-                      <FaTimes />
-                    </button>
-                  </span>
+
+                {activeFilterCount > 0 && (
+                  <div style={styles.activeFilters}>
+                    {searchQuery && (
+                      <span style={styles.filterTag}>
+                        Search: {searchQuery}
+                        <button
+                          style={styles.filterTagButton}
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    )}
+                    {statusFilter && (
+                      <span style={styles.filterTag}>
+                        Status: {statusConfig[statusFilter]?.label}
+                        <button
+                          style={styles.filterTagButton}
+                          onClick={() => setStatusFilter("")}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    )}
+                    {selectedCustomers.length > 0 && (
+                      <span style={styles.filterTag}>
+                        Customers: {selectedCustomers.length} selected
+                        <button
+                          style={styles.filterTagButton}
+                          onClick={clearAllCustomers}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    )}
+                    {supplierFilter && (
+                      <span style={styles.filterTag}>
+                        Supplier: {supplierFilter}
+                        <button
+                          style={styles.filterTagButton}
+                          onClick={() => setSupplierFilter("")}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    )}
+                    {garmentFilter && (
+                      <span style={styles.filterTag}>
+                        Garment: {garmentFilter}
+                        <button
+                          style={styles.filterTagButton}
+                          onClick={() => setGarmentFilter("")}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    )}
+                    {selectedYearsWithMonths.map((item) => (
+                      <span key={item.year} style={styles.filterTag}>
+                        {item.year}:{" "}
+                        {item.months.length === 12
+                          ? "All months"
+                          : item.months.join(", ")}
+                        <button
+                          style={styles.filterTagButton}
+                          onClick={() => toggleYear(item.year)}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    ))}
+                    {(minValueFilter || maxValueFilter) && (
+                      <span style={styles.filterTag}>
+                        Value: {minValueFilter || "0"} - {maxValueFilter || "∞"}
+                        <button
+                          style={styles.filterTagButton}
+                          onClick={() => {
+                            setMinValueFilter("");
+                            setMaxValueFilter("");
+                          }}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             )}
           </div>
-
           {/* Table Section */}
           <div style={styles.tableSection}>
             <div style={styles.tableHeader}>
               <div style={styles.tableTitle}>
-                <h3 style={{ fontSize: "16px", fontWeight: 600, color: "#1e293b" }}>Order List</h3>
-                <span style={styles.resultCount}>{totalItems} total records</span>
+                <h3
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 600,
+                    color: "#1e293b",
+                  }}
+                >
+                  Order List
+                </h3>
+                <span style={styles.resultCount}>
+                  {totalItems} total records
+                </span>
               </div>
               {selectedRows.length > 0 && (
-                <div style={styles.selectionInfo}>{selectedRows.length} selected</div>
+                <div style={styles.selectionInfo}>
+                  {selectedRows.length} selected
+                </div>
               )}
             </div>
 
@@ -1499,140 +2574,119 @@ const OrderList = () => {
                   <tr>
                     <th style={styles.checkboxCell}>
                       <label style={styles.checkbox}>
-                        <input type="checkbox" checked={selectAll} onChange={() => setSelectAll(!selectAll)} style={styles.checkboxInput} />
+                        <input
+                          type="checkbox"
+                          checked={selectAll}
+                          onChange={() => setSelectAll(!selectAll)}
+                          style={styles.checkboxInput}
+                        />
                         <span style={styles.checkmark}></span>
                       </label>
                     </th>
-                    <th onClick={() => handleSort("po_no")} style={{ ...styles.tableHeaderCell, ...styles.sortable }}>
-                      PO No / Style {getSortIcon("po_no")}
-                    </th>
-                    <th onClick={() => handleSort("customer")} style={{ ...styles.tableHeaderCell, ...styles.sortable }}>
-                      Customer {getSortIcon("customer")}
-                    </th>
-                    <th onClick={() => handleSort("supplier")} style={{ ...styles.tableHeaderCell, ...styles.sortable }}>
-                      Supplier {getSortIcon("supplier")}
-                    </th>
-                    <th onClick={() => handleSort("garment")} style={{ ...styles.tableHeaderCell, ...styles.sortable }}>
-                      Garment {getSortIcon("garment")}
-                    </th>
-                    <th onClick={() => handleSort("total_qty")} style={{ ...styles.tableHeaderCell, ...styles.sortable, textAlign: "right" }}>
-                      Quantity {getSortIcon("total_qty")}
-                    </th>
-                    <th onClick={() => handleSort("unit_price")} style={{ ...styles.tableHeaderCell, ...styles.sortable, textAlign: "right" }}>
-                      Unit Price {getSortIcon("unit_price")}
-                    </th>
-                    <th onClick={() => handleSort("total_value")} style={{ ...styles.tableHeaderCell, ...styles.sortable, textAlign: "right" }}>
-                      Total Value {getSortIcon("total_value")}
-                    </th>
-                    <th onClick={() => handleSort("shipment_date")} style={{ ...styles.tableHeaderCell, ...styles.sortable }}>
-                      Shipment Date {getSortIcon("shipment_date")}
-                    </th>
-                    <th onClick={() => handleSort("status")} style={{ ...styles.tableHeaderCell, ...styles.sortable }}>
-                      Status {getSortIcon("status")}
-                    </th>
-                    <th style={styles.tableHeaderCell}>Actions</th>
+                    {ALL_COLUMNS.filter((col) =>
+                      visibleColumns.includes(col.key),
+                    ).map((column) => (
+                      <th
+                        key={column.key}
+                        onClick={
+                          column.sortable
+                            ? () => handleSort(column.sortKey)
+                            : undefined
+                        }
+                        style={{
+                          ...styles.tableHeaderCell,
+                          ...(column.sortable ? styles.sortable : {}),
+                          ...(column.align === "right"
+                            ? { textAlign: "right" }
+                            : {}),
+                          width: column.width,
+                        }}
+                      >
+                        {column.label}
+                        {column.sortable && getSortIcon(column.sortKey)}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {orders.length > 0 ? (
-                    orders.map((order) => (
-                      <tr
-                        key={order.id}
-                        style={{ ...styles.orderRow, ...(selectedRows.includes(order.id) ? styles.orderRowSelected : {}) }}
-                        onClick={() => handleRowClick(order.id)}
-                      >
-                        <td style={styles.tableCell} onClick={(e) => e.stopPropagation()}>
-                          <label style={styles.checkbox}>
-                            <input type="checkbox" checked={selectedRows.includes(order.id)} onChange={(e) => handleSelectRow(order.id, e)} style={styles.checkboxInput} />
-                            <span style={styles.checkmark}></span>
-                          </label>
-                        </td>
-                        <td style={styles.tableCell}>
-                          <div style={styles.orderInfo}>
-                            <div style={styles.orderDetails}>
-                              <div style={styles.orderPoNo}>{order.po_no || "N/A"}</div>
-                              <div style={styles.orderStyle}><FaTag style={styles.icon} />{order.style || "No Style"}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={styles.tableCell}>
-                          <div style={styles.companyInfo}>
-                            <FaBuilding style={styles.icon} />
-                            <span>{getCustomerDisplayName(order.customer)}</span>
-                          </div>
-                        </td>
-                        <td style={styles.tableCell}>
-                          <div style={styles.companyInfo}>
-                            <FaUser style={styles.icon} />
-                            <span>{getSupplierDisplayName(order.supplier)}</span>
-                          </div>
-                        </td>
-                        <td style={styles.tableCell}>
-                          <div style={styles.companyInfo}>
-                            <FaTag style={styles.icon} />
-                            <span>{order.garment || "—"}</span>
-                          </div>
-                        </td>
-                        <td style={{ ...styles.tableCell, textAlign: "right" }}>
-                          <div>
-                            <span style={{ fontWeight: 500 }}>{formatNumber(order.total_qty)}</span>
-                            {order.shipped_qty > 0 && (
-                              <div style={styles.shippedInfo}>
-                                {((order.shipped_qty / order.total_qty) * 100).toFixed(0)}% shipped
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ ...styles.tableCell, textAlign: "right" }}>{formatCurrency(order.unit_price)}</td>
-                        <td style={{ ...styles.tableCell, textAlign: "right" }}>
-                          <span style={styles.totalValue}>{formatCurrency(order.total_value)}</span>
-                        </td>
-                        <td style={styles.tableCell}>
-                          <div style={styles.dateInfo}>
-                            <FaCalendar style={styles.icon} />
-                            {order.shipment_date ? (
-                              <>
-                                <span>{formatDateForDisplay(order.shipment_date)}</span>
-                                <span style={styles.relativeDate}>({getRelativeTime(order.shipment_date)})</span>
-                              </>
-                            ) : "—"}
-                          </div>
-                        </td>
-                        <td style={styles.tableCell}>{getStatusBadge(order.status)}</td>
-                        <td style={styles.tableCell} onClick={(e) => e.stopPropagation()}>
-                          <div style={styles.actionButtons}>
-                            <button
-                              style={{ ...styles.actionBtn, ...styles.actionBtnEdit }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/orders/edit/${order.id}`);
+                    orders.map((order) => {
+                      const isSelected = selectedRows.includes(order.id);
+                      const rowBgColor = getRowBackgroundColor(order.status, isSelected);
+                      return (
+                        <tr
+                          key={order.id}
+                          style={{
+                            ...styles.orderRow,
+                            ...(isSelected ? styles.orderRowSelected : {}),
+                            backgroundColor: rowBgColor,
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            console.log("Row clicked!", order.id);
+                            navigate(`/orders/${order.id}`);
+                          }}
+                        >
+                          <td
+                            style={styles.tableCell}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <label style={styles.checkbox}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => handleSelectRow(order.id, e)}
+                                style={styles.checkboxInput}
+                              />
+                              <span style={styles.checkmark}>
+                                {isSelected && <FaCheck size={10} style={{ position: "absolute", top: "3px", left: "3px" }} />}
+                              </span>
+                            </label>
+                          </td>
+                          {ALL_COLUMNS.filter((col) =>
+                            visibleColumns.includes(col.key),
+                          ).map((column) => (
+                            <td
+                              key={column.key}
+                              style={{
+                                ...styles.tableCell,
+                                ...(column.align === "right"
+                                  ? { textAlign: "right" }
+                                  : {}),
                               }}
-                              title="Edit Order"
-                            >
-                              <FaEdit />
-                            </button>
-                            <button
-                              style={{ ...styles.actionBtn, ...styles.actionBtnDelete }}
                               onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(order);
+                                // Only stop propagation for actions
+                                if (column.key === "actions") {
+                                  e.stopPropagation();
+                                }
                               }}
-                              title="Delete Order"
                             >
-                              <FaTrash />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              {renderCell(order, column.key)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr style={styles.emptyRow}>
-                      <td colSpan="11" style={{ padding: "60px 20px" }}>
+                      <td
+                        colSpan={visibleColumns.length + 1}
+                        style={{ padding: "60px 20px" }}
+                      >
                         <div style={styles.emptyState}>
                           <FaBoxes style={styles.emptyIcon} />
-                          <h4 style={{ fontSize: "18px", color: "#334155" }}>No orders found</h4>
-                          <p style={{ color: "#64748b", marginBottom: "8px" }}>Try adjusting your search or filters</p>
-                          <button style={styles.btnOutline} onClick={clearAllFilters}>Clear filters</button>
+                          <h4 style={{ fontSize: "18px", color: "#334155" }}>
+                            No orders found
+                          </h4>
+                          <p style={{ color: "#64748b", marginBottom: "8px" }}>
+                            Try adjusting your search or filters
+                          </p>
+                          <button
+                            style={styles.btnOutline}
+                            onClick={clearAllFilters}
+                          >
+                            Clear filters
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1654,14 +2708,15 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     background: "#f1f5f9",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily:
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     color: "#0f172a",
     height: "100vh",
     overflow: "hidden",
   },
   mainContent: {
     flex: 1,
-    padding: "24px 32px",
+    padding: "10px 45px",
     overflowY: "auto",
     height: "100vh",
     display: "flex",
@@ -1769,10 +2824,39 @@ const styles = {
     borderColor: "#2563eb",
     color: "#2563eb",
   },
-  btnActive: {
-    background: "#eff6ff",
-    borderColor: "#2563eb",
-    color: "#2563eb",
+  statsSection: {
+    background: "white",
+    borderRadius: "12px",
+    padding: "10px",
+    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+    border: "1px solid #e2e8f0",
+  },
+  statsHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "1px",
+  },
+  statsTitle: {
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "#334155",
+    margin: 0,
+  },
+  toggleStatsBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    fontSize: "13px",
+    fontWeight: 500,
+    cursor: "pointer",
+    transition: "all 0.2s",
+    border: "1px solid #e2e8f0",
+    background: "white",
+    color: "#475569",
+    marginBottom: "1px",
   },
   statsGrid: {
     display: "grid",
@@ -1780,13 +2864,13 @@ const styles = {
     gap: "20px",
   },
   statCard: {
-    background: "white",
+    background: "#f8fafc",
     borderRadius: "12px",
     padding: "20px",
     display: "flex",
     alignItems: "flex-start",
     gap: "16px",
-    boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
     border: "1px solid #e2e8f0",
     transition: "all 0.2s",
     minWidth: "0",
@@ -1967,6 +3051,20 @@ const styles = {
     maxHeight: "300px",
     overflow: "hidden",
   },
+  dropdownMenuMultiSelect: {
+    position: "absolute",
+    top: "calc(100% + 4px)",
+    left: 0,
+    right: 0,
+    background: "white",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+    zIndex: 1000,
+    maxHeight: "400px",
+    overflow: "hidden",
+    minWidth: "280px",
+  },
   yearMonthDropdown: {
     position: "absolute",
     top: "calc(100% + 4px)",
@@ -1980,6 +3078,59 @@ const styles = {
     width: "340px",
     maxHeight: "500px",
     overflow: "hidden",
+  },
+  columnSelectorDropdown: {
+    position: "absolute",
+    top: "calc(100% + 4px)",
+    right: 0,
+    background: "white",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+    zIndex: 1000,
+    width: "260px",
+    maxHeight: "400px",
+    overflow: "hidden",
+  },
+  columnSelectorHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "12px 16px",
+    borderBottom: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
+    fontWeight: 600,
+    fontSize: "13px",
+    color: "#334155",
+  },
+  resetColumnsBtn: {
+    padding: "4px 8px",
+    fontSize: "11px",
+    fontWeight: 500,
+    border: "1px solid #e2e8f0",
+    borderRadius: "4px",
+    background: "white",
+    cursor: "pointer",
+    color: "#475569",
+  },
+  columnSelectorList: {
+    maxHeight: "340px",
+    overflowY: "auto",
+    padding: "8px 0",
+  },
+  columnCheckboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "8px 16px",
+    fontSize: "13px",
+    cursor: "pointer",
+    transition: "background 0.2s",
+  },
+  columnCheckbox: {
+    width: "16px",
+    height: "16px",
+    cursor: "pointer",
   },
   dropdownSearch: {
     padding: "10px 12px",
@@ -1998,6 +3149,10 @@ const styles = {
     maxHeight: "250px",
     overflowY: "auto",
   },
+  dropdownOptionsMultiSelect: {
+    maxHeight: "300px",
+    overflowY: "auto",
+  },
   dropdownOption: {
     padding: "8px 12px",
     fontSize: "13px",
@@ -2006,9 +3161,73 @@ const styles = {
     display: "flex",
     alignItems: "center",
   },
+  dropdownOptionMultiSelect: {
+    padding: "8px 12px",
+    fontSize: "13px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
   dropdownOptionSelected: {
-    background: "#2563eb",
-    color: "white",
+    background: "#eff6ff",
+    color: "#2563eb",
+  },
+  multiSelectActions: {
+    display: "flex",
+    gap: "8px",
+    padding: "8px 12px",
+    borderBottom: "1px solid #e2e8f0",
+    backgroundColor: "#f8fafc",
+  },
+  multiSelectActionBtn: {
+    flex: 1,
+    padding: "4px 8px",
+    fontSize: "12px",
+    fontWeight: 500,
+    border: "1px solid #e2e8f0",
+    borderRadius: "4px",
+    background: "white",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    color: "#475569",
+  },
+  selectedTagsContainer: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "8px",
+    marginTop: "12px",
+    paddingTop: "12px",
+    borderTop: "1px solid #e2e8f0",
+  },
+  selectedTagsLabel: {
+    fontSize: "12px",
+    fontWeight: 500,
+    color: "#64748b",
+  },
+  selectedTag: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "4px 8px 4px 12px",
+    background: "#eff6ff",
+    border: "1px solid #2563eb",
+    borderRadius: "20px",
+    fontSize: "12px",
+    color: "#2563eb",
+  },
+  selectedTagRemove: {
+    background: "none",
+    border: "none",
+    color: "#2563eb",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "2px",
+    borderRadius: "50%",
   },
   yearsList: {
     maxHeight: "450px",
@@ -2255,18 +3474,18 @@ const styles = {
     overflowX: "auto",
     flex: 1,
     minHeight: "400px",
-    maxHeight: "calc(100vh - 520px)",
+    maxHeight: "calc(100vh - 347px)",
     overflowY: "auto",
   },
   orderTable: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1300px",
+    minWidth: "800px",
   },
   tableHeaderCell: {
-    padding: "12px 20px",
+    padding: "12px 12px",
     textAlign: "left",
-    fontSize: "13px",
+    fontSize: "12px",
     fontWeight: 600,
     color: "#64748b",
     background: "#f8fafc",
@@ -2279,7 +3498,7 @@ const styles = {
   checkboxCell: {
     width: "48px",
     textAlign: "center",
-    padding: "12px 16px",
+    padding: "12px 12px",
     background: "#f8fafc",
     borderBottom: "1px solid #e2e8f0",
     position: "sticky",
@@ -2314,19 +3533,26 @@ const styles = {
     border: "2px solid #cbd5e1",
     borderRadius: "4px",
     transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   tableCell: {
-    padding: "12px 20px",
+    padding: "12px 12px",
     borderBottom: "1px solid #f1f5f9",
-    fontSize: "14px",
+    fontSize: "13px",
     color: "#334155",
+    maxWidth: "250px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   orderRow: {
     transition: "background 0.2s",
     cursor: "pointer",
   },
   orderRowSelected: {
-    background: "#eff6ff",
+    // Selection styling is handled by backgroundColor in inline style
   },
   orderInfo: {
     display: "flex",
@@ -2410,6 +3636,94 @@ const styles = {
   actionBtnDelete: {
     color: "#ef4444",
     borderColor: "#ef4444",
+  },
+  // New styles for inline remarks editing
+  remarksCell: {
+    maxWidth: "300px",
+    minWidth: "180px",
+  },
+  remarksDisplay: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    backgroundColor: "#f8fafc",
+    transition: "all 0.2s",
+  },
+  remarksText: {
+    fontSize: "12px",
+    color: "#334155",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    lineHeight: "1.4",
+    flex: 1,
+  },
+  noRemarks: {
+    color: "#94a3b8",
+    fontStyle: "italic",
+  },
+  editRemarksBtn: {
+    background: "none",
+    border: "none",
+    color: "#94a3b8",
+    cursor: "pointer",
+    padding: "4px",
+    borderRadius: "4px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.2s",
+    flexShrink: 0,
+  },
+  remarksInlineEdit: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    padding: "4px 0",
+  },
+  remarksTextarea: {
+    width: "100%",
+    padding: "8px",
+    border: "1px solid #2563eb",
+    borderRadius: "6px",
+    fontSize: "12px",
+    fontFamily: "inherit",
+    resize: "vertical",
+    outline: "none",
+    backgroundColor: "white",
+  },
+  remarksInlineActions: {
+    display: "flex",
+    gap: "8px",
+    justifyContent: "flex-end",
+  },
+  remarksSaveBtn: {
+    background: "#10b981",
+    border: "none",
+    color: "white",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    fontSize: "11px",
+    fontWeight: 500,
+  },
+  remarksCancelBtn: {
+    background: "#ef4444",
+    border: "none",
+    color: "white",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    fontSize: "11px",
+    fontWeight: 500,
   },
   emptyRow: {
     textAlign: "center",
@@ -2610,6 +3924,10 @@ styleSheet.textContent = `
     background: #f1f5f9;
   }
   
+  .dropdown-option-multi-select:hover {
+    background: #f1f5f9;
+  }
+  
   .clear-filters:hover {
     background: #e2e8f0;
     color: #ef4444;
@@ -2654,12 +3972,6 @@ styleSheet.textContent = `
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
   }
   
-  .search-input:focus {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  }
-  
   .filter-input:focus {
     outline: none;
   }
@@ -2689,6 +4001,41 @@ styleSheet.textContent = `
   .pagination-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+  
+  .multi-select-action-btn:hover {
+    background: #eff6ff;
+    border-color: #2563eb;
+    color: #2563eb;
+  }
+  
+  .toggle-stats-btn:hover {
+    background: #eff6ff;
+    border-color: #2563eb;
+    color: #2563eb;
+  }
+  
+  .column-checkbox-label:hover {
+    background: #f1f5f9;
+  }
+  
+  .reset-columns-btn:hover {
+    background: #eff6ff;
+    border-color: #2563eb;
+    color: #2563eb;
+  }
+  
+  .edit-remarks-btn:hover {
+    background: #e2e8f0;
+    color: #2563eb;
+  }
+  
+  .remarks-save-btn:hover {
+    background: #059669;
+  }
+  
+  .remarks-cancel-btn:hover {
+    background: #dc2626;
   }
   
   /* Custom scrollbar styles */
@@ -2726,6 +4073,19 @@ styleSheet.textContent = `
   
   .months-grid::-webkit-scrollbar {
     width: 4px;
+  }
+  
+  .column-selector-list::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .column-selector-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  
+  .column-selector-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
   }
   
   /* Responsive adjustments */
