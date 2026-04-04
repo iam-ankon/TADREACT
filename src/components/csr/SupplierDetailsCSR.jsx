@@ -739,20 +739,18 @@ const SupplierDetailsCSR = () => {
       { label: "Category", value: supplier.supplier_category },
       { label: "Year Established", value: supplier.year_of_establishment },
       { label: "Sister Concern", value: supplier.sister_concern },
-      { label: "Location", value: supplier.location },
+      { label: "Head Office Address", value: supplier.location },
       { label: "Factory Location", value: supplier.location_factory },
       { label: "Bank Account", value: supplier.bank_account },
       { label: "Bank Branch", value: supplier.bank_branch },
       { label: "Bank BIN", value: supplier.bank_bin },
       { label: "Bank Branch Address", value: supplier.bank_branch_address },
+      { label: "Bank Swift Code", value: supplier.bank_swift_code },
       { label: "Weekly Holiday", value: supplier.weekly_holiday },
       { label: "BGMEA Number", value: supplier.bgmea_number },
       { label: "BKMEA Number", value: supplier.bkmea_number },
       { label: "RSC", value: supplier.rsc },
-      {
-        label: "Order Status",
-        value: supplier.tad_group_order_status,
-      },
+      { label: "Order Status", value: supplier.tad_group_order_status },
     ],
     contacts: [
       { label: "Email", value: supplier.email, copyable: true, field: "email" },
@@ -801,6 +799,14 @@ const SupplierDetailsCSR = () => {
         value: formatCurrency(supplier.yearly_turnover_usd),
       },
     ],
+    supplyChain: [
+      { label: "Tier 2 Factories", value: supplier.tier_2_factories },
+      { label: "Tier 2 Addresses", value: supplier.tier_2_addresses },
+      { label: "Tier 2 Contacts", value: supplier.tier_2_contacts },
+      { label: "Tier 3 Factories", value: supplier.tier_3_factories },
+      { label: "Tier 3 Addresses", value: supplier.tier_3_addresses },
+      { label: "Tier 3 Contacts", value: supplier.tier_3_contacts },
+    ],
     certifications: [
       {
         name: "BSCI",
@@ -808,6 +814,7 @@ const SupplierDetailsCSR = () => {
         validity: supplier.bsci_validity,
         status: supplier.bsci_status,
         rating: supplier.bsci_rating,
+        lastAudit: supplier.bsci_last_audit_date,
       },
       {
         name: "SEDEX",
@@ -815,6 +822,7 @@ const SupplierDetailsCSR = () => {
         validity: supplier.sedex_validity,
         status: supplier.sedex_status,
         rating: supplier.sedex_rating,
+        lastAudit: supplier.sedex_last_audit_date,
       },
       {
         name: "WRAP",
@@ -822,12 +830,14 @@ const SupplierDetailsCSR = () => {
         validity: supplier.wrap_validity,
         status: supplier.wrap_status,
         rating: supplier.wrap_rating,
+        lastAudit: supplier.wrap_last_audit_date,
       },
       {
         name: "CTPAT",
         days: supplier.security_audit_validity_days_remaining,
         validity: supplier.security_audit_validity,
         status: supplier.security_audit_status,
+        lastAudit: supplier.security_audit_last_date,
       },
       {
         name: "Oeko-Tex",
@@ -923,6 +933,10 @@ const SupplierDetailsCSR = () => {
     ],
     fireSafety: [
       {
+        label: "Fire Door Count",
+        value: supplier.fire_door,
+      },
+      {
         label: "Last Fire Training",
         value: formatDate(supplier.last_fire_training_by_fscd),
       },
@@ -951,11 +965,11 @@ const SupplierDetailsCSR = () => {
     ],
     osh: [
       {
-        label: "OSH Committee Formed",
+        label: "OHS Committee Formed",
         value: getBooleanDisplay(supplier.osh_committee_safety),
       },
       {
-        label: "OSH Safety Policy",
+        label: "OHS Safety Policy",
         value: getBooleanDisplay(supplier.osh_safety_policy),
       },
       {
@@ -1010,6 +1024,22 @@ const SupplierDetailsCSR = () => {
         value: getBooleanDisplay(supplier.grievance_mechanism),
       },
       {
+        label: "Grievance Policy Developed",
+        value: getBooleanDisplay(supplier.grievance_policy_developed),
+      },
+      {
+        label: "Workers Aware of Procedure",
+        value: getBooleanDisplay(supplier.grievance_workers_aware),
+      },
+      {
+        label: "Grievance Committee Established",
+        value: getBooleanDisplay(supplier.grievance_committee_established),
+      },
+      {
+        label: "Complain Box Installed",
+        value: getBooleanDisplay(supplier.grievance_complain_box_installed),
+      },
+      {
         label: "Resolution Procedure",
         value: supplier.grievance_resolution_procedure,
       },
@@ -1053,6 +1083,10 @@ const SupplierDetailsCSR = () => {
         value: formatDate(supplier.zdhc_water_test_report),
       },
       {
+        label: "ZDHC Enrollment Status",
+        value: getBooleanDisplay(supplier.zdhc_enrollment_status),
+      },
+      {
         label: "Higg FEM Self Assessment",
         value: supplier.higg_fem_self_assessment_score,
       },
@@ -1064,9 +1098,9 @@ const SupplierDetailsCSR = () => {
         label: "Behive Chemical Inventory",
         value: getBooleanDisplay(supplier.behive_chemical_inventory),
       },
-      { label: "CO2 Report", value: supplier.co2_report },
-      { label: "Solar Energy", value: supplier.solar_energy },
-      { label: "Green Energy", value: supplier.green_energy },
+      { label: "CO2 Report", value: formatDate(supplier.co2_report) },
+      { label: "Solar Energy", value: formatDate(supplier.solar_energy) },
+      { label: "Green Energy", value: formatDate(supplier.green_energy) },
     ],
     rsc: [
       { label: "RSC ID", value: supplier.rsc_id },
@@ -1134,218 +1168,254 @@ const SupplierDetailsCSR = () => {
       {
         label: "Full Facility Walkthrough Allowed",
         value: getBooleanDisplay(supplier.zero_tolerance_walkthrough_allowed),
+        findings: supplier.zero_tolerance_walkthrough_findings,
       },
       {
         label: "No Underage Workers",
         value: getBooleanDisplay(supplier.zero_tolerance_no_underage_workers),
+        findings: supplier.zero_tolerance_no_underage_findings,
       },
       {
         label: "No Suspected Young Workers",
         value: getBooleanDisplay(
           supplier.zero_tolerance_no_suspected_young_workers,
         ),
+        findings: supplier.zero_tolerance_no_suspected_young_findings,
       },
       {
         label: "Minimum Wage Guaranteed",
         value: getBooleanDisplay(
           supplier.zero_tolerance_minimum_wage_guaranteed,
         ),
+        findings: supplier.zero_tolerance_minimum_wage_findings,
       },
       {
         label: "Authentic Records",
         value: getBooleanDisplay(supplier.zero_tolerance_authentic_records),
+        findings: supplier.zero_tolerance_authentic_records_findings,
       },
       {
         label: "No Forced Labor",
         value: getBooleanDisplay(supplier.zero_tolerance_no_forced_labor),
+        findings: supplier.zero_tolerance_no_forced_labor_findings,
       },
     ],
     fireEquipment: [
       {
         label: "Sufficient Fire Fighting Equipment",
         value: getBooleanDisplay(supplier.fire_fighting_equipment_sufficient),
+        findings: supplier.fire_fighting_equipment_sufficient_findings,
       },
       {
         label: "Trained Fire Fighters",
         value: getBooleanDisplay(supplier.fire_fighting_trained_personnel),
+        findings: supplier.fire_fighting_trained_personnel_findings,
       },
       {
         label: "Fire Hose System",
         value: getBooleanDisplay(supplier.fire_fighting_hose_system),
+        findings: supplier.fire_fighting_hose_system_findings,
       },
     ],
     fireAlarm: [
       {
         label: "Fire Alarm System Present",
         value: getBooleanDisplay(supplier.fire_alarm_system_present),
+        findings: supplier.fire_alarm_system_present_findings,
       },
       {
         label: "Fire Alarm Audible All Areas",
         value: getBooleanDisplay(supplier.fire_alarm_audible_all_areas),
+        findings: supplier.fire_alarm_audible_all_areas_findings,
       },
       {
         label: "Visual Fire Alarm",
         value: getBooleanDisplay(supplier.fire_alarm_visual_noisy_areas),
+        findings: supplier.fire_alarm_visual_noisy_areas_findings,
       },
       {
         label: "Fire Alarm IPS Backup",
         value: getBooleanDisplay(supplier.fire_alarm_ips_backup),
+        findings: supplier.fire_alarm_ips_backup_findings,
       },
       {
         label: "Smoke Detectors",
         value: getBooleanDisplay(supplier.fire_alarm_smoke_detectors),
+        findings: supplier.fire_alarm_smoke_detectors_findings,
       },
       {
         label: "Marked Fire Alarm Switches",
         value: getBooleanDisplay(supplier.fire_alarm_switches_marked),
+        findings: supplier.fire_alarm_switches_marked_findings,
       },
     ],
     emergencyLights: [
       {
         label: "Emergency Lights Installed",
         value: getBooleanDisplay(supplier.emergency_lights_installed),
+        findings: supplier.emergency_lights_installed_findings,
       },
       {
         label: "Emergency Lights IPS Backup",
         value: getBooleanDisplay(supplier.emergency_lights_ips_backup),
+        findings: supplier.emergency_lights_ips_backup_findings,
       },
     ],
     drinkingWater: [
       {
         label: "Sufficient Drinking Water",
         value: getBooleanDisplay(supplier.drinking_water_sufficient),
+        findings: supplier.drinking_water_sufficient_findings,
       },
       {
         label: "Valid Water Test Report",
         value: getBooleanDisplay(supplier.drinking_water_test_report_valid),
+        findings: supplier.drinking_water_test_report_valid_findings,
       },
       {
         label: "Parameters Acceptable",
         value: getBooleanDisplay(supplier.drinking_water_parameters_acceptable),
+        findings: supplier.drinking_water_parameters_acceptable_findings,
       },
       {
         label: "Arsenic Within Limits",
         value: getBooleanDisplay(supplier.drinking_water_arsenic_limit),
+        findings: supplier.drinking_water_arsenic_limit_findings,
       },
       {
         label: "Fecal Coliform Within Limits",
         value: getBooleanDisplay(supplier.drinking_water_fecal_coliform_limit),
+        findings: supplier.drinking_water_fecal_coliform_limit_findings,
       },
       {
         label: "Total Coliform Within Limits",
         value: getBooleanDisplay(supplier.drinking_water_total_coliform_limit),
+        findings: supplier.drinking_water_total_coliform_limit_findings,
       },
       {
         label: "pH Within Limits",
         value: getBooleanDisplay(supplier.drinking_water_ph_limit),
+        findings: supplier.drinking_water_ph_limit_findings,
       },
       {
         label: "TDS Within Limits",
         value: getBooleanDisplay(supplier.drinking_water_tds_limit),
+        findings: supplier.drinking_water_tds_limit_findings,
       },
       {
         label: "Iron Within Limits",
         value: getBooleanDisplay(supplier.drinking_water_iron_limit),
+        findings: supplier.drinking_water_iron_limit_findings,
       },
     ],
     paSystem: [
       {
         label: "PA System Present",
         value: getBooleanDisplay(supplier.pa_system_present),
+        findings: supplier.pa_system_present_findings,
       },
       {
         label: "PA System Audible All Areas",
         value: getBooleanDisplay(supplier.pa_system_audible_all_areas),
+        findings: supplier.pa_system_audible_all_areas_findings,
       },
     ],
     emergencyExits: [
       {
         label: "Two Exits per Floor",
         value: getBooleanDisplay(supplier.emergency_exits_two_per_floor),
+        findings: supplier.emergency_exits_two_per_floor_findings,
       },
       {
         label: "Workers Trained on Evacuation",
         value: getBooleanDisplay(supplier.emergency_exits_trained_workers),
-      },
-    ],
-    grievanceAdditional: [
-      {
-        label: "Grievance Committee Established",
-        value: getBooleanDisplay(supplier.grievance_committee_established),
-      },
-      {
-        label: "Complain Box Installed",
-        value: getBooleanDisplay(supplier.grievance_complain_box_installed),
+        findings: supplier.emergency_exits_trained_workers_findings,
       },
     ],
     wetProcess: [
       {
         label: "Wet Process Unit Exists",
         value: getBooleanDisplay(supplier.wet_process_unit_exists),
+        findings: supplier.wet_process_unit_exists_findings,
       },
       {
         label: "Environmental Licenses",
         value: getBooleanDisplay(supplier.wet_process_environmental_licenses),
+        findings: supplier.wet_process_environmental_licenses_findings,
       },
       {
         label: "Wastewater Treatment Plant",
         value: getBooleanDisplay(
           supplier.wet_process_wastewater_treatment_plant,
         ),
+        findings: supplier.wet_process_wastewater_treatment_plant_findings,
       },
       {
         label: "WTP Functional",
         value: getBooleanDisplay(supplier.wet_process_wtp_functional),
+        findings: supplier.wet_process_wtp_functional_findings,
       },
       {
         label: "Valid Test Report",
         value: getBooleanDisplay(supplier.wet_process_valid_test_report),
+        findings: supplier.wet_process_valid_test_report_findings,
       },
       {
         label: "Parameters Within Limits",
         value: getBooleanDisplay(supplier.wet_process_parameters_within_limits),
+        findings: supplier.wet_process_parameters_within_limits_findings,
       },
       {
         label: "pH Within Limits",
         value: getBooleanDisplay(supplier.wet_process_ph_within_limits),
+        findings: supplier.wet_process_ph_within_limits_findings,
       },
       {
         label: "TDS Within Limits",
         value: getBooleanDisplay(supplier.wet_process_tds_within_limits),
+        findings: supplier.wet_process_tds_within_limits_findings,
       },
       {
         label: "BOD Within Limits",
         value: getBooleanDisplay(supplier.wet_process_bod_within_limits),
+        findings: supplier.wet_process_bod_within_limits_findings,
       },
       {
         label: "COD Within Limits",
         value: getBooleanDisplay(supplier.wet_process_cod_within_limits),
+        findings: supplier.wet_process_cod_within_limits_findings,
       },
       {
         label: "DO Within Limits",
         value: getBooleanDisplay(supplier.wet_process_do_within_limits),
+        findings: supplier.wet_process_do_within_limits_findings,
       },
       {
         label: "TSS Within Limits",
         value: getBooleanDisplay(supplier.wet_process_tss_within_limits),
+        findings: supplier.wet_process_tss_within_limits_findings,
       },
     ],
     harassment: [
       {
         label: "No Physical Harassment",
         value: getBooleanDisplay(supplier.no_physical_harassment),
+        findings: supplier.no_physical_harassment_findings,
       },
       {
         label: "No Sexual Harassment",
         value: getBooleanDisplay(supplier.no_sexual_harassment),
+        findings: supplier.no_sexual_harassment_findings,
       },
       {
         label: "No Psychological Harassment",
         value: getBooleanDisplay(supplier.no_psychological_harassment),
+        findings: supplier.no_psychological_harassment_findings,
       },
       {
         label: "No Verbal Harassment",
         value: getBooleanDisplay(supplier.no_verbal_harassment),
+        findings: supplier.no_verbal_harassment_findings,
       },
     ],
     firstVisit: [
@@ -1475,7 +1545,6 @@ const SupplierDetailsCSR = () => {
         </div>
       </div>
 
-      {/* Supplier Profile Card */}
       {/* Supplier Profile Card */}
       <div style={styles.profileCard}>
         <div style={styles.profileLeft}>
@@ -1628,13 +1697,14 @@ const SupplierDetailsCSR = () => {
           {[
             { id: "overview", label: "Overview", icon: "📊" },
             { id: "details", label: "Details", icon: "🏢" },
+            { id: "supplyChain", label: "Supply Chain", icon: "🔗" },
             { id: "certifications", label: "Certifications", icon: "📜" },
             { id: "licenses", label: "Licenses", icon: "📋" },
             { id: "compliance", label: "Compliance", icon: "✅" },
             { id: "safety", label: "Safety", icon: "🚨" },
             { id: "environment", label: "Environment", icon: "🌱" },
-            { id: "rsc audit", label: "RSC Audit", icon: "🔍" },
-            { id: "osh", label: "OSH Committee", icon: "🛡️" },
+            { id: "rsc", label: "RSC Audit", icon: "🔍" },
+            { id: "osh", label: "OHS Committee", icon: "🛡️" },
             { id: "checklist", label: "Checklist", icon: "📋" },
             { id: "documents", label: "Documents", icon: "📎" },
           ].map((tab) => (
@@ -1655,7 +1725,7 @@ const SupplierDetailsCSR = () => {
 
       {/* Tab Content */}
       <div style={styles.tabContent}>
-        {/* Overview Tab - Same as before, keep existing */}
+        {/* Overview Tab */}
         {activeTab === "overview" && (
           <div style={styles.overview}>
             <InfoCard title="Basic Information" icon="🏢" colSpan={2}>
@@ -1743,7 +1813,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Details Tab - Keep existing */}
+        {/* Details Tab */}
         {activeTab === "details" && (
           <div style={styles.details}>
             <InfoCard title="General Information" icon="🏢">
@@ -1814,7 +1884,34 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Certifications Tab - Keep existing */}
+        {/* Supply Chain Tab - NEW */}
+        {activeTab === "supplyChain" && (
+          <div style={styles.details}>
+            <InfoCard title="Tier 2 Factories" icon="🏭" colSpan={1}>
+              <div style={styles.verticalList}>
+                {groupedData.supplyChain
+                  .filter((item) => item.label.includes("Tier 2"))
+                  .filter((item) => item.value)
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+
+            <InfoCard title="Tier 3 Factories" icon="🔗" colSpan={1}>
+              <div style={styles.verticalList}>
+                {groupedData.supplyChain
+                  .filter((item) => item.label.includes("Tier 3"))
+                  .filter((item) => item.value)
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
+              </div>
+            </InfoCard>
+          </div>
+        )}
+
+        {/* Certifications Tab */}
         {activeTab === "certifications" && (
           <div style={styles.certificationsGrid}>
             {groupedData.certifications.map(
@@ -1829,6 +1926,14 @@ const SupplierDetailsCSR = () => {
                       )}
                     </div>
                     <div style={styles.certBody}>
+                      {cert.lastAudit && (
+                        <div style={styles.certRow}>
+                          <span style={styles.certLabel}>Last Audit:</span>
+                          <span style={styles.certValue}>
+                            {formatDate(cert.lastAudit)}
+                          </span>
+                        </div>
+                      )}
                       {cert.rating && (
                         <div style={styles.certRow}>
                           <span style={styles.certLabel}>Rating:</span>
@@ -1861,7 +1966,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Licenses Tab - Keep existing */}
+        {/* Licenses Tab */}
         {activeTab === "licenses" && (
           <div style={styles.licensesGrid}>
             {groupedData.licenses.map(
@@ -1905,7 +2010,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Compliance Tab - Keep existing */}
+        {/* Compliance Tab */}
         {activeTab === "compliance" && (
           <div style={styles.complianceGrid}>
             <InfoCard title="Compliance Status" icon="✅">
@@ -1961,7 +2066,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Safety Tab - Keep existing */}
+        {/* Safety Tab */}
         {activeTab === "safety" && (
           <div style={styles.safetyGrid}>
             <InfoCard title="Fire Safety" icon="🔥" colSpan={2}>
@@ -1976,7 +2081,7 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Environment Tab - Keep existing */}
+        {/* Environment Tab */}
         {activeTab === "environment" && (
           <div style={styles.environmentGrid}>
             <InfoCard title="Environmental Data" icon="🌱" colSpan={2}>
@@ -1990,8 +2095,9 @@ const SupplierDetailsCSR = () => {
             </InfoCard>
           </div>
         )}
-        {/* {RSC AUDIT} */}
-        {activeTab === "rsc audit" && (
+
+        {/* RSC Audit Tab */}
+        {activeTab === "rsc" && (
           <div style={styles.environmentGrid}>
             <InfoCard title="RSC Audit" icon="🔍" colSpan={2}>
               <div style={styles.twoColumn}>
@@ -2005,42 +2111,25 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* OSH Committee Tab - Keep existing */}
+        {/* OSH Committee Tab */}
         {activeTab === "osh" && (
           <div style={styles.oshGrid}>
-            <InfoCard title="OSH Committee Information" icon="🛡️" colSpan={2}>
+            <InfoCard title="OHS Committee Information" icon="🛡️" colSpan={2}>
               <div style={styles.twoColumn}>
-                <InfoRow
-                  label="OSH Committee Formed"
-                  value={getBooleanDisplay(supplier.osh_committee_safety)}
-                />
-                <InfoRow
-                  label="OSH Safety Policy"
-                  value={getBooleanDisplay(supplier.osh_safety_policy)}
-                />
-                <InfoRow
-                  label="ISO 45001 Validity"
-                  value={formatDate(supplier.iso_45001_validity)}
-                />
-                {supplier.iso_45001_validity_days_remaining && (
-                  <div style={styles.infoRow}>
-                    <span style={styles.infoLabel}>
-                      ISO 45001 Days Remaining:
-                    </span>
-                    <DaysRemainingBadge
-                      days={supplier.iso_45001_validity_days_remaining}
-                    />
-                  </div>
-                )}
+                {groupedData.osh
+                  .filter((item) => item.value)
+                  .map((item, idx) => (
+                    <InfoRow key={idx} label={item.label} value={item.value} />
+                  ))}
               </div>
             </InfoCard>
 
             {supplier.osh_file && (
-              <InfoCard title="OSH Document" icon="📄">
+              <InfoCard title="OHS Document" icon="📄">
                 <DocumentGrid
                   documents={[
                     {
-                      name: "OSH Committee Document",
+                      name: "OHS Committee Document",
                       url: supplier.osh_file,
                     },
                   ]}
@@ -2050,133 +2139,192 @@ const SupplierDetailsCSR = () => {
           </div>
         )}
 
-        {/* Checklist Tab - NEW with all compliance checklist fields */}
+        {/* Checklist Tab */}
         {activeTab === "checklist" && (
           <div style={styles.checklistGrid}>
             {/* Zero Tolerance Section */}
             <InfoCard title="Zero Tolerance Policy" icon="⚠️" colSpan={2}>
-              <div style={styles.twoColumn}>
-                {groupedData.zeroTolerance
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.zeroTolerance
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Fire Fighting Equipment */}
             <InfoCard title="Fire Fighting Equipment" icon="🧯">
-              <div style={styles.verticalList}>
-                {groupedData.fireEquipment
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.fireEquipment
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Fire Alarm System */}
             <InfoCard title="Fire Alarm System" icon="🚨">
-              <div style={styles.verticalList}>
-                {groupedData.fireAlarm
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.fireAlarm
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Emergency Lights */}
             <InfoCard title="Emergency Lights" icon="💡">
-              <div style={styles.verticalList}>
-                {groupedData.emergencyLights
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.emergencyLights
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Drinking Water */}
             <InfoCard title="Drinking Water" icon="💧" colSpan={2}>
-              <div style={styles.twoColumn}>
-                {groupedData.drinkingWater
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.drinkingWater
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Public Announce System */}
             <InfoCard title="Public Announce System" icon="📢">
-              <div style={styles.verticalList}>
-                {groupedData.paSystem
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.paSystem
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Emergency Exits */}
             <InfoCard title="Emergency Exits" icon="🚪">
-              <div style={styles.verticalList}>
-                {groupedData.emergencyExits
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
-            </InfoCard>
-
-            {/* Grievance Mechanism Additional */}
-            <InfoCard title="Grievance Mechanism" icon="⚖️">
-              <div style={styles.verticalList}>
-                {groupedData.grievanceAdditional
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.emergencyExits
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Wet Process Unit */}
             <InfoCard title="Wet Process Unit" icon="💧" colSpan={2}>
-              <div style={styles.twoColumn}>
-                {groupedData.wetProcess
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.wetProcess
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* Harassment Prevention */}
             <InfoCard title="Harassment Prevention" icon="🛡️">
-              <div style={styles.verticalList}>
-                {groupedData.harassment
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.harassment
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <div key={idx}>
+                    <InfoRow label={item.label} value={item.value} />
+                    {item.findings && (
+                      <div style={styles.findingsRow}>
+                        <span style={styles.findingsLabel}>Findings:</span>
+                        <span style={styles.findingsValue}>
+                          {item.findings}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </InfoCard>
 
             {/* First Visit Checklist */}
             <InfoCard title="First Visit Checklist" icon="📝" colSpan={2}>
-              <div style={styles.twoColumn}>
-                {groupedData.firstVisit
-                  .filter((item) => item.value !== "Not specified")
-                  .map((item, idx) => (
-                    <InfoRow key={idx} label={item.label} value={item.value} />
-                  ))}
-              </div>
+              {groupedData.firstVisit
+                .filter((item) => item.value !== "Not specified")
+                .map((item, idx) => (
+                  <InfoRow key={idx} label={item.label} value={item.value} />
+                ))}
             </InfoCard>
           </div>
         )}
 
-        {/* Documents Tab - Keep existing */}
+        {/* Documents Tab */}
         {activeTab === "documents" && (
           <div style={styles.documentsTab}>
             <InfoCard title="All Documents" icon="📎">

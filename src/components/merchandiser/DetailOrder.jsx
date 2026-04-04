@@ -2,7 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format, differenceInDays } from "date-fns";
-import { getOrderById, deleteOrder } from "../../api/merchandiser";
+import {
+  getOrderById,
+  deleteOrder,
+  exportOrderToExcel,
+} from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
 import {
   FaArrowLeft,
@@ -33,6 +37,7 @@ import {
   FaUsers,
   FaRegClock,
   FaExclamationTriangle,
+  FaPalette,
 } from "react-icons/fa";
 
 const statusConfig = {
@@ -86,6 +91,7 @@ const DetailOrder = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [error, setError] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     fetchOrder();
@@ -133,8 +139,31 @@ const DetailOrder = () => {
     console.log("Emailing order...");
   };
 
-  const handleDownload = () => {
-    console.log("Downloading order...");
+  const handleDownload = async () => {
+    try {
+      // Show loading state
+      setDownloading(true);
+
+      console.log(`📥 Downloading order ${id} as Excel...`);
+      const result = await exportOrderToExcel(id);
+
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: `Order exported successfully as "${result.filename}"`,
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Error exporting order:", error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.error || "Error exporting order",
+        type: "error",
+      });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -194,6 +223,33 @@ const DetailOrder = () => {
         {config.label}
       </span>
     );
+  };
+
+  // Get all unique sizes from color groups
+  const getAllSizes = () => {
+    if (!order?.color_size_groups || order.color_size_groups.length === 0)
+      return [];
+    const sizesSet = new Set();
+    order.color_size_groups.forEach((group) => {
+      if (group.size_quantities) {
+        group.size_quantities.forEach((sq) => {
+          sizesSet.add(sq.size);
+        });
+      }
+    });
+    // Sort sizes (numeric first, then alpha)
+    const sizes = Array.from(sizesSet);
+    const numericSizes = sizes
+      .filter((s) => !isNaN(parseInt(s)))
+      .sort((a, b) => parseInt(a) - parseInt(b));
+    const alphaSizes = sizes.filter((s) => isNaN(parseInt(s))).sort();
+    return [...numericSizes, ...alphaSizes];
+  };
+
+  // Get quantity for a specific color and size
+  const getQuantity = (colorGroup, size) => {
+    const sizeQty = colorGroup.size_quantities?.find((sq) => sq.size === size);
+    return sizeQty?.quantity || 0;
   };
 
   const InfoRow = ({ label, value, icon }) => (
@@ -297,6 +353,9 @@ const DetailOrder = () => {
   const completionPercentage = calculateCompletion();
   const daysToShipment = calculateDaysToShipment();
   const statusConfigData = statusConfig[order.status] || statusConfig.Draft;
+  const allSizes = getAllSizes();
+  const hasColorGroups =
+    order.color_size_groups && order.color_size_groups.length > 0;
 
   return (
     <div style={styles.appContainer}>
@@ -343,9 +402,10 @@ const DetailOrder = () => {
               <button
                 style={styles.btnIcon}
                 onClick={handleDownload}
-                title="Download"
+                title="Download Excel"
+                disabled={downloading}
               >
-                <FaDownload />
+                {downloading ? "..." : <FaDownload />}
               </button>
               <button
                 style={styles.btnPrimary}
@@ -444,6 +504,13 @@ const DetailOrder = () => {
               id="details"
               label="Details"
               icon={<FaClipboardList />}
+              active={activeTab}
+              onClick={setActiveTab}
+            />
+            <TabButton
+              id="color-sizing"
+              label="Color & Sizing"
+              icon={<FaPalette />}
               active={activeTab}
               onClick={setActiveTab}
             />
@@ -577,6 +644,15 @@ const DetailOrder = () => {
                       value={order.wgr}
                       icon={<FaChartLine />}
                     />
+                    <InfoRow
+                      label="Size Type"
+                      value={
+                        order.size_type === "numeric"
+                          ? "Numeric Sizes"
+                          : "Alpha Sizes"
+                      }
+                      icon={<FaRuler />}
+                    />
                   </SectionCard>
 
                   <SectionCard title="Pricing Details" icon={<FaDollarSign />}>
@@ -610,6 +686,11 @@ const DetailOrder = () => {
                       value={formatCurrency(order.shipped_value)}
                       icon={<FaDollarSign />}
                     />
+                    <InfoRow
+                      label="Grand Total (from colors)"
+                      value={formatNumber(order.grand_total)}
+                      icon={<FaBoxes />}
+                    />
                   </SectionCard>
 
                   <SectionCard
@@ -628,6 +709,107 @@ const DetailOrder = () => {
                     />
                   </SectionCard>
                 </div>
+              </div>
+            )}
+
+            {/* Color & Sizing Tab */}
+            {activeTab === "color-sizing" && (
+              <div style={styles.tabPanel}>
+                <SectionCard
+                  title="Color & Sizing Breakdown"
+                  icon={<FaPalette />}
+                >
+                  {hasColorGroups && allSizes.length > 0 ? (
+                    <div style={styles.colorTableWrapper}>
+                      <table style={styles.colorTable}>
+                        <thead>
+                          <tr>
+                            <th style={styles.colorTableHeader}>Color</th>
+                            {allSizes.map((size) => (
+                              <th key={size} style={styles.colorTableHeader}>
+                                Size {size}
+                              </th>
+                            ))}
+                            <th style={styles.colorTableHeader}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.color_size_groups.map((group, idx) => {
+                            const groupTotal =
+                              group.size_quantities?.reduce(
+                                (sum, sq) => sum + (sq.quantity || 0),
+                                0,
+                              ) || 0;
+                            return (
+                              <tr key={idx}>
+                                <td style={styles.colorTableCell}>
+                                  <div style={styles.colorCell}>
+                                    <span
+                                      style={{
+                                        ...styles.colorDot,
+                                        backgroundColor:
+                                          group.color?.toLowerCase() ||
+                                          "#cbd5e1",
+                                      }}
+                                    />
+                                    <span style={styles.colorName}>
+                                      {group.color || "—"}
+                                    </span>
+                                  </div>
+                                </td>
+                                {allSizes.map((size) => (
+                                  <td key={size} style={styles.colorTableCell}>
+                                    <span style={styles.quantityBadge}>
+                                      {formatNumber(getQuantity(group, size))}
+                                    </span>
+                                  </td>
+                                ))}
+                                <td style={styles.colorTableCell}>
+                                  <span style={styles.totalBadge}>
+                                    {formatNumber(groupTotal)}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td style={styles.colorTableFooter}>
+                              <strong>Grand Total</strong>
+                            </td>
+                            {allSizes.map((size) => {
+                              const sizeTotal = order.color_size_groups.reduce(
+                                (sum, group) => sum + getQuantity(group, size),
+                                0,
+                              );
+                              return (
+                                <td key={size} style={styles.colorTableFooter}>
+                                  <strong>{formatNumber(sizeTotal)}</strong>
+                                </td>
+                              );
+                            })}
+                            <td style={styles.colorTableFooter}>
+                              <span style={styles.grandTotalBadge}>
+                                {formatNumber(
+                                  order.grand_total || order.total_qty,
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : (
+                    <div style={styles.emptyColorState}>
+                      <FaPalette style={styles.emptyColorIcon} />
+                      <p>
+                        No color and sizing information available for this
+                        order.
+                      </p>
+                    </div>
+                  )}
+                </SectionCard>
               </div>
             )}
 
@@ -874,6 +1056,8 @@ const styles = {
   },
   btnIcon: {
     display: "flex",
+    padding: "8px 10px",
+    borderRadius: "8px",
     cursor: "pointer",
     color: "#f59e0b",
     borderColor: "#f59e0b",
@@ -1049,6 +1233,7 @@ const styles = {
     padding: "8px",
     border: "1px solid #e2e8f0",
     marginBottom: "24px",
+    flexWrap: "wrap",
   },
   tabButton: {
     display: "flex",
@@ -1229,6 +1414,87 @@ const styles = {
     justifyContent: "center",
     fontSize: "24px",
     fontWeight: "bold",
+    marginBottom: "16px",
+  },
+  // Color & Sizing Table Styles
+  colorTableWrapper: {
+    overflowX: "auto",
+  },
+  colorTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "14px",
+  },
+  colorTableHeader: {
+    padding: "12px",
+    backgroundColor: "#f8fafc",
+    borderBottom: "2px solid #e2e8f0",
+    textAlign: "center",
+    fontWeight: 600,
+    color: "#475569",
+  },
+  colorTableCell: {
+    padding: "12px",
+    borderBottom: "1px solid #e2e8f0",
+    textAlign: "center",
+  },
+  colorTableFooter: {
+    padding: "12px",
+    backgroundColor: "#f8fafc",
+    borderTop: "2px solid #e2e8f0",
+    textAlign: "center",
+    fontWeight: 500,
+  },
+  colorCell: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  colorDot: {
+    width: "20px",
+    height: "20px",
+    borderRadius: "4px",
+    border: "1px solid #e2e8f0",
+  },
+  colorName: {
+    fontWeight: 500,
+    color: "#1e293b",
+  },
+  quantityBadge: {
+    display: "inline-block",
+    padding: "4px 8px",
+    backgroundColor: "#f1f5f9",
+    borderRadius: "6px",
+    fontSize: "13px",
+    color: "#475569",
+  },
+  totalBadge: {
+    display: "inline-block",
+    padding: "4px 12px",
+    backgroundColor: "#e0e7ff",
+    color: "#4338ca",
+    borderRadius: "20px",
+    fontSize: "13px",
+    fontWeight: 600,
+  },
+  grandTotalBadge: {
+    display: "inline-block",
+    padding: "6px 16px",
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    borderRadius: "20px",
+    fontSize: "14px",
+    fontWeight: 700,
+  },
+  emptyColorState: {
+    textAlign: "center",
+    padding: "60px 20px",
+    backgroundColor: "#f8fafc",
+    borderRadius: "12px",
+  },
+  emptyColorIcon: {
+    fontSize: "48px",
+    color: "#cbd5e1",
     marginBottom: "16px",
   },
 };

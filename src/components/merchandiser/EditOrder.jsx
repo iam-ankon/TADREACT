@@ -22,6 +22,9 @@ import {
   FaClipboardList,
   FaShoppingCart,
   FaExclamationTriangle,
+  FaPalette,
+  FaPlus,
+  FaTrash,
 } from "react-icons/fa";
 
 const statusOptions = [
@@ -41,9 +44,13 @@ const garmentOptions = [
 const tabs = [
   { id: 0, label: 'Basic Information', icon: <FaInfoCircle /> },
   { id: 1, label: 'Pricing & Quantity', icon: <FaDollarSign /> },
-  { id: 2, label: 'Dates & Shipping', icon: <FaTruck /> },
-  { id: 3, label: 'Test Results', icon: <FaFlask /> },
+  { id: 2, label: 'Color & Sizing', icon: <FaPalette /> },
+  { id: 3, label: 'Dates & Shipping', icon: <FaTruck /> },
+  { id: 4, label: 'Test Results', icon: <FaFlask /> },
 ];
+
+// Alpha sizes configuration
+const alphaSizes = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
 
 const EditOrder = () => {
   const navigate = useNavigate();
@@ -61,8 +68,15 @@ const EditOrder = () => {
     shipped_value: 0, final_inspection_date: null, ex_factory: null,
     etd: null, eta: null, shipment_date: null, physical_test: '',
     chemical_test: '', during_production_inspection: '', final_random_inspection: '',
-    group_name: '', remarks: '',
+    group_name: '', remarks: '', size_type: 'numeric',
   });
+
+  // Color & Sizing State
+  const [sizeType, setSizeType] = useState("numeric");
+  const [sizeRange, setSizeRange] = useState("");
+  const [availableSizes, setAvailableSizes] = useState([]);
+  const [colorSizeGroups, setColorSizeGroups] = useState([]);
+  const [originalColorGroups, setOriginalColorGroups] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,6 +122,63 @@ const EditOrder = () => {
     fetchOrder();
   }, [id]);
 
+  // Parse size range to generate available sizes
+  const parseSizeRange = (sizeTypeVal, sizeRangeVal) => {
+    if (sizeTypeVal === "numeric") {
+      if (sizeRangeVal && sizeRangeVal.includes("-")) {
+        const [start, end] = sizeRangeVal.split("-").map(Number);
+        if (!isNaN(start) && !isNaN(end) && start <= end) {
+          const sizes = [];
+          for (let i = start; i <= end; i++) {
+            if (i % 2 === 0) {
+              sizes.push({ size: i.toString(), quantity: 0 });
+            }
+          }
+          return sizes;
+        }
+      }
+      return [];
+    } else if (sizeTypeVal === "alpha") {
+      if (sizeRangeVal === "all") {
+        return alphaSizes.map((size) => ({ size, quantity: 0 }));
+      }
+      return [];
+    }
+    return [];
+  };
+
+  // Convert color groups from API format to component format
+  const convertColorGroupsToComponentFormat = (groups, sizes) => {
+    if (!groups || groups.length === 0) {
+      return [{ id: Date.now(), color: "", sizes: sizes.map(s => ({ ...s, quantity: 0 })), total: 0 }];
+    }
+    
+    return groups.map((group, index) => {
+      // Create a map of size -> quantity from the group's size_quantities
+      const sizeQuantityMap = {};
+      if (group.size_quantities) {
+        group.size_quantities.forEach(sq => {
+          sizeQuantityMap[sq.size] = sq.quantity;
+        });
+      }
+      
+      // Build sizes array with quantities from the group
+      const groupSizes = sizes.map(size => ({
+        size: size.size,
+        quantity: sizeQuantityMap[size.size] || 0
+      }));
+      
+      const total = groupSizes.reduce((sum, s) => sum + (s.quantity || 0), 0);
+      
+      return {
+        id: group.id || Date.now() + index,
+        color: group.color || "",
+        sizes: groupSizes,
+        total: total
+      };
+    });
+  };
+
   const fetchOrder = async () => {
     setLoading(true);
     try {
@@ -115,22 +186,38 @@ const EditOrder = () => {
       const orderData = response.data;
       console.log('📦 Order data received:', orderData);
       console.log('👤 Customer data in order:', orderData.customer);
+      console.log('🎨 Color size groups:', orderData.color_size_groups);
       
       setOriginalData(orderData);
+      setOriginalColorGroups(orderData.color_size_groups || []);
       
       // Extract customer ID - handle both object and primitive cases
       let customerId = '';
       if (orderData.customer) {
         if (typeof orderData.customer === 'object') {
-          // If customer is an object, get its ID
           customerId = orderData.customer.id || '';
-          console.log('Customer is object with ID:', customerId);
         } else {
-          // If customer is already an ID
           customerId = orderData.customer;
-          console.log('Customer is primitive ID:', customerId);
         }
       }
+      
+      // Set size type and range from order data
+      const orderSizeType = orderData.size_type || "numeric";
+      const orderSizeRange = orderData.size_range || "";
+      
+      setSizeType(orderSizeType);
+      setSizeRange(orderSizeRange);
+      
+      // Parse sizes based on size type and range
+      const parsedSizes = parseSizeRange(orderSizeType, orderSizeRange);
+      setAvailableSizes(parsedSizes);
+      
+      // Convert color groups to component format
+      const convertedGroups = convertColorGroupsToComponentFormat(
+        orderData.color_size_groups || [],
+        parsedSizes
+      );
+      setColorSizeGroups(convertedGroups);
       
       setFormData({
         ...orderData,
@@ -145,7 +232,9 @@ const EditOrder = () => {
         factory_value: orderData.factory_value?.toString() || '',
         shipped_qty: orderData.shipped_qty || 0,
         shipped_value: orderData.shipped_value || 0,
-        customer: customerId, // Set the customer ID for the dropdown
+        customer: customerId,
+        size_type: orderSizeType,
+        size_range: orderSizeRange,
       });
     } catch (error) {
       console.error('Error loading order details:', error);
@@ -172,6 +261,105 @@ const EditOrder = () => {
     setFormData(prev => ({ ...prev, [name]: date }));
   };
 
+  // Size Type Change Handler
+  const handleSizeTypeChange = (e) => {
+    const newSizeType = e.target.value;
+    setSizeType(newSizeType);
+    setSizeRange("");
+    setAvailableSizes([]);
+    setColorSizeGroups([]);
+  };
+
+  // Size Range Change Handler
+  const handleSizeRangeChange = (e) => {
+    const value = e.target.value;
+    setSizeRange(value);
+    setFormData(prev => ({ ...prev, size_range: value }));
+
+    if (sizeType === "numeric") {
+      if (value.includes("-")) {
+        const [start, end] = value.split("-").map(Number);
+        if (!isNaN(start) && !isNaN(end) && start <= end) {
+          const sizes = [];
+          for (let i = start; i <= end; i++) {
+            if (i % 2 === 0) {
+              sizes.push({ size: i.toString(), quantity: 0 });
+            }
+          }
+          setAvailableSizes(sizes);
+          setColorSizeGroups([
+            { id: Date.now(), color: "", sizes: sizes.map(s => ({ size: s.size, quantity: 0 })), total: 0 }
+          ]);
+        } else {
+          setAvailableSizes([]);
+          setColorSizeGroups([]);
+        }
+      } else {
+        setAvailableSizes([]);
+        setColorSizeGroups([]);
+      }
+    } else if (sizeType === "alpha") {
+      if (value === "all") {
+        const sizes = alphaSizes.map((size) => ({ size, quantity: 0 }));
+        setAvailableSizes(sizes);
+        setColorSizeGroups([
+          { id: Date.now(), color: "", sizes: sizes.map(s => ({ size: s.size, quantity: 0 })), total: 0 }
+        ]);
+      } else {
+        setAvailableSizes([]);
+        setColorSizeGroups([]);
+      }
+    }
+  };
+
+  // Color Group Functions
+  const addColorGroup = () => {
+    setColorSizeGroups(prev => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        color: "",
+        sizes: availableSizes.map(size => ({ ...size, quantity: 0 })),
+        total: 0,
+      },
+    ]);
+  };
+
+  const removeColorGroup = (groupId) => {
+    if (colorSizeGroups.length > 1) {
+      setColorSizeGroups(prev => prev.filter(group => group.id !== groupId));
+    } else {
+      setSnackbar({ open: true, message: "At least one color group is required", type: "warning" });
+    }
+  };
+
+  const handleColorChange = (groupId, value) => {
+    setColorSizeGroups(prev =>
+      prev.map(group =>
+        group.id === groupId ? { ...group, color: value } : group
+      )
+    );
+  };
+
+  const handleQuantityChange = (groupId, size, value) => {
+    setColorSizeGroups(prev =>
+      prev.map(group => {
+        if (group.id === groupId) {
+          const newSizes = group.sizes.map(s =>
+            s.size === size ? { ...s, quantity: parseInt(value) || 0 } : s
+          );
+          const newTotal = newSizes.reduce((sum, s) => sum + s.quantity, 0);
+          return { ...group, sizes: newSizes, total: newTotal };
+        }
+        return group;
+      })
+    );
+  };
+
+  const calculateGrandTotal = () => {
+    return colorSizeGroups.reduce((sum, group) => sum + group.total, 0);
+  };
+
   const hasChanges = () => {
     if (!originalData) return false;
     
@@ -188,14 +376,32 @@ const EditOrder = () => {
       etd: formData.etd?.toISOString().split('T')[0],
       eta: formData.eta?.toISOString().split('T')[0],
       shipment_date: formData.shipment_date?.toISOString().split('T')[0],
+      size_type: sizeType,
+      size_range: sizeRange,
     };
     
-    return JSON.stringify(currentFormatted) !== JSON.stringify(originalCopy);
+    // Check if color groups have changed
+    const colorGroupsChanged = JSON.stringify(colorSizeGroups) !== JSON.stringify(originalColorGroups);
+    
+    return JSON.stringify(currentFormatted) !== JSON.stringify(originalCopy) || colorGroupsChanged;
   };
 
   const handleSubmit = async () => {
     setSaving(true);
     try {
+      // Prepare color size groups data for API
+      const colorGroupsForApi = colorSizeGroups
+        .filter(group => group.color && group.sizes.some(s => s.quantity > 0))
+        .map(group => ({
+          id: typeof group.id === 'number' && group.id > 1000000 ? undefined : group.id,
+          color: group.color,
+          total: group.total,
+          size_quantities: group.sizes.map(size => ({
+            size: size.size,
+            quantity: parseInt(size.quantity) || 0,
+          })),
+        }));
+
       const formattedData = {
         ...formData,
         final_inspection_date: formData.final_inspection_date?.toISOString().split('T')[0] || null,
@@ -209,7 +415,11 @@ const EditOrder = () => {
         shipped_qty: parseInt(formData.shipped_qty) || 0,
         shipped_value: parseFloat(formData.shipped_value) || 0,
         factory_value: parseFloat(formData.factory_value) || null,
-        customer: formData.customer ? parseInt(formData.customer) : null, // Ensure customer is sent as integer
+        customer: formData.customer ? parseInt(formData.customer) : null,
+        size_type: sizeType,
+        size_range: sizeRange,
+        grand_total: calculateGrandTotal(),
+        color_size_groups: colorGroupsForApi,
       };
 
       console.log('Submitting order update:', formattedData);
@@ -254,7 +464,6 @@ const EditOrder = () => {
                 </div>
               </div>
 
-              {/* Updated Customer field - Now a dropdown */}
               <div style={styles.formField}>
                 <label style={styles.formLabel}>Customer <span style={styles.required}>*</span></label>
                 <div style={styles.inputWrapper}>
@@ -341,14 +550,6 @@ const EditOrder = () => {
               </div>
 
               <div style={styles.formField}>
-                <label style={styles.formLabel}>Size Range</label>
-                <div style={styles.inputWrapper}>
-                  <FaRuler style={styles.inputIcon} />
-                  <input type="text" name="size_range" value={formData.size_range} onChange={handleChange} style={styles.input} />
-                </div>
-              </div>
-
-              <div style={styles.formField}>
                 <label style={styles.formLabel}>WGR</label>
                 <div style={styles.inputWrapper}>
                   <FaChartLine style={styles.inputIcon} />
@@ -426,6 +627,132 @@ const EditOrder = () => {
       case 2:
         return (
           <div style={styles.tabContent}>
+            <div style={styles.colorSizingContainer}>
+              <div style={styles.sectionHeader}>
+                <h3 style={styles.sectionTitle}>Color & Sizing Configuration</h3>
+                {availableSizes.length > 0 && (
+                  <button onClick={addColorGroup} style={styles.addButton} type="button">
+                    <FaPlus /> Add Color
+                  </button>
+                )}
+              </div>
+
+              {/* Size Type Selection */}
+              <div style={styles.formGrid}>
+                <div style={styles.formField}>
+                  <label style={styles.formLabel}>Size Type</label>
+                  <select value={sizeType} onChange={handleSizeTypeChange} style={styles.select}>
+                    <option value="numeric">Numeric Sizes</option>
+                    <option value="alpha">Alpha Sizes (XS,S,M,L,XL,XXL,XXXL)</option>
+                  </select>
+                </div>
+
+                <div style={styles.formField}>
+                  <label style={styles.formLabel}>
+                    {sizeType === "numeric" ? "Size Range" : "Size Selection"}
+                  </label>
+                  {sizeType === "numeric" ? (
+                    <input
+                      type="text"
+                      value={sizeRange}
+                      onChange={handleSizeRangeChange}
+                      placeholder="e.g. 2-10 (even numbers only)"
+                      style={styles.input}
+                    />
+                  ) : (
+                    <select value={sizeRange} onChange={handleSizeRangeChange} style={styles.select}>
+                      <option value="">Select Size Range</option>
+                      <option value="all">All Alpha Sizes (XS-XXXL)</option>
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              {/* Color & Size Table */}
+              {availableSizes.length > 0 && colorSizeGroups.length > 0 && (
+                <div style={styles.tableWrapper}>
+                  <table style={styles.colorSizeTable}>
+                    <thead>
+                      <tr>
+                        <th style={styles.tableHeader}>Color</th>
+                        {availableSizes.map((size) => (
+                          <th key={`size-${size.size}`} style={styles.tableHeader}>
+                            Size {size.size}
+                          </th>
+                        ))}
+                        <th style={styles.tableHeader}>Total</th>
+                        <th style={styles.tableHeader}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {colorSizeGroups.map((group) => (
+                        <tr key={group.id}>
+                          <td style={styles.tableCell}>
+                            <input
+                              type="text"
+                              value={group.color || ""}
+                              onChange={(e) => handleColorChange(group.id, e.target.value)}
+                              style={styles.colorInput}
+                              placeholder="Color name"
+                            />
+                          </td>
+                          {group.sizes.map((size) => (
+                            <td key={`${group.id}-${size.size}`} style={styles.tableCell}>
+                              <input
+                                type="number"
+                                min="0"
+                                value={size.quantity || 0}
+                                onChange={(e) => handleQuantityChange(group.id, size.size, e.target.value)}
+                                style={styles.quantityInput}
+                              />
+                            </td>
+                          ))}
+                          <td style={styles.tableCell}>
+                            <span style={styles.totalBadge}>{group.total}</span>
+                          </td>
+                          <td style={styles.tableCell}>
+                            <button onClick={() => removeColorGroup(group.id)} style={styles.removeButton} type="button">
+                              <FaTrash />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan={availableSizes.length + 1} style={styles.tableFooter}>
+                          <strong>Grand Total:</strong>
+                        </td>
+                        <td style={styles.tableFooter}>
+                          <span style={styles.grandTotalBadge}>{calculateGrandTotal()}</span>
+                        </td>
+                        <td style={styles.tableFooter}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {availableSizes.length === 0 && (
+                <div style={styles.emptyState}>
+                  <FaPalette style={styles.emptyIcon} />
+                  <p>Please select a size range above to configure colors and quantities</p>
+                </div>
+              )}
+
+              {availableSizes.length > 0 && colorSizeGroups.length > 0 && (
+                <div style={styles.infoMessage}>
+                  <FaCheckCircle style={{ color: "#10b981", marginRight: "8px" }} />
+                  <span>Grand total will automatically update based on color quantities</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div style={styles.tabContent}>
             <div style={styles.formGrid}>
               <div style={styles.formField}>
                 <label style={styles.formLabel}>Final Inspection Date</label>
@@ -478,7 +805,7 @@ const EditOrder = () => {
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div style={styles.tabContent}>
             <div style={styles.formGrid}>
@@ -575,7 +902,7 @@ const EditOrder = () => {
           </div>
 
           {/* Status Badge */}
-          <div style={styles.statusBadge} className={formData.status?.toLowerCase()}>
+          <div style={{ ...styles.statusBadge, ...styles[formData.status?.toLowerCase()] }}>
             <span>{statusOptions.find(s => s.value === formData.status)?.label || formData.status}</span>
           </div>
 
@@ -634,7 +961,7 @@ const styles = {
     height: "100vh",
   },
   editOrderContainer: {
-    maxWidth: "1000px",
+    maxWidth: "1200px",
     margin: "0 auto",
   },
   pageHeader: {
@@ -642,6 +969,8 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "24px",
+    flexWrap: "wrap",
+    gap: "16px",
   },
   headerLeft: {
     display: "flex",
@@ -712,6 +1041,22 @@ const styles = {
     fontWeight: 500,
     marginBottom: "20px",
   },
+  running: {
+    background: "#d1fae5",
+    color: "#10b981",
+  },
+  shipped: {
+    background: "#dbeafe",
+    color: "#3b82f6",
+  },
+  pending: {
+    background: "#fed7aa",
+    color: "#f59e0b",
+  },
+  cancelled: {
+    background: "#fee2e2",
+    color: "#ef4444",
+  },
   tabsContainer: {
     display: "flex",
     gap: "8px",
@@ -720,6 +1065,7 @@ const styles = {
     padding: "8px",
     border: "1px solid #e2e8f0",
     marginBottom: "24px",
+    flexWrap: "wrap",
   },
   tabButton: {
     display: "flex",
@@ -853,6 +1199,135 @@ const styles = {
     cursor: "pointer",
     padding: "0 4px",
   },
+  // Color & Sizing specific styles
+  colorSizingContainer: {
+    padding: "0",
+  },
+  sectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "24px",
+  },
+  sectionTitle: {
+    fontSize: "18px",
+    fontWeight: 600,
+    color: "#1e293b",
+    margin: 0,
+  },
+  addButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "8px 16px",
+    backgroundColor: "#3b82f6",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: 500,
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
+  tableWrapper: {
+    overflowX: "auto",
+    marginTop: "20px",
+  },
+  colorSizeTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    overflow: "hidden",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+  tableHeader: {
+    padding: "12px",
+    backgroundColor: "#f8fafc",
+    borderBottom: "2px solid #e2e8f0",
+    textAlign: "center",
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#475569",
+  },
+  tableCell: {
+    padding: "10px",
+    borderBottom: "1px solid #e2e8f0",
+    textAlign: "center",
+  },
+  colorInput: {
+    width: "120px",
+    padding: "8px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "13px",
+    textAlign: "center",
+  },
+  quantityInput: {
+    width: "70px",
+    padding: "8px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "13px",
+    textAlign: "center",
+  },
+  totalBadge: {
+    display: "inline-block",
+    padding: "4px 12px",
+    backgroundColor: "#e0e7ff",
+    color: "#4338ca",
+    borderRadius: "20px",
+    fontSize: "13px",
+    fontWeight: 600,
+  },
+  grandTotalBadge: {
+    display: "inline-block",
+    padding: "6px 16px",
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+    borderRadius: "20px",
+    fontSize: "14px",
+    fontWeight: 700,
+  },
+  removeButton: {
+    background: "none",
+    border: "none",
+    color: "#ef4444",
+    cursor: "pointer",
+    fontSize: "16px",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    transition: "all 0.2s",
+  },
+  tableFooter: {
+    padding: "12px",
+    backgroundColor: "#f8fafc",
+    borderTop: "2px solid #e2e8f0",
+    textAlign: "center",
+    fontWeight: 500,
+  },
+  emptyState: {
+    textAlign: "center",
+    padding: "60px 20px",
+    backgroundColor: "#f8fafc",
+    borderRadius: "12px",
+    marginTop: "20px",
+  },
+  emptyIcon: {
+    fontSize: "48px",
+    color: "#cbd5e1",
+    marginBottom: "16px",
+  },
+  infoMessage: {
+    marginTop: "24px",
+    padding: "12px 16px",
+    background: "#f0fdf4",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
+    fontSize: "13px",
+    color: "#166534",
+  },
 };
 
 // Add keyframes
@@ -886,26 +1361,6 @@ styleSheet.textContent = `
   
   .back-button:hover {
     background: #f1f5f9;
-  }
-  
-  .running {
-    background: #d1fae5;
-    color: #10b981;
-  }
-  
-  .shipped {
-    background: #dbeafe;
-    color: #3b82f6;
-  }
-  
-  .pending {
-    background: #fed7aa;
-    color: #f59e0b;
-  }
-  
-  .cancelled {
-    background: #fee2e2;
-    color: #ef4444;
   }
 `;
 document.head.appendChild(styleSheet);

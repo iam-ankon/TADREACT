@@ -189,6 +189,7 @@ const EditSupplierCSR = () => {
     fire_safety_remarks: "",
     fire_safety_detection: "",
     fire_safety_protection: "",
+    fire_door: "",
 
     // Wages & Compliance
     minimum_wages_paid: false,
@@ -203,6 +204,7 @@ const EditSupplierCSR = () => {
     // Environmental
     water_test_report_doe: "",
     zdhc_water_test_report: "",
+    zdhc_enrollment_status: false,
     higg_fem_self_assessment_score: "",
     higg_fem_verification_assessment_score: "",
     behive_chemical_inventory: false,
@@ -256,10 +258,23 @@ const EditSupplierCSR = () => {
     zero_tolerance_authentic_records: false,
     zero_tolerance_no_forced_labor: false,
 
+    // Zero Tolerance Findings
+    zero_tolerance_walkthrough_findings: "",
+    zero_tolerance_no_underage_findings: "",
+    zero_tolerance_no_suspected_young_findings: "",
+    zero_tolerance_minimum_wage_findings: "",
+    zero_tolerance_authentic_records_findings: "",
+    zero_tolerance_no_forced_labor_findings: "",
+
     // Fire Fighting Equipment
     fire_fighting_equipment_sufficient: false,
     fire_fighting_trained_personnel: false,
     fire_fighting_hose_system: false,
+
+    // Fire Fighting Equipment Findings
+    fire_fighting_equipment_sufficient_findings: "",
+    fire_fighting_trained_personnel_findings: "",
+    fire_fighting_hose_system_findings: "",
 
     // Fire Alarm System
     fire_alarm_system_present: false,
@@ -269,9 +284,21 @@ const EditSupplierCSR = () => {
     fire_alarm_smoke_detectors: false,
     fire_alarm_switches_marked: false,
 
+    // Fire Alarm System Findings
+    fire_alarm_system_present_findings: "",
+    fire_alarm_audible_all_areas_findings: "",
+    fire_alarm_visual_noisy_areas_findings: "",
+    fire_alarm_ips_backup_findings: "",
+    fire_alarm_smoke_detectors_findings: "",
+    fire_alarm_switches_marked_findings: "",
+
     // Emergency Lights
     emergency_lights_installed: false,
     emergency_lights_ips_backup: false,
+
+    // Emergency Lights Findings
+    emergency_lights_installed_findings: "",
+    emergency_lights_ips_backup_findings: "",
 
     // Drinking Water
     drinking_water_sufficient: false,
@@ -284,17 +311,44 @@ const EditSupplierCSR = () => {
     drinking_water_tds_limit: false,
     drinking_water_iron_limit: false,
 
+    // Drinking Water Findings
+    drinking_water_sufficient_findings: "",
+    drinking_water_test_report_valid_findings: "",
+    drinking_water_parameters_acceptable_findings: "",
+    drinking_water_arsenic_limit_findings: "",
+    drinking_water_fecal_coliform_limit_findings: "",
+    drinking_water_total_coliform_limit_findings: "",
+    drinking_water_ph_limit_findings: "",
+    drinking_water_tds_limit_findings: "",
+    drinking_water_iron_limit_findings: "",
+
     // Public Announce System
     pa_system_present: false,
     pa_system_audible_all_areas: false,
+
+    // Public Announce System Findings
+    pa_system_present_findings: "",
+    pa_system_audible_all_areas_findings: "",
 
     // Emergency Exits
     emergency_exits_two_per_floor: false,
     emergency_exits_trained_workers: false,
 
+    // Emergency Exits Findings
+    emergency_exits_two_per_floor_findings: "",
+    emergency_exits_trained_workers_findings: "",
+
     // Grievance Mechanism (Additional)
+    grievance_policy_developed: false,
+    grievance_workers_aware: false,
     grievance_committee_established: false,
     grievance_complain_box_installed: false,
+
+    // Grievance Mechanism Findings
+    grievance_policy_developed_findings: "",
+    grievance_workers_aware_findings: "",
+    grievance_committee_established_findings: "",
+    grievance_complain_box_installed_findings: "",
 
     // Wet Process Unit
     wet_process_unit_exists: false,
@@ -310,11 +364,31 @@ const EditSupplierCSR = () => {
     wet_process_do_within_limits: false,
     wet_process_tss_within_limits: false,
 
+    // Wet Process Unit Findings
+    wet_process_unit_exists_findings: "",
+    wet_process_environmental_licenses_findings: "",
+    wet_process_wastewater_treatment_plant_findings: "",
+    wet_process_wtp_functional_findings: "",
+    wet_process_valid_test_report_findings: "",
+    wet_process_parameters_within_limits_findings: "",
+    wet_process_ph_within_limits_findings: "",
+    wet_process_tds_within_limits_findings: "",
+    wet_process_bod_within_limits_findings: "",
+    wet_process_cod_within_limits_findings: "",
+    wet_process_do_within_limits_findings: "",
+    wet_process_tss_within_limits_findings: "",
+
     // Harassment
     no_physical_harassment: false,
     no_sexual_harassment: false,
     no_psychological_harassment: false,
     no_verbal_harassment: false,
+
+    // Harassment Findings
+    no_physical_harassment_findings: "",
+    no_sexual_harassment_findings: "",
+    no_psychological_harassment_findings: "",
+    no_verbal_harassment_findings: "",
 
     // First Visit Checklist
     first_visit_date: "",
@@ -331,6 +405,21 @@ const EditSupplierCSR = () => {
     osh_safety_policy: false,
     iso_45001_validity: "",
     iso_45001_validity_days_remaining: "",
+
+    // Supply Chain Fields
+    tier_2_factories: "",
+    tier_2_addresses: "",
+    tier_2_contacts: "",
+    tier_3_factories: "",
+    tier_3_addresses: "",
+    tier_3_contacts: "",
+    parent_supplier_name: "",
+    supplier_tier: "tier1",
+    excel_row_number: "",
+
+    // Timestamps
+    created_at: "",
+    updated_at: "",
   });
 
   // File states
@@ -373,6 +462,9 @@ const EditSupplierCSR = () => {
     fire_training_certificate: null,
     fire_drill_record: null,
     fire_safety_audit_report: null,
+    initial_audit_report: null,
+    initial_fire_audit_report: null,
+    initial_electrical_audit_report: null,
     rsc_certificate: null,
     structural_safety_report: null,
     electrical_safety_report: null,
@@ -404,6 +496,23 @@ const EditSupplierCSR = () => {
   const [activeTab, setActiveTab] = useState("basic");
   const [touchedFields, setTouchedFields] = useState({});
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
+
+  const tabs = [
+    { id: "basic", label: "General Info", icon: "🏢" },
+    { id: "supplyChain", label: "Supply Chain", icon: "🔗" },
+    { id: "building", label: "Building & Manpower", icon: "🏭" },
+    { id: "production", label: "Production", icon: "⚙️" },
+    { id: "certifications", label: "Certifications", icon: "📜" },
+    { id: "licenses", label: "Licenses", icon: "📋" },
+    { id: "safety", label: "Fire Safety", icon: "🚨" },
+    { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
+    { id: "osh", label: "OHS Committee", icon: "🛡️" },
+    { id: "environment", label: "Environment", icon: "🌱" },
+    { id: "rsc", label: "RSC Audit", icon: "🔍" },
+    { id: "csr", label: "CSR & Compliance", icon: "🤝" },
+    { id: "compliance", label: "Factory Evaluation", icon: "✅" },
+    { id: "documents", label: "Documents", icon: "📎" },
+  ];
 
   // Handle multiple image uploads
   const handleBuildingImagesChange = (e) => {
@@ -608,6 +717,9 @@ const EditSupplierCSR = () => {
         "last_safety_committee_meeting_date",
         "water_test_report_doe",
         "zdhc_water_test_report",
+        "co2_report",
+        "solar_energy",
+        "green_energy",
         "last_grievance_resolution_date",
         "last_safety_audit_date",
         "first_visit_date",
@@ -707,6 +819,9 @@ const EditSupplierCSR = () => {
         fire_training_certificate: formattedData.fire_training_certificate_url,
         fire_drill_record: formattedData.fire_drill_record_url,
         fire_safety_audit_report: formattedData.fire_safety_audit_report_url,
+        initial_audit_report: formattedData.initial_audit_report_url,
+        initial_fire_audit_report: formattedData.initial_fire_audit_report_url,
+        initial_electrical_audit_report: formattedData.initial_electrical_audit_report_url,
         rsc_certificate: formattedData.rsc_certificate_url,
         structural_safety_report: formattedData.structural_safety_report_url,
         electrical_safety_report: formattedData.electrical_safety_report_url,
@@ -846,7 +961,28 @@ const EditSupplierCSR = () => {
     window.open(correctUrl, "_blank", "noopener,noreferrer");
   };
 
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.supplier_name?.trim())
+      errors.supplier_name = "Supplier name is required";
+    if (!formData.email?.trim()) errors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(formData.email))
+      errors.email = "Email is invalid";
+    if (!formData.phone?.trim()) errors.phone = "Phone is required";
+    if (!formData.location?.trim()) errors.location = "Location is required";
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const [validationErrors, setValidationErrors] = useState({});
+
   const handleSubmit = async () => {
+    if (!validateForm()) {
+      setError("Please fill in all required fields");
+      setActiveTab("basic");
+      return;
+    }
+
     setIsUpdating(true);
     setError(null);
 
@@ -928,6 +1064,9 @@ const EditSupplierCSR = () => {
         "fire_training_certificate",
         "fire_drill_record",
         "fire_safety_audit_report",
+        "initial_audit_report",
+        "initial_fire_audit_report",
+        "initial_electrical_audit_report",
         "structural_safety_report",
         "electrical_safety_report",
         "fire_safety_report",
@@ -1058,32 +1197,44 @@ const EditSupplierCSR = () => {
   };
 
   const handleNext = () => {
+    if (activeTab === "basic") {
+      if (!formData.supplier_name || !formData.email || !formData.phone) {
+        setError("Please fill in all required fields in General Information");
+        return;
+      }
+    }
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
-    if (currentIndex < tabs.length - 1) setActiveTab(tabs[currentIndex + 1].id);
+    if (currentIndex < tabs.length - 1) {
+      setActiveTab(tabs[currentIndex + 1].id);
+      window.scrollTo(0, 0);
+    }
   };
 
   const handlePrevious = () => {
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
-    if (currentIndex > 0) setActiveTab(tabs[currentIndex - 1].id);
+    if (currentIndex > 0) {
+      setActiveTab(tabs[currentIndex - 1].id);
+      window.scrollTo(0, 0);
+    }
   };
 
-  const tabs = [
-    { id: "basic", label: "General Info", icon: "🏢" },
-    { id: "building", label: "Building & Manpower", icon: "🏭" },
-    { id: "production", label: "Production", icon: "⚙️" },
-    { id: "certifications", label: "Certifications", icon: "📜" },
-    { id: "licenses", label: "Licenses", icon: "📋" },
-    { id: "safety", label: "Safety", icon: "🚨" },
-    { id: "pcSafety", label: "PC & Safety Committee", icon: "👥" },
-    { id: "osh", label: "OSH Committee", icon: "🛡️" },
-    { id: "environment", label: "Environment", icon: "🌱" },
-    { id: "rsc", label: "RSC Audit", icon: "🔍" },
-    { id: "csr", label: "CSR", icon: "🤝" },
-    { id: "compliance", label: "Factory Evaluation", icon: "✅" },
-    { id: "documents", label: "Documents", icon: "📎" },
-  ];
+  // Render checklist item with findings
+  const renderChecklistItem = (
+    label,
+    checkboxName,
+    findingsName,
+    description = "",
+  ) => (
+    <div style={checklistItemStyle}>
+      <div style={checklistCheckboxStyle}>
+        {renderCheckbox(label, checkboxName, description)}
+      </div>
+      <div style={checklistFindingsStyle}>
+        {renderInput("Findings", findingsName, "text", false, 2)}
+      </div>
+    </div>
+  );
 
-  // Render functions
   const renderMultipleImageUpload = (
     label,
     name,
@@ -1183,24 +1334,19 @@ const EditSupplierCSR = () => {
     isReadOnly = false,
   ) => {
     const value = formData[name] ?? "";
-    const isError = touchedFields[name] && isRequired && !formData[name];
+    const isError =
+      (touchedFields[name] && isRequired && !value) || validationErrors[name];
+    const errorMessage = validationErrors[name];
     const Component = rows ? "textarea" : "input";
     const isDaysRemaining =
       name.includes("_days_remaining") ||
       name.includes("_validity_days_remaining");
-    const showAutoUpdate =
-      isDaysRemaining &&
-      formData[
-        name
-          .replace("_days_remaining", "")
-          .replace("_validity_days_remaining", "_validity")
-      ];
 
     return (
       <div style={formGroupStyle}>
         <label style={labelStyle}>
           {label} {isRequired && <span style={{ color: colors.error }}>*</span>}
-          {showAutoUpdate && (
+          {isDaysRemaining && (
             <span style={autoUpdateBadgeStyle} title="Auto-updates daily">
               🔄
             </span>
@@ -1227,7 +1373,7 @@ const EditSupplierCSR = () => {
           rows={rows}
           readOnly={isDaysRemaining || isReadOnly}
         />
-        {isError && <div style={fieldErrorStyle}>This field is required</div>}
+        {errorMessage && <div style={fieldErrorStyle}>{errorMessage}</div>}
       </div>
     );
   };
@@ -1410,24 +1556,53 @@ const EditSupplierCSR = () => {
             `${prefix}_initial_audit_date`,
             "date",
           )}
+        </div>
+
+        <div style={formGridStyle}>
+          {prefix === "structural" &&
+            renderFileInput(
+              "Initial Audit Report",
+              "initial_audit_report",
+              ".pdf",
+            )}
+          {prefix === "fire" &&
+            renderFileInput(
+              "Initial Fire Audit Report",
+              "initial_fire_audit_report",
+              ".pdf",
+            )}
+          {prefix === "electrical" &&
+            renderFileInput(
+              "Initial Electrical Audit Report",
+              "initial_electrical_audit_report",
+              ".pdf",
+            )}
+        </div>
+
+        <div style={formGridStyle}>
           {renderInput(
             "Last Follow-up Audit Date",
             `${prefix}_last_follow_up_audit_date`,
             "date",
           )}
         </div>
+
         <div style={formGridStyle}>
           {prefix === "structural" &&
             renderFileInput(
-              "Structural Safety Report",
+              "Last Follow-up Report",
               "structural_safety_report",
               ".pdf",
             )}
           {prefix === "fire" &&
-            renderFileInput("Fire Safety Report", "fire_safety_report", ".pdf")}
+            renderFileInput(
+              "Last Follow-up Report",
+              "fire_safety_report",
+              ".pdf",
+            )}
           {prefix === "electrical" &&
             renderFileInput(
-              "Electrical Safety Report",
+              "Last Follow-up Report",
               "electrical_safety_report",
               ".pdf",
             )}
@@ -1473,7 +1648,7 @@ const EditSupplierCSR = () => {
             <div
               style={{
                 ...progressFillStyle,
-                width: `${(((tabs.findIndex((tab) => tab.id === activeTab) + 1) / tabs.length) * 100).toFixed(0)}%`,
+                width: `${((tabs.findIndex((tab) => tab.id === activeTab) + 1) / tabs.length) * 100}%`,
               }}
             />
           </div>
@@ -1560,7 +1735,6 @@ const EditSupplierCSR = () => {
                     "year_of_establishment",
                     "number",
                   )}
-                  {renderInput("Sister Concern", "sister_concern")}
                   {renderInput(
                     "Ownership Details",
                     "ownership_details",
@@ -1603,6 +1777,7 @@ const EditSupplierCSR = () => {
                   <div style={fullWidthStyle}>
                     <div style={subSectionTitleStyle}>Bank Details</div>
                   </div>
+                  {renderInput("Bank Name", "sister_concern")}
                   {renderInput("Bank Account", "bank_account")}
                   {renderInput("Bank Branch", "bank_branch")}
                   {renderInput("Bank BIN", "bank_bin")}
@@ -1614,6 +1789,91 @@ const EditSupplierCSR = () => {
                     false,
                     3,
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Supply Chain Tab */}
+            {activeTab === "supplyChain" && (
+              <div style={formSectionStyle}>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>🔗</span> Supply Chain
+                    Information
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Tier 2 and Tier 3 factory relationships
+                  </p>
+                </div>
+
+                <div style={cardsContainerStyle}>
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Tier 2 Factories</h4>
+                      <p style={cardSubtitleStyle}>
+                        Washing, printing, embroidery, accessories factories
+                      </p>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderInput(
+                          "Tier 2 Factory Names",
+                          "tier_2_factories",
+                          "text",
+                          false,
+                          3,
+                        )}
+                        {renderInput(
+                          "Tier 2 Factory Addresses",
+                          "tier_2_addresses",
+                          "text",
+                          false,
+                          3,
+                        )}
+                        {renderInput(
+                          "Tier 2 Contact Details",
+                          "tier_2_contacts",
+                          "text",
+                          false,
+                          3,
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Tier 3 Factories</h4>
+                      <p style={cardSubtitleStyle}>
+                        Fabric/yarn suppliers (local and international)
+                      </p>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderInput(
+                          "Tier 3 Factory Names",
+                          "tier_3_factories",
+                          "text",
+                          false,
+                          3,
+                        )}
+                        {renderInput(
+                          "Tier 3 Factory Addresses",
+                          "tier_3_addresses",
+                          "text",
+                          false,
+                          3,
+                        )}
+                        {renderInput(
+                          "Tier 3 Contact Details",
+                          "tier_3_contacts",
+                          "text",
+                          false,
+                          3,
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1972,6 +2232,7 @@ const EditSupplierCSR = () => {
                     "total_fire_fighter_rescue_first_aider_fscd",
                     "number",
                   )}
+                  {renderInput("Fire Door Count", "fire_door", "number")}
                   {renderInput(
                     "Fire Safety Detection",
                     "fire_safety_detection",
@@ -2108,7 +2369,7 @@ const EditSupplierCSR = () => {
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
                   <h3 style={sectionTitleStyle}>
-                    <span style={sectionIconStyle}>🛡️</span> OSH Committee
+                    <span style={sectionIconStyle}>🛡️</span> OHS Committee
                   </h3>
                   <p style={sectionDescriptionStyle}>
                     Occupational Safety and Health Committee information
@@ -2117,17 +2378,19 @@ const EditSupplierCSR = () => {
                 <div style={cardsContainerStyle}>
                   <div style={cardStyle}>
                     <div style={cardHeaderStyle}>
-                      <h4 style={cardTitleStyle}>OSH Committee Details</h4>
+                      <h4 style={cardTitleStyle}>OHS Committee Details</h4>
                     </div>
                     <div style={cardBodyStyle}>
                       <div style={checkboxGridStyle}>
                         {renderCheckbox(
-                          "OSH Committee Formed",
+                          "OHS Committee Formed",
                           "osh_committee_safety",
+                          "Check if OHS committee has been formed",
                         )}
                         {renderCheckbox(
-                          "OSH Safety Policy Available",
+                          "OHS Safety Policy Available",
                           "osh_safety_policy",
+                          "Check if OHS safety policy document is available",
                         )}
                       </div>
                     </div>
@@ -2149,7 +2412,7 @@ const EditSupplierCSR = () => {
                           "number",
                         )}
                         {renderFileInput(
-                          "OSH Committee Document",
+                          "OHS Committee Document",
                           "osh_file",
                           ".pdf,.jpg,.png",
                         )}
@@ -2193,10 +2456,14 @@ const EditSupplierCSR = () => {
                     "higg_fem_verification_assessment_score",
                     "number",
                   )}
-                  {renderInput("CO2 Report", "co2_report", "text")}
-                  {renderInput("Solar Energy", "solar_energy", "text")}
-                  {renderInput("Green Energy", "green_energy", "text")}
+                  {renderInput("CPI2 Report DOE", "co2_report", "text")}
+                  {renderInput("Solar Energy Date", "solar_energy", "date")}
+                  {renderInput("Green Energy Date", "green_energy", "date")}
                   <div style={fullWidthStyle}>
+                    {renderCheckbox(
+                      "ZDHC Enrollment Status",
+                      "zdhc_enrollment_status",
+                    )}
                     {renderCheckbox(
                       "Behive Chemical Inventory",
                       "behive_chemical_inventory",
@@ -2264,7 +2531,7 @@ const EditSupplierCSR = () => {
               </div>
             )}
 
-            {/* CSR Tab */}
+            {/* CSR & Compliance Tab */}
             {activeTab === "csr" && (
               <div style={formSectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -2294,27 +2561,96 @@ const EditSupplierCSR = () => {
                     "any_gift_provided_during_festival",
                   )}
                 </div>
-
-                <div style={cardStyle}>
-                  <div style={cardHeaderStyle}>
-                    <h4 style={cardTitleStyle}>Compliance Status</h4>
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>✅</span> Compliance & Wages
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Wage compliance and benefits information
+                  </p>
+                </div>
+                <div style={checkboxGridStyle}>
+                  {renderCheckbox("Minimum Wages Paid", "minimum_wages_paid")}
+                  {renderCheckbox("Earn Leave Status", "earn_leave_status")}
+                  {renderCheckbox("Service Benefit", "service_benefit")}
+                  {renderCheckbox("Maternity Benefit", "maternity_benefit")}
+                  {renderCheckbox("Yearly Increment", "yearly_increment")}
+                  {renderCheckbox("Festival Bonus", "festival_bonus")}
+                  {renderCheckbox("Salary Due Status", "salary_due_status")}
+                </div>
+                {formData.salary_due_status && (
+                  <div style={formGridStyle}>
+                    {renderInput(
+                      "Due Salary Month",
+                      "due_salary_month",
+                      "text",
+                    )}
                   </div>
-                  <div style={cardBodyStyle}>
-                    <div style={formGridStyle}>
-                      {renderSelect(
-                        "Compliance Status",
-                        "compliance_status",
-                        complianceStatusOptions,
-                      )}
-                      {renderFileInput(
-                        "Compliance Certificate",
-                        "compliance_certificate",
-                        ".pdf,.jpg,.png",
-                      )}
-                      <div style={fullWidthStyle}>
+                )}
+
+                <div style={sectionHeaderStyle}>
+                  <h3 style={sectionTitleStyle}>
+                    <span style={sectionIconStyle}>⚖️</span> Grievance
+                    Management
+                  </h3>
+                  <p style={sectionDescriptionStyle}>
+                    Grievance mechanism and resolution
+                  </p>
+                </div>
+                <div style={cardsContainerStyle}>
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Grievance Details</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={checkboxGridStyle}>
+                        {renderCheckbox(
+                          "Grievance Policy Developed",
+                          "grievance_policy_developed",
+                        )}
+                        {renderCheckbox(
+                          "Workers Aware of Grievance Procedure",
+                          "grievance_workers_aware",
+                        )}
+                        {renderCheckbox(
+                          "Grievance Committee Established",
+                          "grievance_committee_established",
+                        )}
+                        {renderCheckbox(
+                          "Complain Box Installed",
+                          "grievance_complain_box_installed",
+                        )}
+                        {renderCheckbox(
+                          "Grievance Mechanism Available",
+                          "grievance_mechanism",
+                        )}
+                      </div>
+                      <div style={formGridStyle}>
+                        {renderFileInput(
+                          "Grievance Policy Document",
+                          "grievance_policy_document",
+                          ".pdf",
+                        )}
                         {renderInput(
-                          "Compliance Remarks",
-                          "compliance_remarks",
+                          "Grievance Resolution Procedure",
+                          "grievance_resolution_procedure",
+                          "text",
+                          false,
+                          3,
+                        )}
+                        {renderInput(
+                          "Last Grievance Resolution Date",
+                          "last_grievance_resolution_date",
+                          "date",
+                        )}
+                        {renderInput(
+                          "Grievance Resolution Rate (%)",
+                          "grievance_resolution_rate",
+                          "number",
+                        )}
+                        {renderInput(
+                          "Grievance Remarks",
+                          "grievance_remarks",
                           "text",
                           false,
                           3,
@@ -2322,42 +2658,32 @@ const EditSupplierCSR = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-                <div style={cardStyle}>
-                  <div style={cardHeaderStyle}>
-                    <h4 style={cardTitleStyle}>Grievance</h4>
-                  </div>
-                  <div style={cardBodyStyle}>
-                    <div style={formGridStyle}>
-                      {renderFileInput(
-                        "Grievance Policy Document",
-                        "grievance_policy_document",
-                        ".pdf",
-                      )}
-                      {renderInput(
-                        "Grievance Resolution Procedure",
-                        "grievance_resolution_procedure",
-                        "text",
-                        false,
-                        3,
-                      )}
-                      {renderInput(
-                        "Last Grievance Resolution Date",
-                        "last_grievance_resolution_date",
-                        "date",
-                      )}
-                      {renderInput(
-                        "Grievance Resolution Rate (%)",
-                        "grievance_resolution_rate",
-                        "number",
-                      )}
-                      {renderInput(
-                        "Grievance Remarks",
-                        "grievance_remarks",
-                        "text",
-                        false,
-                        3,
-                      )}
+                  <div style={cardStyle}>
+                    <div style={cardHeaderStyle}>
+                      <h4 style={cardTitleStyle}>Compliance Status</h4>
+                    </div>
+                    <div style={cardBodyStyle}>
+                      <div style={formGridStyle}>
+                        {renderSelect(
+                          "Compliance Status",
+                          "compliance_status",
+                          complianceStatusOptions,
+                        )}
+                        {renderFileInput(
+                          "Compliance Certificate",
+                          "compliance_certificate",
+                          ".pdf,.jpg,.png",
+                        )}
+                        <div style={fullWidthStyle}>
+                          {renderInput(
+                            "Compliance Remarks",
+                            "compliance_remarks",
+                            "text",
+                            false,
+                            3,
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2378,315 +2704,358 @@ const EditSupplierCSR = () => {
                   </p>
                 </div>
 
+                {/* Zero Tolerance Policy Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Zero Tolerance Policy</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Factory allows a full facility walkthrough",
-                        "zero_tolerance_walkthrough_allowed",
-                      )}
-                      {renderCheckbox(
-                        "No underage person(s) are working in the facility",
-                        "zero_tolerance_no_underage_workers",
-                      )}
-                      {renderCheckbox(
-                        "No suspected young looking person(s) are working without authentic age verification",
-                        "zero_tolerance_no_suspected_young_workers",
-                      )}
-                      {renderCheckbox(
-                        "Minimum wage is guaranteed for all employees",
-                        "zero_tolerance_minimum_wage_guaranteed",
-                      )}
-                      {renderCheckbox(
-                        "Presented records are authentic and not falsified",
-                        "zero_tolerance_authentic_records",
-                      )}
-                      {renderCheckbox(
-                        "Absence of Forced Labor is confirmed",
-                        "zero_tolerance_no_forced_labor",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "Factory allows a full facility walkthrough",
+                      "zero_tolerance_walkthrough_allowed",
+                      "zero_tolerance_walkthrough_findings",
+                    )}
+                    {renderChecklistItem(
+                      "No underage person(s) are working in the facility",
+                      "zero_tolerance_no_underage_workers",
+                      "zero_tolerance_no_underage_findings",
+                    )}
+                    {renderChecklistItem(
+                      "No suspected young looking person(s) are working without authentic age verification",
+                      "zero_tolerance_no_suspected_young_workers",
+                      "zero_tolerance_no_suspected_young_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Minimum wage is guaranteed for all employees",
+                      "zero_tolerance_minimum_wage_guaranteed",
+                      "zero_tolerance_minimum_wage_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Presented records are authentic and not falsified",
+                      "zero_tolerance_authentic_records",
+                      "zero_tolerance_authentic_records_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Absence of Forced Labor is confirmed",
+                      "zero_tolerance_no_forced_labor",
+                      "zero_tolerance_no_forced_labor_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* Fire Fighting Equipment Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Fire Fighting Equipment</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Sufficient fire fighting equipment as per local law",
-                        "fire_fighting_equipment_sufficient",
-                      )}
-                      {renderCheckbox(
-                        "Sufficient trained fire fighters assigned",
-                        "fire_fighting_trained_personnel",
-                      )}
-                      {renderCheckbox(
-                        "Fire hose/stand pipe system with sufficient water pressure",
-                        "fire_fighting_hose_system",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "Sufficient fire fighting equipment as per local law",
+                      "fire_fighting_equipment_sufficient",
+                      "fire_fighting_equipment_sufficient_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Sufficient trained fire fighters assigned",
+                      "fire_fighting_trained_personnel",
+                      "fire_fighting_trained_personnel_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Fire hose/stand pipe system with sufficient water pressure",
+                      "fire_fighting_hose_system",
+                      "fire_fighting_hose_system_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* Fire Alarm System Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Fire Alarm System</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Fire alarm system present",
-                        "fire_alarm_system_present",
-                      )}
-                      {renderCheckbox(
-                        "Fire alarm audible in all areas",
-                        "fire_alarm_audible_all_areas",
-                      )}
-                      {renderCheckbox(
-                        "Visual fire alarm in noisy sections",
-                        "fire_alarm_visual_noisy_areas",
-                      )}
-                      {renderCheckbox(
-                        "Fire alarm connected with instant power supply",
-                        "fire_alarm_ips_backup",
-                      )}
-                      {renderCheckbox(
-                        "Sufficient smoke detectors with power backup",
-                        "fire_alarm_smoke_detectors",
-                      )}
-                      {renderCheckbox(
-                        "Fire alarm switches installed and marked with instructions",
-                        "fire_alarm_switches_marked",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "Fire alarm system present",
+                      "fire_alarm_system_present",
+                      "fire_alarm_system_present_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Fire alarm audible in all areas",
+                      "fire_alarm_audible_all_areas",
+                      "fire_alarm_audible_all_areas_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Visual fire alarm in noisy sections",
+                      "fire_alarm_visual_noisy_areas",
+                      "fire_alarm_visual_noisy_areas_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Fire alarm connected with instant power supply",
+                      "fire_alarm_ips_backup",
+                      "fire_alarm_ips_backup_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Sufficient smoke detectors with power backup",
+                      "fire_alarm_smoke_detectors",
+                      "fire_alarm_smoke_detectors_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Fire alarm switches installed and marked with instructions",
+                      "fire_alarm_switches_marked",
+                      "fire_alarm_switches_marked_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* Emergency Lights Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Emergency Lights</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Sufficient emergency lights in workplace and stairway",
-                        "emergency_lights_installed",
-                      )}
-                      {renderCheckbox(
-                        "Emergency lights connected with instant power supply",
-                        "emergency_lights_ips_backup",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "Sufficient emergency lights in workplace and stairway",
+                      "emergency_lights_installed",
+                      "emergency_lights_installed_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Emergency lights connected with instant power supply",
+                      "emergency_lights_ips_backup",
+                      "emergency_lights_ips_backup_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* Drinking Water Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Drinking Water</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Drinking water point sufficient and accessible",
-                        "drinking_water_sufficient",
-                      )}
-                      {renderCheckbox(
-                        "Water test report valid",
-                        "drinking_water_test_report_valid",
-                      )}
-                      {renderCheckbox(
-                        "Water parameters in acceptable limits",
-                        "drinking_water_parameters_acceptable",
-                      )}
-                      {renderCheckbox(
+                    {renderChecklistItem(
+                      "Drinking water point sufficient and accessible",
+                      "drinking_water_sufficient",
+                      "drinking_water_sufficient_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Water test report valid",
+                      "drinking_water_test_report_valid",
+                      "drinking_water_test_report_valid_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Water parameters in acceptable limits",
+                      "drinking_water_parameters_acceptable",
+                      "drinking_water_parameters_acceptable_findings",
+                    )}
+                    <div style={subSectionIndentStyle}>
+                      <h5 style={subSectionHeaderStyle}>
+                        Water Quality Parameters
+                      </h5>
+                      {renderChecklistItem(
                         "Arsenic within limits",
                         "drinking_water_arsenic_limit",
+                        "drinking_water_arsenic_limit_findings",
                       )}
-                      {renderCheckbox(
+                      {renderChecklistItem(
                         "Fecal Coliform within limits",
                         "drinking_water_fecal_coliform_limit",
+                        "drinking_water_fecal_coliform_limit_findings",
                       )}
-                      {renderCheckbox(
+                      {renderChecklistItem(
                         "Total Coliform within limits",
                         "drinking_water_total_coliform_limit",
+                        "drinking_water_total_coliform_limit_findings",
                       )}
-                      {renderCheckbox(
+                      {renderChecklistItem(
                         "pH within limits",
                         "drinking_water_ph_limit",
+                        "drinking_water_ph_limit_findings",
                       )}
-                      {renderCheckbox(
+                      {renderChecklistItem(
                         "TDS within limits",
                         "drinking_water_tds_limit",
+                        "drinking_water_tds_limit_findings",
                       )}
-                      {renderCheckbox(
+                      {renderChecklistItem(
                         "Iron within limits",
                         "drinking_water_iron_limit",
+                        "drinking_water_iron_limit_findings",
                       )}
                     </div>
                   </div>
                 </div>
 
+                {/* Public Announce System Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Public Announce System</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Public Announce system present",
-                        "pa_system_present",
-                      )}
-                      {renderCheckbox(
-                        "PA system audible covering all areas with IPS backup",
-                        "pa_system_audible_all_areas",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "Public Announce system present",
+                      "pa_system_present",
+                      "pa_system_present_findings",
+                    )}
+                    {renderChecklistItem(
+                      "PA system audible covering all areas with IPS backup",
+                      "pa_system_audible_all_areas",
+                      "pa_system_audible_all_areas_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* Emergency Exits Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Emergency Exits</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Two exits in each floor, not locked or obstructed",
-                        "emergency_exits_two_per_floor",
-                      )}
-                      {renderCheckbox(
-                        "Workers trained on fire drills and emergency evacuation",
-                        "emergency_exits_trained_workers",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "Two exits in each floor, not locked or obstructed",
+                      "emergency_exits_two_per_floor",
+                      "emergency_exits_two_per_floor_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Workers trained on fire drills and emergency evacuation",
+                      "emergency_exits_trained_workers",
+                      "emergency_exits_trained_workers_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* Grievance Mechanism Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Grievance Mechanism</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Grievance mechanism available",
-                        "grievance_mechanism",
-                      )}
-                      {renderCheckbox(
-                        "Grievance committee established and workers aware",
-                        "grievance_committee_established",
-                      )}
-                      {renderCheckbox(
-                        "Complain box installed in toilet/hidden area with procedure posted",
-                        "grievance_complain_box_installed",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "Factory has developed grievance policy & procedure",
+                      "grievance_policy_developed",
+                      "grievance_policy_developed_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Workers/employees are aware regarding grievance procedure",
+                      "grievance_workers_aware",
+                      "grievance_workers_aware_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Grievance committee established and workers aware",
+                      "grievance_committee_established",
+                      "grievance_committee_established_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Complain box installed in toilet/hidden area with procedure posted",
+                      "grievance_complain_box_installed",
+                      "grievance_complain_box_installed_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* Wet Process Unit Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Wet Process Unit</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "Factory has a wet process unit",
-                        "wet_process_unit_exists",
-                      )}
-                      {renderCheckbox(
-                        "Legally required valid environmental licenses/permits",
-                        "wet_process_environmental_licenses",
-                      )}
-                      {renderCheckbox(
-                        "Wastewater treatment plant with inlet/outlet meter",
-                        "wet_process_wastewater_treatment_plant",
-                      )}
-                      {renderCheckbox(
-                        "Wastewater treatment plant functional",
-                        "wet_process_wtp_functional",
-                      )}
-                      {renderCheckbox(
-                        "Valid wastewater test report",
-                        "wet_process_valid_test_report",
-                      )}
-                      {renderCheckbox(
-                        "Wastewater parameters within legal limits",
-                        "wet_process_parameters_within_limits",
-                      )}
-                    </div>
-                    <div style={{ marginTop: "1rem" }}>
-                      <h5
-                        style={{
-                          fontSize: "0.875rem",
-                          fontWeight: "600",
-                          marginBottom: "1rem",
-                        }}
-                      >
+                    {renderChecklistItem(
+                      "Factory has a wet process unit",
+                      "wet_process_unit_exists",
+                      "wet_process_unit_exists_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Legally required valid environmental licenses/permits",
+                      "wet_process_environmental_licenses",
+                      "wet_process_environmental_licenses_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Wastewater treatment plant with inlet/outlet meter",
+                      "wet_process_wastewater_treatment_plant",
+                      "wet_process_wastewater_treatment_plant_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Wastewater treatment plant functional",
+                      "wet_process_wtp_functional",
+                      "wet_process_wtp_functional_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Valid wastewater test report",
+                      "wet_process_valid_test_report",
+                      "wet_process_valid_test_report_findings",
+                    )}
+                    {renderChecklistItem(
+                      "Wastewater parameters within legal limits",
+                      "wet_process_parameters_within_limits",
+                      "wet_process_parameters_within_limits_findings",
+                    )}
+
+                    <div style={subSectionIndentStyle}>
+                      <h5 style={subSectionHeaderStyle}>
                         Wastewater Parameters
                       </h5>
-                      <div style={checkboxGridStyle}>
-                        {renderCheckbox(
-                          "Wastewater pH within limits",
-                          "wet_process_ph_within_limits",
-                        )}
-                        {renderCheckbox(
-                          "Wastewater TDS within limits",
-                          "wet_process_tds_within_limits",
-                        )}
-                        {renderCheckbox(
-                          "Wastewater BOD within limits",
-                          "wet_process_bod_within_limits",
-                        )}
-                        {renderCheckbox(
-                          "Wastewater COD within limits",
-                          "wet_process_cod_within_limits",
-                        )}
-                        {renderCheckbox(
-                          "Wastewater DO within limits",
-                          "wet_process_do_within_limits",
-                        )}
-                        {renderCheckbox(
-                          "Wastewater TSS within limits",
-                          "wet_process_tss_within_limits",
-                        )}
-                      </div>
+                      {renderChecklistItem(
+                        "Wastewater pH within limits",
+                        "wet_process_ph_within_limits",
+                        "wet_process_ph_within_limits_findings",
+                      )}
+                      {renderChecklistItem(
+                        "Wastewater TDS within limits",
+                        "wet_process_tds_within_limits",
+                        "wet_process_tds_within_limits_findings",
+                      )}
+                      {renderChecklistItem(
+                        "Wastewater BOD within limits",
+                        "wet_process_bod_within_limits",
+                        "wet_process_bod_within_limits_findings",
+                      )}
+                      {renderChecklistItem(
+                        "Wastewater COD within limits",
+                        "wet_process_cod_within_limits",
+                        "wet_process_cod_within_limits_findings",
+                      )}
+                      {renderChecklistItem(
+                        "Wastewater DO within limits",
+                        "wet_process_do_within_limits",
+                        "wet_process_do_within_limits_findings",
+                      )}
+                      {renderChecklistItem(
+                        "Wastewater TSS within limits",
+                        "wet_process_tss_within_limits",
+                        "wet_process_tss_within_limits_findings",
+                      )}
                     </div>
                   </div>
                 </div>
 
+                {/* Harassment Prevention Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>Harassment Prevention</h4>
                   </div>
                   <div style={cardBodyStyle}>
-                    <div style={checkboxGridStyle}>
-                      {renderCheckbox(
-                        "No evidence of physical harassment",
-                        "no_physical_harassment",
-                      )}
-                      {renderCheckbox(
-                        "No evidence of sexual harassment",
-                        "no_sexual_harassment",
-                      )}
-                      {renderCheckbox(
-                        "No evidence of psychological harassment",
-                        "no_psychological_harassment",
-                      )}
-                      {renderCheckbox(
-                        "No evidence of verbal harassment",
-                        "no_verbal_harassment",
-                      )}
-                    </div>
+                    {renderChecklistItem(
+                      "No evidence of physical harassment",
+                      "no_physical_harassment",
+                      "no_physical_harassment_findings",
+                    )}
+                    {renderChecklistItem(
+                      "No evidence of sexual harassment",
+                      "no_sexual_harassment",
+                      "no_sexual_harassment_findings",
+                    )}
+                    {renderChecklistItem(
+                      "No evidence of psychological harassment",
+                      "no_psychological_harassment",
+                      "no_psychological_harassment_findings",
+                    )}
+                    {renderChecklistItem(
+                      "No evidence of verbal harassment",
+                      "no_verbal_harassment",
+                      "no_verbal_harassment_findings",
+                    )}
                   </div>
                 </div>
 
+                {/* First Visit Checklist Section */}
                 <div style={cardStyle}>
                   <div style={cardHeaderStyle}>
                     <h4 style={cardTitleStyle}>First Visit Checklist</h4>
@@ -2891,7 +3260,7 @@ const containerStyle = {
 
 const headerStyle = {
   backgroundColor: colors.background,
-  padding: "2rem 3rem",
+  padding: "2rem 4rem",
   borderBottom: `1px solid ${colors.border}`,
   boxShadow:
     "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
@@ -3099,7 +3468,8 @@ const subSectionTitleStyle = {
 const formGridStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-  gap: "1.5rem",
+  gap: "2.5rem",
+  padding: "1.5rem 1.5rem",
 };
 
 const fullWidthStyle = { gridColumn: "1 / -1" };
@@ -3283,7 +3653,7 @@ const dividerStyle = {
 const cardsContainerStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
-  gap: "1.5rem",
+  gap: "5rem",
 };
 
 const cardStyle = {
@@ -3308,6 +3678,13 @@ const cardTitleStyle = {
 };
 
 const cardBodyStyle = { padding: "1.5rem" };
+
+const cardSubtitleStyle = {
+  fontSize: "0.75rem",
+  color: colors.textMuted,
+  marginTop: "0.25rem",
+  marginBottom: 0,
+};
 
 const formActionsStyle = {
   display: "flex",
@@ -3444,6 +3821,36 @@ const imageCountStyle = {
   color: colors.primary,
   marginTop: "0.5rem",
   fontWeight: "500",
+};
+
+const checklistItemStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.75rem",
+  padding: "1rem",
+  borderBottom: `1px solid ${colors.border}`,
+};
+
+const checklistCheckboxStyle = {
+  flex: "1",
+};
+
+const checklistFindingsStyle = {
+  marginLeft: "1.5rem",
+};
+
+const subSectionIndentStyle = {
+  marginLeft: "1.5rem",
+  marginTop: "1rem",
+  paddingLeft: "1rem",
+  borderLeft: `2px solid ${colors.primary}`,
+};
+
+const subSectionHeaderStyle = {
+  fontSize: "0.875rem",
+  fontWeight: "600",
+  color: colors.primary,
+  marginBottom: "1rem",
 };
 
 // Add CSS animations

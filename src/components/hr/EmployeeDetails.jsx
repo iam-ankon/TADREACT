@@ -1756,6 +1756,10 @@ const styles = {
   },
   actionBtn: {
     display: "flex",
+    padding: "10px 18px",
+    borderRadius: "6px",
+    fontSize: "14px",
+    transition: "all 0.2s",
     cursor: "pointer",
     color: "#f59e0b",
     borderColor: "#f59e0b",

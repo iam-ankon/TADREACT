@@ -726,6 +726,63 @@ export const getOrderStatsWithFilters = async (filters = {}) => {
   }
 };
 
+export const exportOrdersToExcel = async (orderIds) => {
+  try {
+    console.log(`📊 Exporting ${orderIds.length} orders to Excel...`);
+    
+    const response = await merchandiserApi.post('orders/export-excel-bulk/', {
+      order_ids: orderIds
+    }, {
+      responseType: 'blob', // Important for file download
+    });
+    
+    console.log('✅ Bulk Excel export successful, downloading file...');
+    return response;
+  } catch (error) {
+    console.error('❌ Error exporting orders to Excel:', error);
+    console.error('Error details:', error.response?.data);
+    throw error;
+  }
+};
+
+export const exportOrderToExcel = async (orderId) => {
+  try {
+    console.log(`📊 Exporting order ${orderId} to Excel...`);
+    
+    const response = await merchandiserApi.get(`orders/${orderId}/export-excel/`, {
+      responseType: 'blob', // Important for file download
+    });
+    
+    console.log('✅ Excel export successful, downloading file...');
+    
+    // Create a download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Get filename from Content-Disposition header or use default
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = `order_${orderId}.xlsx`;
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^*]=["']?([^"']+)["']?/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    return { success: true, filename };
+  } catch (error) {
+    console.error('❌ Error exporting order to Excel:', error);
+    console.error('Error details:', error.response?.data);
+    throw error;
+  }
+};
 
 export const getOrderById = (id) => merchandiserApi.get(`orders/${id}/`);
 export const createOrder = (data) => merchandiserApi.post("orders/", data);
@@ -2022,6 +2079,8 @@ export default {
   patchOrder,
   deleteOrder,
   getOrderStats,
+  exportOrderToExcel,
+  exportOrdersToExcel,
 
   // Inquiries
   getInquiries,

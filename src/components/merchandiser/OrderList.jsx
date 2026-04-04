@@ -49,9 +49,10 @@ import {
   FaColumns,
   FaSave,
   FaStickyNote,
+  FaGripVertical,
 } from "react-icons/fa";
 
-// Utility functions
+// Utility functions (keep existing ones)
 const formatCurrency = (value) => {
   if (!value && value !== 0) return "N/A";
   return new Intl.NumberFormat("en-US", {
@@ -139,35 +140,35 @@ const statusConfig = {
   Running: {
     color: "#10b981",
     bg: "#d1fae5",
-    rowBg: "#ecfdf5",      // Light green row background
+    rowBg: "#dfe591",
     icon: <FaCheckCircle />,
     label: "Running",
   },
   Shipped: {
-    color: "#3b82f6",
+    color: "#10b981",
     bg: "#dbeafe",
-    rowBg: "#eff6ff",      // Light blue row background
+    rowBg: "#91e5c9",
     icon: <FaTruck />,
     label: "Shipped",
   },
   Pending: {
     color: "#f59e0b",
     bg: "#fed7aa",
-    rowBg: "#fffbeb",      // Light orange/yellow row background
+    rowBg: "#fffbeb",
     icon: <FaHourglassHalf />,
     label: "Pending",
   },
   Cancelled: {
     color: "#ef4444",
     bg: "#fee2e2",
-    rowBg: "#fef2f2",      // Light red row background
+    rowBg: "#fef2f2",
     icon: <FaBan />,
     label: "Cancelled",
   },
   Draft: {
     color: "#6b7280",
     bg: "#f3f4f6",
-    rowBg: "#f9fafb",      // Light gray row background
+    rowBg: "#f9fafb",
     icon: <FaFileAlt />,
     label: "Draft",
   },
@@ -181,6 +182,7 @@ const ALL_COLUMNS = [
     sortable: true,
     sortKey: "po_no",
     width: "180px",
+    frozen: true, // Mark this column as frozen
   },
   {
     key: "customer",
@@ -414,6 +416,21 @@ const OrderList = () => {
     }
   });
 
+  // Column order state for drag and drop
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem("orderColumnOrder");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    // Default order: the keys in order they appear in ALL_COLUMNS
+    return ALL_COLUMNS.map((col) => col.key);
+  });
+
+  const [draggedColumn, setDraggedColumn] = useState(null);
+  const [dragOverColumn, setDragOverColumn] = useState(null);
+
   // Column visibility state
   const [visibleColumns, setVisibleColumns] = useState(() => {
     try {
@@ -440,7 +457,25 @@ const OrderList = () => {
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const columnSelectorRef = useRef(null);
 
-  // Data state
+  // Column resize state
+  const [columnWidths, setColumnWidths] = useState(() => {
+    try {
+      const saved = localStorage.getItem("orderColumnWidths");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    const defaultWidths = {};
+    ALL_COLUMNS.forEach((col) => {
+      defaultWidths[col.key] = col.width || "150px";
+    });
+    return defaultWidths;
+  });
+  const [resizingColumn, setResizingColumn] = useState(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
+
+  // Data state (keep all existing state)
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({
     total_orders: 0,
@@ -481,7 +516,7 @@ const OrderList = () => {
     },
   });
 
-  // Filter state
+  // Filter state (keep all existing filter state)
   const [searchQuery, setSearchQuery] = useState(() => {
     try {
       return localStorage.getItem("orderSearchQuery") || "";
@@ -599,6 +634,7 @@ const OrderList = () => {
   const searchTimeoutRef = useRef(null);
   const isInitialMount = useRef(true);
   const isFirstFetchDone = useRef(false);
+  const tableHeaderRef = useRef(null);
 
   const months = [
     "January",
@@ -630,6 +666,22 @@ const OrderList = () => {
     return selectedCustomers.join("|");
   }, [selectedCustomers]);
 
+  // Get ordered and visible columns
+  const orderedVisibleColumns = useMemo(() => {
+    // Filter to only visible columns
+    const visible = columnOrder.filter((key) => visibleColumns.includes(key));
+    // Add any visible columns that might not be in columnOrder (shouldn't happen, but safe)
+    const missing = visibleColumns.filter((key) => !columnOrder.includes(key));
+    return [...visible, ...missing];
+  }, [columnOrder, visibleColumns]);
+
+  // Save column order to localStorage
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem("orderColumnOrder", JSON.stringify(columnOrder));
+    }
+  }, [columnOrder]);
+
   // Save column visibility to localStorage
   useEffect(() => {
     if (!isInitialMount.current) {
@@ -639,6 +691,13 @@ const OrderList = () => {
       );
     }
   }, [visibleColumns]);
+
+  // Save column widths to localStorage
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem("orderColumnWidths", JSON.stringify(columnWidths));
+    }
+  }, [columnWidths]);
 
   // Close column selector on outside click
   useEffect(() => {
@@ -653,6 +712,78 @@ const OrderList = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Column resize handlers
+  const handleMouseDown = (e, columnKey, currentWidth) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setResizingColumn(columnKey);
+    setStartX(e.clientX);
+    let widthValue = currentWidth;
+    if (typeof currentWidth === "string") {
+      const match = currentWidth.match(/(\d+)/);
+      if (match) {
+        widthValue = parseInt(match[0], 10);
+      } else {
+        widthValue = 150;
+      }
+    }
+    setStartWidth(widthValue);
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (!resizingColumn) return;
+
+      const deltaX = e.clientX - startX;
+      const newWidth = Math.max(60, startWidth + deltaX);
+      setColumnWidths((prev) => ({
+        ...prev,
+        [resizingColumn]: `${newWidth}px`,
+      }));
+    },
+    [resizingColumn, startX, startWidth],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setResizingColumn(null);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }, []);
+
+  // Add/remove mouse event listeners
+  useEffect(() => {
+    if (resizingColumn) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [resizingColumn, handleMouseMove, handleMouseUp]);
+
+  // Reset column widths to default
+  const resetColumnWidths = () => {
+    const defaultWidths = {};
+    ALL_COLUMNS.forEach((col) => {
+      defaultWidths[col.key] = col.width || "150px";
+    });
+    setColumnWidths(defaultWidths);
+  };
+
+  // Reset individual column width on double click
+  const resetColumnWidth = (columnKey) => {
+    const defaultColumn = ALL_COLUMNS.find((col) => col.key === columnKey);
+    setColumnWidths((prev) => ({
+      ...prev,
+      [columnKey]: defaultColumn?.width || "150px",
+    }));
+  };
 
   const toggleColumn = (columnKey) => {
     setVisibleColumns((prev) => {
@@ -676,10 +807,72 @@ const OrderList = () => {
       "shipment_date",
       "status",
       "remarks",
-      "actions",
     ]);
   };
 
+  // Drag and drop handlers for columns
+  const handleDragStart = (e, columnKey, index) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", columnKey);
+    setDraggedColumn({ key: columnKey, index });
+
+    // Set drag image
+    const dragImage = document.createElement("div");
+    dragImage.textContent = columnKey;
+    dragImage.style.position = "absolute";
+    dragImage.style.top = "-1000px";
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+  };
+
+  const handleDragOver = (e, columnKey, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverColumn !== columnKey) {
+      setDragOverColumn({ key: columnKey, index });
+    }
+  };
+
+  const handleDrop = (e, targetColumnKey, targetIndex) => {
+    e.preventDefault();
+
+    if (!draggedColumn) return;
+
+    const sourceKey = draggedColumn.key;
+    const sourceIndex = draggedColumn.index;
+    const targetKey = targetColumnKey;
+
+    if (sourceKey === targetKey) {
+      setDraggedColumn(null);
+      setDragOverColumn(null);
+      return;
+    }
+
+    // Don't allow dragging frozen column
+    const sourceColumn = ALL_COLUMNS.find((col) => col.key === sourceKey);
+    if (sourceColumn?.frozen) {
+      setDraggedColumn(null);
+      setDragOverColumn(null);
+      return;
+    }
+
+    // Reorder columns
+    const newColumnOrder = [...columnOrder];
+    newColumnOrder.splice(sourceIndex, 1);
+    newColumnOrder.splice(targetIndex, 0, sourceKey);
+
+    setColumnOrder(newColumnOrder);
+    setDraggedColumn(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedColumn(null);
+    setDragOverColumn(null);
+  };
+
+  // Keep existing functions (fetchCustomerOptions, useEffect hooks, etc.)
   const fetchCustomerOptions = useCallback(async () => {
     try {
       const response = await getCustomers(1, 500, false);
@@ -1159,14 +1352,6 @@ const OrderList = () => {
     }));
   };
 
-  const handleRowClick = useCallback(
-    (id) => {
-      console.log("Clicked order ID:", id);
-      navigate(`/orders/${id}`);
-    },
-    [navigate],
-  );
-
   const handleSelectRow = (id, e) => {
     e.stopPropagation();
     setSelectedRows((prev) => {
@@ -1200,69 +1385,57 @@ const OrderList = () => {
     return "24px";
   };
 
-  const handleExport = useCallback(() => {
-    const escapeCSV = (value) => {
-      if (value === null || value === undefined || value === "") return "";
-      const stringValue = String(value);
-      if (
-        stringValue.includes(",") ||
-        stringValue.includes('"') ||
-        stringValue.includes("\n") ||
-        stringValue.includes("\r")
-      ) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
-      }
-      return stringValue;
-    };
+  const handleExport = useCallback(async () => {
+    const ordersToExport =
+      selectedRows.length > 0 ? selectedRows : orders.map((order) => order.id);
 
-    const getCustomerDisplay = (customer) => {
-      if (!customer) return "—";
-      if (typeof customer === "object" && customer !== null) {
-        return (
-          customer.customer_display ||
-          customer.customer_name ||
-          customer.name ||
-          `Customer ${customer.id || ""}`
+    if (ordersToExport.length === 0) {
+      alert("No orders to export");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const { exportOrdersToExcel } = await import("../../api/merchandiser");
+
+      console.log(`Exporting ${ordersToExport.length} orders to Excel...`);
+
+      const response = await exportOrdersToExcel(ordersToExport);
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+
+      const contentDisposition = response.headers["content-disposition"];
+      let filename = `Orders_Export_${ordersToExport.length}_orders.xlsx`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(
+          /filename[^*]=["']?([^"']+)["']?/,
         );
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
       }
-      return customer;
-    };
 
-    const dataToExport =
-      selectedRows.length > 0
-        ? orders.filter((order) => selectedRows.includes(order.id))
-        : orders;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
-    const csvContent = [
-      "PO Number,Style,Customer,Supplier,Garment,Quantity,Unit Price,Total Value,Shipment Date,Status,Remarks",
-      ...dataToExport.map((order) =>
-        [
-          escapeCSV(order.po_no),
-          escapeCSV(order.style),
-          escapeCSV(getCustomerDisplay(order.customer)),
-          escapeCSV(order.supplier),
-          escapeCSV(order.garment),
-          order.total_qty,
-          order.unit_price,
-          order.total_value,
-          formatDateForDisplay(order.shipment_date),
-          order.status || "Draft",
-          escapeCSV(order.remarks || ""),
-        ].join(","),
-      ),
-    ].join("\n");
+      if (selectedRows.length > 0) {
+        setSelectedRows([]);
+        setSelectAll(false);
+      }
 
-    const blob = new Blob(["\ufeff" + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Orders_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+      console.log("✅ Export completed successfully");
+    } catch (error) {
+      console.error("❌ Error exporting orders:", error);
+      setError("Failed to export orders. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }, [orders, selectedRows]);
 
   const clearAllFilters = useCallback(() => {
@@ -1316,9 +1489,8 @@ const OrderList = () => {
     );
   };
 
-  // Get row background color based on status
   const getRowBackgroundColor = (status, isSelected) => {
-    if (isSelected) return "#eff6ff"; // Selected rows override with blue
+    if (isSelected) return "#6a88af";
     const config = statusConfig[status] || statusConfig.Draft;
     return config.rowBg;
   };
@@ -1436,10 +1608,12 @@ const OrderList = () => {
       case "group_name":
         return order.group_name || "—";
       case "remarks":
-        // Inline editing for remarks
         if (editingRemarksId === order.id) {
           return (
-            <div style={styles.remarksInlineEdit} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={styles.remarksInlineEdit}
+              onClick={(e) => e.stopPropagation()}
+            >
               <textarea
                 value={editingRemarksValue}
                 onChange={(e) => setEditingRemarksValue(e.target.value)}
@@ -1451,7 +1625,9 @@ const OrderList = () => {
               <div style={styles.remarksInlineActions}>
                 <button
                   style={styles.remarksSaveBtn}
-                  onClick={() => handleSaveRemarks(order.id, editingRemarksValue)}
+                  onClick={() =>
+                    handleSaveRemarks(order.id, editingRemarksValue)
+                  }
                   title="Save"
                 >
                   <FaCheck size={12} />
@@ -1471,7 +1647,9 @@ const OrderList = () => {
           <div style={styles.remarksCell} onClick={(e) => e.stopPropagation()}>
             <div style={styles.remarksDisplay}>
               <span style={styles.remarksText}>
-                {order.remarks || <span style={styles.noRemarks}>No remarks</span>}
+                {order.remarks || (
+                  <span style={styles.noRemarks}>No remarks</span>
+                )}
               </span>
               <button
                 style={styles.editRemarksBtn}
@@ -1670,8 +1848,15 @@ const OrderList = () => {
               </div>
             </div>
             <div style={styles.headerActions}>
-              <button style={styles.btnExport} onClick={handleExport}>
-                <FaDownload /> Export CSV
+              <button
+                style={styles.btnExport}
+                onClick={handleExport}
+                disabled={loading || orders.length === 0}
+              >
+                <FaDownload />
+                {selectedRows.length > 0
+                  ? `Export ${selectedRows.length} Selected`
+                  : "Export All"}
               </button>
               <button
                 style={styles.btnPrimary}
@@ -1861,7 +2046,7 @@ const OrderList = () => {
           {/* Filters Section */}
           <div style={styles.statsSection}>
             <div style={styles.statsHeader}>
-              <h3 style={styles.statsTitle}>Statistics Overview</h3>
+              <h3 style={styles.statsTitle}>Filter</h3>
               <button
                 style={styles.toggleStatsBtn}
                 onClick={() => setShowStat(!showStat)}
@@ -2366,12 +2551,20 @@ const OrderList = () => {
                       <div style={styles.columnSelectorDropdown}>
                         <div style={styles.columnSelectorHeader}>
                           <span>Select Columns to Display</span>
-                          <button
-                            style={styles.resetColumnsBtn}
-                            onClick={resetColumns}
-                          >
-                            Reset
-                          </button>
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <button
+                              style={styles.resetColumnsBtn}
+                              onClick={resetColumns}
+                            >
+                              Reset Columns
+                            </button>
+                            <button
+                              style={styles.resetColumnsBtn}
+                              onClick={resetColumnWidths}
+                            >
+                              Reset Widths
+                            </button>
+                          </div>
                         </div>
                         <div style={styles.columnSelectorList}>
                           {ALL_COLUMNS.map((column) => (
@@ -2570,9 +2763,18 @@ const OrderList = () => {
 
             <div style={styles.tableContainer}>
               <table style={styles.orderTable}>
-                <thead>
-                  <tr>
-                    <th style={styles.checkboxCell}>
+                <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+                  <tr style={{ position: "sticky", top: 0, zIndex: 10 }}>
+                    <th
+                      style={{
+                        ...styles.checkboxCell,
+                        position: "sticky",
+                        left: 0,
+                        top: 0,
+                        zIndex: 11,
+                        background: "#f8fafc",
+                      }}
+                    >
                       <label style={styles.checkbox}>
                         <input
                           type="checkbox"
@@ -2583,36 +2785,105 @@ const OrderList = () => {
                         <span style={styles.checkmark}></span>
                       </label>
                     </th>
-                    {ALL_COLUMNS.filter((col) =>
-                      visibleColumns.includes(col.key),
-                    ).map((column) => (
-                      <th
-                        key={column.key}
-                        onClick={
-                          column.sortable
-                            ? () => handleSort(column.sortKey)
-                            : undefined
-                        }
-                        style={{
-                          ...styles.tableHeaderCell,
-                          ...(column.sortable ? styles.sortable : {}),
-                          ...(column.align === "right"
-                            ? { textAlign: "right" }
-                            : {}),
-                          width: column.width,
-                        }}
-                      >
-                        {column.label}
-                        {column.sortable && getSortIcon(column.sortKey)}
-                      </th>
-                    ))}
+                    {orderedVisibleColumns.map((columnKey, index) => {
+                      const column = ALL_COLUMNS.find(
+                        (col) => col.key === columnKey,
+                      );
+                      if (!column) return null;
+                      const isFrozen = column.frozen;
+                      return (
+                        <th
+                          key={columnKey}
+                          onClick={
+                            column.sortable
+                              ? () => handleSort(column.sortKey)
+                              : undefined
+                          }
+                          style={{
+                            ...styles.tableHeaderCell,
+                            ...(column.sortable ? styles.sortable : {}),
+                            ...(column.align === "right"
+                              ? { textAlign: "right" }
+                              : {}),
+                            width:
+                              columnWidths[columnKey] ||
+                              column.width ||
+                              "150px",
+                            position: "relative",
+                            ...(isFrozen
+                              ? {
+                                  position: "sticky",
+                                  left: "48px",
+                                  zIndex: 12,
+                                  background: "#f8fafc",
+                                }
+                              : {
+                                  position: "sticky",
+                                  top: 0,
+                                  zIndex: 10,
+                                  background: "#f8fafc",
+                                }),
+                          }}
+                          draggable={!isFrozen}
+                          onDragStart={(e) =>
+                            !isFrozen && handleDragStart(e, columnKey, index)
+                          }
+                          onDragOver={(e) =>
+                            !isFrozen && handleDragOver(e, columnKey, index)
+                          }
+                          onDrop={(e) =>
+                            !isFrozen && handleDrop(e, columnKey, index)
+                          }
+                          onDragEnd={handleDragEnd}
+                        >
+                          <div style={styles.columnHeaderContent}>
+                            {!isFrozen && (
+                              <FaGripVertical
+                                style={styles.dragHandle}
+                                size={12}
+                              />
+                            )}
+                            <span>{column.label}</span>
+                          </div>
+                          {column.sortable && getSortIcon(column.sortKey)}
+
+                          {/* Resize handle */}
+                          <div
+                            style={{
+                              ...styles.resizeHandle,
+                              ...(resizingColumn === columnKey
+                                ? styles.resizeHandleActive
+                                : {}),
+                            }}
+                            onMouseDown={(e) =>
+                              handleMouseDown(
+                                e,
+                                columnKey,
+                                columnWidths[columnKey] || column.width,
+                              )
+                            }
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              resetColumnWidth(columnKey);
+                            }}
+                            title="Drag to resize, double-click to reset"
+                          />
+                          {dragOverColumn?.key === columnKey && !isFrozen && (
+                            <div style={styles.dragIndicator} />
+                          )}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {orders.length > 0 ? (
                     orders.map((order) => {
                       const isSelected = selectedRows.includes(order.id);
-                      const rowBgColor = getRowBackgroundColor(order.status, isSelected);
+                      const rowBgColor = getRowBackgroundColor(
+                        order.status,
+                        isSelected,
+                      );
                       return (
                         <tr
                           key={order.id}
@@ -2628,7 +2899,13 @@ const OrderList = () => {
                           }}
                         >
                           <td
-                            style={styles.tableCell}
+                            style={{
+                              ...styles.checkboxCellBody,
+                              backgroundColor: rowBgColor,
+                              position: "sticky",
+                              left: 0,
+                              zIndex: 5,
+                            }}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <label style={styles.checkbox}>
@@ -2639,39 +2916,60 @@ const OrderList = () => {
                                 style={styles.checkboxInput}
                               />
                               <span style={styles.checkmark}>
-                                {isSelected && <FaCheck size={10} style={{ position: "absolute", top: "3px", left: "3px" }} />}
+                                {isSelected && (
+                                  <FaCheck
+                                    size={10}
+                                    style={{
+                                      position: "absolute",
+                                      top: "3px",
+                                      left: "3px",
+                                    }}
+                                  />
+                                )}
                               </span>
                             </label>
                           </td>
-                          {ALL_COLUMNS.filter((col) =>
-                            visibleColumns.includes(col.key),
-                          ).map((column) => (
-                            <td
-                              key={column.key}
-                              style={{
-                                ...styles.tableCell,
-                                ...(column.align === "right"
-                                  ? { textAlign: "right" }
-                                  : {}),
-                              }}
-                              onClick={(e) => {
-                                // Only stop propagation for actions
-                                if (column.key === "actions") {
-                                  e.stopPropagation();
-                                }
-                              }}
-                            >
-                              {renderCell(order, column.key)}
-                            </td>
-                          ))}
+                          {orderedVisibleColumns.map((columnKey) => {
+                            const column = ALL_COLUMNS.find(
+                              (col) => col.key === columnKey,
+                            );
+                            if (!column) return null;
+                            const isFrozen = column.frozen;
+                            return (
+                              <td
+                                key={columnKey}
+                                style={{
+                                  ...styles.tableCell,
+                                  ...(column.align === "right"
+                                    ? { textAlign: "right" }
+                                    : {}),
+                                  ...(isFrozen
+                                    ? {
+                                        position: "sticky",
+                                        left: "48px",
+                                        backgroundColor: rowBgColor,
+                                        zIndex: 5,
+                                      }
+                                    : {}),
+                                }}
+                                onClick={(e) => {
+                                  if (columnKey === "actions") {
+                                    e.stopPropagation();
+                                  }
+                                }}
+                              >
+                                {renderCell(order, columnKey)}
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })
                   ) : (
                     <tr style={styles.emptyRow}>
                       <td
-                        colSpan={visibleColumns.length + 1}
-                        style={{ padding: "60px 20px" }}
+                        colSpan={orderedVisibleColumns.length + 1}
+                        style={{ padding: "60px 20px", textAlign: "center" }}
                       >
                         <div style={styles.emptyState}>
                           <FaBoxes style={styles.emptyIcon} />
@@ -3088,7 +3386,7 @@ const styles = {
     borderRadius: "8px",
     boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
     zIndex: 1000,
-    width: "260px",
+    width: "280px",
     maxHeight: "400px",
     overflow: "hidden",
   },
@@ -3472,15 +3770,17 @@ const styles = {
   },
   tableContainer: {
     overflowX: "auto",
+    overflowY: "auto",
     flex: 1,
     minHeight: "400px",
-    maxHeight: "calc(100vh - 347px)",
-    overflowY: "auto",
+    maxHeight: "calc(100vh - 327px)",
+    position: "relative",
   },
   orderTable: {
     width: "100%",
     borderCollapse: "collapse",
     minWidth: "800px",
+    tableLayout: "fixed",
   },
   tableHeaderCell: {
     padding: "12px 12px",
@@ -3502,12 +3802,68 @@ const styles = {
     background: "#f8fafc",
     borderBottom: "1px solid #e2e8f0",
     position: "sticky",
+    left: 0,
+    zIndex: 11,
+  },
+  checkboxCellBody: {
+    width: "48px",
+    textAlign: "center",
+    padding: "12px 12px",
+    borderBottom: "1px solid #f1f5f9",
+    position: "sticky",
+    left: 0,
+    zIndex: 5,
+  },
+  thead: {
+    position: "sticky",
     top: 0,
     zIndex: 10,
   },
+  tableHeaderRow: {
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+  },
+
   sortable: {
     cursor: "pointer",
     userSelect: "none",
+  },
+  resizeHandle: {
+    position: "absolute",
+    right: "0",
+    top: "0",
+    width: "4px",
+    height: "100%",
+    cursor: "col-resize",
+    backgroundColor: "transparent",
+    transition: "background-color 0.2s",
+    zIndex: 20,
+  },
+  resizeHandleActive: {
+    backgroundColor: "#2563eb",
+    width: "2px",
+  },
+  dragHandle: {
+    cursor: "grab",
+    color: "#94a3b8",
+    marginRight: "6px",
+    opacity: 0.6,
+    transition: "opacity 0.2s",
+  },
+  columnHeaderContent: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  dragIndicator: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "3px",
+    height: "100%",
+    backgroundColor: "#2563eb",
+    animation: "pulse 0.5s ease-in-out",
   },
   checkbox: {
     position: "relative",
@@ -3542,18 +3898,16 @@ const styles = {
     borderBottom: "1px solid #f1f5f9",
     fontSize: "13px",
     color: "#334155",
-    maxWidth: "250px",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    position: "relative",
   },
   orderRow: {
     transition: "background 0.2s",
     cursor: "pointer",
   },
-  orderRowSelected: {
-    // Selection styling is handled by backgroundColor in inline style
-  },
+  orderRowSelected: {},
   orderInfo: {
     display: "flex",
     alignItems: "center",
@@ -3637,7 +3991,6 @@ const styles = {
     color: "#ef4444",
     borderColor: "#ef4444",
   },
-  // New styles for inline remarks editing
   remarksCell: {
     maxWidth: "300px",
     minWidth: "180px",
@@ -3867,6 +4220,12 @@ styleSheet.textContent = `
     to { transform: rotate(360deg); }
   }
   
+  @keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+  }
+  
   * {
     box-sizing: border-box;
   }
@@ -4036,6 +4395,33 @@ styleSheet.textContent = `
   
   .remarks-cancel-btn:hover {
     background: #dc2626;
+  }
+  
+  th .resize-handle:hover {
+    background-color: #2563eb;
+    width: 2px;
+  }
+  
+  th .resize-handle:active {
+    background-color: #1d4ed8;
+    width: 2px;
+  }
+  
+  th .resize-handle {
+    cursor: col-resize;
+  }
+  
+  th:hover .resize-handle {
+    background-color: #94a3b8;
+    width: 2px;
+  }
+  
+  th[draggable="true"] {
+    cursor: grab;
+  }
+  
+  th[draggable="true"]:active {
+    cursor: grabbing;
   }
   
   /* Custom scrollbar styles */
