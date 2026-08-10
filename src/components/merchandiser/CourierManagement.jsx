@@ -80,9 +80,6 @@ export default function CourierManagement() {
     { value: 'DHL', label: 'DHL' },
     { value: 'UPS', label: 'UPS' },
     { value: 'FedEx', label: 'FedEx' },
-    { value: 'Aramex', label: 'Aramex' },
-    { value: 'TNT', label: 'TNT' },
-    { value: 'EMS', label: 'EMS' },
   ];
 
   const fetchData = useCallback(async () => {
@@ -91,7 +88,7 @@ export default function CourierManagement() {
       const filters = {
         search: searchTerm,
         status: statusFilter !== 'all' ? statusFilter : '',
-        shipment_type: typeFilter !== 'all' ? typeFilter : '',
+        type: typeFilter !== 'all' ? typeFilter : '',
         courier_name: courierFilter !== 'all' ? courierFilter : '',
       };
       
@@ -134,7 +131,7 @@ export default function CourierManagement() {
     try {
       const filters = {
         status: statusFilter !== 'all' ? statusFilter : '',
-        shipment_type: typeFilter !== 'all' ? typeFilter : '',
+        type: typeFilter !== 'all' ? typeFilter : '',
         courier_name: courierFilter !== 'all' ? courierFilter : '',
         search: searchTerm,
       };
@@ -157,7 +154,7 @@ export default function CourierManagement() {
     let aVal = a[sortBy] || "";
     let bVal = b[sortBy] || "";
     
-    if (sortBy === "booking_date" || sortBy === "actual_delivery_date") {
+    if (sortBy === "booking_date" || sortBy === "delivered_date") {
       aVal = a[sortBy] ? new Date(a[sortBy]).getTime() : 0;
       bVal = b[sortBy] ? new Date(b[sortBy]).getTime() : 0;
     }
@@ -346,8 +343,8 @@ export default function CourierManagement() {
                   </th>
                   <th style={styles.th}>Sender</th>
                   <th style={styles.th}>Receiver</th>
-                  <th style={styles.th} onClick={() => handleSort("tracking_number")}>
-                    Tracking No. {getSortIcon("tracking_number")}
+                  <th style={styles.th} onClick={() => handleSort("tracking_no")}>
+                    Tracking No. {getSortIcon("tracking_no")}
                   </th>
                   <th style={styles.th} onClick={() => handleSort("weight")}>
                     Weight {getSortIcon("weight")}
@@ -355,14 +352,14 @@ export default function CourierManagement() {
                   <th style={styles.th} onClick={() => handleSort("courier_name")}>
                     Courier Name {getSortIcon("courier_name")}
                   </th>
-                  <th style={styles.th} onClick={() => handleSort("shipment_type")}>
-                    Export/Import {getSortIcon("shipment_type")}
+                  <th style={styles.th} onClick={() => handleSort("type")}>
+                    Export/Import {getSortIcon("type")}
                   </th>
                   <th style={styles.th} onClick={() => handleSort("status")}>
                     Status {getSortIcon("status")}
                   </th>
-                  <th style={styles.th} onClick={() => handleSort("actual_delivery_date")}>
-                    Delivered Date {getSortIcon("actual_delivery_date")}
+                  <th style={styles.th} onClick={() => handleSort("delivered_date")}>
+                    Delivered Date {getSortIcon("delivered_date")}
                   </th>
                   <th style={styles.th}>Remarks</th>
                   <th style={styles.th}>Action</th>
@@ -387,7 +384,7 @@ export default function CourierManagement() {
                     <tr
                       key={booking.id}
                       style={styles.tr}
-                      onClick={() => navigate(`/courier/tracking/${booking.id}`)}
+                      onClick={() => navigate(`/courier/${booking.id}/items`)}
                     >
                       <td style={styles.td}>{indexOfFirstItem + index + 1}</td>
                       <td style={styles.td}>
@@ -398,19 +395,13 @@ export default function CourierManagement() {
                         }) : '-'}
                       </td>
                       <td style={styles.td}>
-                        <span style={styles.partyName}>{booking.sender_name || '-'}</span>
-                        {booking.sender_company && (
-                          <span style={styles.partyCompany}>({booking.sender_company})</span>
-                        )}
+                        <span style={styles.partyName}>{booking.sender || '-'}</span>
                       </td>
                       <td style={styles.td}>
-                        <span style={styles.partyName}>{booking.receiver_name || '-'}</span>
-                        {booking.receiver_company && (
-                          <span style={styles.partyCompany}>({booking.receiver_company})</span>
-                        )}
+                        <span style={styles.partyName}>{booking.receiver || '-'}</span>
                       </td>
                       <td style={{ ...styles.td, fontWeight: '600', color: '#2563eb' }}>
-                        {booking.tracking_number || '-'}
+                        {booking.tracking_no || '-'}
                       </td>
                       <td style={styles.td}>
                         {booking.weight ? `${booking.weight}kg` : '-'}
@@ -423,17 +414,17 @@ export default function CourierManagement() {
                       <td style={styles.td}>
                         <span style={{
                           ...styles.typeBadge,
-                          background: booking.shipment_type === 'export' ? '#dbeafe' : '#fef3c7',
-                          color: booking.shipment_type === 'export' ? '#1e40af' : '#92400e',
+                          background: booking.type === 'export' ? '#dbeafe' : '#fef3c7',
+                          color: booking.type === 'export' ? '#1e40af' : '#92400e',
                         }}>
-                          {booking.shipment_type_display || booking.shipment_type}
+                          {booking.type_display || booking.type}
                         </span>
                       </td>
                       <td style={styles.td}>
                         <StatusBadge status={booking.status} />
                       </td>
                       <td style={styles.td}>
-                        {booking.actual_delivery_date ? new Date(booking.actual_delivery_date).toLocaleDateString('en-GB', {
+                        {booking.delivered_date ? new Date(booking.delivered_date).toLocaleDateString('en-GB', {
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric'
@@ -447,7 +438,7 @@ export default function CourierManagement() {
                       <td style={styles.td}>
                         <div style={styles.actionButtons} onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => navigate(`/courier/tracking/${booking.id}`)}
+                            onClick={() => navigate(`/courier/${booking.id}/items`)}
                             style={styles.viewBtn}
                             title="View"
                           >

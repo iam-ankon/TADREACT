@@ -100,13 +100,8 @@ const statusConfig = {
 // Courier status config
 const courierStatusConfig = {
   booked: { color: "#6b7280", bg: "#f3f4f6", label: "Booked", icon: <FaClock /> },
-  picked_up: { color: "#f59e0b", bg: "#fef3c7", label: "Picked Up", icon: <FaTruck /> },
   in_transit: { color: "#3b82f6", bg: "#dbeafe", label: "In Transit", icon: <FaShip /> },
-  out_for_delivery: { color: "#8b5cf6", bg: "#ede9fe", label: "Out for Delivery", icon: <FaTruck /> },
   delivered: { color: "#10b981", bg: "#d1fae5", label: "Delivered", icon: <FaCheckCircle /> },
-  delayed: { color: "#ef4444", bg: "#fee2e2", label: "Delayed", icon: <FaExclamationTriangle /> },
-  customs_hold: { color: "#f59e0b", bg: "#fef3c7", label: "Customs Hold", icon: <FaMapMarkerAlt /> },
-  returned: { color: "#6b7280", bg: "#f3f4f6", label: "Returned", icon: <FaBoxOpen /> },
   cancelled: { color: "#ef4444", bg: "#fee2e2", label: "Cancelled", icon: <FaBan /> },
 };
 
@@ -1669,87 +1664,63 @@ const DetailOrder = () => {
                       <table style={styles.courierTable}>
                         <thead>
                           <tr>
-                            <th style={styles.courierTableHeader}>Booking Ref</th>
-                            <th style={styles.courierTableHeader}>Courier</th>
                             <th style={styles.courierTableHeader}>Tracking #</th>
+                            <th style={styles.courierTableHeader}>Courier</th>
                             <th style={styles.courierTableHeader}>Status</th>
                             <th style={styles.courierTableHeader}>Type</th>
-                            <th style={styles.courierTableHeader}>Weight</th>
+                            <th style={styles.courierTableHeader}>Item</th>
+                            <th style={styles.courierTableHeader}>Qty</th>
                             <th style={styles.courierTableHeader}>Booking Date</th>
-                            <th style={styles.courierTableHeader}>Est. Delivery</th>
+                            <th style={styles.courierTableHeader}>Delivered Date</th>
                             <th style={styles.courierTableHeader}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {courierBookings.map((booking) => (
-                            <tr key={booking.id} style={styles.courierTableRow}>
+                          {courierBookings.map((item) => (
+                            <tr key={item.id} style={styles.courierTableRow}>
                               <td style={styles.courierTableCell}>
-                                <span style={styles.courierBookingRef}>
-                                  {booking.booking_reference}
+                                <span style={styles.courierTrackingNumber}>
+                                  {item.booking_tracking_no}
                                 </span>
                               </td>
                               <td style={styles.courierTableCell}>
                                 <span style={styles.courierName}>
-                                  {booking.courier_name_display || booking.courier_name}
+                                  {item.booking_courier_name}
                                 </span>
                               </td>
                               <td style={styles.courierTableCell}>
-                                <span style={styles.courierTrackingNumber}>
-                                  {booking.tracking_number}
-                                </span>
-                                {booking.awb_number && (
-                                  <span style={styles.courierAwb}>
-                                    AWB: {booking.awb_number}
-                                  </span>
-                                )}
-                              </td>
-                              <td style={styles.courierTableCell}>
-                                {getCourierStatusBadge(booking.status)}
+                                {getCourierStatusBadge(item.booking_status)}
                               </td>
                               <td style={styles.courierTableCell}>
                                 <span style={{
                                   ...styles.courierType,
-                                  backgroundColor: booking.shipment_type === 'export' ? '#dbeafe' : '#fef3c7',
-                                  color: booking.shipment_type === 'export' ? '#1d4ed8' : '#d97706',
+                                  backgroundColor: item.booking_type === 'export' ? '#dbeafe' : '#fef3c7',
+                                  color: item.booking_type === 'export' ? '#1d4ed8' : '#d97706',
                                 }}>
-                                  {booking.shipment_type_display || booking.shipment_type}
+                                  {item.booking_type_display || item.booking_type}
                                 </span>
                               </td>
                               <td style={styles.courierTableCell}>
-                                {booking.weight ? `${booking.weight} kg` : "—"}
+                                {item.item_description || '—'}
+                                {item.sample_type && (
+                                  <span style={styles.courierAwb}>{item.sample_type}</span>
+                                )}
                               </td>
                               <td style={styles.courierTableCell}>
-                                {formatDate(booking.booking_date)}
+                                {item.qty ?? '—'}
                               </td>
                               <td style={styles.courierTableCell}>
-                                {booking.estimated_delivery_date ? (
-                                  <span style={{
-                                    color: booking.is_overdue ? '#ef4444' : '#475569',
-                                    fontWeight: booking.is_overdue ? 600 : 400,
-                                  }}>
-                                    {formatDate(booking.estimated_delivery_date)}
-                                    {booking.is_overdue && (
-                                      <span style={styles.courierOverdueBadge}>
-                                        Overdue
-                                      </span>
-                                    )}
-                                  </span>
-                                ) : "—"}
+                                {formatDate(item.booking_date)}
+                              </td>
+                              <td style={styles.courierTableCell}>
+                                {formatDate(item.booking_delivered_date)}
                               </td>
                               <td style={styles.courierTableCell}>
                                 <div style={styles.courierActions}>
                                   <button
                                     style={styles.courierActionBtn}
-                                    title="View Details"
-                                    onClick={() => {
-                                      // Navigate to courier detail or open modal
-                                      console.log("View courier booking:", booking.id);
-                                      setSnackbar({
-                                        open: true,
-                                        message: `Viewing courier booking: ${booking.booking_reference}`,
-                                        type: "success",
-                                      });
-                                    }}
+                                    title="View Shipment Details"
+                                    onClick={() => navigate(`/courier/${item.booking}/items`)}
                                   >
                                     <FaEye />
                                   </button>
@@ -1759,9 +1730,8 @@ const DetailOrder = () => {
                                     title="Track Shipment"
                                     onClick={(e) => {
                                       e.preventDefault();
-                                      // Open tracking URL based on courier
-                                      const trackingUrl = booking.tracking_number
-                                        ? `https://www.google.com/search?q=${booking.courier_name}+${booking.tracking_number}`
+                                      const trackingUrl = item.booking_tracking_no
+                                        ? `https://www.google.com/search?q=${item.booking_courier_name}+${item.booking_tracking_no}`
                                         : "#";
                                       window.open(trackingUrl, "_blank");
                                     }}
@@ -1783,27 +1753,27 @@ const DetailOrder = () => {
                   <div style={styles.courierStatsGrid}>
                     <div style={styles.courierStatCard}>
                       <span style={styles.courierStatValue}>
-                        {courierBookings.length}
+                        {new Set(courierBookings.map(b => b.booking)).size}
                       </span>
                       <span style={styles.courierStatLabel}>Total Shipments</span>
                     </div>
                     <div style={styles.courierStatCard}>
                       <span style={styles.courierStatValue}>
-                        {courierBookings.filter(b => b.status === 'delivered').length}
+                        {courierBookings.filter(b => b.booking_status === 'delivered').length}
                       </span>
                       <span style={styles.courierStatLabel}>Delivered</span>
                     </div>
                     <div style={styles.courierStatCard}>
                       <span style={styles.courierStatValue}>
-                        {courierBookings.filter(b => b.status === 'in_transit' || b.status === 'out_for_delivery').length}
+                        {courierBookings.filter(b => b.booking_status === 'in_transit').length}
                       </span>
                       <span style={styles.courierStatLabel}>In Transit</span>
                     </div>
                     <div style={styles.courierStatCard}>
                       <span style={styles.courierStatValue}>
-                        {courierBookings.filter(b => b.status === 'delayed' || b.status === 'customs_hold').length}
+                        {courierBookings.filter(b => b.booking_status === 'cancelled').length}
                       </span>
-                      <span style={styles.courierStatLabel}>Delayed / Hold</span>
+                      <span style={styles.courierStatLabel}>Cancelled</span>
                     </div>
                   </div>
                 )}

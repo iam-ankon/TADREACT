@@ -64,6 +64,7 @@ import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
 
 // Merchandiser
 import DashboardPage from "./components/merchandiser/DashboardPage";
+import SupplierCapacityReport from "./components/merchandiser/SupplierCapacityReport";
 import CustomerPage from "./components/merchandiser/CustomerPage";
 import BuyerPage from "./components/merchandiser/BuyerPage";
 import AgentPage from "./components/merchandiser/AgentPage";
@@ -100,7 +101,7 @@ import CommissionDetails from "./components/merchandiser/CommissionDetails.jsx";
 import TNARemindersPage from "./components/merchandiser/TNARemindersPage.jsx";
 import CourierManagement from "./components/merchandiser/CourierManagement";
 import CourierForm from "./components/merchandiser/CourierForm";
-import CourierTrackingDialog from "./components/merchandiser/CourierTrackingDialog";
+import ShipmentDetailsPage from "./components/merchandiser/ShipmentDetailsPage";
 
 //CSR Pages
 import DashboardCSR from "./components/csr/DashboardCSR.jsx";
@@ -603,6 +604,14 @@ const AppContent = () => {
             }
           />
           <Route
+            path="/merchandiser/supplier-capacity-report"
+            element={
+              <ProtectedRoute>
+                <SupplierCapacityReport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/customers"
             element={
               <ProtectedRoute>
@@ -1027,10 +1036,10 @@ const AppContent = () => {
             }
           />
           <Route
-            path="/courier/tracking/:id"
+            path="/courier/:id/items"
             element={
               <ProtectedRoute>
-                <CourierTrackingDialog />
+                <ShipmentDetailsPage />
               </ProtectedRoute>
             }
           />

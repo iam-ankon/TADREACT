@@ -11,6 +11,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiDollarSign,
+  FiBarChart2,
 } from "react-icons/fi";
 
 const Sidebar = () => {
@@ -45,7 +46,6 @@ const Sidebar = () => {
     ];
 
     if (username && fullAccessUsers.includes(username)) {
-    
       return true;
     }
 
@@ -81,7 +81,6 @@ const Sidebar = () => {
 
   const fullAccess = hasFullAccess();
 
-
   // Define all menu items
   const allMenuItems = [
     {
@@ -93,12 +92,33 @@ const Sidebar = () => {
     { to: "/agents", icon: <FiFileText />, label: "Agents", badge: null },
     { to: "/buyers", icon: <FiBriefcase />, label: "Buyers", badge: null },
     { to: "/customers", icon: <FiUsers />, label: "Customers", badge: null },
-    { to: "/suppliers", icon: <FiBriefcase />, label: "Suppliers", badge: null },
+    {
+      to: "/suppliers",
+      icon: <FiBriefcase />,
+      label: "Suppliers",
+      badge: null,
+    },
     { to: "/inquiries", icon: <FiCalendar />, label: "Inquiries", badge: null },
     { to: "/orders", icon: <FiCalendar />, label: "Orders", badge: null },
-    { to: "/courier", icon: <FiSend />, label: "Courier Management", badge: null },
-    { to: "/orders/tna", icon: <FiClock/>, label: "T & A", badge: null},
-    { to: "/commissions", icon: <FiDollarSign />, label: "Commissions", badge: null },
+    {
+      to: "/courier",
+      icon: <FiSend />,
+      label: "Courier Management",
+      badge: null,
+    },
+    { to: "/orders/tna", icon: <FiClock />, label: "T & A", badge: null },
+    {
+      to: "/commissions",
+      icon: <FiDollarSign />,
+      label: "Commissions",
+      badge: null,
+    },
+    {
+      to: "/merchandiser/supplier-capacity-report",
+      icon: <FiBarChart2 />,
+      label: "Supplier Capacity",
+      badge: null,
+    },
   ];
 
   // Filter menu items: Full access users see everything, others see only Dashboard and Suppliers
@@ -113,7 +133,7 @@ const Sidebar = () => {
           item.label === "Inquiries" ||
           item.label === "Orders" ||
           item.label === "T & A" ||
-          item.label === "Commissions"
+          item.label === "Commissions",
       );
 
   const sidebarStyle = {

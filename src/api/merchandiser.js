@@ -2098,14 +2098,16 @@ export const getDashboardData = (params = {}) => {
 // Add this to merchandiser.js - Check if it doesn't already exist
 
 /**
- * Get courier bookings for a specific order
+ * Get courier bookings for a specific order (reverse lookup for the
+ * Order detail page's Courier tab). Backed by the booking-items endpoint
+ * filtered by order_id, since items - not bookings - carry the order link.
  */
 export const getCourierBookingsByOrder = async (orderId) => {
   try {
-    const response = await merchandiserApi.get(`courier-bookings/?order_id=${orderId}`);
+    const response = await merchandiserApi.get(`courier-booking-items/?order_id=${orderId}`);
     return response.data;
   } catch (error) {
-    console.error("❌ Error fetching courier bookings for order:", error);
+    console.error("❌ Error fetching courier items for order:", error);
     return { results: [] };
   }
 };
@@ -2231,11 +2233,8 @@ export const getCourierBookingStats = () =>
 export const updateCourierBookingStatus = (id, data) =>
   merchandiserApi.post(`courier-bookings/${id}/update-status/`, data);
 
-export const addCourierTrackingEvent = (id, data) =>
-  merchandiserApi.post(`courier-bookings/${id}/add-tracking-event/`, data);
-
-export const getCourierTrackingEvents = (id) =>
-  merchandiserApi.get(`courier-bookings/${id}/tracking-events/`);
+export const reopenCourierBooking = (id) =>
+  merchandiserApi.post(`courier-bookings/${id}/reopen/`);
 
 export const exportCourierBookings = async (filters = {}) => {
   try {
@@ -2290,10 +2289,7 @@ export const getCourierStatsWithFilters = async (filters = {}) => {
       total_import: 0,
       in_transit: 0,
       delivered: 0,
-      delayed: 0,
-      pending: 0,
       by_courier: {},
-      by_month: {},
     };
   }
 };
@@ -2307,7 +2303,7 @@ export const getCourierNames = async () => {
     return response.data;
   } catch (error) {
     console.error("❌ Error fetching courier names:", error);
-    return ["DHL", "UPS", "FedEx", "Aramex", "TNT", "EMS"];
+    return ["DHL", "UPS", "FedEx"];
   }
 };
 
@@ -2315,13 +2311,8 @@ export const getCourierNames = async () => {
 export const getCourierStatusOptions = () => {
   return [
     { value: "booked", label: "Booked" },
-    { value: "picked_up", label: "Picked Up" },
     { value: "in_transit", label: "In Transit" },
-    { value: "out_for_delivery", label: "Out for Delivery" },
     { value: "delivered", label: "Delivered" },
-    { value: "delayed", label: "Delayed" },
-    { value: "customs_hold", label: "Customs Hold" },
-    { value: "returned", label: "Returned" },
     { value: "cancelled", label: "Cancelled" },
   ];
 };
@@ -2332,6 +2323,78 @@ export const getShipmentTypeOptions = () => {
     { value: "export", label: "Export" },
     { value: "import", label: "Import" },
   ];
+};
+
+/* -------------------------------------------------------------------------- */
+/*  25b. COURIER BOOKING ITEM APIs (Shipment Details line items)             */
+/* -------------------------------------------------------------------------- */
+
+export const getCourierBookingItems = async (bookingId) => {
+  try {
+    const response = await merchandiserApi.get(`courier-booking-items/?booking=${bookingId}&page_size=500`);
+    if (response.data && response.data.results) return response.data.results;
+    if (Array.isArray(response.data)) return response.data;
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching courier booking items:", error);
+    return [];
+  }
+};
+
+export const createCourierBookingItem = (data) =>
+  merchandiserApi.post("courier-booking-items/", data);
+
+export const updateCourierBookingItem = (id, data) =>
+  merchandiserApi.put(`courier-booking-items/${id}/`, data);
+
+export const patchCourierBookingItem = (id, data) =>
+  merchandiserApi.patch(`courier-booking-items/${id}/`, data);
+
+export const deleteCourierBookingItem = (id) =>
+  merchandiserApi.delete(`courier-booking-items/${id}/`);
+
+/* -------------------------------------------------------------------------- */
+/*  25c. COURIER DOCUMENT APIs (booking-level "Upload File")                 */
+/* -------------------------------------------------------------------------- */
+
+export const getCourierDocuments = async (bookingId) => {
+  try {
+    const response = await merchandiserApi.get(`courier-documents/?booking=${bookingId}`);
+    if (response.data && response.data.results) return response.data.results;
+    if (Array.isArray(response.data)) return response.data;
+    return [];
+  } catch (error) {
+    console.error("❌ Error fetching courier documents:", error);
+    return [];
+  }
+};
+
+export const uploadCourierDocument = (bookingId, file) => {
+  const formData = new FormData();
+  formData.append("booking", bookingId);
+  formData.append("file", file);
+  return merchandiserApi.post("courier-documents/", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const deleteCourierDocument = (id) =>
+  merchandiserApi.delete(`courier-documents/${id}/`);
+
+/* -------------------------------------------------------------------------- */
+/*  25d. HS CODE / ARTICLE NO. AUTOCOMPLETE                                  */
+/* -------------------------------------------------------------------------- */
+
+export const searchCourierCodes = async (codeType, search = "") => {
+  try {
+    const params = new URLSearchParams({ code_type: codeType });
+    if (search) params.append("search", search);
+    const response = await merchandiserApi.get(`courier-codes/?${params.toString()}`);
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("❌ Error fetching courier codes:", error);
+    return [];
+  }
 };
 
 /* -------------------------------------------------------------------------- */
@@ -2472,10 +2535,125 @@ export default {
   getCourierBookingStats,
   getCourierStatsWithFilters,
   updateCourierBookingStatus,
-  addCourierTrackingEvent,
-  getCourierTrackingEvents,
+  reopenCourierBooking,
+  getCourierBookingsByOrder,
   exportCourierBookings,
   getCourierNames,
   getCourierStatusOptions,
   getShipmentTypeOptions,
+  getCourierBookingItems,
+  createCourierBookingItem,
+  updateCourierBookingItem,
+  patchCourierBookingItem,
+  deleteCourierBookingItem,
+  getCourierDocuments,
+  uploadCourierDocument,
+  deleteCourierDocument,
+  searchCourierCodes,
 };
+
+/* -------------------------------------------------------------------------- */
+/*  SUPPLIER CAPACITY UTILIZATION REPORT                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Fetch the Supplier Capacity vs Capacity Used report.
+ * @param {Object} filters - { year, from_month, to_month, buyer, supplier }
+ */
+/**
+ * Fetch every distinct year that has real data for this report (from
+ * Order.shipment_date or the manual Qty table). Used to populate the
+ * Year filter so it isn't limited to a hardcoded "current year ± 1"
+ * window.
+ */
+export const getSupplierCapacityAvailableYears = () =>
+  merchandiserApi.get("reports/supplier-capacity/years/");
+
+export const getSupplierCapacityReport = (filters = {}) => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== "") params.append(k, v);
+  });
+  return merchandiserApi.get(`reports/supplier-capacity/?${params.toString()}`);
+};
+
+/**
+ * Download the report as a styled .xlsx file (server-generated, matches
+ * on-screen layout exactly: green Capacity row, yellow Balance row, red
+ * bracketed negatives).
+ */
+export const downloadSupplierCapacityReportExcel = async (filters = {}) => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== "") params.append(k, v);
+  });
+  const response = await merchandiserApi.get(
+    `reports/supplier-capacity/excel/?${params.toString()}`,
+    { responseType: "blob" }
+  );
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute(
+    "download",
+    `Supplier_Capacity_Report_${filters.years || filters.year || new Date().getFullYear()}.xlsx`
+  );
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+/* -------------------------------------------------------------------------- */
+/*  CAPACITY MASTER (monthly capacity assigned to each supplier)              */
+/* -------------------------------------------------------------------------- */
+
+export const getCapacityMaster = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== "") qs.append(k, v);
+  });
+  return merchandiserApi.get(`capacity-master/?${qs.toString()}`);
+};
+
+export const getCapacityMasterForSupplierYear = async (supplierId, year) => {
+  const res = await merchandiserApi.get(
+    `capacity-master/?supplier=${supplierId}&year=${year}`
+  );
+  const list = Array.isArray(res.data) ? res.data : res.data?.results || [];
+  const byMonth = {};
+  list.forEach((row) => {
+    byMonth[row.month] = row.capacity_qty;
+  });
+  return byMonth;
+};
+
+/**
+ * Save a full year of monthly capacity for one supplier in a single call.
+ * @param {number} supplierId
+ * @param {number} year
+ * @param {Object} months - { "1": 50000, "2": 50000, ... }
+ */
+export const bulkSaveCapacityMaster = (supplierId, year, months) =>
+  merchandiserApi.post("capacity-master/bulk-save/", {
+    supplier: supplierId,
+    year,
+    months,
+  });
+
+export const deleteCapacityMasterEntry = (id) =>
+  merchandiserApi.delete(`capacity-master/${id}/`);
+
+/**
+ * Save a snapshot of the auto-calculated Capacity (Sum of Order.total_qty)
+ * into the database for historical/admin visibility. The report itself
+ * always computes Capacity live and does NOT need this to be accurate —
+ * this is purely an optional persisted record.
+ */
+export const syncCapacitySnapshot = (filters = {}) =>
+  merchandiserApi.post("reports/supplier-capacity/sync-snapshot/", {
+    year: filters.year,
+    from_month: filters.from_month,
+    to_month: filters.to_month,
+    supplier: filters.supplier || undefined,
+  });
