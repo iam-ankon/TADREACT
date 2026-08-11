@@ -41,7 +41,7 @@ const emptyItemForm = {
   total_value_touched: false,
   hs_code: '',
   article_no: '',
-  fabric_actual: '',
+  fabric_actual: false,
   sample_roll: false,
   substitute: false,
   country_of_origin: 'Bangladesh',
@@ -174,7 +174,7 @@ export default function ShipmentDetailsPage() {
       total_value_touched: true,
       hs_code: item.hs_code || '',
       article_no: item.article_no || '',
-      fabric_actual: item.fabric_actual || '',
+      fabric_actual: !!item.fabric_actual,
       sample_roll: !!item.sample_roll,
       substitute: !!item.substitute,
       country_of_origin: item.country_of_origin || 'Bangladesh',
@@ -252,7 +252,7 @@ export default function ShipmentDetailsPage() {
         total_value: itemForm.total_value === '' ? null : parseFloat(itemForm.total_value),
         hs_code: itemForm.hs_code || '',
         article_no: itemForm.article_no || '',
-        fabric_actual: itemForm.fabric_actual || '',
+        fabric_actual: itemForm.fabric_actual ? 'Yes' : '',
         sample_roll: !!itemForm.sample_roll,
         substitute: !!itemForm.substitute,
         country_of_origin: itemForm.country_of_origin || 'Bangladesh',
@@ -645,21 +645,31 @@ export default function ShipmentDetailsPage() {
               </div>
               <div style={styles.formRow}>
                 <FormField label="Article No." value={itemForm.article_no} onChange={(v) => handleItemFieldChange('article_no', v)} />
-                <FormField label="Fabric Actual" value={itemForm.fabric_actual} onChange={(v) => handleItemFieldChange('fabric_actual', v)} />
                 <FormField label="Country of Origin" value={itemForm.country_of_origin} onChange={(v) => handleItemFieldChange('country_of_origin', v)} />
-              </div>
-              <div style={styles.formRow}>
                 <div style={styles.formGroup}>
-                  <label style={styles.checkboxLabel}>
-                    <input type="checkbox" checked={itemForm.sample_roll} onChange={(e) => handleItemFieldChange('sample_roll', e.target.checked)} />
-                    {' '}Sample Roll
-                  </label>
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.checkboxLabel}>
-                    <input type="checkbox" checked={itemForm.substitute} onChange={(e) => handleItemFieldChange('substitute', e.target.checked)} />
-                    {' '}Substitute
-                  </label>
+                  <label style={styles.label}>Fabric</label>
+                  <div style={styles.radioGroup}>
+                    {['Actual', 'Sample Roll', 'Substitute'].map((opt) => {
+                      const key = opt === 'Actual' ? 'fabric_actual' : opt === 'Sample Roll' ? 'sample_roll' : 'substitute';
+                      const checked = !!itemForm[key];
+                      return (
+                        <label key={key} style={styles.radioLabel}>
+                          <input
+                            type="radio"
+                            name="fabric_option"
+                            checked={checked}
+                            onChange={() => setItemForm((prev) => ({
+                              ...prev,
+                              fabric_actual: key === 'fabric_actual',
+                              sample_roll: key === 'sample_roll',
+                              substitute: key === 'substitute',
+                            }))}
+                          />
+                          {' '}{opt}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               <div style={styles.formRow}>
@@ -814,6 +824,8 @@ const styles = {
   formGroup: { display: 'flex', flexDirection: 'column', gap: '4px' },
   label: { fontSize: '12px', fontWeight: 500, color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   checkboxLabel: { fontSize: '13px', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' },
+  radioGroup: { display: 'flex', gap: '12px', alignItems: 'center', paddingTop: '4px' },
+  radioLabel: { fontSize: '13px', color: '#334155', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' },
   noOrderToggle: { fontSize: '12px', fontWeight: 400, color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '4px' },
   input: { padding: '8px 10px', border: '1.5px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
   orderSearchWrapper: { position: 'relative' },

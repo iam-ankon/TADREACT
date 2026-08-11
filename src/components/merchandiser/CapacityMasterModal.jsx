@@ -14,8 +14,18 @@ import {
 } from "../../api/merchandiser";
 
 const MONTH_LABELS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
@@ -49,10 +59,12 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
     }
   }, [supplierId, year]);
 
-  useEffect(() => { loadExisting(); }, [loadExisting]);
+  useEffect(() => {
+    loadExisting();
+  }, [loadExisting]);
 
   const setMonthValue = (m, v) => {
-    setMonths(prev => ({ ...prev, [m]: v }));
+    setMonths((prev) => ({ ...prev, [m]: v }));
   };
 
   const applyToAll = () => {
@@ -65,7 +77,10 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!supplierId) { setErr("Please select a supplier."); return; }
+    if (!supplierId) {
+      setErr("Please select a supplier.");
+      return;
+    }
     setSaving(true);
     setErr(null);
     setSuccess(false);
@@ -76,7 +91,7 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
     } catch (ex) {
       setErr(
         ex.response?.data?.detail ||
-        "Failed to save Qty. Please check the values and try again."
+          "Failed to save Qty. Please check the values and try again.",
       );
     } finally {
       setSaving(false);
@@ -84,24 +99,62 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
   };
 
   const inputStyle = {
-    width: "100%", padding: "6px 8px", borderRadius: 6,
-    border: "1px solid #d1d5db", fontSize: 12, textAlign: "right",
+    width: "100%",
+    padding: "6px 8px",
+    borderRadius: 6,
+    border: "1px solid #d1d5db",
+    fontSize: 12,
+    textAlign: "right",
     boxSizing: "border-box",
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,.5)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 16, padding: 28,
-        width: 640, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto",
-        boxShadow: "0 20px 60px rgba(0,0,0,.25)",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <h2 style={{ margin: 0, fontSize: 17, color: "#0f172a" }}>📝 Manage Supplier Qty</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          padding: 28,
+          width: 640,
+          maxWidth: "95vw",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 20px 60px rgba(0,0,0,.25)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 6,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 17, color: "#0f172a" }}>
+            📝 Manage Supplier Qty
+          </h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 20,
+              cursor: "pointer",
+              color: "#94a3b8",
+            }}
+          >
+            ×
+          </button>
         </div>
         <p style={{ margin: "0 0 18px", fontSize: 12, color: "#64748b" }}>
           Set the monthly Qty for a supplier — this is entered manually.
@@ -110,12 +163,30 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
         </p>
 
         {err && (
-          <div style={{ padding: "10px 12px", background: "#fee2e2", color: "#dc2626", borderRadius: 8, fontSize: 12, marginBottom: 14 }}>
+          <div
+            style={{
+              padding: "10px 12px",
+              background: "#fee2e2",
+              color: "#dc2626",
+              borderRadius: 8,
+              fontSize: 12,
+              marginBottom: 14,
+            }}
+          >
             {err}
           </div>
         )}
         {success && (
-          <div style={{ padding: "10px 12px", background: "#dcfce7", color: "#16a34a", borderRadius: 8, fontSize: 12, marginBottom: 14 }}>
+          <div
+            style={{
+              padding: "10px 12px",
+              background: "#dcfce7",
+              color: "#16a34a",
+              borderRadius: 8,
+              fontSize: 12,
+              marginBottom: 14,
+            }}
+          >
             ✓ Qty saved successfully.
           </div>
         )}
@@ -127,12 +198,14 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
               <label style={labelStyle}>Supplier</label>
               <select
                 value={supplierId}
-                onChange={e => setSupplierId(e.target.value)}
+                onChange={(e) => setSupplierId(e.target.value)}
                 style={{ ...inputStyle, textAlign: "left", width: "100%" }}
               >
                 <option value="">Select supplier…</option>
-                {suppliers.map(s => (
-                  <option key={s.id} value={s.id}>{s.supplier_name || s.name}</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.supplier_name || s.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -141,45 +214,82 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
               <input
                 type="number"
                 value={year}
-                onChange={e => setYear(parseInt(e.target.value) || new Date().getFullYear())}
+                onChange={(e) =>
+                  setYear(parseInt(e.target.value) || new Date().getFullYear())
+                }
                 style={{ ...inputStyle, textAlign: "left", width: "100%" }}
               />
             </div>
           </div>
 
           {loading ? (
-            <div style={{ textAlign: "center", padding: 30, color: "#94a3b8", fontSize: 13 }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: 30,
+                color: "#94a3b8",
+                fontSize: 13,
+              }}
+            >
               Loading existing entries…
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
                 <label style={labelStyle}>Monthly Qty</label>
                 <button
                   type="button"
                   onClick={applyToAll}
-                  style={{ fontSize: 11, color: "#2563eb", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                  style={{
+                    fontSize: 11,
+                    color: "#2563eb",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
                 >
                   ↳ Copy January value to all months
                 </button>
               </div>
-              <div style={{
-                display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10,
-                marginBottom: 20, padding: 14, background: "#f8fafc", borderRadius: 10,
-              }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 10,
+                  marginBottom: 20,
+                  padding: 14,
+                  background: "#f8fafc",
+                  borderRadius: 10,
+                }}
+              >
                 {MONTH_LABELS.map((label, idx) => {
                   const m = idx + 1;
                   return (
                     <div key={m}>
-                      <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 3 }}>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: 11,
+                          color: "#64748b",
+                          marginBottom: 3,
+                        }}
+                      >
                         {label}
                       </label>
                       <input
                         type="number"
-                        min="0"
+                        min=""
                         value={months[m] ?? ""}
-                        onChange={e => setMonthValue(m, e.target.value)}
-                        placeholder="0"
+                        onChange={(e) => setMonthValue(m, e.target.value)}
+                        placeholder=""
                         style={inputStyle}
                       />
                     </div>
@@ -190,17 +300,36 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
           )}
 
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button type="button" onClick={onClose}
-              style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer", fontSize: 13 }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: "8px 18px",
+                borderRadius: 8,
+                border: "1px solid #d1d5db",
+                background: "#fff",
+                cursor: "pointer",
+                fontSize: 13,
+              }}
+            >
               Close
             </button>
-            <button type="submit" disabled={saving || loading || !supplierId}
+            <button
+              type="submit"
+              disabled={saving || loading || !supplierId}
               style={{
-                padding: "8px 22px", borderRadius: 8, border: "none",
-                background: "#2563eb", color: "#fff", fontWeight: 600, fontSize: 13,
-                cursor: (saving || loading || !supplierId) ? "not-allowed" : "pointer",
-                opacity: (saving || loading || !supplierId) ? 0.7 : 1,
-              }}>
+                padding: "8px 22px",
+                borderRadius: 8,
+                border: "none",
+                background: "#2563eb",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor:
+                  saving || loading || !supplierId ? "not-allowed" : "pointer",
+                opacity: saving || loading || !supplierId ? 0.7 : 1,
+              }}
+            >
               {saving ? "Saving…" : "Save Qty"}
             </button>
           </div>
@@ -211,8 +340,13 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
 };
 
 const labelStyle = {
-  display: "block", fontSize: 11, fontWeight: 600, color: "#64748b",
-  marginBottom: 4, textTransform: "uppercase", letterSpacing: ".3px",
+  display: "block",
+  fontSize: 11,
+  fontWeight: 600,
+  color: "#64748b",
+  marginBottom: 4,
+  textTransform: "uppercase",
+  letterSpacing: ".3px",
 };
 
 export default CapacityMasterModal;

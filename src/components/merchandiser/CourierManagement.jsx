@@ -67,6 +67,8 @@ export default function CourierManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [courierFilter, setCourierFilter] = useState("all");
+  const [fromDateFilter, setFromDateFilter] = useState("");
+  const [toDateFilter, setToDateFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
@@ -90,6 +92,8 @@ export default function CourierManagement() {
         status: statusFilter !== 'all' ? statusFilter : '',
         type: typeFilter !== 'all' ? typeFilter : '',
         courier_name: courierFilter !== 'all' ? courierFilter : '',
+        from_date: fromDateFilter,
+        to_date: toDateFilter,
       };
       
       const [bookingsRes, statsRes] = await Promise.all([
@@ -105,7 +109,7 @@ export default function CourierManagement() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, statusFilter, typeFilter, courierFilter]);
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, typeFilter, courierFilter, fromDateFilter, toDateFilter]);
 
   useEffect(() => {
     fetchData();
@@ -113,7 +117,7 @@ export default function CourierManagement() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, typeFilter, courierFilter]);
+  }, [searchTerm, statusFilter, typeFilter, courierFilter, fromDateFilter, toDateFilter]);
 
   const handleDelete = async (bookingId, e) => {
     e.stopPropagation();
@@ -134,6 +138,8 @@ export default function CourierManagement() {
         type: typeFilter !== 'all' ? typeFilter : '',
         courier_name: courierFilter !== 'all' ? courierFilter : '',
         search: searchTerm,
+        from_date: fromDateFilter,
+        to_date: toDateFilter,
       };
       
       const response = await exportCourierBookings(filters);
@@ -275,10 +281,33 @@ export default function CourierManagement() {
             </div>
             <div style={styles.filterItem}>
               <span style={styles.filterLabel}>Booking Date</span>
-              <select style={styles.filterSelect}>
-                <option>01-Jun-2026</option>
-                <option>24-Jun-2026</option>
-              </select>
+              <div style={styles.dateRangeWrapper}>
+                <input
+                  type="date"
+                  value={fromDateFilter}
+                  onChange={(e) => setFromDateFilter(e.target.value)}
+                  style={styles.dateRangeInput}
+                  title="From date"
+                />
+                <span style={styles.dateRangeSeparator}>–</span>
+                <input
+                  type="date"
+                  value={toDateFilter}
+                  onChange={(e) => setToDateFilter(e.target.value)}
+                  style={styles.dateRangeInput}
+                  title="To date"
+                />
+                {(fromDateFilter || toDateFilter) && (
+                  <button
+                    type="button"
+                    onClick={() => { setFromDateFilter(''); setToDateFilter(''); }}
+                    style={styles.dateRangeClear}
+                    title="Clear date filter"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
             <div style={styles.filterItem}>
               <span style={styles.filterLabel}>Export/Import</span>
@@ -687,6 +716,32 @@ const styles = {
     cursor: "pointer",
     color: "#0f172a",
     minWidth: "120px",
+  },
+  dateRangeWrapper: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  dateRangeInput: {
+    padding: "6px 8px",
+    border: "1px solid #d0d5dd",
+    borderRadius: "6px",
+    fontSize: "12px",
+    background: "white",
+    color: "#0f172a",
+    cursor: "pointer",
+  },
+  dateRangeSeparator: {
+    color: "#94a3b8",
+    fontSize: "12px",
+  },
+  dateRangeClear: {
+    background: "none",
+    border: "none",
+    color: "#94a3b8",
+    cursor: "pointer",
+    fontSize: "13px",
+    padding: "2px 4px",
   },
   filterRight: {
     display: "flex",

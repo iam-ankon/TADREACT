@@ -607,7 +607,7 @@ const SupplierCapacityReport = () => {
                     {/* Supplier / Qty row */}
                     <tr style={{ borderTop: "2px solid #e2e8f0" }}>
                       <td style={{ padding: "7px 12px", fontWeight: 700, color: "#1e293b", fontSize: 13 }}>
-                        {row.supplier_name}
+                        {row.supplier_name} (Cpacity)
                       </td>
                       {row.qty.map((q, i) => <NumCell key={i} value={q} />)}
                       <NumCell value={row.grand_total} bold />
@@ -615,7 +615,7 @@ const SupplierCapacityReport = () => {
                     {/* Capacity row — light green */}
                     <tr style={{ background: "#d9f2d9" }}>
                       <td style={{ padding: "5px 12px", fontWeight: 600, color: "#166534", fontSize: 12 }}>
-                        Capacity
+                        Quantity (From Orders)
                       </td>
                       {row.capacity.map((c, i) => (
                         <td key={i} style={{ padding: "5px 10px", textAlign: "right", color: "#166534", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
