@@ -2,7 +2,7 @@
  * SupplierCapacityReport.jsx
  *
  * Supplier Capacity vs Capacity Used Report:
- *   - Multi-select filters: Years, Buyers, Suppliers
+ *   - Multi-select filters: Years, Customers, Suppliers
  *   - 3 rows per supplier: Qty (manual, supplier row), Capacity (auto
  *     from Orders, light green), Balance (light yellow)
  *   - Balance = Qty - Capacity; negative shown in red brackets
@@ -17,7 +17,7 @@ import {
   downloadSupplierCapacityReportExcel,
   syncCapacitySnapshot,
   getSuppliers,
-  getBuyers,
+  getCustomers,
 } from "../../api/merchandiser";
 import CapacityMasterModal from "./CapacityMasterModal";
 import Sidebar from "./Sidebar.jsx";
@@ -157,11 +157,11 @@ const SupplierCapacityReport = () => {
   const [year, setYear] = useState(currentYear);
   const [fromMonth, setFromMonth] = useState(1);
   const [toMonth, setToMonth] = useState(12);
-  const [buyerIds, setBuyerIds] = useState([]);
+  const [customerIds, setCustomerIds] = useState([]);
   const [supplierIds, setSupplierIds] = useState([]);
 
   // Dropdown data
-  const [buyers, setBuyers] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
 
   // Report data
@@ -187,10 +187,10 @@ const SupplierCapacityReport = () => {
   useEffect(() => {
     (async () => {
       try {
-        const buyersRes = await getBuyers(1, 200, true);
-        setBuyers(buyersRes.data || []);
+        const customersRes = await getCustomers(1, 200, true);
+        setCustomers(customersRes.data || []);
       } catch (err) {
-        console.error("Failed to load buyers:", err);
+        console.error("Failed to load customers:", err);
       }
 
       try {
@@ -237,9 +237,9 @@ const SupplierCapacityReport = () => {
     years: String(overrides.year ?? year),
     from_month: overrides.from_month ?? fromMonth,
     to_month: overrides.to_month ?? toMonth,
-    buyers: buyerIds.join(","),
+    customers: customerIds.join(","),
     suppliers: supplierIds.join(","),
-  }), [year, fromMonth, toMonth, buyerIds, supplierIds]);
+  }), [year, fromMonth, toMonth, customerIds, supplierIds]);
 
   const fetchReport = useCallback(async (overrides = {}) => {
     setLoading(true);
@@ -299,13 +299,15 @@ const SupplierCapacityReport = () => {
         body.push([row.supplier_name, ...row.qty.map(fmt), fmt(row.grand_total)]);
         rowStyles.push("qty");
 
-        body.push(["Capacity", ...row.capacity.map((v) => (v === null ? "" : fmt(v))), ""]);
+        const capGT = row.capacity_grand_total ?? row.capacity.reduce((s, v) => s + (v || 0), 0);
+        body.push(["Capacity", ...row.capacity.map((v) => (v === null ? "" : fmt(v))), fmt(capGT)]);
         rowStyles.push("capacity");
 
+        const balGT = row.balance_grand_total ?? row.balance.reduce((s, v) => s + (v || 0), 0);
         body.push([
           "Balance",
           ...row.balance.map((v) => (v === null ? "" : v < 0 ? `(${fmt(Math.abs(v))})` : fmt(v))),
-          "",
+          balGT < 0 ? `(${fmt(Math.abs(balGT))})` : fmt(balGT),
         ]);
         rowStyles.push("balance");
       });
@@ -318,13 +320,17 @@ const SupplierCapacityReport = () => {
         body.push(["TOTAL (All Suppliers)", ...report.summary.qty.map(fmt), fmt(report.summary.grand_total)]);
         rowStyles.push("total");
 
-        body.push(["Capacity Total", ...report.summary.capacity.map(fmt), ""]);
+        const capTotalGT = report.summary.capacity_grand_total
+          ?? report.summary.capacity.reduce((s, v) => s + (v || 0), 0);
+        body.push(["Capacity Total", ...report.summary.capacity.map(fmt), fmt(capTotalGT)]);
         rowStyles.push("total");
 
+        const balTotalGT = report.summary.balance_grand_total
+          ?? report.summary.balance.reduce((s, v) => s + (v || 0), 0);
         body.push([
           "Balance Total",
           ...report.summary.balance.map((v) => (v < 0 ? `(${fmt(Math.abs(v))})` : fmt(v))),
-          "",
+          balTotalGT < 0 ? `(${fmt(Math.abs(balTotalGT))})` : fmt(balTotalGT),
         ]);
         rowStyles.push("total");
       }
@@ -402,7 +408,14 @@ const SupplierCapacityReport = () => {
     base.add(year);
     return Array.from(base).sort((a, b) => b - a);
   })();
-  const buyerOptions = buyers.map((b) => ({ value: b.id, label: b.name || `Buyer ${b.id}` }));
+  const customerOptions = customers.map((c) => ({
+    value: c.id,
+    // CustomerSerializer's `customer_name` field is write_only (never
+    // present on GET), so the actual display name comes back as
+    // `hrms_customer_name`; `name` on the payload is just the raw HRMS
+    // customer FK id, not a display string.
+    label: c.hrms_customer_name || c.customer_name || `Customer ${c.id}`,
+  }));
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.supplier_name || s.name }));
 
   return (
@@ -479,12 +492,12 @@ const SupplierCapacityReport = () => {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Buyer(s)</label>
+            <label style={labelStyle}>Customer(s)</label>
             <MultiSelectDropdown
-              label="buyers"
-              options={buyerOptions}
-              selected={buyerIds}
-              onChange={setBuyerIds}
+              label="customers"
+              options={customerOptions}
+              selected={customerIds}
+              onChange={setCustomerIds}
               width={190}
             />
           </div>
@@ -622,7 +635,12 @@ const SupplierCapacityReport = () => {
                           {c === null ? "" : fmt(c)}
                         </td>
                       ))}
-                      <td style={{ background: "#d9f2d9" }} />
+                      <td style={{
+                        background: "#d9f2d9", padding: "5px 10px", textAlign: "right",
+                        color: "#166534", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+                      }}>
+                        {fmt(row.capacity_grand_total ?? row.capacity.reduce((s, v) => s + (v || 0), 0))}
+                      </td>
                     </tr>
                     {/* Balance row — light yellow */}
                     <tr style={{ background: "#fff6d5" }}>
@@ -642,7 +660,18 @@ const SupplierCapacityReport = () => {
                           {b === null ? "" : b < 0 ? `(${fmt(Math.abs(b))})` : fmt(b)}
                         </td>
                       ))}
-                      <td style={{ background: "#fff6d5" }} />
+                      {(() => {
+                        const balGT = row.balance_grand_total ?? row.balance.reduce((s, v) => s + (v || 0), 0);
+                        return (
+                          <td style={{
+                            background: "#fff6d5", padding: "5px 10px", textAlign: "right", fontSize: 12,
+                            fontVariantNumeric: "tabular-nums", fontWeight: 700,
+                            color: balGT < 0 ? "#dc2626" : "#92700c",
+                          }}>
+                            {balGT < 0 ? `(${fmt(Math.abs(balGT))})` : fmt(balGT)}
+                          </td>
+                        );
+                      })()}
                     </tr>
                   </React.Fragment>
                 ))}
@@ -673,7 +702,9 @@ const SupplierCapacityReport = () => {
                           {fmt(c)}
                         </td>
                       ))}
-                      <td />
+                      <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "#166534", fontSize: 12 }}>
+                        {fmt(report.summary.capacity_grand_total ?? report.summary.capacity.reduce((s, v) => s + (v || 0), 0))}
+                      </td>
                     </tr>
                     <tr style={{ background: "#e3ecf5" }}>
                       <td style={{ padding: "6px 12px 10px", fontWeight: 700, color: "#92700c", fontSize: 12 }}>
@@ -687,7 +718,18 @@ const SupplierCapacityReport = () => {
                           {b < 0 ? `(${fmt(Math.abs(b))})` : fmt(b)}
                         </td>
                       ))}
-                      <td />
+                      {(() => {
+                        const balTotalGT = report.summary.balance_grand_total
+                          ?? report.summary.balance.reduce((s, v) => s + (v || 0), 0);
+                        return (
+                          <td style={{
+                            padding: "6px 10px 10px", textAlign: "right", fontWeight: 700, fontSize: 12,
+                            color: balTotalGT < 0 ? "#dc2626" : "#92700c",
+                          }}>
+                            {balTotalGT < 0 ? `(${fmt(Math.abs(balTotalGT))})` : fmt(balTotalGT)}
+                          </td>
+                        );
+                      })()}
                     </tr>
                   </>
                 )}

@@ -189,7 +189,7 @@ const Sidebar = () => {
   };
 
   const navStyle = {
-    padding: "24px 0",
+    padding: "20px 0",
     flex: 1,
     overflowY: "auto",
   };
@@ -206,7 +206,7 @@ const Sidebar = () => {
   const linkStyle = (path) => ({
     display: "flex",
     alignItems: "center",
-    padding: "14px 16px",
+    padding: "10px 16px",
     borderRadius: "12px",
     background:
       location.pathname === path

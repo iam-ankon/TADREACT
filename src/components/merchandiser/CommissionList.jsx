@@ -1177,8 +1177,11 @@ const CommissionList = () => {
       Received: { bg: "#dcfce7", color: "#15803d" },
     })[s] || { bg: "#f1f5f9", color: "#475569" };
 
+  // PDM No. is the single canonical order reference (starts with "P");
+  // po_no can hold multiple comma-separated PO numbers, so it's only a
+  // fallback for orders that don't have a PDM No. yet.
   const getOrderNo = (o) =>
-    o.id ? `ORD${String(o.id).padStart(3, "0")}` : "—";
+    o.pdm_no || (o.id ? `ORD${String(o.id).padStart(3, "0")}` : "—");
 
   // Use commissionStats for KPI values
   const totalEst = commissionStats.total_est || 0;

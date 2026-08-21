@@ -48,6 +48,22 @@ const emptyItemForm = {
   item_remarks: '',
 };
 
+// Mirrors merchandiser.models.SampleType on the backend, so a Sample Type
+// picked here lines up with the same taxonomy used in Sample Management /
+// the Order detail page's Samples tab.
+const SAMPLE_TYPE_OPTIONS = [
+  { value: '', label: 'Select Sample Type...' },
+  { value: 'Lab Dip', label: 'Lab Dip' },
+  { value: 'Fabric', label: 'Fabric' },
+  { value: 'Fit Sample', label: 'Fit Sample' },
+  { value: 'PP Sample', label: 'PP Sample' },
+  { value: 'PS / Shipment Sample', label: 'PS / Shipment Sample' },
+  { value: 'Counter Sample', label: 'Counter Sample' },
+  { value: 'Photo Sample', label: 'Photo Sample' },
+  { value: 'E-Commerce Sample', label: 'E-Commerce Sample' },
+  { value: 'Other', label: 'Other' },
+];
+
 const statusColors = {
   booked: '#3b82f6',
   in_transit: '#f59e0b',
@@ -158,7 +174,7 @@ export default function ShipmentDetailsPage() {
     setEditingItemId(item.id);
     setItemForm({
       order: item.order || null,
-      order_display: item.order ? `${item.order_po_no || ''} - ${item.order_style || ''}` : '',
+      order_display: item.order ? `${item.order_pdm_no || item.order_po_no || ''} - ${item.order_style || ''}` : '',
       no_order: !item.order,
       order_no: item.order_no || '',
       item_description: item.item_description || '',
@@ -190,8 +206,11 @@ export default function ShipmentDetailsPage() {
     setItemForm((prev) => ({
       ...prev,
       order: order.id,
-      order_display: `${order.po_no || 'N/A'} - ${order.style || 'N/A'} (${order.customer_name || 'No Customer'})`,
-      order_no: order.po_no || prev.order_no,
+      // PDM No. (starts with "P") is the single canonical order
+      // reference; po_no can hold multiple comma-separated PO numbers
+      // and is kept only as a fallback.
+      order_display: `${order.pdm_no || order.po_no || 'N/A'} - ${order.style || 'N/A'} (${order.customer_name || 'No Customer'})`,
+      order_no: order.pdm_no || order.po_no || prev.order_no,
       item_description: order.item || prev.item_description,
       wgr: order.wgr || prev.wgr,
       factory: order.supplier_name || prev.factory,
@@ -471,7 +490,7 @@ export default function ShipmentDetailsPage() {
                 ) : (
                   items.map((it) => (
                     <tr key={it.id} style={styles.tr}>
-                      <td style={styles.td}>{it.order_no || '-'}</td>
+                      <td style={styles.td}>{it.order_style || '-'}</td>
                       <td style={styles.td}>{it.item_description || '-'}</td>
                       <td style={styles.td}>{it.wgr || '-'}</td>
                       <td style={styles.td}>{it.factory || '-'}</td>
@@ -634,7 +653,7 @@ export default function ShipmentDetailsPage() {
 
               {/* Manual fields */}
               <div style={styles.formRow}>
-                <FormField label="Sample Type" value={itemForm.sample_type} onChange={(v) => handleItemFieldChange('sample_type', v)} placeholder="PP Sample, Fit Sample..." />
+                <SelectField label="Sample Type" value={itemForm.sample_type} onChange={(v) => handleItemFieldChange('sample_type', v)} options={SAMPLE_TYPE_OPTIONS} />
                 <FormField label="Size" value={itemForm.size} onChange={(v) => handleItemFieldChange('size', v)} />
                 <FormField label="Qty" type="number" value={itemForm.qty} onChange={(v) => handleItemFieldChange('qty', v)} />
               </div>
@@ -724,6 +743,23 @@ function CostField({ label, value, onChange, onBlur, editable, readOnly, highlig
           {value !== undefined && value !== null ? value : '-'}
         </span>
       )}
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <div style={styles.formGroup}>
+      <label style={styles.label}>{label}</label>
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={styles.input}
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
     </div>
   );
 }

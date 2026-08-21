@@ -178,7 +178,7 @@ const CommissionDetails = () => {
           </Link>
           <span>/</span>
           <span style={{ color: "#0f172a", fontWeight: 500 }}>
-            {order.id ? `ORD${String(order.id).padStart(3, "0")}` : "Detail"}
+            {order.pdm_no || (order.id ? `ORD${String(order.id).padStart(3, "0")}` : "Detail")}
           </span>
         </div>
 
@@ -186,7 +186,7 @@ const CommissionDetails = () => {
           <div>
             <h1 style={S.pageTitle}>Commission Details</h1>
             <p style={S.pageSubtitle}>
-              Full breakdown for order {order.po_no || id}
+              Full breakdown for order {order.pdm_no || order.po_no || id}
             </p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
@@ -284,7 +284,7 @@ const CommissionDetails = () => {
               </div>
               <div style={S.infoGrid}>
                 {[
-                  ["PO Number", order.po_no || "—"],
+                  ["Order No. (PDM)", order.pdm_no || order.po_no || "—"],
                   ["Style", order.style || "—"],
                   ["Customer", customerName],
                   ["Supplier", supplierName],

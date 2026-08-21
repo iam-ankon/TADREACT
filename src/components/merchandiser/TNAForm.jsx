@@ -590,7 +590,7 @@ export default function TNAForm() {
       
       const formattedOrders = ordersData.map(order => ({
         value: order.id,
-        label: `${order.po_no || `Order ${order.id}`} - ${order.style || "No Style"}`,
+        label: `${order.pdm_no || order.po_no || `Order ${order.id}`} - ${order.style || "No Style"}`,
         subLabel: `Customer: ${order.customer_display || "N/A"} | Qty: ${order.total_qty || 0}`,
         orderData: order
       }));

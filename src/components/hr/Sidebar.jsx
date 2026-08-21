@@ -404,6 +404,18 @@ const Sidebar = () => {
         ]
       : []),
 
+    ...(departmentPermissions.isFinance
+      ? [
+          {
+            to: "/company-docs",
+            icon: <FiGrid />,
+            label: "Company Docs",
+            badge: null,
+          },
+        ]
+      : []),
+
+
     ...(departmentPermissions.isCSR
       ? [
           {

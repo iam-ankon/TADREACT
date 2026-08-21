@@ -1,6 +1,6 @@
 // pages/orders/DetailOrder.jsx - With Courier Tab
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format, differenceInDays } from "date-fns";
 import {
@@ -12,8 +12,10 @@ import {
   renameOrderFile,
   getBackendURL,
   getCourierBookingsByOrder,  // ADD THIS
+  getTNAByOrder,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
+import SampleSection from "../merchandiser/SampleSection";
 import {
   FaArrowLeft,
   FaEdit,
@@ -57,6 +59,9 @@ import {
   FaClock,          // ADD FOR COURIER TAB
   FaSearch,         // ADD FOR COURIER TAB
   FaExternalLinkAlt, // ADD FOR COURIER TAB
+  FaImages,        // ADD FOR COURIER TAB
+  FaFilePdf,       // ADD FOR COURIER TAB    
+  FaImage,  
 } from "react-icons/fa";
 
 const statusConfig = {
@@ -96,6 +101,15 @@ const statusConfig = {
     border: "1px solid #6b7280",
   },
 };
+
+// TNA progress stages - mirrors TNADetails.jsx's PROGRESS_STAGES /
+// TNA.PROGRESS_WEIGHTS on the backend (must sum to 100).
+const PROGRESS_STAGES = [
+  { field: "lab_dip_status", label: "Lab Dip", weight: 10, color: "#8b5cf6" },
+  { field: "fabric_status", label: "Fabric", weight: 40, color: "#3b82f6" },
+  { field: "fit_sample_status", label: "Fit Sample", weight: 20, color: "#f59e0b" },
+  { field: "pp_sample_status", label: "PP Sample", weight: 30, color: "#10b981" },
+];
 
 // Courier status config
 const courierStatusConfig = {
@@ -192,9 +206,42 @@ const DetailOrder = () => {
   const [courierBookings, setCourierBookings] = useState([]);
   const [courierLoading, setCourierLoading] = useState(false);
 
+  // TNA progress (replaces the old shipped-qty "Shipment Progress" bar)
+  const [tna, setTna] = useState(null);
+  const [tnaLoading, setTnaLoading] = useState(true);
+
   useEffect(() => {
     fetchOrder();
   }, [id]);
+
+  const fetchTna = useCallback(async () => {
+    setTnaLoading(true);
+    try {
+      const response = await getTNAByOrder(id);
+      // TEMP DEBUG - remove once the progress bar color issue is
+      // confirmed fixed. Open the browser console after checking an
+      // Approved box to see exactly what this page received.
+      console.log("[TNA Progress] fetched TNA for order", id, {
+        id: response.data?.id,
+        lab_dip_status: response.data?.lab_dip_status,
+        fabric_status: response.data?.fabric_status,
+        fit_sample_status: response.data?.fit_sample_status,
+        pp_sample_status: response.data?.pp_sample_status,
+        progress_percentage: response.data?.progress_percentage,
+      });
+      setTna(response.data || null);
+    } catch (err) {
+      console.log("[TNA Progress] fetch failed for order", id, err?.response?.status, err?.response?.data);
+      // No TNA record for this order yet - normal, just show the empty state.
+      setTna(null);
+    } finally {
+      setTnaLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchTna();
+  }, [fetchTna]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -609,7 +656,7 @@ const DetailOrder = () => {
             <div style={styles.headerLeft}>
               <div>
                 <h1 style={styles.pageTitle}>
-                  Order #{order.po_no || order.id}
+                  Order {order.style}
                 </h1>
                 <p style={styles.pageSubtitle}>
                   {order.style} • {order.item || "No item"} • Created{" "}
@@ -679,30 +726,55 @@ const DetailOrder = () => {
             </div>
           </div>
 
-          {/* Progress Section */}
+          {/* TNA Progress Section (replaces the old shipped-qty Shipment Progress bar) */}
           <div style={styles.progressSection}>
-            <div style={styles.progressHeader}>
-              <div>
-                <span style={styles.progressTitle}>Shipment Progress</span>
-                <span style={styles.progressStats}>
-                  {completionPercentage.toFixed(1)}% Complete
-                </span>
+            {tnaLoading ? (
+              <div style={styles.progressHeader}>
+                <span style={styles.progressTitle}>Loading TNA progress…</span>
               </div>
-              <span style={styles.progressCount}>
-                {formatNumber(order.shipped_qty)} /{" "}
-                {formatNumber(order.total_qty)} pcs shipped
-              </span>
-            </div>
-            <div style={styles.progressBarContainer}>
-              <div
-                style={{
-                  ...styles.progressBar,
-                  width: `${completionPercentage}%`,
-                  backgroundColor:
-                    completionPercentage >= 100 ? "#10b981" : "#3b82f6",
-                }}
-              />
-            </div>
+            ) : !tna ? (
+              <div style={styles.progressHeader}>
+                <div>
+                  <span style={styles.progressTitle}>TNA Progress</span>
+                  <span style={styles.progressStats}>No TNA record for this order yet</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={styles.progressHeader}>
+                  <div>
+                    <span style={styles.progressTitle}>TNA Progress</span>
+                    <span style={styles.progressStats}>
+                      Lab Dip 10% · Fabric 40% · Fit Sample 20% · PP Sample 30%
+                    </span>
+                  </div>
+                  <span
+                    style={{ ...styles.progressCount, cursor: "pointer" }}
+                    onClick={() => navigate(`/tna-details/${tna.id}`)}
+                    title="View full TNA details"
+                  >
+                    {tna.progress_percentage ?? 0}% Complete →
+                  </span>
+                </div>
+                <div style={{ ...styles.progressBarContainer, display: "flex" }}>
+                  {PROGRESS_STAGES.map((stage) => {
+                    const approved = tna[stage.field] === "approved";
+                    return (
+                      <div
+                        key={stage.field}
+                        title={`${stage.label} - ${stage.weight}%${approved ? " (Approved)" : " (Pending)"}`}
+                        style={{
+                          height: "100%",
+                          width: `${stage.weight}%`,
+                          flexShrink: 0,
+                          backgroundColor: approved ? stage.color : "#e2e8f0",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Stats Cards */}
@@ -792,6 +864,14 @@ const DetailOrder = () => {
               active={activeTab}
               onClick={setActiveTab}
             />
+            {/* Samples Tab */}
+            <TabButton
+              id="samples"
+              label="Samples"
+              icon={<FaClipboardCheck />}
+              active={activeTab}
+              onClick={setActiveTab}
+            />
           </div>
 
           {/* Tab Content */}
@@ -814,8 +894,8 @@ const DetailOrder = () => {
                       icon={<FaIndustry />}
                     />
                     <InfoRow
-                      label="PDM Number"
-                      value={order.style}
+                      label="Style"
+                      value={order.pdm_no}
                       icon={<FaBoxes />}
                     />
                     <InfoRow
@@ -839,8 +919,8 @@ const DetailOrder = () => {
                       icon={<FaClipboardList />}
                     />
                     <InfoRow
-                      label="Style"
-                      value={order.pdm_no}
+                      label="PDM Number"
+                      value={order.style}
                       icon={<FaClipboardList />}
                     />
                     <InfoRow
@@ -988,6 +1068,11 @@ const DetailOrder = () => {
                     <InfoRow
                       label="Style"
                       value={order.pdm_no}
+                      icon={<FaClipboardList />}
+                    />
+                    <InfoRow
+                      label="PDM Number"
+                      value={order.style}
                       icon={<FaClipboardList />}
                     />
                     <InfoRow
@@ -1777,6 +1862,18 @@ const DetailOrder = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Samples Tab */}
+            {activeTab === "samples" && (
+              <div style={styles.tabPanel}>
+                <SampleSection
+                  orderId={id}
+                  supplierName={getSupplierDisplayName(order)}
+                  orderLabel={order?.style}
+                  onApprovalChange={fetchTna}
+                />
               </div>
             )}
           </div>

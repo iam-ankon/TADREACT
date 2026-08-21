@@ -87,11 +87,17 @@ const formatNumber = (value) => {
   return new Intl.NumberFormat("en-US").format(value);
 };
 
+
+
 const formatDateForDisplay = (dateString) => {
   if (!dateString) return "";
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB");
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric"
+    });
   } catch {
     return "";
   }
@@ -101,7 +107,11 @@ const formatDate = (dateString) => {
   if (!dateString) return "—";
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB");
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric"
+    });
   } catch {
     return "—";
   }

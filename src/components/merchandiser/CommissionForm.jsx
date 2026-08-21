@@ -11,6 +11,7 @@ const CommissionForm = () => {
 
   const [formData, setFormData] = useState({
     po_no: "",
+    pdm_no: "",
     style: "",
     customer_name: "",
     supplier: "",
@@ -74,6 +75,10 @@ const CommissionForm = () => {
           
           setFormData({
             po_no: poNo,
+            // PDM No. (starts with "P") is the single canonical order
+            // reference shown across sub-modules; po_no can hold multiple
+            // comma-separated PO numbers, kept only as a fallback.
+            pdm_no: data.pdm_no || "",
             style: data.style || "",
             customer_name: customerName,
             supplier: supplierName,
@@ -208,7 +213,7 @@ const CommissionForm = () => {
             </h1>
             <p style={S.pageSubtitle}>
               {isEdit
-                ? `Updating record for ${formData.po_no || id}`
+                ? `Updating record for ${formData.pdm_no || formData.po_no || id}`
                 : "Fill in the details to create a new commission record"}
             </p>
           </div>
@@ -245,11 +250,11 @@ const CommissionForm = () => {
                 </div>
                 <div style={S.grid2}>
                   <Field
-                    label="PO Number"
-                    name="po_no"
-                    value={formData.po_no}
+                    label="Order No. (PDM)"
+                    name="pdm_no"
+                    value={formData.pdm_no || formData.po_no}
                     onChange={handleChange}
-                    placeholder="e.g. PO45221"
+                    placeholder="e.g. P12345"
                     readOnly
                   />
                   <Field
@@ -477,7 +482,7 @@ const CommissionForm = () => {
                   <span style={S.cardTitle}>Quick Summary</span>
                 </div>
                 {[
-                  ["PO No.", formData.po_no || "—"],
+                  ["Order No. (PDM)", formData.pdm_no || formData.po_no || "—"],
                   ["Customer", formData.customer_name || "—"],
                   [
                     "Est. Commission",

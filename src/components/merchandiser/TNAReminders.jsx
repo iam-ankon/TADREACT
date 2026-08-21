@@ -216,7 +216,7 @@ export default function TNAReminders({ onReminderClick, autoFetch = true }) {
                     </div>
                     <div style={styles.reminderContent}>
                       <div style={styles.reminderTitle}>
-                        {reminder.order_number || `TNA-${reminder.tna_id}`}
+                        {reminder.order_style ? reminder.order_style : reminder.order_number || `TNA-${reminder.tna_id}`}
                         <span style={styles.reminderSupplier}>
                           {reminder.supplier ? ` • ${reminder.supplier}` : ''}
                         </span>

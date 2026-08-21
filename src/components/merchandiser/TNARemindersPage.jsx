@@ -1,7 +1,17 @@
 // src/pages/TNARemindersPage.jsx
-// FIXED: Added React import for React.memo
+//
+// TNA Reminders — redesigned
+// - Real page-by-page pagination (page numbers, prev/next, page size) instead of "load more"
+// - Order Style and PO Number are shown on every card (Order Number has been removed)
+// - Component split into small, named pieces + a single organized styles sheet
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import axios from "axios";
 import Sidebar from "../merchandiser/Sidebar";
 import {
@@ -13,10 +23,19 @@ import {
   FaSpinner,
   FaChevronDown,
   FaChevronUp,
+  FaChevronLeft,
+  FaChevronRight,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight,
   FaSearch,
   FaCheck,
   FaExclamationTriangle,
+  FaTag,
 } from "react-icons/fa";
+
+/* ────────────────────────────────────────────────────────────────────────
+   API CLIENT
+   ──────────────────────────────────────────────────────────────────────── */
 
 const getAuthToken = () =>
   localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -31,769 +50,782 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Component for a single reminder item (memoized for performance)
-const ReminderItem = React.memo(({ reminder, onDismiss }) => {
-  const status = getStatusBadgeLocal(reminder.urgency_level);
-  const reminderDate = new Date(reminder.reminder_date);
-  
+/* ────────────────────────────────────────────────────────────────────────
+   CONFIG
+   ──────────────────────────────────────────────────────────────────────── */
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = 25;
+
+const URGENCY = {
+  overdue: { label: "Overdue", color: "#b91c1c", bg: "#fee2e2", accent: "#dc2626" },
+  urgent: { label: "Urgent", color: "#b45309", bg: "#fef3c7", accent: "#f59e0b" },
+  upcoming: { label: "Upcoming", color: "#1d4ed8", bg: "#dbeafe", accent: "#2563eb" },
+};
+
+const getUrgencyMeta = (level) => URGENCY[level] || URGENCY.upcoming;
+
+/* ────────────────────────────────────────────────────────────────────────
+   HELPERS
+   ──────────────────────────────────────────────────────────────────────── */
+
+function formatDate(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatTimeUntil(daysUntil) {
+  if (daysUntil == null) return "";
+  if (daysUntil < 0) return `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? "" : "s"} overdue`;
+  if (daysUntil === 0) return "Due today";
+  if (daysUntil === 1) return "Due tomorrow";
+  return `${daysUntil} days to go`;
+}
+
+function formatReminderType(type) {
+  if (!type) return "General";
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatCount(n) {
+  if (n > 999) return `${(n / 1000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+// Single place to adjust if the API's field names differ from these guesses.
+// Order Number is intentionally not surfaced here — the card leads with
+// Order Style instead, with PO Number as a secondary reference.
+function getOrderIdentifiers(reminder) {
+  const style = reminder.order_style || reminder.style || null;
+
+  const poNumber =
+    reminder.order_po || reminder.po_number || reminder.poNumber || null;
+
+  const fallbackId = `TNA-${reminder.tna_id ?? reminder.id}`;
+
+  return { style, poNumber, fallbackId };
+}
+
+// Builds a compact page-number list with "…" gaps, e.g. 1 … 4 5 [6] 7 8 … 42
+function buildPageRange(current, total, siblings = 1) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const keep = new Set([1, total, current]);
+  for (let i = 1; i <= siblings; i++) {
+    if (current - i > 1) keep.add(current - i);
+    if (current + i < total) keep.add(current + i);
+  }
+
+  const sorted = [...keep].sort((a, b) => a - b);
+  const out = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push("gap");
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   REMINDER CARD
+   ──────────────────────────────────────────────────────────────────────── */
+
+const ReminderCard = React.memo(({ reminder, onDismiss }) => {
+  const urgency = getUrgencyMeta(reminder.urgency_level);
+  const { style, poNumber, fallbackId } = getOrderIdentifiers(reminder);
+  const isOverdue = reminder.urgency_level === "overdue";
+
   return (
-    <div
-      style={{
-        ...styles.reminderCard,
-        borderLeftColor: getUrgencyColorLocal(reminder.urgency_level),
-      }}
-    >
-      <div style={styles.reminderCardHeader}>
-        <div style={styles.reminderOrderInfo}>
-          <span style={styles.reminderOrderNumber}>
-            {reminder.order_number || `TNA-${reminder.tna_id}`}
-          </span>
-          {reminder.supplier && (
-            <span style={styles.reminderSupplier}>{reminder.supplier}</span>
-          )}
-          <span
-            style={{
-              ...styles.reminderStatus,
-              color: status.color,
-              backgroundColor: status.bg,
-            }}
-          >
-            {status.text}
-          </span>
+    <article className="reminder-card" style={{ ...styles.card, borderLeftColor: urgency.accent }}>
+      <div style={styles.cardHeader}>
+        <div style={styles.identity}>
+          <div style={styles.styleRow}>
+            <span style={{ ...styles.styleIconWrap, background: urgency.bg }}>
+              <FaTag style={{ ...styles.styleIcon, color: urgency.accent }} aria-hidden="true" />
+            </span>
+            <span style={style ? styles.styleValue : styles.styleValueMissing}>
+              {style || fallbackId}
+            </span>
+            {poNumber && <span style={styles.poChip}>PO {poNumber}</span>}
+          </div>
         </div>
-        <div style={styles.reminderActions}>
-          <span style={styles.reminderDateBadge}>
-            {reminderDate.toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            })}
+
+        <div style={styles.headerRight}>
+          <span style={{ ...styles.urgencyBadge, color: urgency.color, background: urgency.bg }}>
+            {isOverdue && <FaExclamationTriangle style={{ marginRight: 5, fontSize: 10 }} />}
+            {urgency.label}
           </span>
           <button
             style={styles.dismissBtn}
+            className="dismiss-btn"
             onClick={() => onDismiss(reminder.id)}
             title="Dismiss reminder"
+            aria-label="Dismiss reminder"
           >
-            <FaTimes size={14} />
+            <FaTimes size={13} />
           </button>
         </div>
       </div>
 
-      <div style={styles.reminderMessage}>{reminder.message}</div>
+      <p style={styles.message}>{reminder.message}</p>
 
-      <div style={styles.reminderMeta}>
-        <span style={styles.reminderDays}>
-          {getTimeTextLocal(reminder.days_until)}
+      <div style={styles.cardFooter}>
+        <span style={{ ...styles.timeChip, color: urgency.color, background: urgency.bg }}>
+          {formatTimeUntil(reminder.days_until)}
         </span>
-        <span style={styles.reminderType}>
-          {reminder.reminder_type?.replace('_', ' ') || 'General'}
+        <span style={styles.metaChip}>{formatReminderType(reminder.reminder_type)}</span>
+        {reminder.supplier && <span style={styles.metaChip}>{reminder.supplier}</span>}
+        <span style={styles.dateChip}>
+          <FaCalendar style={{ marginRight: 5, fontSize: 11 }} aria-hidden="true" />
+          {formatDate(reminder.reminder_date)}
         </span>
       </div>
-    </div>
+    </article>
   );
 });
+ReminderCard.displayName = "ReminderCard";
 
-// Local helper functions for memoized component
-function getUrgencyColorLocal(level) {
-  switch (level) {
-    case "overdue": return "#dc2626";
-    case "urgent": return "#f59e0b";
-    default: return "#2563eb";
-  }
-}
+/* ────────────────────────────────────────────────────────────────────────
+   YEAR FILTER (self-contained dropdown w/ search + click-outside)
+   ──────────────────────────────────────────────────────────────────────── */
 
-function getStatusBadgeLocal(level) {
-  switch (level) {
-    case "overdue": return { text: "Overdue", color: "#dc2626", bg: "#fee2e2" };
-    case "urgent": return { text: "Urgent", color: "#f59e0b", bg: "#fef3c7" };
-    default: return { text: "Upcoming", color: "#2563eb", bg: "#dbeafe" };
-  }
-}
+function YearFilter({ selectedYear, availableYears, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef(null);
 
-function getTimeTextLocal(daysUntil) {
-  if (daysUntil < 0) return `${Math.abs(daysUntil)} days overdue`;
-  if (daysUntil === 0) return "Today";
-  if (daysUntil === 1) return "Tomorrow";
-  return `${daysUntil} days to go`;
-}
-
-export default function TNARemindersPage() {
-  // Only store a limited window of reminders
-  const [visibleReminders, setVisibleReminders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [filter, setFilter] = useState("all");
-  const [lastRefresh, setLastRefresh] = useState(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [error, setError] = useState(null);
-  const [loadedCount, setLoadedCount] = useState(0);
-  
-  // Year filter state
-  const [selectedYear, setSelectedYear] = useState("all");
-  const [availableYears, setAvailableYears] = useState([]);
-  const [showYearDropdown, setShowYearDropdown] = useState(false);
-  const [yearSearchTerm, setYearSearchTerm] = useState("");
-  const [isFetchingYears, setIsFetchingYears] = useState(false);
-  
-  const yearDropdownRef = useRef(null);
-  const initialFetchDone = useRef(false);
-  const containerRef = useRef(null);
-  const isMounted = useRef(true);
-
-  // Fetch available years from backend
-  const fetchAvailableYears = useCallback(async () => {
-    if (isFetchingYears) return;
-    
-    try {
-      setIsFetchingYears(true);
-      const response = await api.get("tna/reminders/years/");
-      const years = response.data.years || [];
-      setAvailableYears(years);
-    } catch (err) {
-      console.error("Error fetching available years:", err);
-    } finally {
-      setIsFetchingYears(false);
-    }
-  }, []);
-
-  // Fetch a single page
-  const fetchPage = useCallback(async (pageNum) => {
-    try {
-      const params = { 
-        page: pageNum, 
-        page_size: 500
-      };
-      
-      if (selectedYear !== "all" && selectedYear) {
-        params.shipment_year = selectedYear;
-      }
-      
-      const response = await api.get("tna/reminders/", { params });
-      return response.data;
-      
-    } catch (err) {
-      console.error(`Error fetching page ${pageNum}:`, err);
-      throw err;
-    }
-  }, [selectedYear]);
-
-  // Load next batch (incremental loading)
-  const loadNextBatch = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    
-    try {
-      setLoadingMore(true);
-      const nextPage = page + 1;
-      const data = await fetchPage(nextPage);
-      const newReminders = data.results || [];
-      
-      setVisibleReminders(prev => {
-        const combined = [...prev, ...newReminders];
-        return combined.sort((a, b) => {
-          const dateA = new Date(a.reminder_date);
-          const dateB = new Date(b.reminder_date);
-          return dateB - dateA;
-        });
-      });
-      
-      setPage(nextPage);
-      setHasMore(nextPage < data.total_pages);
-      setTotalPages(data.total_pages || 1);
-      setLoadedCount(prev => prev + newReminders.length);
-      setLastRefresh(new Date());
-      
-      console.log(`📦 Loaded page ${nextPage}: ${newReminders.length} reminders`);
-      
-    } catch (err) {
-      console.error("Error loading more:", err);
-      setError(err.message || "Failed to load more reminders");
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [page, hasMore, loadingMore, fetchPage]);
-
-  // Load only first page initially (not all)
-  const fetchInitial = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const data = await fetchPage(1);
-      const results = data.results || [];
-      
-      const sorted = [...results].sort((a, b) => {
-        const dateA = new Date(a.reminder_date);
-        const dateB = new Date(b.reminder_date);
-        return dateB - dateA;
-      });
-      
-      setVisibleReminders(sorted);
-      setTotalCount(data.count || 0);
-      setTotalPages(data.total_pages || 1);
-      setPage(1);
-      setHasMore(1 < (data.total_pages || 1));
-      setLoadedCount(results.length);
-      setLastRefresh(new Date());
-      
-      console.log(`📦 Page 1: ${results.length} reminders, Total: ${data.count}`);
-      
-    } catch (err) {
-      console.error("❌ Error fetching reminders:", err);
-      setError(err.message || "Failed to load reminders");
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchPage]);
-
-  // Initial fetch
   useEffect(() => {
-    if (!initialFetchDone.current) {
-      initialFetchDone.current = true;
-      fetchInitial();
-      fetchAvailableYears();
-    }
-    
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Re-fetch when year changes
-  useEffect(() => {
-    if (initialFetchDone.current) {
-      setVisibleReminders([]);
-      setLoadedCount(0);
-      fetchInitial();
-    }
-  }, [selectedYear]);
-
-  // Click outside year dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target)) {
-        setShowYearDropdown(false);
-        setYearSearchTerm("");
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setSearch("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Mark as read
-  const markAsRead = async (reminderId) => {
+  const filteredYears = useMemo(() => {
+    if (!search) return availableYears;
+    return availableYears.filter((y) => y.toString().includes(search));
+  }, [availableYears, search]);
+
+  const select = (year) => {
+    onChange(year);
+    setOpen(false);
+    setSearch("");
+  };
+
+  return (
+    <div style={styles.yearWrapper} ref={ref}>
+      <button
+        style={{ ...styles.yearBtn, ...(selectedYear !== "all" ? styles.yearBtnActive : {}) }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <FaCalendar style={{ marginRight: 6 }} aria-hidden="true" />
+        {selectedYear === "all" ? "All years" : selectedYear}
+        {selectedYear !== "all" && (
+          <FaTimes
+            style={styles.yearClearIcon}
+            onClick={(e) => {
+              e.stopPropagation();
+              select("all");
+            }}
+          />
+        )}
+        {open ? <FaChevronUp style={styles.chevron} /> : <FaChevronDown style={styles.chevron} />}
+      </button>
+
+      {open && (
+        <div style={styles.yearDropdown}>
+          <div style={styles.yearSearchRow}>
+            <FaSearch style={{ color: "#94a3b8", fontSize: 13 }} aria-hidden="true" />
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search year…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={styles.yearSearchInput}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div style={styles.yearList}>
+            <div
+              style={{ ...styles.yearOption, ...(selectedYear === "all" ? styles.yearOptionActive : {}) }}
+              onClick={() => select("all")}
+            >
+              <span>All years</span>
+              {selectedYear === "all" && <FaCheck style={{ color: "#2563eb" }} />}
+            </div>
+            {filteredYears.length > 0 ? (
+              filteredYears.map((year) => (
+                <div
+                  key={year}
+                  style={{
+                    ...styles.yearOption,
+                    ...(selectedYear === year.toString() ? styles.yearOptionActive : {}),
+                  }}
+                  onClick={() => select(year.toString())}
+                >
+                  <span>{year}</span>
+                  {selectedYear === year.toString() && <FaCheck style={{ color: "#2563eb" }} />}
+                </div>
+              ))
+            ) : (
+              <div style={styles.yearEmpty}>No years found</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   PAGINATION
+   ──────────────────────────────────────────────────────────────────────── */
+
+function Pagination({ page, totalPages, totalCount, pageSize, onPageChange, onPageSizeChange, disabled }) {
+  const pages = useMemo(() => buildPageRange(page, totalPages), [page, totalPages]);
+
+  return (
+    <div style={styles.pagination}>
+      <div style={styles.pageSizeGroup}>
+        <label htmlFor="page-size" style={styles.pageSizeLabel}>Rows per page</label>
+        <select
+          id="page-size"
+          style={styles.pageSizeSelect}
+          value={pageSize}
+          disabled={disabled}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+        >
+          {PAGE_SIZE_OPTIONS.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={styles.pageNav}>
+        <button
+          className="page-nav-btn"
+          style={styles.pageNavBtn}
+          disabled={disabled || page === 1}
+          onClick={() => onPageChange(1)}
+          title="First page"
+          aria-label="First page"
+        >
+          <FaAngleDoubleLeft size={12} />
+        </button>
+        <button
+          className="page-nav-btn"
+          style={styles.pageNavBtn}
+          disabled={disabled || page === 1}
+          onClick={() => onPageChange(page - 1)}
+          title="Previous page"
+          aria-label="Previous page"
+        >
+          <FaChevronLeft size={12} />
+        </button>
+
+        {pages.map((p, i) =>
+          p === "gap" ? (
+            <span key={`gap-${i}`} style={styles.pageGap}>…</span>
+          ) : (
+            <button
+              key={p}
+              className="page-num-btn"
+              style={{ ...styles.pageNumBtn, ...(p === page ? styles.pageNumBtnActive : {}) }}
+              disabled={disabled}
+              onClick={() => onPageChange(p)}
+              aria-current={p === page ? "page" : undefined}
+            >
+              {p}
+            </button>
+          )
+        )}
+
+        <button
+          className="page-nav-btn"
+          style={styles.pageNavBtn}
+          disabled={disabled || page === totalPages}
+          onClick={() => onPageChange(page + 1)}
+          title="Next page"
+          aria-label="Next page"
+        >
+          <FaChevronRight size={12} />
+        </button>
+        <button
+          className="page-nav-btn"
+          style={styles.pageNavBtn}
+          disabled={disabled || page === totalPages}
+          onClick={() => onPageChange(totalPages)}
+          title="Last page"
+          aria-label="Last page"
+        >
+          <FaAngleDoubleRight size={12} />
+        </button>
+      </div>
+
+      <span style={styles.pageSummary}>
+        Page {page} of {totalPages} • {totalCount.toLocaleString()} total
+      </span>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   STATE VIEWS
+   ──────────────────────────────────────────────────────────────────────── */
+
+function LoadingState() {
+  return (
+    <div style={styles.centerState}>
+      <FaSpinner style={styles.spinnerIcon} />
+      <span>Loading reminders…</span>
+    </div>
+  );
+}
+
+function ErrorState({ message, onRetry }) {
+  return (
+    <div style={styles.panelState}>
+      <FaExclamationTriangle style={styles.errorIcon} />
+      <h3 style={styles.stateTitle}>Failed to load reminders</h3>
+      <p style={styles.stateBody}>{message}</p>
+      <button style={styles.retryBtn} onClick={onRetry}>Try again</button>
+    </div>
+  );
+}
+
+function EmptyState({ selectedYear, onClearYear }) {
+  return (
+    <div style={styles.panelState}>
+      <FaCheckCircle style={styles.emptyIcon} />
+      <h3 style={styles.stateTitle}>No reminders</h3>
+      <p style={styles.stateBody}>
+        {selectedYear !== "all"
+          ? `No reminders found for ${selectedYear}.`
+          : "All your TNA dates are on track."}
+      </p>
+      {selectedYear !== "all" && (
+        <button style={styles.clearYearBtn} onClick={onClearYear}>Show all years</button>
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   MAIN PAGE
+   ──────────────────────────────────────────────────────────────────────── */
+
+export default function TNARemindersPage() {
+  // Data for the current page only — pagination is server-driven.
+  const [reminders, setReminders] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  // Urgency filter applies to the reminders on the current page.
+  const [filter, setFilter] = useState("all");
+
+  // Year filter (server-side).
+  const [selectedYear, setSelectedYear] = useState("all");
+  const [availableYears, setAvailableYears] = useState([]);
+
+  const didInit = useRef(false);
+
+  const fetchAvailableYears = useCallback(async () => {
     try {
-      await api.post(`tna/reminders/${reminderId}/mark-read/`);
-      setVisibleReminders(prev => prev.filter(r => r.id !== reminderId));
-      setTotalCount(prev => prev - 1);
-      setLoadedCount(prev => prev - 1);
+      const response = await api.get("tna/reminders/years/");
+      setAvailableYears(response.data.years || []);
     } catch (err) {
-      console.error("Error marking reminder as read:", err);
+      console.error("Error fetching available years:", err);
+    }
+  }, []);
+
+  const loadPage = useCallback(async (pageNum, size, year) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = { page: pageNum, page_size: size };
+      if (year !== "all" && year) params.shipment_year = year;
+
+      const { data } = await api.get("tna/reminders/", { params });
+
+      setReminders(data.results || []);
+      setTotalCount(data.count || 0);
+      setTotalPages(Math.max(1, data.total_pages || 1));
+      setLastRefresh(new Date());
+    } catch (err) {
+      console.error("Error fetching reminders:", err);
+      setError(err.message || "Failed to load reminders");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+    loadPage(page, pageSize, selectedYear);
+    fetchAvailableYears();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reload whenever page, page size, or year changes (after initial mount)
+  useEffect(() => {
+    if (!didInit.current) return;
+    loadPage(page, pageSize, selectedYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, selectedYear]);
+
+  const handleYearChange = (year) => {
+    setSelectedYear(year);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setPage(1);
+  };
+
+  const handleRefresh = () => {
+    loadPage(page, pageSize, selectedYear);
+    fetchAvailableYears();
+  };
+
+  const dismissReminder = async (id) => {
+    try {
+      await api.post(`tna/reminders/${id}/mark-read/`);
+      const remaining = reminders.length - 1;
+      if (remaining === 0 && page > 1) {
+        setPage((p) => p - 1); // effect above reloads automatically
+      } else {
+        loadPage(page, pageSize, selectedYear); // backfill this page
+      }
+    } catch (err) {
+      console.error("Error dismissing reminder:", err);
       alert("Failed to dismiss reminder. Please try again.");
     }
   };
 
-  const markAllAsRead = async () => {
-    if (visibleReminders.length === 0) return;
-    
-    if (!window.confirm(`Dismiss all ${visibleReminders.length} visible reminders?`)) return;
-    
+  const dismissAll = async () => {
+    if (totalCount === 0) return;
+    if (!window.confirm(`Dismiss all ${totalCount.toLocaleString()} reminders? This cannot be undone.`)) return;
+
     try {
       await api.post("tna/reminders/mark-all-read/");
-      setVisibleReminders([]);
-      setTotalCount(0);
-      setLoadedCount(0);
+      setPage(1);
+      loadPage(1, pageSize, selectedYear);
     } catch (err) {
-      console.error("Error marking all as read:", err);
+      console.error("Error dismissing all reminders:", err);
       alert("Failed to dismiss all reminders. Please try again.");
     }
   };
 
-  // Apply urgency filter (frontend only)
   const filteredReminders = useMemo(() => {
-    let result = visibleReminders;
-    
     if (filter === "urgent") {
-      result = result.filter(r => r.urgency_level === "urgent" || r.urgency_level === "overdue");
-    } else if (filter === "overdue") {
-      result = result.filter(r => r.urgency_level === "overdue");
+      return reminders.filter((r) => r.urgency_level === "urgent" || r.urgency_level === "overdue");
     }
-    
-    return result;
-  }, [visibleReminders, filter]);
+    if (filter === "overdue") {
+      return reminders.filter((r) => r.urgency_level === "overdue");
+    }
+    return reminders;
+  }, [reminders, filter]);
 
-  const urgentCount = visibleReminders.filter(
-    (r) => r.urgency_level === "urgent" || r.urgency_level === "overdue"
-  ).length;
-  
-  const overdueCount = visibleReminders.filter(
-    (r) => r.urgency_level === "overdue"
-  ).length;
-
-  // Year filter handlers
-  const toggleYear = (year) => {
-    setSelectedYear(year);
-    setShowYearDropdown(false);
-    setYearSearchTerm("");
-  };
-
-  const clearYearFilter = () => {
-    setSelectedYear("all");
-    setShowYearDropdown(false);
-    setYearSearchTerm("");
-  };
-
-  const getYearDisplayText = () => {
-    if (selectedYear === "all") return "All Years";
-    return selectedYear;
-  };
-
-  const filteredYears = useMemo(() => {
-    if (!yearSearchTerm) return availableYears;
-    return availableYears.filter(y => 
-      y.toString().toLowerCase().includes(yearSearchTerm.toLowerCase())
-    );
-  }, [availableYears, yearSearchTerm]);
-
-  const refreshData = () => {
-    setVisibleReminders([]);
-    setLoadedCount(0);
-    fetchInitial();
-    fetchAvailableYears();
-  };
-
-  // Calculate loading percentage
-  const loadPercentage = totalCount > 0 ? Math.round((loadedCount / totalCount) * 100) : 0;
+  const urgentCount = useMemo(
+    () => reminders.filter((r) => r.urgency_level === "urgent" || r.urgency_level === "overdue").length,
+    [reminders]
+  );
+  const overdueCount = useMemo(
+    () => reminders.filter((r) => r.urgency_level === "overdue").length,
+    [reminders]
+  );
 
   return (
-    <div style={styles.container}>
+    <div style={styles.page}>
       <Sidebar />
-      <div style={styles.mainContent}>
+      <main style={styles.main}>
         {/* ── Header ── */}
         <div style={styles.header}>
           <div style={styles.headerLeft}>
-            <FaBell style={styles.headerIcon} />
-            <h1 style={styles.headerTitle}>TNA Reminders</h1>
+            <span style={styles.headerIconWrap}>
+              <FaBell style={styles.headerIcon} aria-hidden="true" />
+            </span>
+            <div>
+              <h1 style={styles.headerTitle}>TNA Reminders</h1>
+              <p style={styles.headerSubtitle}>Upcoming and overdue Time &amp; Action dates</p>
+            </div>
             <span style={styles.headerBadge}>
-              {totalCount > 999 ? `${(totalCount / 1000).toFixed(1)}K` : totalCount} 
-              {totalCount === 1 ? " reminder" : " reminders"}
+              {formatCount(totalCount)} {totalCount === 1 ? "reminder" : "reminders"}
             </span>
           </div>
           <div style={styles.headerActions}>
             {lastRefresh && (
-              <span style={styles.lastRefresh}>
-                Updated {lastRefresh.toLocaleTimeString()}
-              </span>
+              <span style={styles.lastRefresh}>Updated {lastRefresh.toLocaleTimeString()}</span>
             )}
-            {visibleReminders.length > 0 && (
-              <button style={styles.markAllBtn} onClick={markAllAsRead}>
-                Dismiss visible
+            {totalCount > 0 && (
+              <button style={styles.dismissAllBtn} className="dismiss-all-btn" onClick={dismissAll}>
+                Dismiss all
               </button>
             )}
-            <button
-              style={styles.refreshBtn}
-              onClick={refreshData}
-              disabled={loading}
-            >
-              <FaSync
-                style={{
-                  marginRight: "6px",
-                  ...(loading ? styles.spinning : {}),
-                }}
-              />
+            <button style={styles.refreshBtn} className="refresh-btn" onClick={handleRefresh} disabled={loading}>
+              <FaSync style={{ marginRight: 6, ...(loading ? styles.spinning : {}) }} />
               Refresh
             </button>
           </div>
         </div>
 
-        {/* ── Filter Bar ── */}
+        {/* ── Filter bar ── */}
         <div style={styles.filterBar}>
           <div style={styles.filterGroup}>
             {[
-              { key: "all", label: `All (${totalCount > 999 ? (totalCount / 1000).toFixed(1) + 'K' : totalCount})` },
-              { key: "urgent", label: `⚠️ Urgent (${urgentCount})` },
-              { key: "overdue", label: `🔴 Overdue (${overdueCount})` },
-            ].map(({ key, label }) => (
+              { key: "all", label: "All", count: reminders.length },
+              { key: "urgent", label: "Urgent", count: urgentCount },
+              { key: "overdue", label: "Overdue", count: overdueCount },
+            ].map(({ key, label, count }) => (
               <button
                 key={key}
-                style={{
-                  ...styles.filterBtn,
-                  ...(filter === key ? styles.filterActive : {}),
-                }}
+                style={{ ...styles.filterBtn, ...(filter === key ? styles.filterBtnActive : {}) }}
                 onClick={() => setFilter(key)}
               >
                 {label}
+                <span
+                  style={{
+                    ...styles.filterCount,
+                    ...(filter === key ? styles.filterCountActive : {}),
+                  }}
+                >
+                  {count}
+                </span>
               </button>
             ))}
           </div>
 
-          {/* ── Year Filter Dropdown ── */}
-          <div style={styles.yearFilterWrapper} ref={yearDropdownRef}>
-            <button
-              style={{
-                ...styles.yearFilterBtn,
-                ...(selectedYear !== "all" ? styles.yearFilterActive : {}),
-              }}
-              onClick={() => setShowYearDropdown(!showYearDropdown)}
-            >
-              <FaCalendar style={{ marginRight: "6px" }} />
-              {getYearDisplayText()}
-              {selectedYear !== "all" && (
-                <FaTimes
-                  style={styles.yearClearBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    clearYearFilter();
-                  }}
-                />
-              )}
-              {showYearDropdown ? (
-                <FaChevronUp style={{ marginLeft: "6px", fontSize: "10px" }} />
-              ) : (
-                <FaChevronDown style={{ marginLeft: "6px", fontSize: "10px" }} />
-              )}
-            </button>
-
-            {showYearDropdown && (
-              <div style={styles.yearDropdown}>
-                <div style={styles.yearDropdownSearch}>
-                  <FaSearch style={{ color: "#94a3b8", fontSize: "14px" }} />
-                  <input
-                    type="text"
-                    placeholder="Search year..."
-                    value={yearSearchTerm}
-                    onChange={(e) => setYearSearchTerm(e.target.value)}
-                    style={styles.yearSearchInput}
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-                <div style={styles.yearDropdownList}>
-                  <div
-                    style={{
-                      ...styles.yearOption,
-                      ...(selectedYear === "all" ? styles.yearOptionSelected : {}),
-                    }}
-                    onClick={() => toggleYear("all")}
-                  >
-                    <span style={{ fontWeight: 500 }}>📅 All Years</span>
-                    {selectedYear === "all" && <FaCheck style={{ color: "#2563eb" }} />}
-                  </div>
-                  
-                  {filteredYears.length > 0 ? (
-                    filteredYears.map((year) => (
-                      <div
-                        key={year}
-                        style={{
-                          ...styles.yearOption,
-                          ...(selectedYear === year.toString() ? styles.yearOptionSelected : {}),
-                        }}
-                        onClick={() => toggleYear(year.toString())}
-                      >
-                        <span>{year}</span>
-                        {selectedYear === year.toString() && <FaCheck style={{ color: "#2563eb" }} />}
-                      </div>
-                    ))
-                  ) : (
-                    <div style={styles.yearNoResults}>No years found</div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <YearFilter
+            selectedYear={selectedYear}
+            availableYears={availableYears}
+            onChange={handleYearChange}
+          />
         </div>
-
-        {/* ── Progress Bar ── */}
-        {totalCount > 0 && loadedCount < totalCount && (
-          <div style={styles.progressContainer}>
-            <div style={styles.progressBar}>
-              <div 
-                style={{
-                  ...styles.progressFill,
-                  width: `${loadPercentage}%`
-                }}
-              />
-            </div>
-            <span style={styles.progressText}>
-              {loadPercentage}% loaded ({loadedCount.toLocaleString()} of {totalCount.toLocaleString()})
-            </span>
-          </div>
-        )}
 
         {/* ── Content ── */}
         {loading ? (
-          <div style={styles.loading}>
-            <FaSpinner style={styles.spinnerIcon} />
-            Loading reminders...
-          </div>
+          <LoadingState />
         ) : error ? (
-          <div style={styles.errorState}>
-            <FaExclamationTriangle style={styles.errorIcon} />
-            <h3 style={{ margin: "12px 0 4px", color: "#0f172a" }}>
-              Failed to load reminders
-            </h3>
-            <p style={{ color: "#64748b", marginBottom: "16px" }}>{error}</p>
-            <button style={styles.retryBtn} onClick={refreshData}>
-              Try Again
-            </button>
-          </div>
+          <ErrorState message={error} onRetry={handleRefresh} />
         ) : filteredReminders.length === 0 ? (
-          <div style={styles.emptyState}>
-            <FaCheckCircle style={styles.emptyIcon} />
-            <h3 style={{ margin: "12px 0 4px", color: "#0f172a" }}>
-              No reminders
-            </h3>
-            <p style={{ color: "#64748b", margin: 0 }}>
-              {selectedYear !== "all" 
-                ? `No reminders found for ${selectedYear}`
-                : "All your TNA dates are on track"}
-            </p>
-            {selectedYear !== "all" && (
-              <button style={styles.clearYearBtn} onClick={clearYearFilter}>
-                Show all years
-              </button>
-            )}
-          </div>
+          <EmptyState selectedYear={selectedYear} onClearYear={() => handleYearChange("all")} />
         ) : (
           <>
             <div style={styles.resultInfo}>
               <span>
-                Showing {filteredReminders.length} reminder{filteredReminders.length !== 1 ? "s" : ""}
-                {selectedYear !== "all" && ` for ${selectedYear}`}
-                {filter !== "all" && ` (${filter})`}
-                {` • Page ${page} of ${totalPages}`}
+                Showing {filteredReminders.length} of {reminders.length} on this page
+                {selectedYear !== "all" && ` • ${selectedYear}`}
+                {filter !== "all" && ` • ${filter}`}
               </span>
-              <span style={styles.resultInfoBadge}>Latest first ↓</span>
+              <span style={styles.resultInfoBadge}>Latest first</span>
             </div>
 
-            <div style={styles.reminderList} ref={containerRef}>
+            <div style={styles.cardList}>
               {filteredReminders.map((reminder) => (
-                <ReminderItem 
-                  key={reminder.id} 
-                  reminder={reminder} 
-                  onDismiss={markAsRead}
-                />
+                <ReminderCard key={reminder.id} reminder={reminder} onDismiss={dismissReminder} />
               ))}
             </div>
 
-            {/* Load More Button - Incremental Loading */}
-            {hasMore && (
-              <div style={styles.loadMoreContainer}>
-                <button
-                  style={styles.loadMoreBtn}
-                  onClick={loadNextBatch}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? (
-                    <>
-                      <FaSpinner style={styles.spinning} /> Loading more...
-                    </>
-                  ) : (
-                    `Load More (${(totalCount - loadedCount).toLocaleString()} remaining)`
-                  )}
-                </button>
-              </div>
-            )}
-
-            <div style={styles.footer}>
-              Showing {loadedCount.toLocaleString()} of {totalCount.toLocaleString()} reminders
-              {selectedYear !== "all" && ` • Year: ${selectedYear}`}
-              {` • ${Math.round((loadedCount / totalCount) * 100)}% loaded`}
-            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+              disabled={loading}
+            />
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   STYLES
+   ──────────────────────────────────────────────────────────────────────── */
+
+const MONO = "ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace";
+
 const styles = {
-  container: {
+  // Layout ----------------------------------------------------------------
+  page: {
     display: "flex",
     minHeight: "100vh",
-    background: "#f1f5f9",
+    background: "#f8fafc",
     fontFamily: "'Inter', -apple-system, sans-serif",
   },
-  mainContent: {
+  main: {
     flex: 1,
-    padding: "24px 32px",
+    padding: "28px 32px 40px",
     overflow: "auto",
     maxHeight: "100vh",
   },
+
+  // Header ------------------------------------------------------------------
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "24px",
+    marginBottom: "20px",
     flexWrap: "wrap",
     gap: "16px",
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: "16px" },
-  headerIcon: { fontSize: "28px", color: "#2563eb" },
-  headerTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#0f172a",
-    margin: 0,
+  headerLeft: { display: "flex", alignItems: "center", gap: "14px" },
+  headerIconWrap: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "42px",
+    height: "42px",
+    borderRadius: "12px",
+    background: "linear-gradient(135deg, #2563eb, #4f46e5)",
+    boxShadow: "0 6px 16px -4px rgba(37,99,235,0.45)",
+    flexShrink: 0,
   },
+  headerIcon: { fontSize: "18px", color: "white" },
+  headerTitle: { fontSize: "21px", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.01em" },
+  headerSubtitle: { fontSize: "12.5px", color: "#94a3b8", margin: "2px 0 0" },
   headerBadge: {
     padding: "4px 12px",
-    background: "#e2e8f0",
+    background: "#eef2ff",
+    color: "#4338ca",
     borderRadius: "20px",
-    fontSize: "14px",
-    color: "#475569",
+    fontSize: "13px",
+    fontWeight: 700,
+    marginLeft: "4px",
   },
-  headerActions: { display: "flex", gap: "12px", alignItems: "center" },
+  headerActions: { display: "flex", gap: "10px", alignItems: "center" },
   lastRefresh: { fontSize: "12px", color: "#94a3b8" },
-  markAllBtn: {
-    padding: "8px 16px",
+  dismissAllBtn: {
+    padding: "8px 14px",
     borderRadius: "8px",
     fontSize: "13px",
-    fontWeight: "500",
+    fontWeight: 600,
     color: "#dc2626",
     background: "white",
-    border: "1px solid #dc2626",
+    border: "1px solid #fecaca",
     cursor: "pointer",
-    transition: "all 0.2s",
+    transition: "background 0.15s ease, box-shadow 0.15s ease",
   },
   refreshBtn: {
-    padding: "8px 16px",
+    padding: "8px 14px",
     borderRadius: "8px",
     fontSize: "13px",
-    fontWeight: "500",
+    fontWeight: 600,
     color: "#475569",
     background: "white",
     border: "1px solid #e2e8f0",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
+    transition: "background 0.15s ease, box-shadow 0.15s ease",
   },
   spinning: { animation: "spin 1s linear infinite" },
-  
-  // Progress Bar
-  progressContainer: {
-    marginBottom: "16px",
-    padding: "8px 16px",
-    background: "white",
-    borderRadius: "8px",
-    border: "1px solid #e2e8f0",
-  },
-  progressBar: {
-    width: "100%",
-    height: "6px",
-    background: "#e2e8f0",
-    borderRadius: "3px",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    background: "linear-gradient(90deg, #2563eb, #10b981)",
-    borderRadius: "3px",
-    transition: "width 0.5s ease",
-  },
-  progressText: {
-    display: "block",
-    fontSize: "12px",
-    color: "#64748b",
-    marginTop: "4px",
-    textAlign: "center",
-  },
-  
+
+  // Filter bar --------------------------------------------------------------
   filterBar: {
     display: "flex",
     gap: "12px",
-    marginBottom: "24px",
+    marginBottom: "18px",
     flexWrap: "wrap",
     alignItems: "center",
   },
   filterGroup: {
     display: "flex",
-    gap: "8px",
+    gap: "2px",
     flexWrap: "wrap",
+    background: "#eef1f6",
+    padding: "3px",
+    borderRadius: "10px",
   },
   filterBtn: {
-    padding: "8px 16px",
-    borderRadius: "8px",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#475569",
-    background: "white",
-    border: "1px solid #e2e8f0",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  filterActive: {
-    color: "#2563eb",
-    borderColor: "#2563eb",
-    background: "#eff6ff",
-  },
-  
-  yearFilterWrapper: {
-    position: "relative",
-    marginLeft: "auto",
-  },
-  yearFilterBtn: {
     display: "flex",
     alignItems: "center",
-    padding: "8px 14px",
+    gap: "7px",
+    padding: "7px 12px",
     borderRadius: "8px",
     fontSize: "13px",
-    fontWeight: "500",
+    fontWeight: 600,
+    color: "#64748b",
+    background: "transparent",
+    border: "1px solid transparent",
+    cursor: "pointer",
+    transition: "background 0.15s ease, color 0.15s ease",
+  },
+  filterBtnActive: {
+    color: "#2563eb",
+    background: "white",
+    boxShadow: "0 1px 3px rgba(15,23,42,0.12)",
+  },
+  filterCount: {
+    padding: "1px 7px",
+    borderRadius: "10px",
+    background: "rgba(100,116,139,0.14)",
+    fontSize: "11px",
+    fontWeight: 700,
+  },
+  filterCountActive: { background: "#eff6ff", color: "#2563eb" },
+
+  // Year dropdown -----------------------------------------------------------
+  yearWrapper: { position: "relative", marginLeft: "auto" },
+  yearBtn: {
+    display: "flex",
+    alignItems: "center",
+    padding: "7px 12px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: 600,
     color: "#475569",
     background: "white",
     border: "1px solid #e2e8f0",
     cursor: "pointer",
-    transition: "all 0.2s",
     gap: "4px",
   },
-  yearFilterActive: {
-    color: "#2563eb",
-    borderColor: "#2563eb",
-    background: "#eff6ff",
-  },
-  yearClearBtn: {
-    marginLeft: "4px",
-    color: "#94a3b8",
-    cursor: "pointer",
-    fontSize: "12px",
-    padding: "2px",
-  },
+  yearBtnActive: { color: "#2563eb", borderColor: "#2563eb", background: "#eff6ff" },
+  yearClearIcon: { marginLeft: "4px", color: "#94a3b8", cursor: "pointer", fontSize: "12px" },
+  chevron: { marginLeft: "4px", fontSize: "10px" },
   yearDropdown: {
     position: "absolute",
-    top: "calc(100% + 4px)",
+    top: "calc(100% + 6px)",
     right: 0,
     background: "white",
     border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+    borderRadius: "10px",
+    boxShadow: "0 12px 24px -8px rgba(15,23,42,0.18)",
     zIndex: 1000,
-    minWidth: "180px",
-    maxHeight: "320px",
+    minWidth: "190px",
     overflow: "hidden",
   },
-  yearDropdownSearch: {
+  yearSearchRow: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    padding: "8px 12px",
+    padding: "9px 12px",
     borderBottom: "1px solid #e2e8f0",
-    backgroundColor: "#f8fafc",
+    background: "#f8fafc",
   },
-  yearSearchInput: {
-    flex: 1,
-    border: "none",
-    outline: "none",
-    fontSize: "13px",
-    padding: "4px 0",
-    background: "transparent",
-  },
-  yearDropdownList: {
-    maxHeight: "250px",
-    overflowY: "auto",
-    padding: "4px 0",
-  },
+  yearSearchInput: { flex: 1, border: "none", outline: "none", fontSize: "13px", background: "transparent" },
+  yearList: { maxHeight: "240px", overflowY: "auto", padding: "4px 0" },
   yearOption: {
     display: "flex",
     justifyContent: "space-between",
@@ -801,115 +833,73 @@ const styles = {
     padding: "8px 14px",
     fontSize: "13px",
     cursor: "pointer",
-    transition: "background 0.2s",
   },
-  yearOptionSelected: {
-    background: "#eff6ff",
-    color: "#2563eb",
-  },
-  yearNoResults: {
-    padding: "20px",
-    textAlign: "center",
-    color: "#94a3b8",
-    fontSize: "13px",
-  },
-  
+  yearOptionActive: { background: "#eff6ff", color: "#2563eb", fontWeight: 600 },
+  yearEmpty: { padding: "18px", textAlign: "center", color: "#94a3b8", fontSize: "13px" },
+
+  // Result info bar -----------------------------------------------------------
   resultInfo: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "8px 0",
-    marginBottom: "16px",
+    padding: "4px 2px",
+    marginBottom: "14px",
     fontSize: "13px",
     color: "#64748b",
   },
   resultInfoBadge: {
-    padding: "2px 10px",
+    padding: "3px 10px",
     background: "#f1f5f9",
     borderRadius: "12px",
     fontSize: "11px",
+    fontWeight: 600,
     color: "#475569",
   },
-  
-  reminderList: { 
-    display: "flex", 
-    flexDirection: "column", 
-    gap: "12px",
-    marginBottom: "16px",
-  },
-  reminderCard: {
+
+  // Card list -----------------------------------------------------------------
+  cardList: { display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" },
+  card: {
     background: "white",
     borderRadius: "12px",
-    padding: "16px 20px",
+    padding: "16px 18px",
     borderLeft: "4px solid #2563eb",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-    transition: "all 0.2s",
+    boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
+    transition: "box-shadow 0.15s ease, transform 0.15s ease",
   },
-  reminderCardHeader: {
+  cardHeader: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "8px",
-    flexWrap: "wrap",
-    gap: "8px",
-  },
-  reminderOrderInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
+    alignItems: "flex-start",
+    gap: "12px",
+    marginBottom: "10px",
     flexWrap: "wrap",
   },
-  reminderOrderNumber: {
-    fontSize: "15px",
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  reminderSupplier: {
-    fontSize: "13px",
-    color: "#64748b",
-    background: "#f1f5f9",
-    padding: "2px 10px",
-    borderRadius: "12px",
-  },
-  reminderStatus: {
-    fontSize: "11px",
-    fontWeight: "600",
-    padding: "2px 12px",
-    borderRadius: "20px",
-  },
-  reminderActions: {
+  identity: { display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 },
+  styleRow: { display: "flex", alignItems: "center", gap: "9px", flexWrap: "wrap" },
+  styleIconWrap: {
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    justifyContent: "center",
+    width: "24px",
+    height: "24px",
+    borderRadius: "7px",
+    flexShrink: 0,
   },
-  reminderDateBadge: {
-    fontSize: "12px",
-    color: "#64748b",
-    background: "#f1f5f9",
-    padding: "2px 10px",
-    borderRadius: "12px",
-  },
-  reminderMessage: { fontSize: "14px", color: "#334155", marginBottom: "8px" },
-  reminderMeta: {
-    display: "flex",
-    gap: "16px",
-    fontSize: "12px",
-    color: "#64748b",
-    flexWrap: "wrap",
-  },
-  reminderDays: {
-    padding: "2px 10px",
-    borderRadius: "12px",
-    background: "#f1f5f9",
+  styleIcon: { fontSize: "12px" },
+  styleValue: { fontFamily: MONO, fontSize: "15.5px", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em" },
+  styleValueMissing: { fontFamily: MONO, fontSize: "15.5px", fontWeight: 600, color: "#94a3b8", fontStyle: "italic" },
+  poChip: {
+    fontFamily: MONO,
+    fontSize: "11.5px",
+    fontWeight: 600,
     color: "#475569",
-  },
-  reminderType: {
-    padding: "2px 10px",
-    borderRadius: "12px",
     background: "#f1f5f9",
-    color: "#475569",
-    textTransform: "capitalize",
+    padding: "3px 9px",
+    borderRadius: "6px",
   },
+
+  headerRight: { display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 },
+  urgencyBadge: { fontSize: "11px", fontWeight: 700, padding: "3px 12px", borderRadius: "20px", whiteSpace: "nowrap" },
   dismissBtn: {
     background: "transparent",
     border: "none",
@@ -917,79 +907,131 @@ const styles = {
     cursor: "pointer",
     padding: "4px",
     borderRadius: "4px",
-    transition: "color 0.2s",
   },
-  
-  loadMoreContainer: {
+
+  message: { fontSize: "14px", color: "#334155", margin: "0 0 10px", lineHeight: 1.5 },
+
+  cardFooter: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" },
+  timeChip: {
+    padding: "3px 10px",
+    borderRadius: "12px",
+    fontSize: "11.5px",
+    fontWeight: 700,
+  },
+  metaChip: {
+    padding: "3px 10px",
+    borderRadius: "12px",
+    background: "#f1f5f9",
+    color: "#475569",
+    fontSize: "11.5px",
+    fontWeight: 500,
+  },
+  dateChip: {
     display: "flex",
-    justifyContent: "center",
-    padding: "10px 0 20px 0",
-  },
-  loadMoreBtn: {
-    padding: "10px 32px",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#2563eb",
-    background: "#eff6ff",
-    border: "1px solid #2563eb",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "inline-flex",
     alignItems: "center",
-    gap: "8px",
+    padding: "3px 10px",
+    borderRadius: "12px",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    color: "#64748b",
+    fontSize: "11.5px",
+    fontWeight: 500,
+    marginLeft: "auto",
   },
-  
-  footer: {
-    marginTop: "8px",
-    paddingTop: "16px",
-    borderTop: "1px solid #e2e8f0",
-    fontSize: "12px",
-    color: "#94a3b8",
-    textAlign: "center",
+
+  // Pagination ------------------------------------------------------------------
+  pagination: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "14px",
+    padding: "14px 18px",
+    background: "white",
+    border: "1px solid #e2e8f0",
+    borderRadius: "12px",
   },
-  
-  loading: {
+  pageSizeGroup: { display: "flex", alignItems: "center", gap: "8px" },
+  pageSizeLabel: { fontSize: "12px", color: "#64748b" },
+  pageSizeSelect: {
+    padding: "5px 8px",
+    borderRadius: "6px",
+    border: "1px solid #e2e8f0",
+    fontSize: "13px",
+    color: "#334155",
+    background: "white",
+  },
+  pageNav: { display: "flex", alignItems: "center", gap: "4px" },
+  pageNavBtn: {
+    width: "30px",
+    height: "30px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "6px",
+    border: "1px solid #e2e8f0",
+    background: "white",
+    color: "#475569",
+    cursor: "pointer",
+    transition: "background 0.15s ease, border-color 0.15s ease",
+  },
+  pageNumBtn: {
+    minWidth: "30px",
+    height: "30px",
+    padding: "0 6px",
+    borderRadius: "6px",
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "#475569",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background 0.15s ease, color 0.15s ease",
+  },
+  pageNumBtnActive: { background: "#2563eb", color: "white" },
+  pageGap: { padding: "0 4px", color: "#cbd5e1", fontSize: "13px" },
+  pageSummary: { fontSize: "12px", color: "#64748b", whiteSpace: "nowrap" },
+
+  // States ------------------------------------------------------------------------
+  centerState: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "60px",
-    color: "#64748b",
     gap: "12px",
+    padding: "70px 20px",
+    color: "#64748b",
+    fontSize: "14px",
   },
-  spinnerIcon: { animation: "spin 1s linear infinite", fontSize: "24px" },
-  errorState: {
+  spinnerIcon: { animation: "spin 1s linear infinite", fontSize: "24px", color: "#2563eb" },
+  panelState: {
     textAlign: "center",
-    padding: "60px",
+    padding: "60px 20px",
     background: "white",
     borderRadius: "12px",
-    border: "1px solid #fee2e2",
+    border: "1px solid #e2e8f0",
   },
-  errorIcon: { fontSize: "48px", color: "#f59e0b" },
+  errorIcon: { fontSize: "40px", color: "#f59e0b" },
+  emptyIcon: { fontSize: "40px", color: "#10b981" },
+  stateTitle: { margin: "14px 0 4px", color: "#0f172a", fontSize: "16px", fontWeight: 700 },
+  stateBody: { color: "#64748b", margin: 0, fontSize: "14px" },
   retryBtn: {
-    padding: "10px 24px",
+    marginTop: "16px",
+    padding: "9px 22px",
     borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "500",
+    fontSize: "13px",
+    fontWeight: 600,
     color: "white",
     background: "#2563eb",
     border: "none",
     cursor: "pointer",
   },
-  emptyState: {
-    textAlign: "center",
-    padding: "60px",
-    background: "white",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-  },
-  emptyIcon: { fontSize: "48px", color: "#10b981", marginBottom: "16px" },
   clearYearBtn: {
     marginTop: "12px",
     padding: "8px 16px",
-    borderRadius: "6px",
+    borderRadius: "8px",
     fontSize: "13px",
+    fontWeight: 600,
     color: "#2563eb",
     background: "transparent",
     border: "1px solid #2563eb",
@@ -997,12 +1039,19 @@ const styles = {
   },
 };
 
-// Inject keyframe animation
-const styleElement = document.createElement("style");
-styleElement.textContent = `
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .year-option:hover { background: #f1f5f9; }
-  .dismiss-btn:hover { color: #dc2626; }
-  .load-more-btn:hover { background: #2563eb; color: white; }
-`;
-document.head.appendChild(styleElement);
+// Global keyframes / hover states (injected once)
+if (typeof document !== "undefined" && !document.getElementById("tna-reminders-styles")) {
+  const styleElement = document.createElement("style");
+  styleElement.id = "tna-reminders-styles";
+  styleElement.textContent = `
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .dismiss-btn:hover { color: #dc2626; background: #fee2e2; }
+    .reminder-card:hover { box-shadow: 0 8px 20px -6px rgba(15,23,42,0.14); transform: translateY(-1px); }
+    .refresh-btn:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
+    .dismiss-all-btn:hover { background: #fef2f2; }
+    .page-nav-btn:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
+    .page-nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .page-num-btn:hover:not(:disabled) { background: #f1f5f9; }
+  `;
+  document.head.appendChild(styleElement);
+}

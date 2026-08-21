@@ -390,6 +390,14 @@ export const getOrderStatsWithFilters = async (filters = {}) => {
   }
 };
 
+export const uploadSampleFiles = (sampleId, formData) =>
+  api.post(`/samples/${sampleId}/upload-files/`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const deleteSampleFile = (sampleId, filePath) =>
+  api.post(`/samples/${sampleId}/delete-file/`, { file_path: filePath });
+
 export const getOrders = async (page = 1, pageSize = 100, options = {}) => {
   try {
     let filters = {};
@@ -2104,14 +2112,15 @@ export const getDashboardData = (params = {}) => {
  */
 export const getCourierBookingsByOrder = async (orderId) => {
   try {
-    const response = await merchandiserApi.get(`courier-booking-items/?order_id=${orderId}`);
+    const response = await merchandiserApi.get(
+      `courier-booking-items/?order_id=${orderId}`,
+    );
     return response.data;
   } catch (error) {
     console.error("❌ Error fetching courier items for order:", error);
     return { results: [] };
   }
 };
-
 
 /* -------------------------------------------------------------------------- */
 /*  25. COURIER MANAGEMENT APIs                                               */
@@ -2331,7 +2340,9 @@ export const getShipmentTypeOptions = () => {
 
 export const getCourierBookingItems = async (bookingId) => {
   try {
-    const response = await merchandiserApi.get(`courier-booking-items/?booking=${bookingId}&page_size=500`);
+    const response = await merchandiserApi.get(
+      `courier-booking-items/?booking=${bookingId}&page_size=500`,
+    );
     if (response.data && response.data.results) return response.data.results;
     if (Array.isArray(response.data)) return response.data;
     return [];
@@ -2359,7 +2370,9 @@ export const deleteCourierBookingItem = (id) =>
 
 export const getCourierDocuments = async (bookingId) => {
   try {
-    const response = await merchandiserApi.get(`courier-documents/?booking=${bookingId}`);
+    const response = await merchandiserApi.get(
+      `courier-documents/?booking=${bookingId}`,
+    );
     if (response.data && response.data.results) return response.data.results;
     if (Array.isArray(response.data)) return response.data;
     return [];
@@ -2389,11 +2402,97 @@ export const searchCourierCodes = async (codeType, search = "") => {
   try {
     const params = new URLSearchParams({ code_type: codeType });
     if (search) params.append("search", search);
-    const response = await merchandiserApi.get(`courier-codes/?${params.toString()}`);
+    const response = await merchandiserApi.get(
+      `courier-codes/?${params.toString()}`,
+    );
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error("❌ Error fetching courier codes:", error);
     return [];
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*  26. SAMPLE MANAGEMENT APIs                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Get all Sample records for a given Order (Sample History / FR-021).
+ */
+export const getSamplesByOrder = async (orderId) => {
+  try {
+    const response = await merchandiserApi.get(`samples/by-order/${orderId}/`);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error fetching samples for order:", error);
+    return { results: [], count: 0 };
+  }
+};
+
+export const getSamples = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams();
+    Object.keys(filters).forEach((key) => {
+      const value = filters[key];
+      if (value !== null && value !== undefined && value !== "") {
+        params.append(key, value);
+      }
+    });
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const response = await merchandiserApi.get(`samples/${qs}`);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error fetching samples:", error);
+    return { results: [], count: 0 };
+  }
+};
+
+export const getSampleById = (id) => merchandiserApi.get(`samples/${id}/`);
+
+export const createSample = (data) => merchandiserApi.post("samples/", data);
+
+export const updateSample = (id, data) =>
+  merchandiserApi.put(`samples/${id}/`, data);
+
+export const patchSample = (id, data) =>
+  merchandiserApi.patch(`samples/${id}/`, data);
+
+export const deleteSample = (id) => merchandiserApi.delete(`samples/${id}/`);
+
+export const getSampleTypes = async () => {
+  try {
+    const response = await merchandiserApi.get("samples/types/");
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("❌ Error fetching sample types:", error);
+    // Fallback to the spec's predefined list if the endpoint is unreachable
+    return [
+      { value: "fit", label: "Fit Sample" },
+      { value: "pp", label: "PP Sample" },
+      { value: "ps_shipment", label: "PS / Shipment Sample" },
+      { value: "counter", label: "Counter Sample" },
+      { value: "photo", label: "Photo Sample" },
+      { value: "ecommerce", label: "E-Commerce Sample" },
+      { value: "other", label: "Other" },
+    ];
+  }
+};
+
+export const getSampleStats = async (filters = {}) => {
+  try {
+    const params = new URLSearchParams();
+    Object.keys(filters).forEach((key) => {
+      const value = filters[key];
+      if (value !== null && value !== undefined && value !== "") {
+        params.append(key, value);
+      }
+    });
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const response = await merchandiserApi.get(`samples/stats/${qs}`);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error fetching sample stats:", error);
+    return null;
   }
 };
 
@@ -2538,6 +2637,15 @@ export default {
   reopenCourierBooking,
   getCourierBookingsByOrder,
   exportCourierBookings,
+  getSamplesByOrder,
+  getSamples,
+  getSampleById,
+  createSample,
+  updateSample,
+  patchSample,
+  deleteSample,
+  getSampleTypes,
+  getSampleStats,
   getCourierNames,
   getCourierStatusOptions,
   getShipmentTypeOptions,
@@ -2589,14 +2697,14 @@ export const downloadSupplierCapacityReportExcel = async (filters = {}) => {
   });
   const response = await merchandiserApi.get(
     `reports/supplier-capacity/excel/?${params.toString()}`,
-    { responseType: "blob" }
+    { responseType: "blob" },
   );
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement("a");
   link.href = url;
   link.setAttribute(
     "download",
-    `Supplier_Capacity_Report_${filters.years || filters.year || new Date().getFullYear()}.xlsx`
+    `Supplier_Capacity_Report_${filters.years || filters.year || new Date().getFullYear()}.xlsx`,
   );
   document.body.appendChild(link);
   link.click();
@@ -2618,7 +2726,7 @@ export const getCapacityMaster = (params = {}) => {
 
 export const getCapacityMasterForSupplierYear = async (supplierId, year) => {
   const res = await merchandiserApi.get(
-    `capacity-master/?supplier=${supplierId}&year=${year}`
+    `capacity-master/?supplier=${supplierId}&year=${year}`,
   );
   const list = Array.isArray(res.data) ? res.data : res.data?.results || [];
   const byMonth = {};

@@ -20,11 +20,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Order matches the model's TNA.PROGRESS_WEIGHTS (must sum to 100).
+const PROGRESS_STAGES = [
+  { field: "lab_dip_status", label: "Lab Dip", weight: 10, color: "#8b5cf6" },
+  { field: "fabric_status", label: "Fabric", weight: 40, color: "#3b82f6" },
+  { field: "fit_sample_status", label: "Fit Sample", weight: 20, color: "#f59e0b" },
+  { field: "pp_sample_status", label: "PP Sample", weight: 30, color: "#10b981" },
+];
+
 export default function TNADetails() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [tna, setTna] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [updatingStage, setUpdatingStage] = useState(null);
 
   useEffect(() => {
     fetchTNA();
@@ -40,6 +49,24 @@ export default function TNADetails() {
       alert("Failed to load TNA details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleStage = async (field, currentStatus) => {
+    const nextStatus = currentStatus === "approved" ? "pending" : "approved";
+    setUpdatingStage(field);
+    // Optimistic update so the bar responds immediately.
+    setTna((prev) => (prev ? { ...prev, [field]: nextStatus } : prev));
+    try {
+      const response = await api.patch(`tna/${id}/`, { [field]: nextStatus });
+      setTna(response.data);
+    } catch (err) {
+      console.error("Error updating stage status:", err);
+      alert("Failed to update status. Please try again.");
+      // Roll back on failure.
+      setTna((prev) => (prev ? { ...prev, [field]: currentStatus } : prev));
+    } finally {
+      setUpdatingStage(null);
     }
   };
 
@@ -118,7 +145,7 @@ export default function TNADetails() {
               <div style={styles.headerBadge}>📅</div>
               <div>
                 <h1 style={styles.headerTitle}>
-                  TNA Details: {tna.order_number || `TNA-${tna.id}`}
+                  TNA Details: { tna.order_style ? tna.order_style : tna.order_number }
                 </h1>
                 <p style={styles.headerSubtitle}>
                   Complete timeline and production schedule information
@@ -147,6 +174,72 @@ export default function TNADetails() {
           </div>
         </div>
 
+        {/* T&A Progress Bar */}
+        <div style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <span style={styles.sectionIcon}>📈</span>
+            <h2 style={styles.sectionTitle}>T&A Progress</h2>
+            <span style={styles.sectionHint}>
+              Lab Dip 10% · Fabric 40% · Fit Sample 20% · PP Sample 30%
+            </span>
+          </div>
+          <div style={styles.progressWrap}>
+            <div style={styles.progressBarTrack}>
+              {PROGRESS_STAGES.map((stage) => {
+                const approved = tna[stage.field] === "approved";
+                return (
+                  <div
+                    key={stage.field}
+                    title={`${stage.label} - ${stage.weight}%${approved ? " (Approved)" : " (Pending)"}`}
+                    style={{
+                      ...styles.progressBarSegment,
+                      width: `${stage.weight}%`,
+                      backgroundColor: approved ? stage.color : "#e2e8f0",
+                    }}
+                  />
+                );
+              })}
+            </div>
+            <div style={styles.progressTotalRow}>
+              <span style={styles.progressTotalLabel}>Overall Progress</span>
+              <span style={styles.progressTotalValue}>
+                {tna.progress_percentage ?? 0}%
+              </span>
+            </div>
+
+            <div style={styles.progressStagesGrid}>
+              {PROGRESS_STAGES.map((stage) => {
+                const approved = tna[stage.field] === "approved";
+                return (
+                  <div key={stage.field} style={styles.progressStageCard}>
+                    <div style={styles.progressStageHeader}>
+                      <span
+                        style={{ ...styles.progressStageDot, backgroundColor: stage.color }}
+                      />
+                      <span style={styles.progressStageLabel}>{stage.label}</span>
+                      <span style={styles.progressStageWeight}>{stage.weight}%</span>
+                    </div>
+                    <button
+                      onClick={() => toggleStage(stage.field, tna[stage.field])}
+                      disabled={updatingStage === stage.field}
+                      style={{
+                        ...styles.progressStageBtn,
+                        ...(approved ? styles.progressStageBtnApproved : {}),
+                      }}
+                    >
+                      {updatingStage === stage.field
+                        ? "Saving..."
+                        : approved
+                        ? "✓ Approved"
+                        : "Mark Approved"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Two Column Layout */}
         <div style={styles.twoColumnGrid}>
           {/* Basic Information */}
@@ -158,7 +251,9 @@ export default function TNADetails() {
             <div style={styles.infoList}>
               <div style={styles.infoRow}>
                 <span style={styles.infoLabel}>Order Number:</span>
-                <span style={styles.infoValue}>{tna.order_number || "-"}</span>
+                <span style={styles.infoValue}>
+                  {tna.order_style ? tna.order_style : tna.order_number || "-"}
+                </span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.infoLabel}>Supplier:</span>
@@ -622,6 +717,90 @@ const styles = {
   formulaHint: {
     fontSize: "10px",
     color: "#8b5cf6",
+  },
+  progressWrap: {
+    padding: "24px",
+  },
+  progressBarTrack: {
+    display: "flex",
+    width: "100%",
+    height: "18px",
+    borderRadius: "999px",
+    overflow: "hidden",
+    background: "#e2e8f0",
+    border: "1px solid #e2e8f0",
+  },
+  progressBarSegment: {
+    height: "100%",
+    transition: "background-color 0.2s ease",
+  },
+  progressTotalRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginTop: "12px",
+  },
+  progressTotalLabel: {
+    fontSize: "13px",
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  progressTotalValue: {
+    fontSize: "20px",
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  progressStagesGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "16px",
+    marginTop: "20px",
+  },
+  progressStageCard: {
+    padding: "14px",
+    background: "#f8fafc",
+    borderRadius: "12px",
+    border: "1px solid #e2e8f0",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  progressStageHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  progressStageDot: {
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  progressStageLabel: {
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#0f172a",
+    flex: 1,
+  },
+  progressStageWeight: {
+    fontSize: "11px",
+    fontWeight: "600",
+    color: "#94a3b8",
+  },
+  progressStageBtn: {
+    padding: "8px 10px",
+    borderRadius: "8px",
+    border: "1px solid #cbd5e1",
+    background: "white",
+    color: "#334155",
+    fontSize: "12px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  progressStageBtnApproved: {
+    background: "#d1fae5",
+    border: "1px solid #10b981",
+    color: "#059669",
   },
   remarksCard: {
     background: "white",
