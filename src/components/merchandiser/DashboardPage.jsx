@@ -1,6 +1,4 @@
-// DashboardPage.jsx - COMPLETE FIXED VERSION
-// Fixes: Fast loading, customer selection works, years show correctly
-
+// DashboardPage.jsx - WITH SEARCH FUNCTIONALITY FOR SUPPLIER DROPDOWNS
 import React, {
   useState,
   useEffect,
@@ -22,6 +20,8 @@ import {
   FiShoppingBag,
   FiTruck,
   FiCalendar,
+  FiSearch,
+  FiX,
 } from "react-icons/fi";
 import Sidebar from "../merchandiser/Sidebar.jsx";
 import {
@@ -45,6 +45,7 @@ import {
   getGarmentCustomerComparison,
   getToken,
   getCustomers,
+  getSuppliers,
 } from "../../api/merchandiser.js";
 
 // ============================================================================
@@ -81,25 +82,29 @@ const clearCache = () => {
   });
 };
 
-// ============================================================================
-// SAFE NUMBER HELPER
-// ============================================================================
 const safeNumber = (value, defaultValue = 0) => {
   const num = Number(value);
   return isNaN(num) ? defaultValue : num;
 };
 
 // ============================================================================
+// API BASE URL
+// ============================================================================
+const API_BASE_URL = "http://119.148.51.38:8000/api/merchandiser/api";
+
+// ============================================================================
 // MULTI-YEAR SELECT COMPONENT
 // ============================================================================
 const MultiYearSelect = ({ selectedYears, onChange, availableYears }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const selectRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (selectRef.current && !selectRef.current.contains(event.target)) {
         setIsOpen(false);
+        setSearchTerm("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -133,8 +138,12 @@ const MultiYearSelect = ({ selectedYears, onChange, availableYears }) => {
       ? availableYears
       : [];
 
+  const filteredYears = yearsList.filter((year) =>
+    String(year).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div ref={selectRef} style={{ position: "relative", minWidth: 200 }}>
+    <div ref={selectRef} style={{ position: "relative", minWidth: 180 }}>
       <div
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -165,13 +174,66 @@ const MultiYearSelect = ({ selectedYears, onChange, availableYears }) => {
             borderRadius: "0.5rem",
             marginTop: 4,
             zIndex: 1000,
-            maxHeight: 250,
+            maxHeight: 300,
             overflowY: "auto",
             boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
           }}
         >
           <div
-            onClick={() => toggleYear("all")}
+            style={{
+              padding: "8px 12px",
+              borderBottom: "1px solid #e2e8f0",
+              position: "sticky",
+              top: 0,
+              backgroundColor: "white",
+              zIndex: 1,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor: "#f1f5f9",
+                borderRadius: "0.5rem",
+                padding: "4px 10px",
+              }}
+            >
+              <FiSearch size={14} color="#94a3b8" />
+              <input
+                type="text"
+                placeholder="Search years..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  outline: "none",
+                  fontSize: "0.85rem",
+                  width: "100%",
+                  padding: "6px 0",
+                  color: "#1e293b",
+                }}
+              />
+              {searchTerm && (
+                <FiX
+                  size={14}
+                  color="#94a3b8"
+                  style={{ cursor: "pointer" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchTerm("");
+                  }}
+                />
+              )}
+            </div>
+          </div>
+          <div
+            onClick={() => {
+              toggleYear("all");
+              setSearchTerm("");
+            }}
             style={{
               padding: "10px 12px",
               cursor: "pointer",
@@ -184,15 +246,18 @@ const MultiYearSelect = ({ selectedYears, onChange, availableYears }) => {
           >
             {selectedYears.includes("all") ? "✓ " : "  "}All Years
           </div>
-          {yearsList.length === 0 ? (
-            <div style={{ padding: "12px", color: "#94a3b8" }}>
-              No years available
+          {filteredYears.length === 0 ? (
+            <div style={{ padding: "12px", color: "#94a3b8", textAlign: "center" }}>
+              No years found
             </div>
           ) : (
-            yearsList.map((year) => (
+            filteredYears.map((year) => (
               <div
                 key={year}
-                onClick={() => toggleYear(year)}
+                onClick={() => {
+                  toggleYear(year);
+                  setSearchTerm("");
+                }}
                 style={{
                   padding: "10px 12px",
                   cursor: "pointer",
@@ -222,12 +287,14 @@ const MultiCustomerSelect = ({
   customersList,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const selectRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (selectRef.current && !selectRef.current.contains(event.target)) {
         setIsOpen(false);
+        setSearchTerm("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -269,8 +336,12 @@ const MultiCustomerSelect = ({
 
   const customersArray = Array.isArray(customersList) ? customersList : [];
 
+  const filteredCustomers = customersArray.filter((customer) =>
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div ref={selectRef} style={{ position: "relative", minWidth: 260 }}>
+    <div ref={selectRef} style={{ position: "relative", minWidth: 220 }}>
       <div
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -309,17 +380,58 @@ const MultiCustomerSelect = ({
           <div
             style={{
               padding: "8px 12px",
-              backgroundColor: "#f8fafc",
               borderBottom: "1px solid #e2e8f0",
-              fontSize: "0.7rem",
-              color: "#64748b",
-              textAlign: "center",
+              position: "sticky",
+              top: 0,
+              backgroundColor: "white",
+              zIndex: 1,
             }}
           >
-            💡 Click to select/deselect multiple customers
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor: "#f1f5f9",
+                borderRadius: "0.5rem",
+                padding: "4px 10px",
+              }}
+            >
+              <FiSearch size={14} color="#94a3b8" />
+              <input
+                type="text"
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  outline: "none",
+                  fontSize: "0.85rem",
+                  width: "100%",
+                  padding: "6px 0",
+                  color: "#1e293b",
+                }}
+              />
+              {searchTerm && (
+                <FiX
+                  size={14}
+                  color="#94a3b8"
+                  style={{ cursor: "pointer" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchTerm("");
+                  }}
+                />
+              )}
+            </div>
           </div>
           <div
-            onClick={() => toggleCustomer("all")}
+            onClick={() => {
+              toggleCustomer("all");
+              setSearchTerm("");
+            }}
             style={{
               padding: "10px 12px",
               cursor: "pointer",
@@ -353,31 +465,25 @@ const MultiCustomerSelect = ({
             </div>
             <span>All Customers ({customersArray.length})</span>
           </div>
-          <div style={{ borderBottom: "1px solid #e2e8f0", margin: "4px 0" }} />
-          {customersArray.length === 0 ? (
-            <div
-              style={{ padding: "12px", color: "#94a3b8", textAlign: "center" }}
-            >
-              No customers available
+          {filteredCustomers.length === 0 ? (
+            <div style={{ padding: "12px", color: "#94a3b8", textAlign: "center" }}>
+              No customers found
             </div>
           ) : (
-            customersArray.map((customer) => (
+            filteredCustomers.map((customer) => (
               <div
                 key={customer.id}
-                onClick={() => toggleCustomer(String(customer.id))}
+                onClick={() => {
+                  toggleCustomer(String(customer.id));
+                  setSearchTerm("");
+                }}
                 style={{
                   padding: "10px 12px",
                   cursor: "pointer",
                   backgroundColor:
-                    isSelected(customer.id) &&
-                    !selectedCustomers.includes("all")
+                    isSelected(customer.id) && !selectedCustomers.includes("all")
                       ? "#f3f4f6"
                       : "white",
-                  fontWeight:
-                    isSelected(customer.id) &&
-                    !selectedCustomers.includes("all")
-                      ? 600
-                      : 400,
                   borderBottom: "1px solid #f0f0f0",
                   display: "flex",
                   alignItems: "center",
@@ -409,27 +515,252 @@ const MultiCustomerSelect = ({
               </div>
             ))
           )}
-          {!selectedCustomers.includes("all") &&
-            selectedCustomers.length > 0 && (
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// MULTI-SUPPLIER SELECT COMPONENT WITH SEARCH
+// ============================================================================
+const MultiSupplierSelect = ({
+  selectedSuppliers,
+  onChange,
+  suppliersList,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const selectRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearchTerm("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleSupplier = (supplierId) => {
+    let newSelection;
+    if (supplierId === "all") {
+      newSelection = ["all"];
+    } else {
+      let currentWithoutAll = selectedSuppliers.filter((s) => s !== "all");
+      if (currentWithoutAll.includes(supplierId)) {
+        newSelection = currentWithoutAll.filter((s) => s !== supplierId);
+        if (newSelection.length === 0) newSelection = ["all"];
+      } else {
+        newSelection = [...currentWithoutAll, supplierId];
+      }
+    }
+    onChange(newSelection);
+  };
+
+  const getDisplayText = () => {
+    if (selectedSuppliers.includes("all"))
+      return `🏭 All Suppliers (${suppliersList.length})`;
+    if (selectedSuppliers.length === 1) {
+      const supplier = suppliersList.find(
+        (s) => String(s.id) === String(selectedSuppliers[0]),
+      );
+      return `🏭 ${supplier?.name || supplier?.supplier_name || selectedSuppliers[0]}`;
+    }
+    return `🏭 ${selectedSuppliers.length} Suppliers Selected`;
+  };
+
+  const isSelected = (supplierId) => {
+    if (selectedSuppliers.includes("all")) return true;
+    return selectedSuppliers.includes(String(supplierId));
+  };
+
+  const suppliersArray = Array.isArray(suppliersList) ? suppliersList : [];
+
+  const filteredSuppliers = suppliersArray.filter((supplier) =>
+    (supplier.name || supplier.supplier_name || "")
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div ref={selectRef} style={{ position: "relative", minWidth: 220 }}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          padding: "8px 12px",
+          borderRadius: "0.5rem",
+          border: "1px solid #e2e8f0",
+          backgroundColor: "white",
+          fontSize: "0.85rem",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span>{getDisplayText()}</span>
+        <span style={{ fontSize: 10 }}>{isOpen ? "▲" : "▼"}</span>
+      </div>
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            backgroundColor: "white",
+            border: "1px solid #e2e8f0",
+            borderRadius: "0.5rem",
+            marginTop: 4,
+            zIndex: 1000,
+            maxHeight: 350,
+            overflowY: "auto",
+            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div
+            style={{
+              padding: "8px 12px",
+              borderBottom: "1px solid #e2e8f0",
+              position: "sticky",
+              top: 0,
+              backgroundColor: "white",
+              zIndex: 1,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor: "#f1f5f9",
+                borderRadius: "0.5rem",
+                padding: "4px 10px",
+              }}
+            >
+              <FiSearch size={14} color="#94a3b8" />
+              <input
+                type="text"
+                placeholder="Search suppliers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  outline: "none",
+                  fontSize: "0.85rem",
+                  width: "100%",
+                  padding: "6px 0",
+                  color: "#1e293b",
+                }}
+              />
+              {searchTerm && (
+                <FiX
+                  size={14}
+                  color="#94a3b8"
+                  style={{ cursor: "pointer" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchTerm("");
+                  }}
+                />
+              )}
+            </div>
+          </div>
+          <div
+            onClick={() => {
+              toggleSupplier("all");
+              setSearchTerm("");
+            }}
+            style={{
+              padding: "10px 12px",
+              cursor: "pointer",
+              backgroundColor: selectedSuppliers.includes("all")
+                ? "#ede9fe"
+                : "white",
+              fontWeight: selectedSuppliers.includes("all") ? 600 : 400,
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                border: "2px solid #8b5cf6",
+                backgroundColor: selectedSuppliers.includes("all")
+                  ? "#8b5cf6"
+                  : "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {selectedSuppliers.includes("all") && (
+                <span style={{ color: "white", fontSize: 12 }}>✓</span>
+              )}
+            </div>
+            <span>All Suppliers ({suppliersArray.length})</span>
+          </div>
+          {filteredSuppliers.length === 0 ? (
+            <div style={{ padding: "12px", color: "#94a3b8", textAlign: "center" }}>
+              No suppliers found
+            </div>
+          ) : (
+            filteredSuppliers.map((supplier) => (
               <div
-                onClick={() => onChange(["all"])}
+                key={supplier.id}
+                onClick={() => {
+                  toggleSupplier(String(supplier.id));
+                  setSearchTerm("");
+                }}
                 style={{
                   padding: "10px 12px",
                   cursor: "pointer",
-                  borderTop: "1px solid #e2e8f0",
-                  backgroundColor: "#fef2f2",
-                  color: "#dc2626",
-                  textAlign: "center",
-                  fontSize: "0.8rem",
+                  backgroundColor:
+                    isSelected(supplier.id) &&
+                    !selectedSuppliers.includes("all")
+                      ? "#f3f4f6"
+                      : "white",
+                  borderBottom: "1px solid #f0f0f0",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
+                  gap: 10,
                 }}
               >
-                <span>✕</span> Clear All ({selectedCustomers.length} selected)
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 4,
+                    border: "2px solid #cbd5e1",
+                    backgroundColor:
+                      isSelected(supplier.id) &&
+                      !selectedSuppliers.includes("all")
+                        ? "#8b5cf6"
+                        : "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {isSelected(supplier.id) &&
+                    !selectedSuppliers.includes("all") && (
+                      <span style={{ color: "white", fontSize: 12 }}>✓</span>
+                    )}
+                </div>
+                <span>{supplier.name || supplier.supplier_name}</span>
               </div>
-            )}
+            ))
+          )}
         </div>
       )}
     </div>
@@ -510,25 +841,27 @@ const StatsCard = React.memo(
               marginTop: 8,
             }}
           >
-            <span
-              style={{
-                fontSize: "0.75rem",
-                padding: "2px 8px",
-                borderRadius: 20,
-                backgroundColor: "rgba(255,255,255,0.2)",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              {stat.changeType === "increase" ? (
-                <FiArrowUp size={12} />
-              ) : (
-                <FiArrowDown size={12} />
-              )}
-              {stat.change}
-            </span>
+            {stat.change && (
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  padding: "2px 8px",
+                  borderRadius: 20,
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                {stat.changeType === "increase" ? (
+                  <FiArrowUp size={12} />
+                ) : (
+                  <FiArrowDown size={12} />
+                )}
+                {stat.change}
+              </span>
+            )}
             <span
               style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)" }}
             >
@@ -598,7 +931,6 @@ const SkeletonChart = ({ height = 400 }) => (
 // ============================================================================
 // ORDER MONTHLY CHART COMPONENT
 // ============================================================================
-// Enhanced OrderMonthlyChart that handles multi-customer comparison
 const OrderMonthlyChart = React.memo(
   ({ data, loading, selectedMetric, multiYearData = null }) => {
     if (loading) return <SkeletonChart height={400} />;
@@ -617,12 +949,6 @@ const OrderMonthlyChart = React.memo(
       "Nov",
       "Dec",
     ];
-
-    // Check if we have multi-customer data (keys are customer names not years)
-    const hasMultiCustomerData =
-      multiYearData &&
-      Object.keys(multiYearData).length > 0 &&
-      !Object.keys(multiYearData).some((key) => key.match(/^\d{4}$/)); // Not years, so must be customers
 
     const hasMultiYearData =
       multiYearData &&
@@ -650,51 +976,14 @@ const OrderMonthlyChart = React.memo(
       },
     };
 
-    const customerColors = [
-      "#8b5cf6",
-      "#3b82f6",
-      "#10b981",
-      "#f59e0b",
-      "#ef4444",
-      "#ec4899",
-      "#06b6d4",
-      "#84cc16",
-      "#6366f1",
-      "#14b8a6",
-      "#f97316",
-      "#d946ef",
-      "#f43f5e",
-      "#0ea5e9",
-      "#a3e635",
-      "#fb7185",
-    ];
-
     const getYearColor = (year, type) => {
       const colors =
         type === "quantity" ? yearColors.quantity : yearColors.value;
       return colors[year] || (type === "quantity" ? "#8b5cf6" : "#ef4444");
     };
 
-    // Build chart data for multi-customer comparison
-    const buildMultiCustomerChartData = () => {
-      if (!hasMultiCustomerData) return null;
-
-      const customers = Object.keys(multiYearData);
-      return months.map((month, idx) => {
-        const dataPoint = { month };
-        customers.forEach((customer) => {
-          dataPoint[`quantity_${customer}`] =
-            multiYearData[customer]?.quantities?.[idx] || 0;
-          dataPoint[`value_${customer}`] =
-            multiYearData[customer]?.values?.[idx] || 0;
-        });
-        return dataPoint;
-      });
-    };
-
     const buildMultiYearChartData = () => {
       if (!hasMultiYearData) return null;
-
       const years = Object.keys(multiYearData);
       return months.map((month) => ({
         month: month,
@@ -721,22 +1010,11 @@ const OrderMonthlyChart = React.memo(
       }));
     };
 
-    let chartData;
-    let isMultiCustomerMode = false;
-    let comparisonItems = [];
+    let chartData = hasMultiYearData
+      ? buildMultiYearChartData()
+      : buildAggregatedChartData();
 
-    if (hasMultiCustomerData) {
-      chartData = buildMultiCustomerChartData();
-      isMultiCustomerMode = true;
-      comparisonItems = Object.keys(multiYearData);
-    } else if (hasMultiYearData) {
-      chartData = buildMultiYearChartData();
-      comparisonItems = Object.keys(multiYearData);
-    } else {
-      chartData = buildAggregatedChartData();
-    }
-
-    if (!chartData || chartData.length === 0) {
+    if (!chartData || chartData.length === 0 || chartData.every(d => d.quantity === 0 && d.value === 0)) {
       return (
         <div
           style={{
@@ -750,19 +1028,15 @@ const OrderMonthlyChart = React.memo(
         >
           <FiBarChart2 size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
           <p style={{ fontSize: 14, margin: 0 }}>No monthly data available</p>
+          <p style={{ fontSize: 12, marginTop: 8, color: "#94a3b8" }}>
+            Try adjusting your filters or check if data exists
+          </p>
         </div>
       );
     }
 
-    // Calculate max value for domain
     let maxValue = 0;
-    if (hasMultiCustomerData) {
-      Object.keys(multiYearData).forEach((customer) => {
-        const quantities = multiYearData[customer]?.quantities || [];
-        const values = multiYearData[customer]?.values || [];
-        maxValue = Math.max(maxValue, ...quantities, ...values);
-      });
-    } else if (hasMultiYearData) {
+    if (hasMultiYearData) {
       Object.keys(multiYearData).forEach((year) => {
         const quantities = multiYearData[year]?.quantities || [];
         const values = multiYearData[year]?.values || [];
@@ -775,26 +1049,12 @@ const OrderMonthlyChart = React.memo(
         1,
       );
     }
-    const domainMax = maxValue * 1.1;
+    const domainMax = maxValue * 1.1 || 1;
 
-    // Calculate totals
     let totalQuantity = 0;
     let totalValue = 0;
 
-    if (hasMultiCustomerData) {
-      Object.keys(multiYearData).forEach((customer) => {
-        totalQuantity +=
-          multiYearData[customer]?.quantities?.reduce(
-            (s, v) => s + safeNumber(v, 0),
-            0,
-          ) || 0;
-        totalValue +=
-          multiYearData[customer]?.values?.reduce(
-            (s, v) => s + safeNumber(v, 0),
-            0,
-          ) || 0;
-      });
-    } else if (hasMultiYearData) {
+    if (hasMultiYearData) {
       Object.keys(multiYearData).forEach((year) => {
         totalQuantity +=
           multiYearData[year]?.quantities?.reduce(
@@ -812,93 +1072,6 @@ const OrderMonthlyChart = React.memo(
       totalValue = chartData.reduce((sum, item) => sum + item.value, 0);
     }
 
-    // Multi-Customer or Multi-Year Tooltip
-    const ComparisonTooltip = ({ active, payload, label, isCustomerMode }) => {
-      if (active && payload && payload.length > 0) {
-        const dataMap = {};
-        payload.forEach((item) => {
-          const match = item.dataKey?.match(/(quantity|value)_(.+)/);
-          if (match) {
-            const [, type, name] = match;
-            if (!dataMap[name]) dataMap[name] = {};
-            dataMap[name][type] = item.value;
-          }
-        });
-
-        return (
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "12px 16px",
-              borderRadius: 12,
-              boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
-              maxWidth: 350,
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                fontWeight: 600,
-                marginBottom: 8,
-                borderBottom: "1px solid #e2e8f0",
-                paddingBottom: 4,
-              }}
-            >
-              {label}
-            </p>
-            {Object.keys(dataMap)
-              .sort()
-              .map((name, idx) => (
-                <div key={name} style={{ marginTop: 8 }}>
-                  <strong
-                    style={{
-                      color: isCustomerMode
-                        ? customerColors[idx % customerColors.length]
-                        : getYearColor(name, "quantity"),
-                    }}
-                  >
-                    {isCustomerMode ? name : `Year ${name}`}
-                  </strong>
-                  {(selectedMetric === "both" ||
-                    selectedMetric === "quantity") && (
-                    <p
-                      style={{
-                        margin: "4px 0 0 0",
-                        color: "#8b5cf6",
-                        fontSize: 12,
-                      }}
-                    >
-                      📦 Quantity:{" "}
-                      {(
-                        safeNumber(dataMap[name].quantity) * 1000000
-                      ).toLocaleString()}{" "}
-                      units
-                    </p>
-                  )}
-                  {(selectedMetric === "both" ||
-                    selectedMetric === "value") && (
-                    <p
-                      style={{
-                        margin: "2px 0 0 0",
-                        color: "#ef4444",
-                        fontSize: 12,
-                      }}
-                    >
-                      💰 Value: $
-                      {(
-                        safeNumber(dataMap[name].value) * 1000000
-                      ).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-              ))}
-          </div>
-        );
-      }
-      return null;
-    };
-
-    // Regular Tooltip
     const RegularTooltip = ({ active, payload }) => {
       if (active && payload?.[0]) {
         const d = payload[0].payload;
@@ -932,203 +1105,6 @@ const OrderMonthlyChart = React.memo(
       return null;
     };
 
-    // Render Multi-Customer or Multi-Year Comparison Chart
-    if (hasMultiCustomerData || hasMultiYearData) {
-      const items = comparisonItems;
-      const isCustomerMode = hasMultiCustomerData;
-
-      return (
-        <div>
-          <div style={{ minHeight: 450, width: "100%" }}>
-            <ResponsiveContainer width="100%" height={450}>
-              <BarChart
-                data={chartData}
-                margin={{ top: 50, right: 50, left: 60, bottom: 20 }}
-                barGap={2}
-                barCategoryGap="15%"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="month"
-                  stroke="#64748b"
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis
-                  yAxisId="left"
-                  stroke="#8b5cf6"
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={(v) => `${safeNumber(v).toFixed(1)}M`}
-                  domain={[0, domainMax]}
-                  label={{
-                    value: "Quantity (Units in Millions)",
-                    angle: -90,
-                    position: "insideLeft",
-                    style: { fontSize: 11, fill: "#8b5cf6" },
-                    offset: -10,
-                  }}
-                />
-                {(selectedMetric === "both" || selectedMetric === "value") && (
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    stroke="#ef4444"
-                    tick={{ fontSize: 11 }}
-                    tickFormatter={(v) => `$${safeNumber(v).toFixed(1)}M`}
-                    domain={[0, domainMax]}
-                    label={{
-                      value: "Value (USD in Millions)",
-                      angle: 90,
-                      position: "insideRight",
-                      style: { fontSize: 11, fill: "#ef4444" },
-                      offset: -10,
-                    }}
-                  />
-                )}
-                <Tooltip
-                  content={
-                    <ComparisonTooltip isCustomerMode={isCustomerMode} />
-                  }
-                />
-                <Legend
-                  iconSize={12}
-                  wrapperStyle={{ fontSize: 11, paddingTop: 10 }}
-                  verticalAlign="top"
-                  height={50}
-                />
-
-                {items.map((item, idx) => {
-                  const bars = [];
-                  const barColor = isCustomerMode
-                    ? customerColors[idx % customerColors.length]
-                    : getYearColor(item, "quantity");
-                  const valueColor = isCustomerMode
-                    ? customerColors[idx % customerColors.length]
-                    : getYearColor(item, "value");
-                  const displayName = isCustomerMode ? item : `Year ${item}`;
-
-                  if (
-                    selectedMetric === "both" ||
-                    selectedMetric === "quantity"
-                  ) {
-                    bars.push(
-                      <Bar
-                        key={`quantity_${item}`}
-                        yAxisId="left"
-                        dataKey={`quantity_${item}`}
-                        name={`${displayName} - Quantity`}
-                        fill={barColor}
-                        radius={[4, 4, 0, 0]}
-                        barSize={selectedMetric === "both" ? 25 : 45}
-                      >
-                        <LabelList
-                          dataKey={`quantity_${item}`}
-                          position="top"
-                          content={(props) => {
-                            const { x, y, width, value } = props;
-                            const safeValue = safeNumber(value);
-                            if (safeValue === 0 || isNaN(y)) return null;
-                            return (
-                              <text
-                                x={x + width / 2}
-                                y={y - 8}
-                                fill={barColor}
-                                textAnchor="middle"
-                                fontSize={9}
-                                fontWeight={600}
-                              >
-                                {safeValue >= 1
-                                  ? safeValue.toFixed(1) + "M"
-                                  : (safeValue * 1000).toFixed(0) + "K"}
-                              </text>
-                            );
-                          }}
-                        />
-                      </Bar>,
-                    );
-                  }
-                  if (selectedMetric === "both" || selectedMetric === "value") {
-                    bars.push(
-                      <Bar
-                        key={`value_${item}`}
-                        yAxisId="right"
-                        dataKey={`value_${item}`}
-                        name={`${displayName} - Value`}
-                        fill={valueColor}
-                        radius={[4, 4, 0, 0]}
-                        barSize={selectedMetric === "both" ? 25 : 45}
-                      >
-                        <LabelList
-                          dataKey={`value_${item}`}
-                          position="top"
-                          content={(props) => {
-                            const { x, y, width, value } = props;
-                            const safeValue = safeNumber(value);
-                            if (safeValue === 0 || isNaN(y)) return null;
-                            return (
-                              <text
-                                x={x + width / 2}
-                                y={y - 8}
-                                fill={valueColor}
-                                textAnchor="middle"
-                                fontSize={9}
-                                fontWeight={600}
-                              >
-                                $
-                                {safeValue >= 1
-                                  ? safeValue.toFixed(1) + "M"
-                                  : (safeValue * 1000).toFixed(0) + "K"}
-                              </text>
-                            );
-                          }}
-                        />
-                      </Bar>,
-                    );
-                  }
-                  return bars;
-                })}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div
-            style={{
-              marginTop: 16,
-              padding: "12px 16px",
-              backgroundColor: "#f8fafc",
-              borderRadius: 8,
-              display: "flex",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 12,
-            }}
-          >
-            <div>
-              <span style={{ fontSize: 12, color: "#64748b" }}>
-                Total Quantity:
-              </span>{" "}
-              <strong style={{ color: "#8b5cf6" }}>
-                {(totalQuantity * 1000000).toLocaleString()} units
-              </strong>
-            </div>
-            <div>
-              <span style={{ fontSize: 12, color: "#64748b" }}>
-                Total Value:
-              </span>{" "}
-              <strong style={{ color: "#ef4444" }}>
-                ${(totalValue * 1000000).toLocaleString()}
-              </strong>
-            </div>
-            <div>
-              <span style={{ fontSize: 12, color: "#64748b" }}>Comparing:</span>{" "}
-              <strong style={{ color: "#3b82f6" }}>
-                {items.length} {isCustomerMode ? "customers" : "years"}
-              </strong>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Render Regular Single Series Chart
     return (
       <div>
         <div style={{ height: 400, width: "100%" }}>
@@ -1294,7 +1270,7 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
   const maxQuantity = Math.max(...chartData.map((d) => d.quantity), 0);
   const maxValue = Math.max(...chartData.map((d) => d.value), 0);
   const globalMax = Math.max(maxQuantity, maxValue, 1);
-  const domainMax = globalMax * 1.1;
+  const domainMax = globalMax * 1.1 || 1;
 
   const totalQuantity = chartData.reduce((sum, item) => sum + item.quantity, 0);
   const totalValue = chartData.reduce((sum, item) => sum + item.value, 0);
@@ -1313,6 +1289,9 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
       >
         <FiTrendingUp size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
         <p style={{ fontSize: 14, margin: 0 }}>No yearly data available</p>
+        <p style={{ fontSize: 12, marginTop: 8, color: "#94a3b8" }}>
+          Try adjusting your filters
+        </p>
       </div>
     );
   }
@@ -1511,6 +1490,9 @@ const CustomerChart = React.memo(
         >
           <FiUsers size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
           <p style={{ fontSize: 14, margin: 0 }}>No customer data available</p>
+          <p style={{ fontSize: 12, marginTop: 8, color: "#94a3b8" }}>
+            Try adjusting your filters
+          </p>
         </div>
       );
     }
@@ -1529,7 +1511,7 @@ const CustomerChart = React.memo(
     const maxQuantity = Math.max(...chartData.map((d) => d.quantity), 0);
     const maxValue = Math.max(...chartData.map((d) => d.value), 0);
     const globalMax = Math.max(maxQuantity, maxValue, 1);
-    const domainMax = globalMax * 1.1;
+    const domainMax = globalMax * 1.1 || 1;
     const totalQuantity = chartData.reduce(
       (sum, item) => sum + item.quantity,
       0,
@@ -1705,48 +1687,13 @@ const CustomerChart = React.memo(
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <div
-          style={{
-            marginTop: 16,
-            padding: "12px 16px",
-            backgroundColor: "#f8fafc",
-            borderRadius: 8,
-            display: "flex",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <div>
-            <span style={{ fontSize: 12, color: "#64748b" }}>
-              Total Customers:
-            </span>{" "}
-            <strong style={{ fontSize: 14, color: "#8b5cf6" }}>
-              {data.customers.length}
-            </strong>
-          </div>
-          <div>
-            <span style={{ fontSize: 12, color: "#64748b" }}>
-              Total Quantity:
-            </span>{" "}
-            <strong style={{ fontSize: 14, color: "#8b5cf6" }}>
-              {(totalQuantity * 1000000).toLocaleString()} units
-            </strong>
-          </div>
-          <div>
-            <span style={{ fontSize: 12, color: "#64748b" }}>Total Value:</span>{" "}
-            <strong style={{ fontSize: 14, color: "#ef4444" }}>
-              ${(totalValue * 1000000).toLocaleString()}
-            </strong>
-          </div>
-        </div>
       </div>
     );
   },
 );
 
 // ============================================================================
-// GARMENT CUSTOMER COMPARISON CHART - FIXED VERSION
+// GARMENT CUSTOMER COMPARISON CHART
 // ============================================================================
 const GarmentCustomerComparisonChart = React.memo(
   ({
@@ -1754,9 +1701,12 @@ const GarmentCustomerComparisonChart = React.memo(
     loading,
     selectedYears,
     selectedCustomers,
+    selectedSuppliers,
     onYearChange,
     onCustomerChange,
+    onSupplierChange,
     availableYears,
+    suppliersList,
   }) => {
     if (loading) return <SkeletonChart height={450} />;
 
@@ -1781,7 +1731,7 @@ const GarmentCustomerComparisonChart = React.memo(
             No customer comparison data available
           </p>
           <p style={{ fontSize: 12, marginTop: 8, color: "#94a3b8" }}>
-            Try selecting different years or customers
+            Try adjusting your filters
           </p>
         </div>
       );
@@ -1801,14 +1751,12 @@ const GarmentCustomerComparisonChart = React.memo(
     ];
     const customersDropdownList = data?.customers || [];
 
-    // FIXED: Better handling of customer selection
     let customersToShow = [];
     const isAllSelected = selectedCustomers.includes("all");
 
     if (isAllSelected) {
       customersToShow = allCustomersFromData;
     } else if (selectedCustomers && selectedCustomers.length > 0) {
-      // Convert selected customer IDs to names
       const selectedNames = selectedCustomers
         .map((customerId) => {
           const customer = customersDropdownList.find(
@@ -1822,7 +1770,6 @@ const GarmentCustomerComparisonChart = React.memo(
         selectedNames.includes(customer),
       );
 
-      // If no match, fallback to all customers
       if (customersToShow.length === 0 && allCustomersFromData.length > 0) {
         customersToShow = allCustomersFromData;
       }
@@ -1897,22 +1844,11 @@ const GarmentCustomerComparisonChart = React.memo(
             onChange={onCustomerChange}
             customersList={customersDropdownList}
           />
-          {customersToShow.length > 0 && (
-            <div
-              style={{
-                marginLeft: "auto",
-                fontSize: "0.8rem",
-                color: "#10b981",
-                backgroundColor: "#d1fae5",
-                padding: "4px 12px",
-                borderRadius: "20px",
-                fontWeight: 500,
-              }}
-            >
-              📊 Comparing {customersToShow.length} customer
-              {customersToShow.length !== 1 ? "s" : ""}
-            </div>
-          )}
+          <MultiSupplierSelect
+            selectedSuppliers={selectedSuppliers}
+            onChange={onSupplierChange}
+            suppliersList={suppliersList}
+          />
         </div>
 
         {customersToShow.length > 0 && chartData.length > 0 ? (
@@ -2039,20 +1975,7 @@ const GarmentCustomerComparisonChart = React.memo(
               </BarChart>
             </ResponsiveContainer>
           </div>
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: 400,
-            }}
-          >
-            <p style={{ color: "#64748b" }}>
-              Select customers to compare unit prices...
-            </p>
-          </div>
-        )}
+        ) : null}
       </div>
     );
   },
@@ -2068,13 +1991,12 @@ const addStyles = () => {
 };
 
 // ============================================================================
-// MAIN DASHBOARD COMPONENT - OPTIMIZED
+// MAIN DASHBOARD COMPONENT
 // ============================================================================
 const DashboardPage = () => {
   const navigate = useNavigate();
   const initialLoadDone = useRef(false);
 
-  // Data states with cache
   const [dashboardData, setDashboardData] = useState(
     () => getCachedData("dashboard") || null,
   );
@@ -2138,6 +2060,9 @@ const DashboardPage = () => {
   const [masterCustomerList, setMasterCustomerList] = useState(
     () => getCachedData("master_customer_list") || [],
   );
+  const [masterSupplierList, setMasterSupplierList] = useState(
+    () => getCachedData("master_supplier_list") || [],
+  );
   const [availableCustomerYears, setAvailableCustomerYears] = useState(
     () => getCachedData("available_customer_years") || [],
   );
@@ -2145,7 +2070,7 @@ const DashboardPage = () => {
   // Loading states
   const [loading, setLoading] = useState(!dashboardData);
   const [loadingMonthly, setLoadingMonthly] = useState(
-    !orderMonthlyData?.quantities?.[0],
+    !orderMonthlyData?.quantities?.some(v => v > 0),
   );
   const [loadingYearly, setLoadingYearly] = useState(
     !yearlyData?.years?.length,
@@ -2166,6 +2091,7 @@ const DashboardPage = () => {
   const [selectedYearsForCustomer, setSelectedYearsForCustomer] = useState([
     "all",
   ]);
+
   const [selectedCustomers, setSelectedCustomers] = useState(["all"]);
   const [selectedYearlyCustomers, setSelectedYearlyCustomers] = useState([
     "all",
@@ -2176,6 +2102,19 @@ const DashboardPage = () => {
   const [selectedCustomerCustomers, setSelectedCustomerCustomers] = useState([
     "all",
   ]);
+
+  // Supplier filter states
+  const [selectedSuppliers, setSelectedSuppliers] = useState(["all"]);
+  const [selectedYearlySuppliers, setSelectedYearlySuppliers] = useState([
+    "all",
+  ]);
+  const [selectedGarmentSuppliers, setSelectedGarmentSuppliers] = useState([
+    "all",
+  ]);
+  const [selectedCustomerSuppliers, setSelectedCustomerSuppliers] = useState([
+    "all",
+  ]);
+
   const [selectedMetric, setSelectedMetric] = useState("both");
   const [selectedYearlyMetric, setSelectedYearlyMetric] = useState("both");
   const [selectedCustomerGraphMetric, setSelectedCustomerGraphMetric] =
@@ -2183,7 +2122,6 @@ const DashboardPage = () => {
   const [sortBy, setSortBy] = useState("quantity");
   const [hoveredCard, setHoveredCard] = useState(null);
 
-  const API_BASE_URL = "http://119.148.51.38:8000/api/merchandiser/api";
   const formattedDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -2230,6 +2168,50 @@ const DashboardPage = () => {
     return [];
   }, []);
 
+  // ========== FETCH MASTER SUPPLIER LIST ==========
+  const fetchMasterSupplierList = useCallback(async () => {
+    const cached = getCachedData("master_supplier_list");
+    if (cached && cached.length > 0) {
+      setMasterSupplierList(cached);
+      return cached;
+    }
+
+    try {
+      let suppliers = [];
+
+      try {
+        const result = await getSuppliers(1, 1000, { allPages: true });
+        if (result.data && result.data.length > 0) {
+          suppliers = result.data.map((s) => ({
+            id: s.id,
+            name: s.name || s.supplier_name || `Supplier ${s.id}`,
+          }));
+        }
+      } catch (err) {
+        console.warn("Error fetching suppliers via getSuppliers:", err);
+        const response = await axios.get(
+          `${API_BASE_URL}/orders/suppliers/`,
+          getAuthHeaders(),
+        );
+        const data = response.data?.results || response.data || [];
+        if (Array.isArray(data) && data.length > 0) {
+          suppliers = data.map((s) => ({
+            id: s.id,
+            name: s.name || s.supplier_name || `Supplier ${s.id}`,
+          }));
+        }
+      }
+
+      suppliers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setMasterSupplierList(suppliers);
+      setCachedData("master_supplier_list", suppliers);
+      return suppliers;
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+    }
+    return [];
+  }, [getAuthHeaders]);
+
   // ========== FETCH AVAILABLE YEARS ==========
   const fetchAvailableYears = useCallback(async () => {
     const cached = getCachedData("available_years");
@@ -2238,7 +2220,6 @@ const DashboardPage = () => {
       return cached;
     }
     try {
-      // Get years from orders
       const response = await axios.get(
         `${API_BASE_URL}/orders/yearly-data/`,
         getAuthHeaders(),
@@ -2252,13 +2233,12 @@ const DashboardPage = () => {
     } catch (error) {
       console.error("Error fetching available years:", error);
     }
-    // Fallback years
-    const fallbackYears = ["2024", "2023", "2022", "2021", "2020"];
+    const fallbackYears = ["2026", "2025", "2024", "2023", "2022"];
     setAvailableYearsList(fallbackYears);
     return fallbackYears;
   }, [getAuthHeaders]);
 
-  // ========== FETCH DASHBOARD STATS ONLY (Fast) ==========
+  // ========== FETCH DASHBOARD STATS ONLY ==========
   const fetchDashboardStats = useCallback(async () => {
     const cached = getCachedData("dashboard_stats");
     if (cached) {
@@ -2308,9 +2288,8 @@ const DashboardPage = () => {
     setLoading(false);
   }, [getAuthHeaders]);
 
-  // ========== FETCH ALL CHART DATA IN PARALLEL ==========
+  // ========== FETCH ALL CHART DATA ==========
   const fetchChartData = useCallback(async () => {
-    // Monthly data
     const monthlyCached = getCachedData("order_monthly");
     if (monthlyCached && monthlyCached.quantities?.some((v) => v > 0)) {
       setOrderMonthlyData(monthlyCached);
@@ -2339,7 +2318,6 @@ const DashboardPage = () => {
       setLoadingMonthly(false);
     }
 
-    // Yearly data
     const yearlyCached = getCachedData("yearly");
     if (yearlyCached && yearlyCached.years?.length > 0) {
       setYearlyData(yearlyCached);
@@ -2368,7 +2346,6 @@ const DashboardPage = () => {
       setLoadingYearly(false);
     }
 
-    // Customer data
     const customerCached = getCachedData("customer");
     if (customerCached && customerCached.customers?.length > 0) {
       setCustomerData(customerCached);
@@ -2411,7 +2388,6 @@ const DashboardPage = () => {
       setLoadingCustomer(false);
     }
 
-    // Garment data - FIXED: Ensure we have master customer list first
     const garmentCached = getCachedData("garment");
     if (garmentCached && garmentCached.garmentCustomerData?.length > 0) {
       setGarmentData(garmentCached);
@@ -2419,7 +2395,6 @@ const DashboardPage = () => {
     } else {
       setLoadingGarment(true);
       try {
-        // Wait for master customer list if not loaded
         let customers = masterCustomerList;
         if (customers.length === 0) {
           customers = await fetchMasterCustomerList();
@@ -2456,258 +2431,251 @@ const DashboardPage = () => {
     }
   }, [fetchMasterCustomerList, masterCustomerList, sortBy]);
 
-  // ========== INITIAL LOAD - PARALLEL FETCHING ==========
   useEffect(() => {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
-
-      // Fetch all data in parallel (non-blocking)
       fetchAvailableYears();
       fetchDashboardStats();
       fetchMasterCustomerList();
+      fetchMasterSupplierList();
       fetchChartData();
     }
   }, [
     fetchAvailableYears,
     fetchDashboardStats,
     fetchMasterCustomerList,
+    fetchMasterSupplierList,
     fetchChartData,
   ]);
 
-  // ========== FILTER HANDLERS ==========
-  const handleYearSelection = useCallback(
-    async (years, type) => {
-      if (type === "monthly") {
-        setSelectedYears(years);
-        setLoadingMonthly(true);
-        const hasMultipleYears = !years.includes("all") && years.length > 1;
-        if (hasMultipleYears) {
-          const multiYearData = {};
-          for (const year of years) {
-            const result = await getOrderMonthlyData([year], selectedCustomers);
-            if (result?.success && result.data) {
-              multiYearData[year] = {
-                quantities: result.data.quantities || [],
-                values: result.data.values || [],
-                counts: result.data.counts || [],
-              };
-            }
-          }
-          setMultiYearMonthlyData(multiYearData);
-          setOrderMonthlyData(null);
-        } else {
-          const yearsParam = years.includes("all") ? "all" : years.join("|");
-          const result = await getOrderMonthlyData(
-            yearsParam,
-            selectedCustomers,
-          );
-          if (result?.success && result.data) {
-            setOrderMonthlyData({
-              months: result.data.months || [],
-              quantities: (result.data.quantities || []).map((v) =>
-                safeNumber(v, 0),
-              ),
-              values: (result.data.values || []).map((v) => safeNumber(v, 0)),
-              counts: (result.data.counts || []).map((v) => safeNumber(v, 0)),
-            });
-            setMultiYearMonthlyData(null);
-          }
-        }
-        setLoadingMonthly(false);
-      } else if (type === "yearly") {
-        setSelectedYearsForYearly(years);
-        setLoadingYearly(true);
-        const yearsParam = years.includes("all") ? "all" : years.join("|");
-        const result = await getOrderYearlyData(
-          yearsParam,
-          selectedYearlyCustomers,
-        );
-        if (result?.success && result.data) {
-          setYearlyData({
-            years: result.data.years || [],
-            quantities: (result.data.quantities || []).map((v) =>
-              safeNumber(v, 0),
-            ),
-            values: (result.data.values || []).map((v) => safeNumber(v, 0)),
-            counts: (result.data.counts || []).map((v) => safeNumber(v, 0)),
-          });
-        }
-        setLoadingYearly(false);
-      } else if (type === "garment") {
-        setSelectedYearsForGarment(years);
-        setLoadingGarment(true);
-        const yearsParam = years.includes("all") ? "all" : years.join("|");
-        const result = await getGarmentCustomerComparison(
-          yearsParam,
-          selectedGarmentCustomers,
-        );
-        if (result?.success && result.data) {
-          const garmentCustomerData = [];
-          if (result.data.data && Array.isArray(result.data.data)) {
-            for (const item of result.data.data) {
-              garmentCustomerData.push({
-                garment: item.garment,
-                customerId: item.customer_id,
-                customerName: item.customer_name,
-                avgUnitPrice: safeNumber(item.avg_unit_price, 0),
-                totalQuantity: safeNumber(item.total_quantity, 0),
-                totalValue: safeNumber(item.total_value, 0),
-              });
-            }
-          }
-          setGarmentData((prev) => ({ ...prev, garmentCustomerData }));
-        }
-        setLoadingGarment(false);
-      } else if (type === "customer") {
-        setSelectedYearsForCustomer(years);
-        setLoadingCustomer(true);
-        const yearsParam = years.includes("all") ? "all" : years.join("|");
-        const result = await getCustomerData(
-          yearsParam,
-          selectedCustomerCustomers,
-        );
-        if (result?.success && result.data) {
-          const rawData = result.data;
-          const combined = (rawData.customers || []).map((c, i) => ({
-            customer: c,
-            quantity: safeNumber(rawData.quantities?.[i], 0) / 1000000,
-            value: safeNumber(rawData.values?.[i], 0) / 1000000,
-            count: safeNumber(rawData.counts?.[i], 0),
-          }));
-          if (sortBy === "quantity")
-            combined.sort((a, b) => b.quantity - a.quantity);
-          else if (sortBy === "value")
-            combined.sort((a, b) => b.value - a.value);
-          else combined.sort((a, b) => b.count - a.count);
+  // ========== FILTER HANDLERS WITH FIXED PARAMETERS ==========
+  
+  // Monthly Chart Filter Handler
+  const handleMonthlyFilterChange = useCallback(async () => {
+    setLoadingMonthly(true);
+    try {
+      const token = getToken();
+      const params = new URLSearchParams();
+      
+      if (!selectedYears.includes("all")) {
+        params.append("year", selectedYears.join("|"));
+      }
+      
+      if (!selectedCustomers.includes("all")) {
+        params.append("customer", selectedCustomers.join("|"));
+      }
+      
+      if (!selectedSuppliers.includes("all")) {
+        params.append("supplier", selectedSuppliers.join("|"));
+      }
+      
+      const url = `${API_BASE_URL}/orders/monthly-data/?${params.toString()}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      
+      if (response.data?.success && response.data.data) {
+        setOrderMonthlyData({
+          months: response.data.data.months || [],
+          quantities: (response.data.data.quantities || []).map((v) => safeNumber(v, 0)),
+          values: (response.data.data.values || []).map((v) => safeNumber(v, 0)),
+          counts: (response.data.data.counts || []).map((v) => safeNumber(v, 0)),
+        });
+      }
+    } catch (error) {
+      console.error("Error updating monthly chart:", error);
+    }
+    setLoadingMonthly(false);
+  }, [selectedYears, selectedCustomers, selectedSuppliers]);
 
-          setCustomerData({
-            customers: combined.map((c) => c.customer),
-            quantities: combined.map((c) => c.quantity),
-            values: combined.map((c) => c.value),
-            counts: combined.map((c) => c.count),
-            availableYears: rawData.availableYears || [],
-          });
-          if (rawData.availableYears?.length)
-            setAvailableCustomerYears(rawData.availableYears);
-        }
-        setLoadingCustomer(false);
+  // Yearly Chart Filter Handler
+  const handleYearlyFilterChange = useCallback(async () => {
+    setLoadingYearly(true);
+    try {
+      const token = getToken();
+      const params = new URLSearchParams();
+      
+      if (!selectedYearsForYearly.includes("all")) {
+        params.append("years", selectedYearsForYearly.join("|"));
       }
-    },
-    [
-      selectedCustomers,
-      selectedYearlyCustomers,
-      selectedGarmentCustomers,
-      selectedCustomerCustomers,
-      sortBy,
-    ],
-  );
+      
+      if (!selectedYearlyCustomers.includes("all")) {
+        params.append("customer", selectedYearlyCustomers.join("|"));
+      }
+      
+      if (!selectedYearlySuppliers.includes("all")) {
+        params.append("supplier", selectedYearlySuppliers.join("|"));
+      }
+      
+      const url = `${API_BASE_URL}/orders/yearly-data/?${params.toString()}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      
+      if (response.data?.success && response.data.data) {
+        setYearlyData({
+          years: response.data.data.years || [],
+          quantities: (response.data.data.quantities || []).map((v) => safeNumber(v, 0)),
+          values: (response.data.data.values || []).map((v) => safeNumber(v, 0)),
+          counts: (response.data.data.counts || []).map((v) => safeNumber(v, 0)),
+          availableYears: response.data.data.availableYears || [],
+        });
+      }
+    } catch (error) {
+      console.error("Error updating yearly chart:", error);
+    }
+    setLoadingYearly(false);
+  }, [selectedYearsForYearly, selectedYearlyCustomers, selectedYearlySuppliers]);
 
-  const handleCustomerSelection = useCallback(
-    async (customerIds, type) => {
-      if (type === "garment") {
-        setSelectedGarmentCustomers(customerIds);
-        setLoadingGarment(true);
-        const yearsParam = selectedYearsForGarment.includes("all")
-          ? "all"
-          : selectedYearsForGarment.join("|");
-        const result = await getGarmentCustomerComparison(
-          yearsParam,
-          customerIds,
-        );
-        if (result?.success && result.data) {
-          const garmentCustomerData = [];
-          if (result.data.data && Array.isArray(result.data.data)) {
-            for (const item of result.data.data) {
-              garmentCustomerData.push({
-                garment: item.garment,
-                customerId: item.customer_id,
-                customerName: item.customer_name,
-                avgUnitPrice: safeNumber(item.avg_unit_price, 0),
-              });
-            }
-          }
-          setGarmentData((prev) => ({ ...prev, garmentCustomerData }));
-        }
-        setLoadingGarment(false);
+  // Customer Chart Filter Handler
+  const handleCustomerFilterChange = useCallback(async () => {
+    setLoadingCustomer(true);
+    try {
+      const token = getToken();
+      const params = new URLSearchParams();
+      
+      if (!selectedYearsForCustomer.includes("all")) {
+        params.append("year", selectedYearsForCustomer.join("|"));
       }
-      if (type === "monthly") {
-        setSelectedCustomers(customerIds);
-        setLoadingMonthly(true);
-        const yearsParam = selectedYears.includes("all")
-          ? "all"
-          : selectedYears.join("|");
-        const result = await getOrderMonthlyData(yearsParam, customerIds);
-        if (result?.success && result.data) {
-          setOrderMonthlyData({
-            months: result.data.months || [],
-            quantities: (result.data.quantities || []).map((v) =>
-              safeNumber(v, 0),
-            ),
-            values: (result.data.values || []).map((v) => safeNumber(v, 0)),
-            counts: (result.data.counts || []).map((v) => safeNumber(v, 0)),
-          });
-        }
-        setLoadingMonthly(false);
+      
+      if (!selectedCustomerCustomers.includes("all")) {
+        params.append("customer", selectedCustomerCustomers.join("|"));
       }
-      if (type === "yearly") {
-        setSelectedYearlyCustomers(customerIds);
-        setLoadingYearly(true);
-        const yearsParam = selectedYearsForYearly.includes("all")
-          ? "all"
-          : selectedYearsForYearly.join("|");
-        const result = await getOrderYearlyData(yearsParam, customerIds);
-        if (result?.success && result.data) {
-          setYearlyData({
-            years: result.data.years || [],
-            quantities: (result.data.quantities || []).map((v) =>
-              safeNumber(v, 0),
-            ),
-            values: (result.data.values || []).map((v) => safeNumber(v, 0)),
-            counts: (result.data.counts || []).map((v) => safeNumber(v, 0)),
-          });
-        }
-        setLoadingYearly(false);
-      }
-      if (type === "customer") {
-        setSelectedCustomerCustomers(customerIds);
-        setLoadingCustomer(true);
-        const yearsParam = selectedYearsForCustomer.includes("all")
-          ? "all"
-          : selectedYearsForCustomer.join("|");
-        const result = await getCustomerData(yearsParam, customerIds);
-        if (result?.success && result.data) {
-          const rawData = result.data;
-          const combined = (rawData.customers || []).map((c, i) => ({
-            customer: c,
-            quantity: safeNumber(rawData.quantities?.[i], 0) / 1000000,
-            value: safeNumber(rawData.values?.[i], 0) / 1000000,
-            count: safeNumber(rawData.counts?.[i], 0),
-          }));
-          if (sortBy === "quantity")
-            combined.sort((a, b) => b.quantity - a.quantity);
-          else if (sortBy === "value")
-            combined.sort((a, b) => b.value - a.value);
-          else combined.sort((a, b) => b.count - a.count);
+      
+      const url = `${API_BASE_URL}/orders/customer-data/?${params.toString()}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      
+      if (response.data?.success && response.data.data) {
+        const rawData = response.data.data;
+        const combined = (rawData.customers || []).map((c, i) => ({
+          customer: c,
+          quantity: safeNumber(rawData.quantities?.[i], 0) / 1000000,
+          value: safeNumber(rawData.values?.[i], 0) / 1000000,
+          count: safeNumber(rawData.counts?.[i], 0),
+        }));
+        if (sortBy === "quantity")
+          combined.sort((a, b) => b.quantity - a.quantity);
+        else if (sortBy === "value")
+          combined.sort((a, b) => b.value - a.value);
+        else combined.sort((a, b) => b.count - a.count);
 
-          setCustomerData({
-            customers: combined.map((c) => c.customer),
-            quantities: combined.map((c) => c.quantity),
-            values: combined.map((c) => c.value),
-            counts: combined.map((c) => c.count),
-            availableYears: rawData.availableYears || [],
-          });
-        }
-        setLoadingCustomer(false);
+        setCustomerData({
+          customers: combined.map((c) => c.customer),
+          quantities: combined.map((c) => c.quantity),
+          values: combined.map((c) => c.value),
+          counts: combined.map((c) => c.count),
+          availableYears: rawData.availableYears || [],
+        });
       }
-    },
-    [
-      selectedYears,
-      selectedYearsForYearly,
-      selectedYearsForCustomer,
-      selectedYearsForGarment,
-      sortBy,
-    ],
-  );
+    } catch (error) {
+      console.error("Error updating customer chart:", error);
+    }
+    setLoadingCustomer(false);
+  }, [selectedYearsForCustomer, selectedCustomerCustomers, sortBy]);
+
+  // Garment Chart Filter Handler
+  const handleGarmentFilterChange = useCallback(async () => {
+    setLoadingGarment(true);
+    try {
+      const token = getToken();
+      const params = new URLSearchParams();
+      
+      if (!selectedYearsForGarment.includes("all")) {
+        params.append("years", selectedYearsForGarment.join("|"));
+      }
+      
+      if (!selectedGarmentCustomers.includes("all")) {
+        params.append("customers", selectedGarmentCustomers.join("|"));
+      }
+      
+      const url = `${API_BASE_URL}/orders/garment-customer-comparison/?${params.toString()}`;
+      const response = await axios.get(url, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      
+      if (response.data?.success && response.data.data) {
+        const list = (response.data.data.data || []).map((item) => ({
+          garment: item.garment,
+          customerId: item.customer_id,
+          customerName: item.customer_name,
+          avgUnitPrice: safeNumber(item.avg_unit_price, 0),
+          totalQuantity: safeNumber(item.total_quantity, 0),
+          totalValue: safeNumber(item.total_value, 0),
+        }));
+        setGarmentData((prev) => ({
+          ...prev,
+          garments: response.data.data.garments || [],
+          garmentCustomerData: list,
+          availableYears: response.data.data.availableYears || [],
+        }));
+      }
+    } catch (error) {
+      console.error("Error updating garment chart:", error);
+    }
+    setLoadingGarment(false);
+  }, [selectedYearsForGarment, selectedGarmentCustomers]);
+
+  // ========== WRAPPER HANDLERS FOR UI ==========
+  const handleYearSelection = useCallback((years, type) => {
+    if (type === "monthly") {
+      setSelectedYears(years);
+    } else if (type === "yearly") {
+      setSelectedYearsForYearly(years);
+    } else if (type === "customer") {
+      setSelectedYearsForCustomer(years);
+    } else if (type === "garment") {
+      setSelectedYearsForGarment(years);
+    }
+  }, []);
+
+  const handleCustomerSelection = useCallback((customers, type) => {
+    if (type === "monthly") {
+      setSelectedCustomers(customers);
+    } else if (type === "yearly") {
+      setSelectedYearlyCustomers(customers);
+    } else if (type === "customer") {
+      setSelectedCustomerCustomers(customers);
+    } else if (type === "garment") {
+      setSelectedGarmentCustomers(customers);
+    }
+  }, []);
+
+  const handleSupplierSelection = useCallback((suppliers, type) => {
+    if (type === "monthly") {
+      setSelectedSuppliers(suppliers);
+    } else if (type === "yearly") {
+      setSelectedYearlySuppliers(suppliers);
+    } else if (type === "garment") {
+      setSelectedGarmentSuppliers(suppliers);
+    }
+  }, []);
+
+  // Trigger filter changes when selections update
+  useEffect(() => {
+    if (initialLoadDone.current) {
+      handleMonthlyFilterChange();
+    }
+  }, [selectedYears, selectedCustomers, selectedSuppliers, handleMonthlyFilterChange]);
+
+  useEffect(() => {
+    if (initialLoadDone.current) {
+      handleYearlyFilterChange();
+    }
+  }, [selectedYearsForYearly, selectedYearlyCustomers, selectedYearlySuppliers, handleYearlyFilterChange]);
+
+  useEffect(() => {
+    if (initialLoadDone.current) {
+      handleCustomerFilterChange();
+    }
+  }, [selectedYearsForCustomer, selectedCustomerCustomers, handleCustomerFilterChange]);
+
+  useEffect(() => {
+    if (initialLoadDone.current) {
+      handleGarmentFilterChange();
+    }
+  }, [selectedYearsForGarment, selectedGarmentCustomers, handleGarmentFilterChange]);
 
   const handleSortChange = useCallback(
     (sortType) => {
@@ -2738,7 +2706,6 @@ const DashboardPage = () => {
 
   const refreshAllData = useCallback(() => {
     clearCache();
-    // Reset all data
     setDashboardData(null);
     setOrderMonthlyData(null);
     setYearlyData(null);
@@ -2746,15 +2713,17 @@ const DashboardPage = () => {
     setGarmentData(null);
     setAvailableYearsList([]);
     setMasterCustomerList([]);
-    // Refetch
+    setMasterSupplierList([]);
     fetchAvailableYears();
     fetchDashboardStats();
     fetchMasterCustomerList();
+    fetchMasterSupplierList();
     fetchChartData();
   }, [
     fetchAvailableYears,
     fetchDashboardStats,
     fetchMasterCustomerList,
+    fetchMasterSupplierList,
     fetchChartData,
   ]);
 
@@ -2979,6 +2948,13 @@ const DashboardPage = () => {
                 }
                 customersList={masterCustomerList}
               />
+              <MultiSupplierSelect
+                selectedSuppliers={selectedSuppliers}
+                onChange={(suppliers) =>
+                  handleSupplierSelection(suppliers, "monthly")
+                }
+                suppliersList={masterSupplierList}
+              />
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => setSelectedMetric("both")}
@@ -3096,6 +3072,13 @@ const DashboardPage = () => {
                   handleCustomerSelection(customers, "yearly")
                 }
                 customersList={masterCustomerList}
+              />
+              <MultiSupplierSelect
+                selectedSuppliers={selectedYearlySuppliers}
+                onChange={(suppliers) =>
+                  handleSupplierSelection(suppliers, "yearly")
+                }
+                suppliersList={masterSupplierList}
               />
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -3366,15 +3349,20 @@ const DashboardPage = () => {
             loading={loadingGarment}
             selectedYears={selectedYearsForGarment}
             selectedCustomers={selectedGarmentCustomers}
+            selectedSuppliers={selectedGarmentSuppliers}
             onYearChange={(years) => handleYearSelection(years, "garment")}
             onCustomerChange={(customers) =>
               handleCustomerSelection(customers, "garment")
+            }
+            onSupplierChange={(suppliers) =>
+              handleSupplierSelection(suppliers, "garment")
             }
             availableYears={
               garmentData.availableYears?.length
                 ? garmentData.availableYears
                 : availableYearsList
             }
+            suppliersList={masterSupplierList}
           />
         </div>
       </div>

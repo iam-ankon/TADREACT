@@ -75,16 +75,18 @@ const EditEmployeePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [empRes, compRes, custRes, deptRes, mdeptRes] = await Promise.all([
-          getEmployeeById(id),
-          getCompanies(),
-          getCustomers(),
-          getDepartments(),
-          getMDepartments()
-        ]);
+        const [empRes, compRes, custRes, deptRes, mdeptRes] = await Promise.all(
+          [
+            getEmployeeById(id),
+            getCompanies(),
+            getCustomers(),
+            getDepartments(),
+            getMDepartments(),
+          ],
+        );
 
         const emp = empRes.data;
-        
+
         // Handle customer IDs
         const customerIds = Array.isArray(emp.customer)
           ? emp.customer.map((c) => (typeof c === "object" ? c.id : c))
@@ -94,8 +96,8 @@ const EditEmployeePage = () => {
         let merchandisingDeptIds = [];
         if (emp.merchandising_department) {
           if (Array.isArray(emp.merchandising_department)) {
-            merchandisingDeptIds = emp.merchandising_department.map(m => 
-              typeof m === "object" ? m.id : m
+            merchandisingDeptIds = emp.merchandising_department.map((m) =>
+              typeof m === "object" ? m.id : m,
             );
           } else if (typeof emp.merchandising_department === "object") {
             // Single object
@@ -130,7 +132,7 @@ const EditEmployeePage = () => {
 
   const validateField = (name, value) => {
     const newErrors = { ...errors };
-    
+
     switch (name) {
       case "email":
         if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
@@ -174,14 +176,14 @@ const EditEmployeePage = () => {
       default:
         delete newErrors[name];
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleChange = (e) => {
     const { name, value, type, files, options, multiple } = e.target;
-    
+
     if (type === "file" && files[0]) {
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result);
@@ -190,14 +192,14 @@ const EditEmployeePage = () => {
     } else if (multiple) {
       // Handle multi-select
       const selectedValues = Array.from(options)
-        .filter(option => option.selected)
-        .map(option => option.value)
-        .filter(val => val !== ""); // Remove empty values
-      
+        .filter((option) => option.selected)
+        .map((option) => option.value)
+        .filter((val) => val !== ""); // Remove empty values
+
       console.log(`Multi-select ${name}:`, selectedValues);
       setEmployee((prev) => ({ ...prev, [name]: selectedValues }));
       // Validate if needed
-      if (name === 'merchandising_department') {
+      if (name === "merchandising_department") {
         // Optional: Add validation for multi-select
       }
     } else {
@@ -219,128 +221,109 @@ const EditEmployeePage = () => {
     // Validate required fields
     const requiredFields = ["name", "employee_id"];
     const newErrors = {};
-    
-    requiredFields.forEach(field => {
+
+    requiredFields.forEach((field) => {
       if (!employee[field]?.trim()) {
-        newErrors[field] = `${field.replace('_', ' ')} is required`;
+        newErrors[field] = `${field.replace("_", " ")} is required`;
       }
     });
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       alert("Please fill in all required fields");
       return;
     }
-    
+
     if (isSubmitting) return;
-    
+
     setIsSubmitting(true);
     setErrors({});
-    
-    try {
-      console.log("=== EDIT EMPLOYEE SUBMIT DEBUG ===");
-      console.log("Original employee data:", employee);
 
+    try {
       const jsonData = {
         employee_id: employee.employee_id || "",
         name: employee.name || "",
         designation: employee.designation || "",
-        joining_date: employee.joining_date || "",
-        date_of_birth: employee.date_of_birth || "",
-        mail_address: employee.mail_address || "",
-        personal_phone: employee.personal_phone || "",
-        office_phone: employee.office_phone || "",
-        reference_phone: employee.reference_phone || "",
-        reporting_leader: employee.reporting_leader || "",
-        special_skills: employee.special_skills || "",
-        remarks: employee.remarks || "",
-        permanent_address: employee.permanent_address || "",
-        emergency_contact: employee.emergency_contact || "",
-        nid_number: employee.nid_number || "",
-        blood_group: employee.blood_group || "",
-        gender: employee.gender || "",
-        bank_account: employee.bank_account || "",
-        branch_name: employee.branch_name || "",
+        // Convert empty date strings to null
+        joining_date: employee.joining_date || null,
+        date_of_birth: employee.date_of_birth || null,
+        mail_address: employee.mail_address || null,
+        personal_phone: employee.personal_phone || null,
+        office_phone: employee.office_phone || null,
+        reference_phone: employee.reference_phone || null,
+        reporting_leader: employee.reporting_leader || null,
+        special_skills: employee.special_skills || null,
+        remarks: employee.remarks || null,
+        permanent_address: employee.permanent_address || null,
+        emergency_contact: employee.emergency_contact || null,
+        nid_number: employee.nid_number || null,
+        blood_group: employee.blood_group || null,
+        gender: employee.gender || null,
+        bank_account: employee.bank_account || null,
+        branch_name: employee.branch_name || null,
+        device_user_id: employee.device_user_id
+          ? Number(employee.device_user_id)
+          : null,
       };
 
-      // Handle email separately to allow null values
-      if (employee.email === "") jsonData.email = null;
-      else if (employee.email) jsonData.email = employee.email;
+      // Email handling
+      jsonData.email = employee.email?.trim() ? employee.email.trim() : null;
 
-      // Convert to numbers where applicable
-      if (employee.department)
-        jsonData.department = Number(employee.department);
-      
-      // Handle merchandising_department as array of IDs
-      if (employee.merchandising_department && employee.merchandising_department.length > 0) {
-        jsonData.merchandising_department = employee.merchandising_department.map(id => Number(id));
+      // Foreign keys and numbers (use null if empty)
+      jsonData.department = employee.department
+        ? Number(employee.department)
+        : null;
+      jsonData.company = employee.company ? Number(employee.company) : null;
+      jsonData.salary = employee.salary ? Number(employee.salary) : null;
+      jsonData.salary_cash = employee.salary_cash
+        ? Number(employee.salary_cash)
+        : null;
+
+      // Handle merchandising_department array
+      if (
+        employee.merchandising_department &&
+        employee.merchandising_department.length > 0
+      ) {
+        jsonData.merchandising_department =
+          employee.merchandising_department.map((id) => Number(id));
       } else {
         jsonData.merchandising_department = [];
       }
-      
-      if (employee.company) jsonData.company = Number(employee.company);
-      if (employee.salary) jsonData.salary = Number(employee.salary);
-      if (employee.salary_cash) jsonData.salary_cash = Number(employee.salary_cash);
 
-      // Remove undefined values
-      Object.keys(jsonData).forEach((key) => {
-        if (jsonData[key] === undefined) delete jsonData[key];
-      });
-
-      console.log("Basic employee data to update:", jsonData);
-
-      // Step 1: Update basic employee data first
-      console.log("Updating basic employee data...");
+      // Step 1: Update basic employee data
       await updateEmployee(id, jsonData);
-      console.log("Basic data update successful");
 
-      // Step 2: Handle image update separately
+      // Step 2: Handle image update
       if (employee.image1 && typeof employee.image1 === "object") {
-        console.log("Updating image...");
-        
         const imageFormData = new FormData();
         imageFormData.append("image1", employee.image1);
-        
         try {
           await updateEmployeeImage(id, imageFormData);
-          console.log("Image update successful");
         } catch (imageError) {
           console.error("Image update failed:", imageError);
-          if (imageError.response?.data?.image1) {
-            const imageErrors = Array.isArray(imageError.response.data.image1) 
-              ? imageError.response.data.image1.join(', ') 
-              : imageError.response.data.image1;
-            alert(`Image upload error: ${imageErrors}`);
-          }
         }
       }
 
       // Step 3: Handle customers update
       const customerIds = employee.customer
-        .map((id) => parseInt(id))
-        .filter((id) => !isNaN(id));
-      console.log("Customer IDs to send to API:", customerIds);
+        .map((cid) => parseInt(cid))
+        .filter((cid) => !isNaN(cid));
 
       if (customerIds.length > 0) {
-        console.log("Updating customers...");
         await updateEmployeeCustomers(id, customerIds);
-        console.log("Customer update API call completed");
       }
-
-      console.log("=== END SUBMIT DEBUG ===");
 
       alert("Employee updated successfully!");
       navigate(`/employee/${id}`);
     } catch (error) {
       console.error("Update failed:", error);
-      
       let errorMessage = "Update failed: ";
       if (error.response?.data) {
         const errorData = error.response.data;
-        if (typeof errorData === 'object') {
-          Object.keys(errorData).forEach(key => {
+        if (typeof errorData === "object") {
+          Object.keys(errorData).forEach((key) => {
             const errorValue = errorData[key];
-            errorMessage += `\n${key}: ${Array.isArray(errorValue) ? errorValue.join(', ') : errorValue}`;
+            errorMessage += `\n${key}: ${Array.isArray(errorValue) ? errorValue.join(", ") : errorValue}`;
           });
         } else {
           errorMessage += errorData;
@@ -348,7 +331,6 @@ const EditEmployeePage = () => {
       } else {
         errorMessage += error.message;
       }
-      
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -400,7 +382,7 @@ const EditEmployeePage = () => {
                   <h3>Personal Information</h3>
                 </div>
                 <div className="form-grid">
-                  <div className={`form-group ${errors.name ? 'error' : ''}`}>
+                  <div className={`form-group ${errors.name ? "error" : ""}`}>
                     <label>
                       Full Name <span className="required">*</span>
                     </label>
@@ -412,10 +394,14 @@ const EditEmployeePage = () => {
                       placeholder="Enter full name"
                       disabled={isSubmitting}
                     />
-                    {errors.name && <span className="error-message">{errors.name}</span>}
+                    {errors.name && (
+                      <span className="error-message">{errors.name}</span>
+                    )}
                   </div>
 
-                  <div className={`form-group ${errors.employee_id ? 'error' : ''}`}>
+                  <div
+                    className={`form-group ${errors.employee_id ? "error" : ""}`}
+                  >
                     <label>
                       Employee ID <span className="required">*</span>
                     </label>
@@ -427,7 +413,11 @@ const EditEmployeePage = () => {
                       placeholder="Enter employee ID"
                       disabled={isSubmitting}
                     />
-                    {errors.employee_id && <span className="error-message">{errors.employee_id}</span>}
+                    {errors.employee_id && (
+                      <span className="error-message">
+                        {errors.employee_id}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-group">
@@ -490,7 +480,7 @@ const EditEmployeePage = () => {
                   <h3>Contact Information</h3>
                 </div>
                 <div className="form-grid">
-                  <div className={`form-group ${errors.email ? 'error' : ''}`}>
+                  <div className={`form-group ${errors.email ? "error" : ""}`}>
                     <label>Email Address</label>
                     <div className="input-with-icon">
                       <FaEnvelope className="input-icon" />
@@ -503,10 +493,14 @@ const EditEmployeePage = () => {
                         disabled={isSubmitting}
                       />
                     </div>
-                    {errors.email && <span className="error-message">{errors.email}</span>}
+                    {errors.email && (
+                      <span className="error-message">{errors.email}</span>
+                    )}
                   </div>
 
-                  <div className={`form-group ${errors.personal_phone ? 'error' : ''}`}>
+                  <div
+                    className={`form-group ${errors.personal_phone ? "error" : ""}`}
+                  >
                     <label>Personal Phone</label>
                     <div className="input-with-icon">
                       <FaPhone className="input-icon" />
@@ -519,10 +513,16 @@ const EditEmployeePage = () => {
                         disabled={isSubmitting}
                       />
                     </div>
-                    {errors.personal_phone && <span className="error-message">{errors.personal_phone}</span>}
+                    {errors.personal_phone && (
+                      <span className="error-message">
+                        {errors.personal_phone}
+                      </span>
+                    )}
                   </div>
 
-                  <div className={`form-group ${errors.office_phone ? 'error' : ''}`}>
+                  <div
+                    className={`form-group ${errors.office_phone ? "error" : ""}`}
+                  >
                     <label>Office Phone</label>
                     <div className="input-with-icon">
                       <FaPhone className="input-icon" />
@@ -535,7 +535,11 @@ const EditEmployeePage = () => {
                         disabled={isSubmitting}
                       />
                     </div>
-                    {errors.office_phone && <span className="error-message">{errors.office_phone}</span>}
+                    {errors.office_phone && (
+                      <span className="error-message">
+                        {errors.office_phone}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-group">
@@ -656,29 +660,48 @@ const EditEmployeePage = () => {
                         disabled={isSubmitting}
                         multiple
                         size={4}
-                        style={{ height: 'auto', minHeight: '120px' }}
+                        style={{ height: "auto", minHeight: "120px" }}
                       >
                         <option value="">Select Management Departments</option>
                         {merchandising_departments.map((md) => (
                           <option key={md.id} value={md.id}>
-                            {md.merchandising_department_name || md.merchandising_department || md.name || md.department_name || `Dept ${md.id}`}
+                            {md.merchandising_department_name ||
+                              md.merchandising_department ||
+                              md.name ||
+                              md.department_name ||
+                              `Dept ${md.id}`}
                           </option>
                         ))}
                       </select>
                     </div>
                     <small className="optional-text">
-                      Hold Ctrl (Windows) or Cmd (Mac) to select multiple departments
+                      Hold Ctrl (Windows) or Cmd (Mac) to select multiple
+                      departments
                     </small>
-                    {employee.merchandising_department && employee.merchandising_department.length > 0 && (
-                      <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
-                        <strong>Selected:</strong> {
-                          employee.merchandising_department.map(id => {
-                            const dept = merchandising_departments.find(d => d.id === id);
-                            return dept ? dept.merchandising_department_name || dept.merchandising_department || dept.name : id;
-                          }).join(', ')
-                        }
-                      </div>
-                    )}
+                    {employee.merchandising_department &&
+                      employee.merchandising_department.length > 0 && (
+                        <div
+                          style={{
+                            marginTop: "8px",
+                            fontSize: "13px",
+                            color: "#666",
+                          }}
+                        >
+                          <strong>Selected:</strong>{" "}
+                          {employee.merchandising_department
+                            .map((id) => {
+                              const dept = merchandising_departments.find(
+                                (d) => d.id === id,
+                              );
+                              return dept
+                                ? dept.merchandising_department_name ||
+                                    dept.merchandising_department ||
+                                    dept.name
+                                : id;
+                            })
+                            .join(", ")}
+                        </div>
+                      )}
                   </div>
 
                   <div className="form-group">
@@ -716,7 +739,7 @@ const EditEmployeePage = () => {
                   <h3>Financial Information</h3>
                 </div>
                 <div className="form-grid">
-                  <div className={`form-group ${errors.salary ? 'error' : ''}`}>
+                  <div className={`form-group ${errors.salary ? "error" : ""}`}>
                     <label>Salary</label>
                     <div className="input-with-icon currency">
                       <span className="currency-symbol">৳</span>
@@ -731,10 +754,14 @@ const EditEmployeePage = () => {
                         step="0.01"
                       />
                     </div>
-                    {errors.salary && <span className="error-message">{errors.salary}</span>}
+                    {errors.salary && (
+                      <span className="error-message">{errors.salary}</span>
+                    )}
                   </div>
 
-                  <div className={`form-group ${errors.salary_cash ? 'error' : ''}`}>
+                  <div
+                    className={`form-group ${errors.salary_cash ? "error" : ""}`}
+                  >
                     <label>Salary (Cash Portion)</label>
                     <div className="input-with-icon currency">
                       <span className="currency-symbol">৳</span>
@@ -749,7 +776,11 @@ const EditEmployeePage = () => {
                         step="0.01"
                       />
                     </div>
-                    {errors.salary_cash && <span className="error-message">{errors.salary_cash}</span>}
+                    {errors.salary_cash && (
+                      <span className="error-message">
+                        {errors.salary_cash}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-group">
@@ -851,15 +882,20 @@ const EditEmployeePage = () => {
                       return (
                         <label
                           key={c.id}
-                          className={`customer-checkbox ${checked ? 'checked' : ''}`}
+                          className={`customer-checkbox ${checked ? "checked" : ""}`}
                         >
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => !isSubmitting && handleCustomerCheckboxChange(c.id)}
+                            onChange={() =>
+                              !isSubmitting &&
+                              handleCustomerCheckboxChange(c.id)
+                            }
                             disabled={isSubmitting}
                           />
-                          <span className="customer-name">{c.customer_name}</span>
+                          <span className="customer-name">
+                            {c.customer_name}
+                          </span>
                         </label>
                       );
                     })}
@@ -904,7 +940,9 @@ const EditEmployeePage = () => {
                   </div>
                   <div className="upload-instructions">
                     <p>Upload a clear photo of the employee</p>
-                    <small>Recommended: Square image, max 2MB, JPG/PNG format</small>
+                    <small>
+                      Recommended: Square image, max 2MB, JPG/PNG format
+                    </small>
                   </div>
                 </div>
               </div>
