@@ -164,6 +164,13 @@ const Sidebar = () => {
 
   const isHeadOfDesign = designation.toLowerCase().includes("head of design");
 
+  // Merchandiser - Production sits in the Production department, not
+  // Merchandising, so departmentPermissions.isMerchandising misses them -
+  // grant the Merchandising module by designation instead.
+  const isMerchandiserProduction = designation
+    .toLowerCase()
+    .includes("merchandiser - production");
+
   // Group HR Head is a limited HR user (not full access)
   const isLimitedHR = designation.toLowerCase().includes("group hr head");
 
@@ -427,7 +434,7 @@ const Sidebar = () => {
         ]
       : []),
 
-    ...(departmentPermissions.isMerchandising
+    ...(departmentPermissions.isMerchandising || isMerchandiserProduction
       ? [
           {
             to: "/merchandiser-dashboard",
