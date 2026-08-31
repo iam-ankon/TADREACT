@@ -16,6 +16,7 @@ import {
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
 import SampleSection from "../merchandiser/SampleSection";
+import { canViewOrderPricing, canViewOrderAttachments } from "../../utils/accessControl";
 import {
   FaArrowLeft,
   FaEdit,
@@ -688,14 +689,16 @@ const DetailOrder = () => {
               >
                 <FaEnvelope />
               </button>
-              <button
-                style={styles.btnIcon}
-                onClick={handleDownload}
-                title="Download Excel"
-                disabled={downloading}
-              >
-                {downloading ? "..." : <FaDownload />}
-              </button>
+              {canViewOrderPricing() && (
+                <button
+                  style={styles.btnIcon}
+                  onClick={handleDownload}
+                  title="Download Excel"
+                  disabled={downloading}
+                >
+                  {downloading ? "..." : <FaDownload />}
+                </button>
+              )}
               <button
                 style={styles.btnPrimary}
                 onClick={() => navigate(`/orders/edit/${id}`)}
@@ -779,24 +782,28 @@ const DetailOrder = () => {
 
           {/* Stats Cards */}
           <div style={styles.statsGrid}>
-            <MetricCard
-              title="Total Value"
-              value={formatCurrency(order.total_value)}
-              icon={<FaDollarSign />}
-              color="#3b82f6"
-            />
+            {canViewOrderPricing() && (
+              <MetricCard
+                title="Total Value"
+                value={formatCurrency(order.total_value)}
+                icon={<FaDollarSign />}
+                color="#3b82f6"
+              />
+            )}
             <MetricCard
               title="Quantity"
               value={formatNumber(order.total_qty)}
               icon={<FaBoxes />}
               color="#10b981"
             />
-            <MetricCard
-              title="Unit Price"
-              value={formatCurrency(order.unit_price)}
-              icon={<FaDollarSign />}
-              color="#f59e0b"
-            />
+            {canViewOrderPricing() && (
+              <MetricCard
+                title="Unit Price"
+                value={formatCurrency(order.unit_price)}
+                icon={<FaDollarSign />}
+                color="#f59e0b"
+              />
+            )}
             <MetricCard
               title="Shipped"
               value={`${formatNumber(order.shipped_qty)} pcs`}
@@ -849,13 +856,15 @@ const DetailOrder = () => {
               active={activeTab}
               onClick={setActiveTab}
             />
-            <TabButton
-              id="files"
-              label="Files & Images"
-              icon={<FaPaperclip />}
-              active={activeTab}
-              onClick={setActiveTab}
-            />
+            {canViewOrderAttachments() && (
+              <TabButton
+                id="files"
+                label="Files & Images"
+                icon={<FaPaperclip />}
+                active={activeTab}
+                onClick={setActiveTab}
+              />
+            )}
             {/* ADD THIS - Courier Tab */}
             <TabButton
               id="courier"
@@ -1136,36 +1145,44 @@ const DetailOrder = () => {
                   </SectionCard>
 
                   <SectionCard title="Pricing Details" icon={<FaDollarSign />}>
-                    <InfoRow
-                      label="Unit Price"
-                      value={formatCurrency(order.unit_price)}
-                      icon={<FaDollarSign />}
-                    />
+                    {canViewOrderPricing() && (
+                      <InfoRow
+                        label="Unit Price"
+                        value={formatCurrency(order.unit_price)}
+                        icon={<FaDollarSign />}
+                      />
+                    )}
                     <InfoRow
                       label="Total Quantity"
                       value={formatNumber(order.total_qty)}
                       icon={<FaBoxes />}
                     />
-                    <InfoRow
-                      label="Total Value"
-                      value={formatCurrency(order.total_value)}
-                      icon={<FaDollarSign />}
-                    />
-                    <InfoRow
-                      label="Factory Value"
-                      value={formatCurrency(order.factory_value)}
-                      icon={<FaIndustry />}
-                    />
+                    {canViewOrderPricing() && (
+                      <InfoRow
+                        label="Total Value"
+                        value={formatCurrency(order.total_value)}
+                        icon={<FaDollarSign />}
+                      />
+                    )}
+                    {canViewOrderPricing() && (
+                      <InfoRow
+                        label="Factory Value"
+                        value={formatCurrency(order.factory_value)}
+                        icon={<FaIndustry />}
+                      />
+                    )}
                     <InfoRow
                       label="Shipped Qty"
                       value={formatNumber(order.shipped_qty)}
                       icon={<FaTruck />}
                     />
-                    <InfoRow
-                      label="Shipped Value"
-                      value={formatCurrency(order.shipped_value)}
-                      icon={<FaDollarSign />}
-                    />
+                    {canViewOrderPricing() && (
+                      <InfoRow
+                        label="Shipped Value"
+                        value={formatCurrency(order.shipped_value)}
+                        icon={<FaDollarSign />}
+                      />
+                    )}
                     <InfoRow
                       label="Grand Total (from colors)"
                       value={formatNumber(order.grand_total)}
@@ -1538,7 +1555,7 @@ const DetailOrder = () => {
             )}
 
             {/* Files Tab */}
-            {activeTab === "files" && (
+            {activeTab === "files" && canViewOrderAttachments() && (
               <div style={styles.tabPanel}>
                 <SectionCard
                   title="Order Files & Attachments"

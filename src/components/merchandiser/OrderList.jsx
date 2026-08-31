@@ -20,6 +20,7 @@ import {
   exportOrdersToExcelFiltered,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
+import { canViewOrderPricing } from "../../utils/accessControl";
 import {
   FaPlus,
   FaTrash,
@@ -270,6 +271,16 @@ const statusConfig = {
     label: "Draft",
   },
 };
+
+// Column keys carrying monetary data - hidden from users without order
+// pricing access (see utils/accessControl.js), regardless of what's saved
+// in their localStorage column preferences.
+const PRICING_COLUMN_KEYS = [
+  "unit_price",
+  "total_value",
+  "shipped_value",
+  "factory_value",
+];
 
 // Column configuration
 const ALL_COLUMNS = [
@@ -757,7 +768,12 @@ const OrderList = () => {
     const missing = visibleColumns.filter((key) => !columnOrder.includes(key));
     // Deduplicate to prevent duplicates when dragging the remarks column
     const combined = [...visible, ...missing];
-    return combined.filter((key, idx) => combined.indexOf(key) === idx);
+    const deduped = combined.filter((key, idx) => combined.indexOf(key) === idx);
+    // Strip pricing columns for users without order pricing access, even
+    // if an old localStorage preference still has them turned on.
+    return canViewOrderPricing()
+      ? deduped
+      : deduped.filter((key) => !PRICING_COLUMN_KEYS.includes(key));
   }, [columnOrder, visibleColumns]);
 
   // ========== BUILD FILTERS OBJECT ==========
@@ -2467,16 +2483,18 @@ const fetchStats = useCallback(async () => {
               </div>
             </div>
             <div style={styles.headerActions}>
-              <button
-                style={styles.btnExport}
-                onClick={handleExport}
-                disabled={loading || orders.length === 0}
-              >
-                <FaDownload />
-                {selectedRows.length > 0
-                  ? `Export ${selectedRows.length} Selected`
-                  : "Export All"}
-              </button>
+              {canViewOrderPricing() && (
+                <button
+                  style={styles.btnExport}
+                  onClick={handleExport}
+                  disabled={loading || orders.length === 0}
+                >
+                  <FaDownload />
+                  {selectedRows.length > 0
+                    ? `Export ${selectedRows.length} Selected`
+                    : "Export All"}
+                </button>
+              )}
               <button
                 style={styles.btnPrimary}
                 onClick={() => navigate("/orders/add")}
@@ -2526,25 +2544,27 @@ const fetchStats = useCallback(async () => {
                     </div>
                   </div>
                 </div>
-                <div style={styles.statCard}>
-                  <div style={{ ...styles.statIcon, ...styles.statIconGreen }}>
-                    <FaDollarSign />
-                  </div>
-                  <div style={styles.statContent}>
-                    <span style={styles.statLabel}>Total Value</span>
-                    <span
-                      style={{
-                        ...styles.statValue,
-                        fontSize: getValueFontSize(stats.total_value),
-                      }}
-                    >
-                      {formatCurrency(stats.total_value)}
-                    </span>
-                    <div style={styles.statSubInfo}>
-                      Avg: {formatCurrency(stats.avg_price_per_unit)}/unit
+                {canViewOrderPricing() && (
+                  <div style={styles.statCard}>
+                    <div style={{ ...styles.statIcon, ...styles.statIconGreen }}>
+                      <FaDollarSign />
+                    </div>
+                    <div style={styles.statContent}>
+                      <span style={styles.statLabel}>Total Value</span>
+                      <span
+                        style={{
+                          ...styles.statValue,
+                          fontSize: getValueFontSize(stats.total_value),
+                        }}
+                      >
+                        {formatCurrency(stats.total_value)}
+                      </span>
+                      <div style={styles.statSubInfo}>
+                        Avg: {formatCurrency(stats.avg_price_per_unit)}/unit
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* NEW: Shipped Orders Card */}
                 <div style={styles.statCard}>
@@ -2559,9 +2579,11 @@ const fetchStats = useCallback(async () => {
                     <div style={styles.statSubInfo}>
                       Qty: {formatNumber(stats.shipped_quantity)}
                     </div>
-                    <div style={styles.statSmallInfo}>
-                      Value: {formatCurrency(stats.shipped_value)}
-                    </div>
+                    {canViewOrderPricing() && (
+                      <div style={styles.statSmallInfo}>
+                        Value: {formatCurrency(stats.shipped_value)}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2578,9 +2600,11 @@ const fetchStats = useCallback(async () => {
                     <div style={styles.statSubInfo}>
                       Qty: {formatNumber(stats.not_shipped_quantity)}
                     </div>
-                    <div style={styles.statSmallInfo}>
-                      Value: {formatCurrency(stats.not_shipped_value)}
-                    </div>
+                    {canViewOrderPricing() && (
+                      <div style={styles.statSmallInfo}>
+                        Value: {formatCurrency(stats.not_shipped_value)}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2631,19 +2655,23 @@ const fetchStats = useCallback(async () => {
                         stats.garment_stats?.knit?.total_quantity || 0,
                       )}
                     </div>
-                    <div style={styles.statSubInfo}>
-                      Value:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.knit?.total_value || 0,
-                      )}
-                    </div>
-                    <div style={styles.statSmallInfo}>
-                      Avg:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.knit?.avg_price || 0,
-                      )}
-                      /unit
-                    </div>
+                    {canViewOrderPricing() && (
+                      <>
+                        <div style={styles.statSubInfo}>
+                          Value:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.knit?.total_value || 0,
+                          )}
+                        </div>
+                        <div style={styles.statSmallInfo}>
+                          Avg:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.knit?.avg_price || 0,
+                          )}
+                          /unit
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={styles.statCard}>
@@ -2658,19 +2686,23 @@ const fetchStats = useCallback(async () => {
                         stats.garment_stats?.woven?.total_quantity || 0,
                       )}
                     </div>
-                    <div style={styles.statSubInfo}>
-                      Value:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.woven?.total_value || 0,
-                      )}
-                    </div>
-                    <div style={styles.statSmallInfo}>
-                      Avg:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.woven?.avg_price || 0,
-                      )}
-                      /unit
-                    </div>
+                    {canViewOrderPricing() && (
+                      <>
+                        <div style={styles.statSubInfo}>
+                          Value:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.woven?.total_value || 0,
+                          )}
+                        </div>
+                        <div style={styles.statSmallInfo}>
+                          Avg:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.woven?.avg_price || 0,
+                          )}
+                          /unit
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={styles.statCard}>
@@ -2687,19 +2719,23 @@ const fetchStats = useCallback(async () => {
                         stats.garment_stats?.sweater?.total_quantity || 0,
                       )}
                     </div>
-                    <div style={styles.statSubInfo}>
-                      Value:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.sweater?.total_value || 0,
-                      )}
-                    </div>
-                    <div style={styles.statSmallInfo}>
-                      Avg:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.sweater?.avg_price || 0,
-                      )}
-                      /unit
-                    </div>
+                    {canViewOrderPricing() && (
+                      <>
+                        <div style={styles.statSubInfo}>
+                          Value:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.sweater?.total_value || 0,
+                          )}
+                        </div>
+                        <div style={styles.statSmallInfo}>
+                          Avg:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.sweater?.avg_price || 0,
+                          )}
+                          /unit
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={styles.statCard}>
@@ -2714,19 +2750,23 @@ const fetchStats = useCallback(async () => {
                         stats.garment_stats?.underwear?.total_quantity || 0,
                       )}
                     </div>
-                    <div style={styles.statSubInfo}>
-                      Value:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.underwear?.total_value || 0,
-                      )}
-                    </div>
-                    <div style={styles.statSmallInfo}>
-                      Avg:{" "}
-                      {formatCurrency(
-                        stats.garment_stats?.underwear?.avg_price || 0,
-                      )}
-                      /unit
-                    </div>
+                    {canViewOrderPricing() && (
+                      <>
+                        <div style={styles.statSubInfo}>
+                          Value:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.underwear?.total_value || 0,
+                          )}
+                        </div>
+                        <div style={styles.statSmallInfo}>
+                          Avg:{" "}
+                          {formatCurrency(
+                            stats.garment_stats?.underwear?.avg_price || 0,
+                          )}
+                          /unit
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3552,7 +3592,11 @@ const fetchStats = useCallback(async () => {
                           </div>
                         </div>
                         <div style={styles.columnSelectorList}>
-                          {ALL_COLUMNS.map((column) => (
+                          {ALL_COLUMNS.filter(
+                            (column) =>
+                              canViewOrderPricing() ||
+                              !PRICING_COLUMN_KEYS.includes(column.key),
+                          ).map((column) => (
                             <label
                               key={column.key}
                               style={styles.columnCheckboxLabel}
