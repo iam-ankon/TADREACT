@@ -284,6 +284,37 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // File preview: clicking a file (the "Files" badge on a row, or an
+  // attachment in the Edit modal) opens this instead of downloading it
+  // straight away. `previewGroup.attachments` is whichever attachment
+  // list was clicked from (so the arrows can step through the rest of
+  // that sample's files); `previewIndex` is which one is shown large.
+  const [previewGroup, setPreviewGroup] = useState(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
+  const openFilePreview = (attachments, title, startIndex = 0) => {
+    if (!attachments || attachments.length === 0) return;
+    setPreviewGroup({ title, attachments });
+    setPreviewIndex(startIndex);
+  };
+
+  const closeFilePreview = () => {
+    setPreviewGroup(null);
+    setPreviewIndex(0);
+  };
+
+  const getFileKind = (attachment) => {
+    const name = (
+      attachment?.original_filename ||
+      attachment?.file_url ||
+      attachment?.file ||
+      ""
+    ).toLowerCase();
+    if (/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(name)) return "image";
+    if (/\.pdf$/.test(name)) return "pdf";
+    return "other";
+  };
+
   // Quick-approve checkbox in the table (approves/un-approves a Sample
   // immediately, without opening the Edit modal). Tracks which row is
   // mid-request so its checkbox can show a spinner/disabled state, same
@@ -371,16 +402,6 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
   useEffect(() => {
     fetchCourierSamples();
   }, [fetchCourierSamples]);
-
-  const openAddModal = () => {
-    setEditingId(null);
-    setForm({ ...emptyForm, tna: tnaFromOrder(emptyForm.sample_type) });
-    setFormErrors({});
-    setExistingAttachments([]);
-    setPendingAttachments([]);
-    setAttachmentError("");
-    setShowModal(true);
-  };
 
   // Opens the same Create Sample modal, prefilled from a Courier
   // Management item that doesn't have a matching Sample record yet -
@@ -735,9 +756,6 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
             Includes samples created here and items added for this order in Courier Management.
           </p>
         </div>
-        <button style={styles.addBtn} onClick={openAddModal}>
-          <FaPlus /> Create Sample
-        </button>
       </div>
 
       {hasRows && (
@@ -785,9 +803,6 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
         <div style={styles.emptyState}>
           <FaFlask style={{ fontSize: 40, color: "#cbd5e1" }} />
           <p>No samples created for this order yet.</p>
-          <button style={styles.addBtnSecondary} onClick={openAddModal}>
-            <FaPlus /> Create the first Sample
-          </button>
         </div>
       ) : (
         <div style={styles.tableWrapper}>
@@ -855,8 +870,13 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
                       <button
                         type="button"
                         style={styles.attachmentCountBtn}
-                        title="View / manage files"
-                        onClick={() => openEditModal(s)}
+                        title="Preview files"
+                        onClick={() =>
+                          openFilePreview(
+                            s.attachments,
+                            s.sample_name || s.sample_type_display || "Sample"
+                          )
+                        }
                       >
                         <FaFileAlt style={{ fontSize: 11 }} /> {s.attachments.length}
                       </button>
@@ -1233,12 +1253,23 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
 
                     {(existingAttachments.length > 0 || pendingAttachments.length > 0) && (
                       <div style={styles.attachmentList}>
-                        {existingAttachments.map((att) => (
+                        {existingAttachments.map((att, idx) => (
                           <div key={`existing-${att.id}`} style={styles.attachmentItem}>
                             <FaFileAlt style={{ color: "#7c3aed", flexShrink: 0 }} />
-                            <span style={styles.attachmentName}>
+                            <button
+                              type="button"
+                              style={styles.attachmentNameBtn}
+                              title="Preview file"
+                              onClick={() =>
+                                openFilePreview(
+                                  existingAttachments,
+                                  form.sample_name || "Sample",
+                                  idx
+                                )
+                              }
+                            >
                               {att.original_filename || `Attachment #${att.id}`}
-                            </span>
+                            </button>
                             <a
                               href={att.file_url || att.file || "#"}
                               target="_blank"
@@ -1358,6 +1389,115 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
           </div>
         </div>
       )}
+
+      {/* File Preview */}
+      {previewGroup && (() => {
+        const attachment = previewGroup.attachments[previewIndex];
+        const url = attachment.file_url || attachment.file || "";
+        const kind = getFileKind(attachment);
+        const name = attachment.original_filename || `Attachment #${attachment.id}`;
+        const hasMultiple = previewGroup.attachments.length > 1;
+        return (
+          <div style={styles.modalOverlay} className="sample-modal-overlay" onClick={closeFilePreview}>
+            <div
+              style={{ ...styles.modal, maxWidth: 800 }}
+              className="sample-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={styles.modalHeader}>
+                <h3 style={styles.modalTitle}>
+                  <FaFileAlt style={{ marginRight: 8, color: "#7c3aed" }} />
+                  {previewGroup.title}
+                  <span style={styles.modalSubtitleInline}> — {name}</span>
+                </h3>
+                <button style={styles.modalClose} onClick={closeFilePreview}>
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div style={{ ...styles.modalBody, display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                <div style={styles.previewStage}>
+                  {hasMultiple && (
+                    <button
+                      type="button"
+                      style={{ ...styles.previewNavBtn, left: 8 }}
+                      onClick={() =>
+                        setPreviewIndex(
+                          (previewIndex - 1 + previewGroup.attachments.length) %
+                            previewGroup.attachments.length
+                        )
+                      }
+                      title="Previous file"
+                    >
+                      ‹
+                    </button>
+                  )}
+
+                  {kind === "image" ? (
+                    <img src={url} alt={name} style={styles.previewImage} />
+                  ) : kind === "pdf" ? (
+                    <iframe title={name} src={url} style={styles.previewFrame} />
+                  ) : (
+                    <div style={styles.previewFallback}>
+                      <FaFileAlt style={{ fontSize: 40, color: "#94a3b8" }} />
+                      <p style={{ margin: "10px 0 0", color: "#64748b", fontSize: 13 }}>
+                        No inline preview available for this file type.
+                      </p>
+                    </div>
+                  )}
+
+                  {hasMultiple && (
+                    <button
+                      type="button"
+                      style={{ ...styles.previewNavBtn, right: 8 }}
+                      onClick={() =>
+                        setPreviewIndex((previewIndex + 1) % previewGroup.attachments.length)
+                      }
+                      title="Next file"
+                    >
+                      ›
+                    </button>
+                  )}
+                </div>
+
+                {hasMultiple && (
+                  <div style={styles.previewThumbStrip}>
+                    {previewGroup.attachments.map((att, idx) => (
+                      <button
+                        key={att.id}
+                        type="button"
+                        title={att.original_filename || `Attachment #${att.id}`}
+                        onClick={() => setPreviewIndex(idx)}
+                        style={{
+                          ...styles.previewThumb,
+                          ...(idx === previewIndex ? styles.previewThumbActive : {}),
+                        }}
+                      >
+                        <FaFileAlt />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.modalFooter}>
+                <a
+                  href={url || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  style={{ ...styles.cancelBtn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <FaDownload /> Download
+                </a>
+                <button type="button" style={styles.submitBtn} onClick={closeFilePreview}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -1388,33 +1528,6 @@ const styles = {
     color: "#64748b",
     margin: "4px 0 0",
     maxWidth: 560,
-  },
-  addBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "10px 16px",
-    backgroundColor: "#7c3aed",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  addBtnSecondary: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "9px 14px",
-    backgroundColor: "#fff",
-    color: "#7c3aed",
-    border: "1px solid #7c3aed",
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-    marginTop: 12,
   },
   statsRow: {
     display: "grid",
@@ -1712,6 +1825,21 @@ const styles = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  attachmentNameBtn: {
+    flex: 1,
+    fontSize: 12,
+    color: "#334155",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    textAlign: "left",
+    background: "none",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    textDecoration: "underline",
+    textDecorationColor: "transparent",
+  },
   attachmentActionBtn: {
     display: "inline-flex",
     alignItems: "center",
@@ -1744,6 +1872,75 @@ const styles = {
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",
+  },
+  previewStage: {
+    position: "relative",
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 240,
+  },
+  previewImage: {
+    maxWidth: "100%",
+    maxHeight: "65vh",
+    objectFit: "contain",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+  },
+  previewFrame: {
+    width: "100%",
+    height: "65vh",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+  },
+  previewFallback: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "48px 16px",
+  },
+  previewNavBtn: {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: 36,
+    height: 36,
+    borderRadius: "50%",
+    border: "1px solid #e2e8f0",
+    backgroundColor: "#fff",
+    color: "#334155",
+    fontSize: 20,
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 2px 6px rgba(15,23,42,0.15)",
+  },
+  previewThumbStrip: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  previewThumb: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 34,
+    height: 34,
+    borderRadius: 6,
+    border: "1px solid #e2e8f0",
+    backgroundColor: "#fff",
+    color: "#94a3b8",
+    cursor: "pointer",
+  },
+  previewThumbActive: {
+    borderColor: "#7c3aed",
+    color: "#7c3aed",
+    backgroundColor: "#f5f3ff",
   },
   modalFooter: {
     display: "flex",

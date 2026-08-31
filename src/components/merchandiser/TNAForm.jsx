@@ -431,11 +431,13 @@ export default function TNAForm() {
     fabric_approved_date: "",
     fabric_booking_date: "",
     fabric_lc_date: "",
+    bulk_fabric_approve_date: "",
     fabric_etd: "",
     fabric_eta: "",
     fabric_inhouse_date: "",
     lab_dip_date: "",
     fit_sample_date: "",
+    pp_sample_yardage_china_date: "",
     pps_date: "",
     ps_date: "",
     production_start_date: "",
@@ -501,25 +503,24 @@ export default function TNAForm() {
       newDates.fabric_approved_date = approvedDate.toISOString().split('T')[0];
     }
     
-    // 4. Fabric ETD based on fabric type
+    // 4. Bulk Fabric Approve Date = Fabric Booking Date + 30 days
     if (newDates.fabric_booking_date) {
-      const etdDate = new Date(newDates.fabric_booking_date);
-      if (formData.fabric_type === 'imported') {
-        etdDate.setDate(etdDate.getDate() + 55);
-      } else {
-        etdDate.setDate(etdDate.getDate() + 25);
-      }
+      const bulkApproveDate = new Date(newDates.fabric_booking_date);
+      bulkApproveDate.setDate(bulkApproveDate.getDate() + 30);
+      newDates.bulk_fabric_approve_date = bulkApproveDate.toISOString().split('T')[0];
+    }
+
+    // 4b. Fabric ETD = Bulk Fabric Approve Date + 35 days
+    if (newDates.bulk_fabric_approve_date) {
+      const etdDate = new Date(newDates.bulk_fabric_approve_date);
+      etdDate.setDate(etdDate.getDate() + 35);
       newDates.fabric_etd = etdDate.toISOString().split('T')[0];
     }
-    
-    // 5. Fabric ETA based on fabric type
+
+    // 5. Fabric ETA = Fabric ETD + 15 days
     if (newDates.fabric_etd) {
       const etaDate = new Date(newDates.fabric_etd);
-      if (formData.fabric_type === 'imported') {
-        etaDate.setDate(etaDate.getDate() + 25);
-      } else {
-        etaDate.setDate(etaDate.getDate() + 10);
-      }
+      etaDate.setDate(etaDate.getDate() + 15);
       newDates.fabric_eta = etaDate.toISOString().split('T')[0];
     }
     
@@ -538,11 +539,27 @@ export default function TNAForm() {
       newDates.fit_sample_date = sampleDate.toISOString().split('T')[0];
     }
     
-    // 8. PPS = Fabric Booking Date + 20 days
-    if (newDates.fabric_booking_date) {
+    // 8. PP Sample Yardage (China) = Fabric ETD - 7 days (imported only)
+    if (formData.fabric_type === 'imported' && newDates.fabric_etd) {
+      const yardageDate = new Date(newDates.fabric_etd);
+      yardageDate.setDate(yardageDate.getDate() - 7);
+      newDates.pp_sample_yardage_china_date = yardageDate.toISOString().split('T')[0];
+    } else {
+      newDates.pp_sample_yardage_china_date = "";
+    }
+
+    // 8b. PPS = PP Sample Yardage (China) + 12 days (imported), or
+    //     Fabric Booking Date + 20 days (local — no PP Sample Yardage step)
+    if (formData.fabric_type === 'imported' && newDates.pp_sample_yardage_china_date) {
+      const ppsDate = new Date(newDates.pp_sample_yardage_china_date);
+      ppsDate.setDate(ppsDate.getDate() + 12);
+      newDates.pps_date = ppsDate.toISOString().split('T')[0];
+    } else if (formData.fabric_type !== 'imported' && newDates.fabric_booking_date) {
       const ppsDate = new Date(newDates.fabric_booking_date);
       ppsDate.setDate(ppsDate.getDate() + 20);
       newDates.pps_date = ppsDate.toISOString().split('T')[0];
+    } else {
+      newDates.pps_date = "";
     }
     
     // 9. Production Start = Fabric Inhouse + 10 days
@@ -628,11 +645,13 @@ export default function TNAForm() {
         fabric_approved_date: data.fabric_approved_date || "",
         fabric_booking_date: data.fabric_booking_date || "",
         fabric_lc_date: data.fabric_lc_date || "",
+        bulk_fabric_approve_date: data.bulk_fabric_approve_date || "",
         fabric_etd: data.fabric_etd || "",
         fabric_eta: data.fabric_eta || "",
         fabric_inhouse_date: data.fabric_inhouse_date || "",
         lab_dip_date: data.lab_dip_date || "",
         fit_sample_date: data.fit_sample_date || "",
+        pp_sample_yardage_china_date: data.pp_sample_yardage_china_date || "",
         pps_date: data.pps_date || "",
         ps_date: data.ps_date || "",
         test_samples_date: data.test_samples_date || "",
@@ -794,11 +813,13 @@ export default function TNAForm() {
         fabric_approved_date: "",
         fabric_booking_date: "",
         fabric_lc_date: "",
+        bulk_fabric_approve_date: "",
         fabric_etd: "",
         fabric_eta: "",
         fabric_inhouse_date: "",
         lab_dip_date: "",
         fit_sample_date: "",
+        pp_sample_yardage_china_date: "",
         pps_date: "",
         ps_date: "",
         test_samples_date: "",
@@ -852,21 +873,19 @@ export default function TNAForm() {
     return `${daysToShipment} days remaining`;
   };
 
-  const getEtdFormula = () => {
-    return formData.fabric_type === 'imported' 
-      ? '= Fabric Booking Date + 55 days' 
-      : '= Fabric Booking Date + 25 days';
-  };
+  const getEtdFormula = () => '= Bulk Fabric Approve Date + 35 days';
 
-  const getEtaFormula = () => {
-    return formData.fabric_type === 'imported' 
-      ? '= Fabric ETD + 25 days' 
-      : '= Fabric ETD + 10 days';
+  const getEtaFormula = () => '= Fabric ETD + 15 days';
+
+  const getPpsFormula = () => {
+    return formData.fabric_type === 'imported'
+      ? '= PP Sample Yardage (China) + 12 days'
+      : '= Fabric Booking Date + 20 days';
   };
 
   const getApprovedFormula = () => {
-    return formData.fabric_type === 'imported' 
-      ? '= Shipment Date - 120 days' 
+    return formData.fabric_type === 'imported'
+      ? '= Shipment Date - 120 days'
       : '= Shipment Date - 90 days';
   };
 
@@ -1126,7 +1145,7 @@ export default function TNAForm() {
                   <div style={styles.formulaHint}>{getApprovedFormula()}</div>
                 </div>
               </div>
-              
+
               <div style={styles.calculatedCard}>
                 <div style={styles.calculatedIcon}>📅</div>
                 <div>
@@ -1135,94 +1154,120 @@ export default function TNAForm() {
                   <div style={styles.formulaHint}>= Order Booking Date + 5 days</div>
                 </div>
               </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>📄</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Fabric LC Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_lc_date)}</div>
-                  <div style={styles.formulaHint}>= Fabric Booking Date + 10 days</div>
+            </div>
+
+            <div style={styles.calculatedColumns}>
+              <div style={styles.calculatedColumn}>
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>📦</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Bulk Fabric Approve Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.bulk_fabric_approve_date)}</div>
+                    <div style={styles.formulaHint}>= Fabric Booking Date + 30 days</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>🚢</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Fabric ETD</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_etd)}</div>
-                  <div style={styles.formulaHint}>{getEtdFormula()}</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>🚢</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Fabric ETD</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_etd)}</div>
+                    <div style={styles.formulaHint}>{getEtdFormula()}</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>📦</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Fabric ETA</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_eta)}</div>
-                  <div style={styles.formulaHint}>{getEtaFormula()}</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>📦</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Fabric ETA</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_eta)}</div>
+                    <div style={styles.formulaHint}>{getEtaFormula()}</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>🏭</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Fabric Inhouse Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_inhouse_date)}</div>
-                  <div style={styles.formulaHint}>= Fabric ETA + 10 days</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>🏭</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Fabric Inhouse Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_inhouse_date)}</div>
+                    <div style={styles.formulaHint}>= Fabric ETA + 10 days</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>🎨</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Lab Dip Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.lab_dip_date)}</div>
-                  <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>🏭</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Production Start Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.production_start_date)}</div>
+                    <div style={styles.formulaHint}>= Fabric Inhouse + 10 days</div>
+                  </div>
                 </div>
+
+                {formData.fabric_type === 'imported' && (
+                  <div style={styles.calculatedCard}>
+                    <div style={styles.calculatedIcon}>🧵</div>
+                    <div>
+                      <label style={styles.calculatedLabel}>PP Sample Yardage (China)</label>
+                      <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.pp_sample_yardage_china_date)}</div>
+                      <div style={styles.formulaHint}>= Fabric ETD - 7 days</div>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>👕</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Fit Sample Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fit_sample_date)}</div>
-                  <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
+
+              <div style={styles.calculatedColumn}>
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>🎨</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Lab Dip Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.lab_dip_date)}</div>
+                    <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>⚙️</div>
-                <div>
-                  <label style={styles.calculatedLabel}>PPS Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.pps_date)}</div>
-                  <div style={styles.formulaHint}>= Fabric Booking Date + 20 days</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>👕</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Fit Sample Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fit_sample_date)}</div>
+                    <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>🏭</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Production Start Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.production_start_date)}</div>
-                  <div style={styles.formulaHint}>= Fabric Inhouse + 10 days</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>📦</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>PS Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.ps_date)}</div>
+                    <div style={styles.formulaHint}>= Production Start + 10 days</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>📦</div>
-                <div>
-                  <label style={styles.calculatedLabel}>PS Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.ps_date)}</div>
-                  <div style={styles.formulaHint}>= Production Start + 10 days</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>⚙️</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>PPS Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.pps_date)}</div>
+                    <div style={styles.formulaHint}>{getPpsFormula()}</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div style={styles.calculatedCard}>
-                <div style={styles.calculatedIcon}>🔬</div>
-                <div>
-                  <label style={styles.calculatedLabel}>Test Samples Date</label>
-                  <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.test_samples_date)}</div>
-                  <div style={styles.formulaHint}>= Production Start - 10 days</div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>🔬</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Test Samples Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.test_samples_date)}</div>
+                    <div style={styles.formulaHint}>= Production Start - 10 days</div>
+                  </div>
+                </div>
+
+                <div style={styles.calculatedCard}>
+                  <div style={styles.calculatedIcon}>📄</div>
+                  <div>
+                    <label style={styles.calculatedLabel}>Fabric LC Date</label>
+                    <div style={styles.calculatedValue}>{formatDateWithMonthName(formData.fabric_lc_date)}</div>
+                    <div style={styles.formulaHint}>= Fabric Booking Date + 10 days</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1524,7 +1569,19 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
     gap: "16px",
+    padding: "24px 24px 0",
+  },
+  calculatedColumns: {
+    display: "flex",
+    gap: "16px",
     padding: "24px",
+    flexWrap: "wrap",
+  },
+  calculatedColumn: {
+    flex: "1 1 280px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
   },
   formGroup: {
     display: "flex",

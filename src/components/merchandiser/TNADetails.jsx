@@ -330,7 +330,7 @@ export default function TNADetails() {
             <div style={styles.dateCard}>
               <label style={styles.dateLabel}>Fabric Booking Date</label>
               <div style={styles.dateValue}>{formatDate(tna.fabric_booking_date)}</div>
-              <div style={styles.formulaHint}>→ Calculates: Fabric LC, Fabric ETD, PPS</div>
+              <div style={styles.formulaHint}>→ Calculates: Fabric LC, Bulk Fabric Approve Date{tna.fabric_type !== 'imported' ? ', PPS' : ''}</div>
             </div>
           </div>
         </div>
@@ -342,56 +342,77 @@ export default function TNADetails() {
             <h2 style={styles.sectionTitle}>Auto-Calculated Dates</h2>
             <span style={styles.sectionHint}>Generated automatically</span>
           </div>
-          <div style={styles.calculatedGrid}>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Fabric LC Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.fabric_lc_date)}</div>
-              <div style={styles.formulaHint}>= Fabric Booking Date + 10 days</div>
+          <div style={styles.calculatedColumns}>
+            <div style={styles.calculatedColumn}>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Bulk Fabric Approve Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.bulk_fabric_approve_date)}</div>
+                <div style={styles.formulaHint}>= Fabric Booking Date + 30 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Fabric ETD</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.fabric_etd)}</div>
+                <div style={styles.formulaHint}>= Bulk Fabric Approve Date + 35 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Fabric ETA</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.fabric_eta)}</div>
+                <div style={styles.formulaHint}>= Fabric ETD + 15 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Fabric Inhouse Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.fabric_inhouse_date)}</div>
+                <div style={styles.formulaHint}>= Fabric ETA + 10 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Production Start Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.production_start_date)}</div>
+                <div style={styles.formulaHint}>= Fabric Inhouse + 10 days</div>
+              </div>
+              {tna.fabric_type === 'imported' && (
+                <div style={styles.calculatedCard}>
+                  <label style={styles.calculatedLabel}>PP Sample Yardage (China)</label>
+                  <div style={styles.calculatedValue}>{formatDate(tna.pp_sample_yardage_china_date)}</div>
+                  <div style={styles.formulaHint}>= Fabric ETD - 7 days</div>
+                </div>
+              )}
             </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Fabric ETD</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.fabric_etd)}</div>
-              <div style={styles.formulaHint}>= Fabric Booking Date + 55 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Fabric ETA</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.fabric_eta)}</div>
-              <div style={styles.formulaHint}>= Fabric ETD + 25 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Fabric Inhouse Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.fabric_inhouse_date)}</div>
-              <div style={styles.formulaHint}>= Fabric ETA + 10 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Lab Dip Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.lab_dip_date)}</div>
-              <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Fit Sample Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.fit_sample_date)}</div>
-              <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>PPS Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.pps_date)}</div>
-              <div style={styles.formulaHint}>= Fabric Booking Date + 20 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Production Start Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.production_start_date)}</div>
-              <div style={styles.formulaHint}>= Fabric Inhouse + 10 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>PS Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.ps_date)}</div>
-              <div style={styles.formulaHint}>= Production Start + 10 days</div>
-            </div>
-            <div style={styles.calculatedCard}>
-              <label style={styles.calculatedLabel}>Test Samples Date</label>
-              <div style={styles.calculatedValue}>{formatDate(tna.test_samples_date)}</div>
-              <div style={styles.formulaHint}>= Production Start - 10 days</div>
+
+            <div style={styles.calculatedColumn}>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Lab Dip Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.lab_dip_date)}</div>
+                <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Fit Sample Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.fit_sample_date)}</div>
+                <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>PS Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.ps_date)}</div>
+                <div style={styles.formulaHint}>= Production Start + 10 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>PPS Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.pps_date)}</div>
+                <div style={styles.formulaHint}>
+                  {tna.fabric_type === 'imported'
+                    ? '= PP Sample Yardage (China) + 12 days'
+                    : '= Fabric Booking Date + 20 days'}
+                </div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Test Samples Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.test_samples_date)}</div>
+                <div style={styles.formulaHint}>= Production Start - 10 days</div>
+              </div>
+              <div style={styles.calculatedCard}>
+                <label style={styles.calculatedLabel}>Fabric LC Date</label>
+                <div style={styles.calculatedValue}>{formatDate(tna.fabric_lc_date)}</div>
+                <div style={styles.formulaHint}>= Fabric Booking Date + 10 days</div>
+              </div>
             </div>
           </div>
         </div>
@@ -688,11 +709,17 @@ const styles = {
     fontWeight: "600",
     color: "#0f172a",
   },
-  calculatedGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
+  calculatedColumns: {
+    display: "flex",
     gap: "16px",
     padding: "24px",
+    flexWrap: "wrap",
+  },
+  calculatedColumn: {
+    flex: "1 1 280px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
   },
   calculatedCard: {
     padding: "16px",
