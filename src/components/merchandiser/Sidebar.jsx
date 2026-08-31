@@ -81,6 +81,14 @@ const Sidebar = () => {
 
   const fullAccess = hasFullAccess();
 
+  // Employees with this exact designation (set at login, stored in
+  // localStorage - see LoginPage.jsx) get Courier Management on top of
+  // the standard restricted menu, without granting full access to
+  // everything else (Suppliers, Supplier Capacity, etc. stay hidden).
+  const designation = (localStorage.getItem("designation") || "").trim();
+  const canAccessCourier =
+    fullAccess || designation.toLowerCase() === "merchandiser - production";
+
   // Define all menu items
   const allMenuItems = [
     {
@@ -121,7 +129,8 @@ const Sidebar = () => {
     },
   ];
 
-  // Filter menu items: Full access users see everything, others see only Dashboard and Suppliers
+  // Filter menu items: Full access users see everything; Merchandiser -
+  // Production also sees Courier Management; everyone else restricted.
   const menuItems = fullAccess
     ? allMenuItems
     : allMenuItems.filter(
@@ -133,7 +142,8 @@ const Sidebar = () => {
           item.label === "Inquiries" ||
           item.label === "Orders" ||
           item.label === "T & A" ||
-          item.label === "Commissions",
+          item.label === "Commissions" ||
+          (item.label === "Courier Management" && canAccessCourier),
       );
 
   const sidebarStyle = {
