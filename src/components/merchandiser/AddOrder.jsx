@@ -10,6 +10,7 @@ import {
   getSuppliers,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
+import { canViewOrderPricing, canViewOrderAttachments } from "../../utils/accessControl";
 import {
   FaArrowLeft,
   FaSave,
@@ -1291,17 +1292,19 @@ const AddOrder = () => {
                   <h2 style={styles.sectionTitle}>Pricing & Quantity</h2>
                 </div>
                 <div style={styles.formGrid}>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Unit Price ($)</label>
-                    <input
-                      type="number"
-                      name="unit_price"
-                      value={formData.unit_price}
-                      onChange={handleChange}
-                      step="0.01"
-                      style={styles.input}
-                    />
-                  </div>
+                  {canViewOrderPricing() && (
+                    <div style={styles.formField}>
+                      <label style={styles.formLabel}>Unit Price ($)</label>
+                      <input
+                        type="number"
+                        name="unit_price"
+                        value={formData.unit_price}
+                        onChange={handleChange}
+                        step="0.01"
+                        style={styles.input}
+                      />
+                    </div>
+                  )}
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>Total Quantity</label>
                     <input
@@ -1312,20 +1315,22 @@ const AddOrder = () => {
                       style={styles.input}
                     />
                   </div>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Total Value ($)</label>
-                    <input
-                      type="number"
-                      name="total_value"
-                      value={formData.total_value}
-                      readOnly
-                      style={{
-                        ...styles.input,
-                        backgroundColor: "#f3f4f6",
-                        cursor: "not-allowed",
-                      }}
-                    />
-                  </div>
+                  {canViewOrderPricing() && (
+                    <div style={styles.formField}>
+                      <label style={styles.formLabel}>Total Value ($)</label>
+                      <input
+                        type="number"
+                        name="total_value"
+                        value={formData.total_value}
+                        readOnly
+                        style={{
+                          ...styles.input,
+                          backgroundColor: "#f3f4f6",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                  )}
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>Order Type</label>
                     <select
@@ -1397,20 +1402,22 @@ const AddOrder = () => {
                       style={styles.input}
                     />
                   </div>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Shipped Value ($)</label>
-                    <input
-                      type="number"
-                      name="shipped_value"
-                      value={formData.shipped_value}
-                      readOnly
-                      style={{
-                        ...styles.input,
-                        backgroundColor: "#f3f4f6",
-                        cursor: "not-allowed",
-                      }}
-                    />
-                  </div>
+                  {canViewOrderPricing() && (
+                    <div style={styles.formField}>
+                      <label style={styles.formLabel}>Shipped Value ($)</label>
+                      <input
+                        type="number"
+                        name="shipped_value"
+                        value={formData.shipped_value}
+                        readOnly
+                        style={{
+                          ...styles.input,
+                          backgroundColor: "#f3f4f6",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                  )}
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>Group Name</label>
                     <input
@@ -1729,20 +1736,22 @@ const AddOrder = () => {
                       style={styles.input}
                     />
                   </div>
-                  <div style={styles.formField}>
-                    <label>Factory Value ($)</label>
-                    <input
-                      type="number"
-                      name="factory_value"
-                      value={formData.factory_value}
-                      readOnly
-                      style={{
-                        ...styles.input,
-                        backgroundColor: "#f3f4f6",
-                        cursor: "not-allowed",
-                      }}
-                    />
-                  </div>
+                  {canViewOrderPricing() && (
+                    <div style={styles.formField}>
+                      <label>Factory Value ($)</label>
+                      <input
+                        type="number"
+                        name="factory_value"
+                        value={formData.factory_value}
+                        readOnly
+                        style={{
+                          ...styles.input,
+                          backgroundColor: "#f3f4f6",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1888,73 +1897,75 @@ const AddOrder = () => {
                     ))}
                   </div>
 
-                  <div
-                    style={{
-                      ...styles.uploadArea,
-                      ...(isDraggingAttachment && styles.uploadAreaDragging),
-                      marginTop: "32px",
-                    }}
-                    onDragEnter={(e) => {
-                      e.preventDefault();
-                      setIsDraggingAttachment(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      setIsDraggingAttachment(false);
-                    }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop("attachment", e)}
-                  >
-                    <label style={styles.uploadLabel}>
-                      <FaFileAlt /> Documents & Attachments
-                    </label>
-                    <div style={styles.dropZone}>
-                      <FaCloudUploadAlt style={styles.dropZoneIcon} />
-                      <p>Drag & drop files here or click to browse</p>
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleAttachmentSelect}
-                        style={{ display: "none" }}
-                        id="attachment-upload"
-                      />
-                      <label
-                        htmlFor="attachment-upload"
-                        style={styles.browseButton}
-                      >
-                        Browse Files
+                  {canViewOrderAttachments() && (
+                    <div
+                      style={{
+                        ...styles.uploadArea,
+                        ...(isDraggingAttachment && styles.uploadAreaDragging),
+                        marginTop: "32px",
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        setIsDraggingAttachment(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDraggingAttachment(false);
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => handleDrop("attachment", e)}
+                    >
+                      <label style={styles.uploadLabel}>
+                        <FaFileAlt /> Documents & Attachments
                       </label>
-                    </div>
-                    {pendingFiles.attachments.map((item) => (
-                      <div key={item.id} style={styles.fileItem}>
-                        <FaFileAlt style={styles.fileIcon} />
-                        <div style={styles.fileInfo}>
-                          <span style={styles.fileName}>{item.name}</span>
-                          <span style={styles.fileSize}>
-                            {(item.file.size / 1024).toFixed(1)} KB
-                          </span>
-                        </div>
-                        <div style={styles.fileActions}>
-                          <button
-                            onClick={() =>
-                              openRenameModal("attachments", item.id, item.name)
-                            }
-                            style={styles.renameFileBtn}
-                          >
-                            <FaEditIcon /> Rename
-                          </button>
-                          <button
-                            onClick={() =>
-                              removePendingFile("attachments", item.id)
-                            }
-                            style={styles.removeFileBtn}
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
+                      <div style={styles.dropZone}>
+                        <FaCloudUploadAlt style={styles.dropZoneIcon} />
+                        <p>Drag & drop files here or click to browse</p>
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleAttachmentSelect}
+                          style={{ display: "none" }}
+                          id="attachment-upload"
+                        />
+                        <label
+                          htmlFor="attachment-upload"
+                          style={styles.browseButton}
+                        >
+                          Browse Files
+                        </label>
                       </div>
-                    ))}
-                  </div>
+                      {pendingFiles.attachments.map((item) => (
+                        <div key={item.id} style={styles.fileItem}>
+                          <FaFileAlt style={styles.fileIcon} />
+                          <div style={styles.fileInfo}>
+                            <span style={styles.fileName}>{item.name}</span>
+                            <span style={styles.fileSize}>
+                              {(item.file.size / 1024).toFixed(1)} KB
+                            </span>
+                          </div>
+                          <div style={styles.fileActions}>
+                            <button
+                              onClick={() =>
+                                openRenameModal("attachments", item.id, item.name)
+                              }
+                              style={styles.renameFileBtn}
+                            >
+                              <FaEditIcon /> Rename
+                            </button>
+                            <button
+                              onClick={() =>
+                                removePendingFile("attachments", item.id)
+                              }
+                              style={styles.removeFileBtn}
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
