@@ -12,6 +12,7 @@ import {
   deleteOrder,
   getCustomers,
   updateOrder,
+  patchOrder,
   getDepartments,
   getSuppliers,
   getOrderStatsWithFilters,
@@ -272,6 +273,14 @@ const statusConfig = {
   },
 };
 
+const orderStatusOptions = [
+  { value: "Running", label: "Running" },
+  { value: "Active", label: "Active" },
+  { value: "Shipped", label: "Shipped" },
+  { value: "Pending", label: "Pending" },
+  { value: "Cancelled", label: "Cancelled" },
+];
+
 // Column keys carrying monetary data - hidden from users without order
 // pricing access (see utils/accessControl.js), regardless of what's saved
 // in their localStorage column preferences.
@@ -516,6 +525,12 @@ const OrderList = () => {
   const [error, setError] = useState(null);
   const [editingRemarksId, setEditingRemarksId] = useState(null);
   const [editingRemarksValue, setEditingRemarksValue] = useState("");
+
+  // Inline editing for Final Inspection / Ex-Factory / Status - the only
+  // fields Merchandiser - Production may edit despite being view-only on
+  // Orders. { orderId, field } identifies the cell being edited.
+  const [editingCell, setEditingCell] = useState(null);
+  const [editingCellValue, setEditingCellValue] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [hoveredRowId, setHoveredRowId] = useState(null);
 
@@ -1726,6 +1741,84 @@ const fetchStats = useCallback(async () => {
     setEditingRemarksValue("");
   };
 
+  // Merchandiser - Production is view-only on Orders except for these
+  // three fields; full-access users can edit them here too as a shortcut
+  // to the full Edit Order page.
+  const editableOrderFields = ["final_inspection_date", "ex_factory", "status"];
+  const canEditOrderField = (field) =>
+    canManageOrders() ||
+    (isMerchandiserProduction() && editableOrderFields.includes(field));
+
+  const startEditCell = (order, field, e) => {
+    e.stopPropagation();
+    setEditingCell({ orderId: order.id, field });
+    setEditingCellValue(order[field] || "");
+  };
+
+  const cancelEditCell = (e) => {
+    e.stopPropagation();
+    setEditingCell(null);
+    setEditingCellValue("");
+  };
+
+  const saveEditCell = async (order, field, e) => {
+    e.stopPropagation();
+    try {
+      await patchOrder(order.id, { [field]: editingCellValue || null });
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === order.id ? { ...o, [field]: editingCellValue || null } : o,
+        ),
+      );
+      setEditingCell(null);
+      setEditingCellValue("");
+    } catch (error) {
+      console.error("Error updating field:", error);
+    }
+  };
+
+  const renderEditableDateCell = (order, field) => {
+    if (!canEditOrderField(field)) {
+      return formatDate(order[field]);
+    }
+    if (editingCell?.orderId === order.id && editingCell.field === field) {
+      return (
+        <div style={styles.cellEditRow} onClick={(e) => e.stopPropagation()}>
+          <input
+            type="date"
+            value={editingCellValue || ""}
+            onChange={(e) => setEditingCellValue(e.target.value)}
+            style={styles.cellEditInput}
+            autoFocus
+          />
+          <div style={styles.cellEditActions}>
+            <button
+              style={styles.remarksSaveBtn}
+              onClick={(e) => saveEditCell(order, field, e)}
+            >
+              <FaCheck size={12} />
+            </button>
+            <button style={styles.remarksCancelBtn} onClick={cancelEditCell}>
+              <FaTimes size={12} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div style={styles.cellDisplayRow} onClick={(e) => e.stopPropagation()}>
+        {formatDate(order[field])}
+        <button
+          style={styles.cellEditBtn}
+          onClick={(e) => startEditCell(order, field, e)}
+          title="Edit"
+        >
+          <FaEdit size={11} />
+        </button>
+      </div>
+    );
+  };
+
   const activeFilterCount = [
     statusFilter,
     selectedCustomers.length,
@@ -2047,8 +2140,58 @@ const fetchStats = useCallback(async () => {
           </div>
         );
       }
-      case "status":
-        return getStatusBadge(order.status);
+      case "status": {
+        if (!canEditOrderField("status")) {
+          return getStatusBadge(order.status);
+        }
+        if (editingCell?.orderId === order.id && editingCell.field === "status") {
+          return (
+            <div
+              style={styles.cellEditRow}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <select
+                value={editingCellValue}
+                onChange={(e) => setEditingCellValue(e.target.value)}
+                style={styles.cellEditInput}
+                autoFocus
+              >
+                {orderStatusOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div style={styles.cellEditActions}>
+                <button
+                  style={styles.remarksSaveBtn}
+                  onClick={(e) => saveEditCell(order, "status", e)}
+                >
+                  <FaCheck size={12} />
+                </button>
+                <button style={styles.remarksCancelBtn} onClick={cancelEditCell}>
+                  <FaTimes size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div
+            style={styles.cellDisplayRow}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {getStatusBadge(order.status)}
+            <button
+              style={styles.cellEditBtn}
+              onClick={(e) => startEditCell(order, "status", e)}
+              title="Edit Status"
+            >
+              <FaEdit size={11} />
+            </button>
+          </div>
+        );
+      }
       case "style":
         return order.style || "—";
       case "department":
@@ -2068,9 +2211,9 @@ const fetchStats = useCallback(async () => {
       case "wgr":
         return order.wgr || "—";
       case "final_inspection_date":
-        return formatDate(order.final_inspection_date);
+        return renderEditableDateCell(order, "final_inspection_date");
       case "ex_factory":
-        return formatDate(order.ex_factory);
+        return renderEditableDateCell(order, "ex_factory");
       case "delay_from_ex_factory": {
         // Use the ETD delay field instead
         const delay = order.delay_from_ex_factory;
@@ -5014,6 +5157,38 @@ const styles = {
     display: "flex",
     gap: "8px",
     justifyContent: "flex-end",
+  },
+  cellEditInput: {
+    padding: "4px 6px",
+    border: "1px solid #2563eb",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontFamily: "inherit",
+    outline: "none",
+    backgroundColor: "white",
+  },
+  cellEditRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  },
+  cellEditActions: {
+    display: "flex",
+    gap: "4px",
+  },
+  cellDisplayRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  cellEditBtn: {
+    background: "none",
+    border: "none",
+    color: "#94a3b8",
+    cursor: "pointer",
+    padding: "2px",
+    display: "inline-flex",
+    alignItems: "center",
   },
   remarksSaveBtn: {
     background: "#10b981",

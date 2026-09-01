@@ -1986,9 +1986,18 @@ export const getAttendance = async (page = 1, pageSize = 100, options = {}) => {
       let hasMore = true;
 
       while (hasMore) {
-        const response = await hrmsApi.get(
-          `attendance/?page=${currentPage}&page_size=${pageSize}`,
-        );
+        const params = new URLSearchParams({
+          page: currentPage,
+          page_size: pageSize,
+        });
+
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            params.append(key, value);
+          }
+        });
+
+        const response = await hrmsApi.get(`attendance/?${params.toString()}`);
 
         if (response.data && response.data.results) {
           allAttendance = [...allAttendance, ...response.data.results];

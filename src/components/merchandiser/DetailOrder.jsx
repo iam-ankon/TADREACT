@@ -13,6 +13,7 @@ import {
   getBackendURL,
   getCourierBookingsByOrder,  // ADD THIS
   getTNAByOrder,
+  patchOrder,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
 import SampleSection from "../merchandiser/SampleSection";
@@ -102,6 +103,14 @@ const statusConfig = {
     border: "1px solid #6b7280",
   },
 };
+
+const orderStatusOptions = [
+  { value: "Running", label: "Running" },
+  { value: "Active", label: "Active" },
+  { value: "Shipped", label: "Shipped" },
+  { value: "Pending", label: "Pending" },
+  { value: "Cancelled", label: "Cancelled" },
+];
 
 // TNA progress stages - mirrors TNADetails.jsx's PROGRESS_STAGES /
 // TNA.PROGRESS_WEIGHTS on the backend (must sum to 100).
@@ -210,6 +219,53 @@ const DetailOrder = () => {
   // TNA progress (replaces the old shipped-qty "Shipment Progress" bar)
   const [tna, setTna] = useState(null);
   const [tnaLoading, setTnaLoading] = useState(true);
+
+  // Inline field editing (Final Inspection / Ex-Factory / Status) - the
+  // only fields Merchandiser - Production may edit despite being
+  // view-only everywhere else on this page. Full-access users can edit
+  // these too, using the same widget instead of the full Edit Order page.
+  const [editingField, setEditingField] = useState(null);
+  const [editingValue, setEditingValue] = useState("");
+  const [savingField, setSavingField] = useState(false);
+
+  const editableFields = ["final_inspection_date", "ex_factory", "status"];
+  const canEditField = (field) =>
+    canManageOrders() ||
+    (isMerchandiserProduction() && editableFields.includes(field));
+
+  const startEditField = (field, currentValue) => {
+    setEditingField(field);
+    setEditingValue(currentValue || "");
+  };
+
+  const cancelEditField = () => {
+    setEditingField(null);
+    setEditingValue("");
+  };
+
+  const saveEditField = async (field) => {
+    try {
+      setSavingField(true);
+      await patchOrder(id, { [field]: editingValue || null });
+      setOrder((prev) => ({ ...prev, [field]: editingValue || null }));
+      setEditingField(null);
+      setEditingValue("");
+      setSnackbar({
+        open: true,
+        message: "Updated successfully!",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error updating field:", error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.detail || "Error updating field",
+        type: "error",
+      });
+    } finally {
+      setSavingField(false);
+    }
+  };
 
   useEffect(() => {
     fetchOrder();
@@ -538,6 +594,100 @@ const DetailOrder = () => {
       <div style={styles.infoValue}>{value || "—"}</div>
     </div>
   );
+
+  // Final Inspection / Ex-Factory / Status: the only fields a
+  // Merchandiser - Production user may edit on this otherwise view-only
+  // page. Renders a plain InfoRow when the current user can't edit this
+  // field, otherwise an editable row with a pencil icon.
+  const EditableInfoRow = ({
+    label,
+    field,
+    displayValue,
+    icon,
+    type = "date",
+    options = [],
+  }) => {
+    if (!canEditField(field)) {
+      return <InfoRow label={label} value={displayValue} icon={icon} />;
+    }
+
+    if (editingField === field) {
+      return (
+        <div style={styles.infoRow}>
+          <div style={styles.infoLabel}>
+            {icon && <span style={styles.infoIcon}>{icon}</span>}
+            <span>{label}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {type === "select" ? (
+              <select
+                value={editingValue}
+                onChange={(e) => setEditingValue(e.target.value)}
+                style={styles.inlineEditInput}
+                autoFocus
+              >
+                {options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="date"
+                value={editingValue || ""}
+                onChange={(e) => setEditingValue(e.target.value)}
+                style={styles.inlineEditInput}
+                autoFocus
+              />
+            )}
+            <button
+              onClick={() => saveEditField(field)}
+              disabled={savingField}
+              style={styles.inlineEditSaveBtn}
+              title="Save"
+            >
+              <FaCheck size={12} />
+            </button>
+            <button
+              onClick={cancelEditField}
+              disabled={savingField}
+              style={styles.inlineEditCancelBtn}
+              title="Cancel"
+            >
+              <FaTimes size={12} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={styles.infoRow}>
+        <div style={styles.infoLabel}>
+          {icon && <span style={styles.infoIcon}>{icon}</span>}
+          <span>{label}</span>
+        </div>
+        <div
+          style={{
+            ...styles.infoValue,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          {displayValue || "—"}
+          <button
+            onClick={() => startEditField(field, order[field])}
+            style={styles.inlineEditBtn}
+            title={`Edit ${label}`}
+          >
+            <FaEdit size={11} />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const MetricCard = ({ title, value, icon, color }) => (
     <div style={styles.metricCard}>
@@ -948,15 +1098,19 @@ const DetailOrder = () => {
                   </SectionCard>
 
                   <SectionCard title="Important Dates" icon={<FaCalendarAlt />}>
-                    <InfoRow
+                    <EditableInfoRow
                       label="Final Inspection"
-                      value={formatDate(order.final_inspection_date)}
+                      field="final_inspection_date"
+                      displayValue={formatDate(order.final_inspection_date)}
                       icon={<FaCalendarAlt />}
+                      type="date"
                     />
-                    <InfoRow
+                    <EditableInfoRow
                       label="Ex-Factory"
-                      value={formatDate(order.ex_factory)}
+                      field="ex_factory"
+                      displayValue={formatDate(order.ex_factory)}
                       icon={<FaIndustry />}
+                      type="date"
                     />
                     <InfoRow
                       label="ETD"
@@ -1193,10 +1347,13 @@ const DetailOrder = () => {
                       value={formatNumber(order.grand_total)}
                       icon={<FaBoxes />}
                     />
-                    <InfoRow
+                    <EditableInfoRow
                       label="Status"
-                      value={order.status || "—"}
+                      field="status"
+                      displayValue={order.status}
                       icon={<FaInfoCircle />}
+                      type="select"
+                      options={orderStatusOptions}
                     />
                   </SectionCard>
 
@@ -2420,6 +2577,46 @@ const styles = {
     fontSize: "14px",
     fontWeight: 500,
     color: "#0f172a",
+  },
+  inlineEditInput: {
+    fontSize: "13px",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    border: "1px solid #cbd5e1",
+    color: "#0f172a",
+  },
+  inlineEditBtn: {
+    background: "none",
+    border: "none",
+    color: "#94a3b8",
+    cursor: "pointer",
+    padding: "2px",
+    display: "inline-flex",
+    alignItems: "center",
+  },
+  inlineEditSaveBtn: {
+    background: "#10b981",
+    border: "none",
+    color: "#fff",
+    borderRadius: "4px",
+    width: "22px",
+    height: "22px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  },
+  inlineEditCancelBtn: {
+    background: "#ef4444",
+    border: "none",
+    color: "#fff",
+    borderRadius: "4px",
+    width: "22px",
+    height: "22px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
   },
   timelineContainer: {
     position: "relative",

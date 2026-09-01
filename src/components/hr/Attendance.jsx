@@ -48,6 +48,10 @@ const Attendance = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFiltering, setIsFiltering] = useState(false);
+  const [showFiltersCard, setShowFiltersCard] = useState(() => {
+    const saved = localStorage.getItem("attendanceShowFiltersCard");
+    return saved === null ? true : saved === "true";
+  });
   const mainContentRef = useRef(null);
 
   // Add state for employee lookup data
@@ -220,6 +224,10 @@ const Attendance = () => {
   useEffect(() => {
     if (dateFilter) localStorage.setItem("attendanceDateFilter", dateFilter);
   }, [dateFilter]);
+
+  useEffect(() => {
+    localStorage.setItem("attendanceShowFiltersCard", showFiltersCard);
+  }, [showFiltersCard]);
 
   useEffect(() => {
     if (dateRangeStart && dateRangeEnd) {
@@ -443,83 +451,144 @@ const Attendance = () => {
   // 3. REPORT GENERATION FUNCTIONS (use downloadCSV)
   // ============================================================
 
-  const generateSmartReport = useCallback(() => {
-    if (!attendance || attendance.length === 0) {
-      alert("No records found");
-      return;
+  const generateSmartReport = useCallback(async () => {
+    try {
+      setLoading(true);
+      setIsFiltering(true);
+
+      // Build the same filter parameters used by the main list fetch, so
+      // the report matches exactly what the Filters card is set to.
+      const filters = {};
+
+      if (monthFilter) {
+        const [year, month] = monthFilter.split("-");
+        filters.year = year;
+        filters.month = month;
+      }
+
+      if (!showDateRange && dateFilter) {
+        filters.date = dateFilter;
+      }
+
+      if (showDateRange && dateRangeStart && dateRangeEnd) {
+        filters.start_date = dateRangeStart;
+        filters.end_date = dateRangeEnd;
+      }
+
+      if (companyFilter) {
+        filters.company = companyFilter;
+      }
+
+      if (searchTerm) {
+        filters.search = searchTerm;
+      }
+
+      // Fetch every matching record (not just the current page). Loops
+      // through all backend pages since the API caps page_size, so a
+      // single large request would silently truncate the report.
+      const response = await getAttendance(1, 500, {
+        filters,
+        allPages: true,
+      });
+
+      let allRecords = [];
+      if (response.data && Array.isArray(response.data)) {
+        allRecords = response.data;
+      } else if (response.data && response.data.results) {
+        allRecords = response.data.results;
+      }
+
+      if (allRecords.length === 0) {
+        alert("No attendance records found for the selected filters");
+        return;
+      }
+
+      const headers = [
+        "Employee ID",
+        "Employee",
+        "Company",
+        "Department",
+        "Date",
+        "Check In",
+        "Check Out",
+        "Delay Time",
+        "Office Start",
+      ];
+
+      const reportTitle = monthFilter
+        ? `Monthly Report: ${new Date(monthFilter + "-01").toLocaleDateString(
+            "en-US",
+            { month: "long", year: "numeric" },
+          )}`
+        : dateRangeStart && dateRangeEnd
+          ? `Range: ${new Date(dateRangeStart).toLocaleDateString()} - ${new Date(
+              dateRangeEnd,
+            ).toLocaleDateString()}`
+          : dateFilter
+            ? `Date: ${new Date(dateFilter).toLocaleDateString()}`
+            : "Full Report";
+
+      const filename = monthFilter
+        ? `monthly_${monthFilter}.csv`
+        : dateRangeStart && dateRangeEnd
+          ? `range_${dateRangeStart}_to_${dateRangeEnd}.csv`
+          : dateFilter
+            ? `date_${dateFilter}.csv`
+            : `full_${new Date().toISOString().slice(0, 10)}.csv`;
+
+      const csv = [
+        reportTitle,
+        `Generated: ${new Date().toLocaleString("en-US", {
+          timeZone: "Asia/Dhaka",
+        })}`,
+        `Total: ${allRecords.length}`,
+        "",
+        headers.join(","),
+        ...allRecords.map((item) => {
+          const employeeId =
+            typeof item.employee === "object" && item.employee !== null
+              ? item.employee.id
+              : item.employee;
+          const emp = getEmployeeDetails(employeeId);
+          const date = item.date
+            ? new Date(item.date).toLocaleDateString()
+            : "N/A";
+          return [
+            `"${emp.employee_id}"`,
+            `"${item.employee_name || emp.name}"`,
+            `"${emp.company}"`,
+            `"${emp.department}"`,
+            `"${date}"`,
+            `"${formatTimeToAMPM(item.check_in)}"`,
+            `"${formatTimeToAMPM(item.check_out)}"`,
+            `"${formatDelayTime(item.attendance_delay || item.delay_time)}"`,
+            `"${formatTimeToAMPM(item.office_start_time)}"`,
+          ].join(",");
+        }),
+      ].join("\n");
+
+      downloadCSV(csv, filename);
+    } catch (error) {
+      console.error("❌ Error generating report:", error);
+      alert(`Error generating report: ${error.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
+      setIsFiltering(false);
     }
-
-    const headers = [
-      "Employee ID",
-      "Employee",
-      "Company",
-      "Department",
-      "Date",
-      "Check In",
-      "Check Out",
-      "Delay Time",
-      "Office Start",
-    ];
-
-    const reportTitle = monthFilter
-      ? `Monthly Report: ${new Date(monthFilter + "-01").toLocaleDateString(
-          "en-US",
-          { month: "long", year: "numeric" },
-        )}`
-      : dateRangeStart && dateRangeEnd
-        ? `Range: ${new Date(dateRangeStart).toLocaleDateString()} - ${new Date(
-            dateRangeEnd,
-          ).toLocaleDateString()}`
-        : dateFilter
-          ? `Date: ${new Date(dateFilter).toLocaleDateString()}`
-          : "Full Report";
-
-    const filename = monthFilter
-      ? `monthly_${monthFilter}.csv`
-      : dateRangeStart && dateRangeEnd
-        ? `range_${dateRangeStart}_to_${dateRangeEnd}.csv`
-        : dateFilter
-          ? `date_${dateFilter}.csv`
-          : `full_${new Date().toISOString().slice(0, 10)}.csv`;
-
-    const csv = [
-      reportTitle,
-      `Generated: ${new Date().toLocaleString("en-US", {
-        timeZone: "Asia/Dhaka",
-      })}`,
-      `Total: ${attendance.length}`,
-      "",
-      headers.join(","),
-      ...attendance.map((item) => {
-        const emp = getEmployeeDetails(item.employee);
-        const date = item.date
-          ? new Date(item.date).toLocaleDateString()
-          : "N/A";
-        return [
-          `"${emp.employee_id}"`,
-          `"${item.employee_name || emp.name}"`,
-          `"${emp.company}"`,
-          `"${emp.department}"`,
-          `"${date}"`,
-          `"${formatTimeToAMPM(item.check_in)}"`,
-          `"${formatTimeToAMPM(item.check_out)}"`,
-          `"${formatDelayTime(item.attendance_delay || item.delay_time)}"`,
-          `"${formatTimeToAMPM(item.office_start_time)}"`,
-        ].join(",");
-      }),
-    ].join("\n");
-
-    downloadCSV(csv, filename);
   }, [
-    attendance,
     monthFilter,
+    dateFilter,
     dateRangeStart,
     dateRangeEnd,
-    dateFilter,
+    showDateRange,
+    companyFilter,
+    searchTerm,
     getEmployeeDetails,
     formatTimeToAMPM,
     formatDelayTime,
     downloadCSV,
+    setLoading,
+    setIsFiltering,
   ]);
 
   // ============================================================
@@ -584,8 +653,12 @@ const Attendance = () => {
       // ============================================================
       console.log(`🔍 Fetching all attendance records...`);
 
-      // Fetch with large page size to get all records
-      const response = await getAttendance(1, 10000, { filters });
+      // Loop through all backend pages so the report isn't silently
+      // truncated by the API's page_size cap.
+      const response = await getAttendance(1, 500, {
+        filters,
+        allPages: true,
+      });
 
       let allRecords = [];
       if (response.data && Array.isArray(response.data)) {
@@ -889,7 +962,7 @@ const Attendance = () => {
               onChange={handleItemsPerPageChange}
               style={pageSizeSelectStyle}
             >
-              {[25, 50, 100, 200].map((size) => (
+              {[25, 50, 100, 200, 500, 1000].map((size) => (
                 <option key={size} value={size}>
                   {size} per page
                 </option>
@@ -1084,11 +1157,26 @@ const Attendance = () => {
           {/* Filters Card */}
           <div style={filtersCardStyle}>
             <div style={filtersHeaderStyle}>
-              <div style={filtersTitleStyle}>
-                <span style={filtersIconStyle}>🔍</span>
-                Filters & Reports
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div style={filtersTitleStyle}>
+                  <span style={filtersIconStyle}>🔍</span>
+                  Filters & Reports
+                </div>
+                <button
+                  onClick={() => setShowFiltersCard((prev) => !prev)}
+                  style={collapseToggleButtonStyle}
+                  title={showFiltersCard ? "Collapse" : "Expand"}
+                >
+                  {showFiltersCard ? "▲ Collapse" : "▼ Expand"}
+                </button>
               </div>
-              <div style={activeFiltersStyle}>
+              {showFiltersCard && <div style={activeFiltersStyle}>
                 {monthFilter && (
                   <span style={activeFilterTagStyle}>
                     Month:{" "}
@@ -1143,9 +1231,11 @@ const Attendance = () => {
                     Clear All
                   </button>
                 )}
-              </div>
+              </div>}
             </div>
 
+            {showFiltersCard && (
+            <>
             {/* Filters Grid */}
             <div style={filtersGridStyle}>
               {/* Search Filter */}
@@ -1338,7 +1428,7 @@ const Attendance = () => {
                 >
                   <span style={buttonIconStyle}>📥</span>
                   Download CSV
-                  <span style={badgeStyle}>{attendance.length}</span>
+                  <span style={badgeStyle}>{totalItems}</span>
                 </button>
 
                 <div style={reportInfoStyle}>
@@ -1375,6 +1465,8 @@ const Attendance = () => {
                 <span style={statLabelStyle}>Employees</span>
               </div>
             </div>
+            </>
+            )}
           </div>
 
           {/* Table Card */}
@@ -1391,7 +1483,9 @@ const Attendance = () => {
             <div
               style={{
                 ...tableContainerStyle,
-                maxHeight: "calc(100vh - 450px)",
+                maxHeight: showFiltersCard
+                  ? "calc(100vh - 380px)"
+                  : "calc(100vh - 220px)",
                 overflowY: "auto",
                 overflowX: "auto",
                 position: "relative",
@@ -1902,6 +1996,18 @@ const filtersHeaderStyle = {
   padding: "10px 14px",
   borderBottom: "1px solid #f1f5f9",
   background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+};
+
+const collapseToggleButtonStyle = {
+  background: "#ffffff",
+  color: "#334155",
+  border: "1px solid #cbd5e1",
+  borderRadius: "6px",
+  padding: "6px 12px",
+  fontSize: "12px",
+  fontWeight: "600",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
 const filtersTitleStyle = {
