@@ -320,6 +320,12 @@ const Sidebar = () => {
       badge: null,
     },
     {
+      to: "RegularUserStationery",
+      icon: <FiUsers />,
+      label: "RegularUser Stationery",
+      badge: null,
+    },
+    {
       to: "/chat",
       icon: <FiMessageSquare />,
       label: "Chatbox",
@@ -331,17 +337,6 @@ const Sidebar = () => {
   // === REGULAR EMPLOYEE MENU ITEMS ===
   const regularEmployeeMenuItems = [
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply", badge: null },
-
-    ...(!isGroupHeadOfAdmin
-      ? [
-          {
-            to: "/RegularUserStationery",
-            icon: <FiUsers />,
-            label: "RegularUser Stationery",
-            badge: null,
-          },
-        ]
-      : []),
 
     ...(isTeamLeader ||
     isTeamLeaderQC ||
@@ -422,7 +417,6 @@ const Sidebar = () => {
         ]
       : []),
 
-
     ...(departmentPermissions.isCSR
       ? [
           {
@@ -437,9 +431,25 @@ const Sidebar = () => {
     ...(departmentPermissions.isMerchandising || isMerchandiserProduction
       ? [
           {
-            to: "/merchandiser-dashboard",
+            // Merchandiser - Production doesn't get the Order Dashboard
+            // (see merchandiser/Sidebar.jsx) - send them straight to the
+            // Order List instead.
+            to: isMerchandiserProduction
+              ? "/orders"
+              : "/merchandiser-dashboard",
             icon: <FiUsers />,
             label: "Merchandising",
+            badge: null,
+          },
+        ]
+      : []),
+
+    ...(!isGroupHeadOfAdmin
+      ? [
+          {
+            to: "/RegularUserStationery",
+            icon: <FiUsers />,
+            label: "RegularUser Stationery",
             badge: null,
           },
         ]

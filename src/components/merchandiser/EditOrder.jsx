@@ -14,7 +14,7 @@ import {
   getBackendURL,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
-import { canViewOrderPricing, canViewOrderAttachments } from "../../utils/accessControl";
+import { canViewOrderPricing, canViewOrderAttachments, canManageOrders } from "../../utils/accessControl";
 import {
   FaArrowLeft,
   FaSave,
@@ -110,6 +110,15 @@ const alphaSizes = [
 const EditOrder = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+
+  // Merchandiser - Production is view-only on Orders; block direct
+  // navigation to this form even via URL (see accessControl.js).
+  useEffect(() => {
+    if (!canManageOrders()) {
+      navigate("/orders", { replace: true });
+    }
+  }, [navigate]);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarsOpenState");
     return stored !== null ? JSON.parse(stored) : true;

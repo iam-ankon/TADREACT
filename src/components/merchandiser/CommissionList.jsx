@@ -16,6 +16,17 @@ import {
   getDepartments,
   getSuppliers, // <-- ADD THIS IMPORT for supplier options
 } from "../../api/merchandiser";
+import { canViewOrderPricing } from "../../utils/accessControl";
+
+// Commission/pricing columns hidden from designations that must not see
+// money values (e.g. Merchandiser - Production) — see accessControl.js.
+const MONEY_COLUMN_KEYS = [
+  "unit_price",
+  "total_value",
+  "estimated_commission",
+  "actual_commission",
+  "variance",
+];
 
 // ========== UTILITY FUNCTIONS ==========
 const getCustomerDisplayName = (customer) => {
@@ -699,9 +710,17 @@ const CommissionList = () => {
     { key: "actions", label: "Actions", sortable: false, width: "100px" },
   ];
 
+  // Columns a user with this designation is allowed to see at all
+  // (money columns are stripped regardless of their saved preferences).
+  const selectableColumns = useMemo(() => {
+    return canViewOrderPricing()
+      ? ALL_COLUMNS
+      : ALL_COLUMNS.filter((col) => !MONEY_COLUMN_KEYS.includes(col.key));
+  }, []);
+
   const orderedVisibleColumns = useMemo(() => {
-    return ALL_COLUMNS.filter((col) => visibleColumns.includes(col.key));
-  }, [visibleColumns]);
+    return selectableColumns.filter((col) => visibleColumns.includes(col.key));
+  }, [visibleColumns, selectableColumns]);
 
   // Listen for sidebar toggle events
   useEffect(() => {
@@ -1195,8 +1214,9 @@ const CommissionList = () => {
   const latestMonth =
     chartData.length > 0 ? chartData[chartData.length - 1] : null;
 
-  // KPI cards with million formatting
-  const kpis = [
+  // KPI cards with million formatting (money KPIs stripped for
+  // designations that must not see pricing/commission values).
+  const allKpis = [
     {
       label: "Total Orders",
       value: totalAllOrders,
@@ -1249,6 +1269,16 @@ const CommissionList = () => {
       negative: variance < 0,
     },
   ];
+
+  const MONEY_KPI_LABELS = [
+    "Total Value",
+    "Estimated Commission",
+    "Actual Commission",
+    "Variance",
+  ];
+  const kpis = canViewOrderPricing()
+    ? allKpis
+    : allKpis.filter((k) => !MONEY_KPI_LABELS.includes(k.label));
 
   // Render cell content
   const renderCell = (order, columnKey) => {
@@ -1318,13 +1348,15 @@ const CommissionList = () => {
       case "actions":
         return (
           <div style={S.actionGroup} onClick={(e) => e.stopPropagation()}>
-            <Link
-              to={`/commissions/edit/${order.id}`}
-              style={S.iconAction}
-              title="Edit"
-            >
-              <IconEdit />
-            </Link>
+            {canViewOrderPricing() && (
+              <Link
+                to={`/commissions/edit/${order.id}`}
+                style={S.iconAction}
+                title="Edit"
+              >
+                <IconEdit />
+              </Link>
+            )}
             <button
               style={{ ...S.iconAction, cursor: "pointer", border: "none" }}
               title="Delete"
@@ -1455,7 +1487,8 @@ const CommissionList = () => {
           ))}
         </div>
 
-        {/* ── Chart Card ── */}
+        {/* ── Chart Card (money trend — hidden where pricing is restricted) ── */}
+        {canViewOrderPricing() && (
         <div style={S.chartCard}>
           <div style={S.chartTop}>
             <span style={S.chartTitle}>Monthly Commission Trend</span>
@@ -1524,6 +1557,7 @@ const CommissionList = () => {
             </div>
           </div>
         </div>
+        )}
 
         {/* ── Toolbar ── */}
         <div style={S.toolbar}>
@@ -1712,7 +1746,7 @@ const CommissionList = () => {
                     </button>
                   </div>
                   <div style={S.columnSelectorList}>
-                    {ALL_COLUMNS.map((column) => (
+                    {selectableColumns.map((column) => (
                       <label key={column.key} style={S.columnCheckboxLabel}>
                         <input
                           type="checkbox"
@@ -1941,13 +1975,17 @@ const CommissionList = () => {
 
               {[
                 ["Qty", selectedOrder.total_qty || "—"],
-                [
-                  "Unit Price",
-                  selectedOrder.unit_price
-                    ? `$${Number(selectedOrder.unit_price).toFixed(2)}`
-                    : "—",
-                ],
-                ["Value", formatCurrency(selectedOrder.total_value)],
+                ...(canViewOrderPricing()
+                  ? [
+                      [
+                        "Unit Price",
+                        selectedOrder.unit_price
+                          ? `$${Number(selectedOrder.unit_price).toFixed(2)}`
+                          : "—",
+                      ],
+                      ["Value", formatCurrency(selectedOrder.total_value)],
+                    ]
+                  : []),
               ].map(([l, v]) => (
                 <div key={l} style={S.dpRow}>
                   <span style={S.dpLabel}>{l}</span>
@@ -1955,9 +1993,9 @@ const CommissionList = () => {
                 </div>
               ))}
 
-              <div style={S.dpDivider} />
+              {canViewOrderPricing() && <div style={S.dpDivider} />}
 
-              {(() => {
+              {canViewOrderPricing() && (() => {
                 const v =
                   selectedOrder.estimated_commission &&
                   selectedOrder.actual_commission

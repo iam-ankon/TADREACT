@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import Sidebar from "../merchandiser/Sidebar";
 import { getOrderById } from "../../api/merchandiser";
+import { canViewOrderPricing } from "../../utils/accessControl";
 
 const CommissionDetails = () => {
   const navigate = useNavigate();
@@ -196,9 +197,11 @@ const CommissionDetails = () => {
             >
               ← Back to List
             </button>
-            <Link to={`/commissions/edit/${id}`} style={S.primaryBtn}>
-              ✏️ Edit Record
-            </Link>
+            {canViewOrderPricing() && (
+              <Link to={`/commissions/edit/${id}`} style={S.primaryBtn}>
+                ✏️ Edit Record
+              </Link>
+            )}
           </div>
         </div>
 
@@ -211,41 +214,45 @@ const CommissionDetails = () => {
               color: "#2563eb",
               icon: "🛒",
             },
-            {
-              label: "Total Value",
-              value: fmt(order.total_value),
-              color: "#16a34a",
-              icon: "💵",
-            },
-            {
-              label: "Est. Commission",
-              value: fmt(order.estimated_commission),
-              color: "#d97706",
-              icon: "%",
-            },
-            {
-              label: "Actual Commission",
-              value: fmt(order.actual_commission),
-              color: "#7c3aed",
-              icon: "💼",
-              green: true,
-            },
-            {
-              label: "Variance",
-              value:
-                variance === null
-                  ? "—"
-                  : `${variance < 0 ? "-" : "+"}$${Math.abs(variance).toFixed(2)}`,
-              color:
-                variance === null
-                  ? "#64748b"
-                  : variance < 0
-                    ? "#dc2626"
-                    : "#16a34a",
-              icon: "↕",
-              isVariance: true,
-              negative: variance !== null && variance < 0,
-            },
+            ...(canViewOrderPricing()
+              ? [
+                  {
+                    label: "Total Value",
+                    value: fmt(order.total_value),
+                    color: "#16a34a",
+                    icon: "💵",
+                  },
+                  {
+                    label: "Est. Commission",
+                    value: fmt(order.estimated_commission),
+                    color: "#d97706",
+                    icon: "%",
+                  },
+                  {
+                    label: "Actual Commission",
+                    value: fmt(order.actual_commission),
+                    color: "#7c3aed",
+                    icon: "💼",
+                    green: true,
+                  },
+                  {
+                    label: "Variance",
+                    value:
+                      variance === null
+                        ? "—"
+                        : `${variance < 0 ? "-" : "+"}$${Math.abs(variance).toFixed(2)}`,
+                    color:
+                      variance === null
+                        ? "#64748b"
+                        : variance < 0
+                          ? "#dc2626"
+                          : "#16a34a",
+                    icon: "↕",
+                    isVariance: true,
+                    negative: variance !== null && variance < 0,
+                  },
+                ]
+              : []),
           ].map((k) => (
             <div key={k.label} style={S.kpiCard}>
               <div style={{ ...S.kpiIcon, background: k.color + "18" }}>
@@ -294,13 +301,17 @@ const CommissionDetails = () => {
                       ? Number(order.total_qty).toLocaleString()
                       : "—",
                   ],
-                  ["Total Value", fmt(order.total_value)],
-                  [
-                    "Unit Price",
-                    order.unit_price
-                      ? `$${Number(order.unit_price).toFixed(2)}`
-                      : "—",
-                  ],
+                  ...(canViewOrderPricing()
+                    ? [
+                        ["Total Value", fmt(order.total_value)],
+                        [
+                          "Unit Price",
+                          order.unit_price
+                            ? `$${Number(order.unit_price).toFixed(2)}`
+                            : "—",
+                        ],
+                      ]
+                    : []),
                   ["WGR", order.wgr || "—"],
                 ].map(([label, value]) => (
                   <div key={label} style={S.infoItem}>
@@ -348,7 +359,18 @@ const CommissionDetails = () => {
                 <span style={S.cardTitle}>Commission Breakdown</span>
               </div>
 
-              {!order.estimated_commission && !order.actual_commission ? (
+              {!canViewOrderPricing() ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "24px 0",
+                    color: "#94a3b8",
+                    fontSize: 13,
+                  }}
+                >
+                  Commission amounts are not visible for your role.
+                </div>
+              ) : !order.estimated_commission && !order.actual_commission ? (
                 <div
                   style={{
                     textAlign: "center",
@@ -483,17 +505,19 @@ const CommissionDetails = () => {
                 <span style={S.cardTitle}>Actions</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Link
-                  to={`/commissions/edit/${id}`}
-                  style={{
-                    ...S.primaryBtn,
-                    textAlign: "center",
-                    display: "block",
-                    textDecoration: "none",
-                  }}
-                >
-                  ✏️ Edit Commission
-                </Link>
+                {canViewOrderPricing() && (
+                  <Link
+                    to={`/commissions/edit/${id}`}
+                    style={{
+                      ...S.primaryBtn,
+                      textAlign: "center",
+                      display: "block",
+                      textDecoration: "none",
+                    }}
+                  >
+                    ✏️ Edit Commission
+                  </Link>
+                )}
                 <button
                   onClick={() => navigate("/commissions")}
                   style={S.outlineBtn}

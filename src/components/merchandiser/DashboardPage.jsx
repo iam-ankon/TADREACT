@@ -47,6 +47,7 @@ import {
   getCustomers,
   getSuppliers,
 } from "../../api/merchandiser.js";
+import { isMerchandiserProduction } from "../../utils/accessControl";
 
 // ============================================================================
 // CACHE MANAGER - 5 minutes TTL
@@ -1995,6 +1996,16 @@ const addStyles = () => {
 // ============================================================================
 const DashboardPage = () => {
   const navigate = useNavigate();
+
+  // Merchandiser - Production doesn't get the Order Dashboard (see
+  // merchandiser/Sidebar.jsx) - bounce them to the Order List instead,
+  // in case they reach this route directly.
+  useEffect(() => {
+    if (isMerchandiserProduction()) {
+      navigate("/orders", { replace: true });
+    }
+  }, [navigate]);
+
   const initialLoadDone = useRef(false);
 
   const [dashboardData, setDashboardData] = useState(

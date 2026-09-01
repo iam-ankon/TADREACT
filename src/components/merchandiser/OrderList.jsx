@@ -20,7 +20,7 @@ import {
   exportOrdersToExcelFiltered,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
-import { canViewOrderPricing } from "../../utils/accessControl";
+import { canViewOrderPricing, canManageOrders, isMerchandiserProduction, getDisplayShipmentDate } from "../../utils/accessControl";
 import {
   FaPlus,
   FaTrash,
@@ -1692,12 +1692,19 @@ const fetchStats = useCallback(async () => {
     [yearSearch, availableYears],
   );
 
+  // Merchandiser - Production can't see the main `remarks` field (written
+  // by other merchandisers) but has its own `production_remarks` field,
+  // which everyone else can see alongside the main remarks.
+  const remarksFieldForUser = () =>
+    isMerchandiserProduction() ? "production_remarks" : "remarks";
+
   const handleSaveRemarks = async (orderId, newRemarks) => {
+    const field = remarksFieldForUser();
     try {
-      await updateOrder(orderId, { remarks: newRemarks });
+      await updateOrder(orderId, { [field]: newRemarks });
       setOrders((prev) =>
         prev.map((order) =>
-          order.id === orderId ? { ...order, remarks: newRemarks } : order,
+          order.id === orderId ? { ...order, [field]: newRemarks } : order,
         ),
       );
       setEditingRemarksId(null);
@@ -1710,7 +1717,7 @@ const fetchStats = useCallback(async () => {
   const handleEditRemarks = (order, e) => {
     e.stopPropagation();
     setEditingRemarksId(order.id);
-    setEditingRemarksValue(order.remarks || "");
+    setEditingRemarksValue(order[remarksFieldForUser()] || "");
   };
 
   const handleCancelEdit = (e) => {
@@ -2022,15 +2029,16 @@ const fetchStats = useCallback(async () => {
             {formatCurrency(order.total_value)}
           </span>
         );
-      case "shipment_date":
+      case "shipment_date": {
+        const displayShipmentDate = getDisplayShipmentDate(order);
         return (
           <div style={styles.dateInfo}>
             <FaCalendar style={styles.icon} />
-            {order.shipment_date ? (
+            {displayShipmentDate ? (
               <>
-                <span>{formatDateForDisplay(order.shipment_date)}</span>
+                <span>{formatDateForDisplay(displayShipmentDate)}</span>
                 <span style={styles.relativeDate}>
-                  ({getRelativeTime(order.shipment_date)})
+                  ({getRelativeTime(displayShipmentDate)})
                 </span>
               </>
             ) : (
@@ -2038,6 +2046,7 @@ const fetchStats = useCallback(async () => {
             )}
           </div>
         );
+      }
       case "status":
         return getStatusBadge(order.status);
       case "style":
@@ -2139,6 +2148,27 @@ const fetchStats = useCallback(async () => {
             </div>
           );
         }
+        // Merchandiser - Production only sees/edits its own remarks
+        // channel, not the main `remarks` field written by others.
+        if (isMerchandiserProduction()) {
+          return (
+            <div style={styles.remarksCell} onClick={(e) => e.stopPropagation()}>
+              <div style={styles.remarksDisplay}>
+                <span style={styles.remarksText}>
+                  {order.production_remarks || (
+                    <span style={styles.noRemarks}>No remarks</span>
+                  )}
+                </span>
+                <button
+                  style={styles.editRemarksBtn}
+                  onClick={(e) => handleEditRemarks(order, e)}
+                >
+                  <FaEdit size={12} />
+                </button>
+              </div>
+            </div>
+          );
+        }
         return (
           <div style={styles.remarksCell} onClick={(e) => e.stopPropagation()}>
             <div style={styles.remarksDisplay}>
@@ -2154,6 +2184,11 @@ const fetchStats = useCallback(async () => {
                 <FaEdit size={12} />
               </button>
             </div>
+            {order.production_remarks && (
+              <div style={styles.remarksText} title="Left by Merchandiser - Production">
+                <strong>Production:</strong> {order.production_remarks}
+              </div>
+            )}
           </div>
         );
       
@@ -2250,36 +2285,40 @@ const fetchStats = useCallback(async () => {
             >
               <FaClock />
             </button>
-            <button
-              style={{
-                ...styles.actionBtn,
-                ...styles.actionBtnEdit,
-                borderWidth: "1px",
-                borderStyle: "solid",
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/orders/edit/${order.id}`);
-              }}
-              title="Edit Order"
-            >
-              <FaEdit />
-            </button>
-            <button
-              style={{
-                ...styles.actionBtn,
-                ...styles.actionBtnDelete,
-                borderWidth: "1px",
-                borderStyle: "solid",
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(order);
-              }}
-              title="Delete Order"
-            >
-              <FaTrash />
-            </button>
+            {canManageOrders() && (
+              <button
+                style={{
+                  ...styles.actionBtn,
+                  ...styles.actionBtnEdit,
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/orders/edit/${order.id}`);
+                }}
+                title="Edit Order"
+              >
+                <FaEdit />
+              </button>
+            )}
+            {canManageOrders() && (
+              <button
+                style={{
+                  ...styles.actionBtn,
+                  ...styles.actionBtnDelete,
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(order);
+                }}
+                title="Delete Order"
+              >
+                <FaTrash />
+              </button>
+            )}
           </div>
         );
 
@@ -2495,12 +2534,14 @@ const fetchStats = useCallback(async () => {
                     : "Export All"}
                 </button>
               )}
-              <button
-                style={styles.btnPrimary}
-                onClick={() => navigate("/orders/add")}
-              >
-                <FaPlus /> Add Order
-              </button>
+              {canManageOrders() && (
+                <button
+                  style={styles.btnPrimary}
+                  onClick={() => navigate("/orders/add")}
+                >
+                  <FaPlus /> Add Order
+                </button>
+              )}
             </div>
           </div>
 

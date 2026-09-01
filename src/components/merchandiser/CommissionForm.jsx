@@ -3,11 +3,21 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import Sidebar from "../merchandiser/Sidebar";
 import { getOrderById, updateOrder, createOrder } from "../../api/merchandiser";
+import { canViewOrderPricing } from "../../utils/accessControl";
 
 const CommissionForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
+
+  // Designations restricted from seeing pricing/commission (see
+  // accessControl.js) must not reach this form even via a direct URL,
+  // since every field here is a money value.
+  useEffect(() => {
+    if (!canViewOrderPricing()) {
+      navigate("/commissions", { replace: true });
+    }
+  }, [navigate]);
 
   const [formData, setFormData] = useState({
     po_no: "",

@@ -16,7 +16,7 @@ import {
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
 import SampleSection from "../merchandiser/SampleSection";
-import { canViewOrderPricing, canViewOrderAttachments } from "../../utils/accessControl";
+import { canViewOrderPricing, canViewOrderAttachments, canManageOrders, isMerchandiserProduction } from "../../utils/accessControl";
 import {
   FaArrowLeft,
   FaEdit,
@@ -699,33 +699,36 @@ const DetailOrder = () => {
                   {downloading ? "..." : <FaDownload />}
                 </button>
               )}
-              <button
-                style={styles.btnPrimary}
-                onClick={() => navigate(`/orders/edit/${id}`)}
-              >
-                <FaEdit style={{ marginRight: "8px" }} /> Edit
-              </button>
-              {deleteConfirm ? (
-                <div style={styles.deleteConfirm}>
-                  <span>Confirm delete?</span>
-                  <button style={styles.btnConfirm} onClick={handleDelete}>
-                    Yes
-                  </button>
-                  <button
-                    style={styles.btnCancel}
-                    onClick={() => setDeleteConfirm(false)}
-                  >
-                    No
-                  </button>
-                </div>
-              ) : (
+              {canManageOrders() && (
                 <button
-                  style={styles.btnDanger}
-                  onClick={() => setDeleteConfirm(true)}
+                  style={styles.btnPrimary}
+                  onClick={() => navigate(`/orders/edit/${id}`)}
                 >
-                  <FaTrash style={{ marginRight: "8px" }} /> Delete
+                  <FaEdit style={{ marginRight: "8px" }} /> Edit
                 </button>
               )}
+              {canManageOrders() &&
+                (deleteConfirm ? (
+                  <div style={styles.deleteConfirm}>
+                    <span>Confirm delete?</span>
+                    <button style={styles.btnConfirm} onClick={handleDelete}>
+                      Yes
+                    </button>
+                    <button
+                      style={styles.btnCancel}
+                      onClick={() => setDeleteConfirm(false)}
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    style={styles.btnDanger}
+                    onClick={() => setDeleteConfirm(true)}
+                  >
+                    <FaTrash style={{ marginRight: "8px" }} /> Delete
+                  </button>
+                ))}
             </div>
           </div>
 
@@ -844,8 +847,8 @@ const DetailOrder = () => {
             />
             <TabButton
               id="commission"
-              label="Commission"
-              icon={<FaPercent />}
+              label={canViewOrderPricing() ? "Commission" : "Shipment Tracking"}
+              icon={canViewOrderPricing() ? <FaPercent /> : <FaTruck />}
               active={activeTab}
               onClick={setActiveTab}
             />
@@ -965,11 +968,13 @@ const DetailOrder = () => {
                       value={formatDate(order.eta)}
                       icon={<FaTruck />}
                     />
-                    <InfoRow
-                      label="Shipment Date"
-                      value={formatDate(order.shipment_date)}
-                      icon={<FaCalendarAlt />}
-                    />
+                    {(!isMerchandiserProduction() || !order.factory_ship_date) && (
+                      <InfoRow
+                        label="Shipment Date"
+                        value={formatDate(order.shipment_date)}
+                        icon={<FaCalendarAlt />}
+                      />
+                    )}
                     <InfoRow
                       label="IC Issue Date"
                       value={formatDate(order.ic_issue_date)}
@@ -1199,11 +1204,28 @@ const DetailOrder = () => {
                     title="Additional Information"
                     icon={<FaUsers />}
                   >
-                    <InfoRow
-                      label="Remarks"
-                      value={order.remarks || "—"}
-                      icon={<FaComments />}
-                    />
+                    {isMerchandiserProduction() ? (
+                      <InfoRow
+                        label="Remarks"
+                        value={order.production_remarks || "—"}
+                        icon={<FaComments />}
+                      />
+                    ) : (
+                      <>
+                        <InfoRow
+                          label="Remarks"
+                          value={order.remarks || "—"}
+                          icon={<FaComments />}
+                        />
+                        {order.production_remarks && (
+                          <InfoRow
+                            label="Production Remarks"
+                            value={order.production_remarks}
+                            icon={<FaComments />}
+                          />
+                        )}
+                      </>
+                    )}
                     <InfoRow
                       label="Created At"
                       value={formatDate(order.created_at)}
@@ -1413,7 +1435,8 @@ const DetailOrder = () => {
                       </div>
                     )}
 
-                    {order.shipment_date && (
+                    {order.shipment_date &&
+                      (!isMerchandiserProduction() || !order.factory_ship_date) && (
                       <div style={styles.timelineItem}>
                         <div style={styles.timelineDot} />
                         <div style={styles.timelineContent}>
@@ -1445,36 +1468,38 @@ const DetailOrder = () => {
               </div>
             )}
 
-            {/* Commission Tab */}
+            {/* Commission / Shipment Tracking Tab */}
             {activeTab === "commission" && (
               <div style={styles.tabPanel}>
                 <div style={styles.twoColumnGrid}>
-                  <SectionCard title="Commission Details" icon={<FaPercent />}>
-                    <InfoRow
-                      label="Estimated Commission"
-                      value={formatCurrency(order.estimated_commission)}
-                      icon={<FaDollarSign />}
-                    />
-                    <InfoRow
-                      label="Actual Commission"
-                      value={formatCurrency(order.actual_commission)}
-                      icon={<FaDollarSign />}
-                    />
-                    <InfoRow
-                      label="Commission Percent"
-                      value={
-                        order.commission_percent
-                          ? `${order.commission_percent}%`
-                          : "—"
-                      }
-                      icon={<FaPercent />}
-                    />
-                    <InfoRow
-                      label="Commission Receipt Date"
-                      value={formatDate(order.commission_rec_date)}
-                      icon={<FaCalendarAlt />}
-                    />
-                  </SectionCard>
+                  {canViewOrderPricing() && (
+                    <SectionCard title="Commission Details" icon={<FaPercent />}>
+                      <InfoRow
+                        label="Estimated Commission"
+                        value={formatCurrency(order.estimated_commission)}
+                        icon={<FaDollarSign />}
+                      />
+                      <InfoRow
+                        label="Actual Commission"
+                        value={formatCurrency(order.actual_commission)}
+                        icon={<FaDollarSign />}
+                      />
+                      <InfoRow
+                        label="Commission Percent"
+                        value={
+                          order.commission_percent
+                            ? `${order.commission_percent}%`
+                            : "—"
+                        }
+                        icon={<FaPercent />}
+                      />
+                      <InfoRow
+                        label="Commission Receipt Date"
+                        value={formatDate(order.commission_rec_date)}
+                        icon={<FaCalendarAlt />}
+                      />
+                    </SectionCard>
+                  )}
 
                   <SectionCard title="Shipment Tracking" icon={<FaTruck />}>
                     <InfoRow
@@ -1896,10 +1921,29 @@ const DetailOrder = () => {
           </div>
 
           {/* Remarks Section */}
-          {order.remarks && activeTab !== "details" && (
-            <SectionCard title="Remarks" icon={<FaComments />}>
-              <div style={styles.remarksContent}>{order.remarks}</div>
-            </SectionCard>
+          {isMerchandiserProduction() ? (
+            order.production_remarks && activeTab !== "details" && (
+              <SectionCard title="Remarks" icon={<FaComments />}>
+                <div style={styles.remarksContent}>
+                  {order.production_remarks}
+                </div>
+              </SectionCard>
+            )
+          ) : (
+            <>
+              {order.remarks && activeTab !== "details" && (
+                <SectionCard title="Remarks" icon={<FaComments />}>
+                  <div style={styles.remarksContent}>{order.remarks}</div>
+                </SectionCard>
+              )}
+              {order.production_remarks && activeTab !== "details" && (
+                <SectionCard title="Production Remarks" icon={<FaComments />}>
+                  <div style={styles.remarksContent}>
+                    {order.production_remarks}
+                  </div>
+                </SectionCard>
+              )}
+            </>
           )}
 
           {/* Footer Actions */}
@@ -1910,20 +1954,22 @@ const DetailOrder = () => {
             >
               <FaArrowLeft style={{ marginRight: "8px" }} /> Back to List
             </button>
-            <div style={styles.footerRightActions}>
-              <button
-                style={styles.btnPrimary}
-                onClick={() => navigate(`/orders/edit/${id}`)}
-              >
-                <FaEdit style={{ marginRight: "8px" }} /> Edit Order
-              </button>
-              <button
-                style={styles.btnDangerOutline}
-                onClick={() => setDeleteConfirm(true)}
-              >
-                <FaTrash style={{ marginRight: "8px" }} /> Delete
-              </button>
-            </div>
+            {canManageOrders() && (
+              <div style={styles.footerRightActions}>
+                <button
+                  style={styles.btnPrimary}
+                  onClick={() => navigate(`/orders/edit/${id}`)}
+                >
+                  <FaEdit style={{ marginRight: "8px" }} /> Edit Order
+                </button>
+                <button
+                  style={styles.btnDangerOutline}
+                  onClick={() => setDeleteConfirm(true)}
+                >
+                  <FaTrash style={{ marginRight: "8px" }} /> Delete
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

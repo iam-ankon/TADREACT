@@ -10,7 +10,7 @@ import {
   getSuppliers,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
-import { canViewOrderPricing, canViewOrderAttachments } from "../../utils/accessControl";
+import { canViewOrderPricing, canViewOrderAttachments, canManageOrders } from "../../utils/accessControl";
 import {
   FaArrowLeft,
   FaSave,
@@ -97,6 +97,15 @@ const alphaSizes = [
 
 const AddOrder = () => {
   const navigate = useNavigate();
+
+  // Merchandiser - Production is view-only on Orders; block direct
+  // navigation to this form even via URL (see accessControl.js).
+  useEffect(() => {
+    if (!canManageOrders()) {
+      navigate("/orders", { replace: true });
+    }
+  }, [navigate]);
+
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
