@@ -133,6 +133,10 @@ import ChatInterface from "./components/ai_assistant/ChatInterface.jsx";
 import CompanyDocsDashboard from "./components/company_docs/CompanyDocsDashboard.jsx";
 import CompanyDetail from "./components/company_docs/CompanyDetail.jsx";
 
+// Password Vault
+import VaultDashboard from "./components/vault/VaultDashboard.jsx";
+import VaultAuditLog from "./components/vault/VaultAuditLog.jsx";
+
 // chatbox
 import ChatApp from "./components/chatbox/ChatApp.jsx";
 
@@ -1008,6 +1012,24 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <CompanyDetail />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Password Vault (accessible to every authenticated user) */}
+          <Route
+            path="/vault"
+            element={
+              <ProtectedRoute>
+                <VaultDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/vault/audit-log"
+            element={
+              <ProtectedRoute>
+                <VaultAuditLog />
               </ProtectedRoute>
             }
           />

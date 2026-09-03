@@ -24,6 +24,7 @@ import {
   FiClock,
   FiTrendingUp,
   FiFlag,
+  FiLock,
 } from "react-icons/fi";
 import { TfiEmail, TfiWorld } from "react-icons/tfi";
 // Try different import paths for the logo
@@ -258,6 +259,13 @@ const Sidebar = () => {
 
   // === HR DASHBOARD MENU ITEMS (Full Access Users) ===
   const hrDashboardMenuItems = [
+    {
+      to: "/vault",
+      icon: <FiLock />,
+      label: "Password Vault",
+      badge: null,
+      highlight: true,
+    },
     { to: "/hr-work", icon: <FiHome />, label: "Human Resources", badge: null },
     {
       to: "/canada/dashboard",
@@ -312,6 +320,13 @@ const Sidebar = () => {
 
   // === LIMITED HR ACCESS MENU ITEMS (Group HR Head only) ===
   const limitedHRMenuItems = [
+    {
+      to: "/vault",
+      icon: <FiLock />,
+      label: "Password Vault",
+      badge: null,
+      highlight: true,
+    },
     { to: "/hr-work", icon: <FiHome />, label: "HR Dashboard", badge: null },
     {
       to: "/finance-provision",
@@ -336,6 +351,13 @@ const Sidebar = () => {
 
   // === REGULAR EMPLOYEE MENU ITEMS ===
   const regularEmployeeMenuItems = [
+    {
+      to: "/vault",
+      icon: <FiLock />,
+      label: "Password Vault",
+      badge: null,
+      highlight: true,
+    },
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply", badge: null },
 
     ...(isTeamLeader ||
@@ -868,33 +890,58 @@ const Sidebar = () => {
           {/* Navigation Menu */}
           <nav style={navStyle}>
             <ul style={ulStyle}>
-              {menuItems.map(({ to, icon, label, badge, onClick }) => (
+              {menuItems.map(({ to, icon, label, badge, onClick, highlight }) => (
                 <li key={to}>
                   <Link
                     to={to}
-                    style={linkStyle(to)}
+                    style={
+                      highlight
+                        ? {
+                            ...linkStyle(to),
+                            background:
+                              location.pathname === to
+                                ? "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)"
+                                : "rgba(16, 185, 129, 0.14)",
+                            color: "#047857",
+                            border: "1px solid rgba(16, 185, 129, 0.35)",
+                            fontWeight: 700,
+                          }
+                        : linkStyle(to)
+                    }
                     onClick={onClick}
                     title={!isSidebarOpen ? label : ""}
                     onMouseOver={(e) => {
                       if (location.pathname !== to) {
-                        e.currentTarget.style.background = isHRDashboard
-                          ? "rgba(241, 245, 249, 1)"
-                          : "rgba(255, 255, 255, 0.05)";
-                        e.currentTarget.style.color = isHRDashboard
-                          ? "#334155"
-                          : "#e2e8f0";
+                        if (highlight) {
+                          e.currentTarget.style.background = "rgba(16, 185, 129, 0.22)";
+                          e.currentTarget.style.color = "#047857";
+                        } else {
+                          e.currentTarget.style.background = isHRDashboard
+                            ? "rgba(241, 245, 249, 1)"
+                            : "rgba(255, 255, 255, 0.05)";
+                          e.currentTarget.style.color = isHRDashboard
+                            ? "#334155"
+                            : "#e2e8f0";
+                        }
                       }
                     }}
                     onMouseOut={(e) => {
                       if (location.pathname !== to) {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = isHRDashboard
-                          ? "#475569"
-                          : "#cbd5e1";
+                        if (highlight) {
+                          e.currentTarget.style.background = "rgba(16, 185, 129, 0.14)";
+                          e.currentTarget.style.color = "#047857";
+                        } else {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = isHRDashboard
+                            ? "#475569"
+                            : "#cbd5e1";
+                        }
                       }
                     }}
                   >
-                    <span style={iconStyle(to)}>{icon}</span>
+                    <span style={highlight ? { ...iconStyle(to), color: "#059669" } : iconStyle(to)}>
+                      {icon}
+                    </span>
                     {isSidebarOpen && <span>{label}</span>}
                     {badge && isSidebarOpen && (
                       <span style={badgeStyle}>{badge}</span>
@@ -908,9 +955,11 @@ const Sidebar = () => {
                           transform: "translateY(-50%)",
                           width: "4px",
                           height: "24px",
-                          background: isHRDashboard
-                            ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
-                            : "linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%)",
+                          background: highlight
+                            ? "linear-gradient(180deg, #10b981 0%, #047857 100%)"
+                            : isHRDashboard
+                              ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
+                              : "linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%)",
                           borderRadius: "0 2px 2px 0",
                         }}
                       />
