@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>TAD Password Vault</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <span class="logo">🔐</span>
+      <span class="title">TAD Password Vault</span>
+    </header>
+
+    <section id="login-view" hidden>
+      <form id="login-form">
+        <label>
+          Username
+          <input type="text" id="login-username" autocomplete="username" required />
+        </label>
+        <label>
+          Password
+          <input type="password" id="login-password" autocomplete="current-password" required />
+        </label>
+        <div id="login-error" class="error" hidden></div>
+        <button type="submit" id="login-submit">Log in</button>
+      </form>
+    </section>
+
+    <section id="matches-view" hidden>
+      <div class="account-row">
+        <span id="account-name"></span>
+        <button id="logout-btn" class="link-btn">Log out</button>
+      </div>
+      <div id="domain-label" class="domain-label"></div>
+      <div id="matches-list"></div>
+      <div id="status" class="status" hidden></div>
+    </section>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
