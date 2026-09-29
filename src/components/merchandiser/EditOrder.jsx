@@ -85,6 +85,25 @@ const orderTypeOptions = [
   { value: "programmer", label: "Programmer" },
 ];
 
+const seasonOptions = [
+  { value: "spring", label: "Spring" },
+  { value: "summer", label: "Summer" },
+  { value: "autumn", label: "Autumn" },
+  { value: "winter", label: "Winter" },
+  { value: "autumn_opening", label: "Autumn Opening" },
+  { value: "boost_aw", label: "Boost AW" },
+  { value: "boost_ss", label: "Boost SS" },
+  { value: "main_spring", label: "Main Spring" },
+  { value: "spring_opening", label: "Spring Opening" },
+];
+
+// Commission is not tied to any specific buyer — any order can use either
+// method, chosen freely per-order via this dropdown.
+const commissionCalcMethodOptions = [
+  { value: "manual_percent", label: "Manual Commission Percentage" },
+  { value: "unit_price_minus_factory", label: "Unit Price − Factory Price" },
+];
+
 const sizeTypeOptions = [
   { value: "numeric", label: "Numeric Sizes (Even numbers only)" },
   { value: "alpha", label: "Alpha Sizes (XS-10XL)" },
@@ -132,6 +151,7 @@ const EditOrder = () => {
     department_id: "",
     customer_id: "",
     garment: "",
+    season: "",
     ref_no: "",
     supplier_id: "",
     supplier_name: "",
@@ -150,7 +170,10 @@ const EditOrder = () => {
     total_value: "",
     estimated_commission: "",
     actual_commission: "",
+    commission_calc_method: "manual_percent",
     commission_percent: "",
+    factory_price: "",
+    commission_rate: "",
     commission_rec_date: null,
     status: "Running",
     shipped_qty: 0,
@@ -183,13 +206,18 @@ const EditOrder = () => {
   const [colorSizeGroups, setColorSizeGroups] = useState([]);
 
   // File upload state
-  const [orderFiles, setOrderFiles] = useState({ attachments: [], images: [] });
+  const [orderFiles, setOrderFiles] = useState({
+    attachments: [],
+    images: [],
+    sampleFiles: [],
+  });
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadingType, setUploadingType] = useState(null);
 
   // Drag and drop states
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isDraggingAttachment, setIsDraggingAttachment] = useState(false);
+  const [isDraggingSampleFile, setIsDraggingSampleFile] = useState(false);
 
   // Rename state
   const [renamingFile, setRenamingFile] = useState(null);
@@ -227,11 +255,34 @@ const EditOrder = () => {
     supplier.name.toLowerCase().includes(supplierSearchTerm.toLowerCase()),
   );
 
-  // ==================== FORMULA 1: Estimated Commission = Commission Percent × Total Value ====================
+  // ==================== FORMULA 1: Estimated Commission ====================
+  // Manual Commission Percentage (existing/default behavior):
+  //   Estimated Commission = Total Value × Commission Percent
+  // Unit Price − Factory Price:
+  //   Commission Rate = Unit Price − Factory Price (auto-calculated, not entered)
+  //   Estimated Commission = Total Quantity × Commission Rate
   useEffect(() => {
-    const commissionPercent = parseFloat(formData.commission_percent);
     const totalValue = parseFloat(formData.total_value);
 
+    if (formData.commission_calc_method === "unit_price_minus_factory") {
+      const unitPrice = parseFloat(formData.unit_price);
+      const factoryPrice = parseFloat(formData.factory_price);
+      const totalQty = parseFloat(formData.total_qty);
+      const rateValid = !isNaN(unitPrice) && !isNaN(factoryPrice);
+      const rate = rateValid ? unitPrice - factoryPrice : null;
+
+      setFormData((prev) => ({
+        ...prev,
+        commission_rate: rateValid ? rate.toFixed(4) : "",
+        estimated_commission:
+          rateValid && !isNaN(totalQty) && totalQty > 0
+            ? (rate * totalQty).toFixed(2)
+            : "",
+      }));
+      return;
+    }
+
+    const commissionPercent = parseFloat(formData.commission_percent);
     if (
       !isNaN(commissionPercent) &&
       !isNaN(totalValue) &&
@@ -241,6 +292,7 @@ const EditOrder = () => {
       const estimatedCommission = (commissionPercent / 100) * totalValue;
       setFormData((prev) => ({
         ...prev,
+        commission_rate: "",
         estimated_commission: estimatedCommission.toFixed(2),
       }));
     } else if (
@@ -251,14 +303,21 @@ const EditOrder = () => {
     ) {
       setFormData((prev) => ({
         ...prev,
+        commission_rate: "",
         estimated_commission: "",
       }));
     }
-  }, [formData.commission_percent, formData.total_value]);
+  }, [
+    formData.commission_calc_method,
+    formData.commission_percent,
+    formData.total_value,
+    formData.total_qty,
+    formData.unit_price,
+    formData.factory_price,
+  ]);
 
   // ==================== FORMULA 2 & 3: Actual Commission & Shipped Value & Factory Value ====================
   useEffect(() => {
-    const commissionPercent = parseFloat(formData.commission_percent);
     const shippedQty = parseFloat(formData.shipped_qty);
     const unitPrice = parseFloat(formData.unit_price);
 
@@ -271,24 +330,26 @@ const EditOrder = () => {
       const shippedValue = shippedQty * unitPrice;
       const factoryValue = shippedQty * unitPrice;
 
+      let actualCommission = "";
+      if (formData.commission_calc_method === "unit_price_minus_factory") {
+        const factoryPrice = parseFloat(formData.factory_price);
+        if (!isNaN(factoryPrice)) {
+          const rate = unitPrice - factoryPrice;
+          actualCommission = (rate * shippedQty).toFixed(2);
+        }
+      } else {
+        const commissionPercent = parseFloat(formData.commission_percent);
+        if (!isNaN(commissionPercent) && commissionPercent > 0) {
+          actualCommission = ((commissionPercent / 100) * shippedValue).toFixed(2);
+        }
+      }
+
       setFormData((prev) => ({
         ...prev,
         shipped_value: shippedValue.toFixed(2),
         factory_value: factoryValue.toFixed(2),
+        actual_commission: actualCommission,
       }));
-
-      if (!isNaN(commissionPercent) && commissionPercent > 0) {
-        const actualCommission = (commissionPercent / 100) * shippedValue;
-        setFormData((prev) => ({
-          ...prev,
-          actual_commission: actualCommission.toFixed(2),
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          actual_commission: "",
-        }));
-      }
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -297,7 +358,13 @@ const EditOrder = () => {
         actual_commission: "",
       }));
     }
-  }, [formData.commission_percent, formData.shipped_qty, formData.unit_price]);
+  }, [
+    formData.commission_calc_method,
+    formData.commission_percent,
+    formData.factory_price,
+    formData.shipped_qty,
+    formData.unit_price,
+  ]);
 
   // ==================== FORMULA 4: Delay from Ex-Factory = Shipment Date - Ex-Factory Date ====================
   useEffect(() => {
@@ -664,10 +731,12 @@ const EditOrder = () => {
       // Load existing files
       const existingAttachments = orderData.multiple_attachments || [];
       const existingImages = orderData.multiple_images || [];
+      const existingSampleFiles = orderData.sample_files || [];
 
       setOrderFiles({
         attachments: existingAttachments,
         images: existingImages,
+        sampleFiles: existingSampleFiles,
       });
 
       // Set form data
@@ -678,6 +747,7 @@ const EditOrder = () => {
         department_id: departmentId,
         customer_id: customerId,
         garment: orderData.garment || "",
+        season: orderData.season || "",
         ref_no: orderData.ref_no || "",
         supplier_id: supplierId,
         supplier_name: supplierName,
@@ -696,7 +766,10 @@ const EditOrder = () => {
         total_value: orderData.total_value?.toString() || "",
         estimated_commission: orderData.estimated_commission?.toString() || "",
         actual_commission: orderData.actual_commission?.toString() || "",
+        commission_calc_method: orderData.commission_calc_method || "manual_percent",
         commission_percent: orderData.commission_percent?.toString() || "",
+        factory_price: orderData.factory_price?.toString() || "",
+        commission_rate: orderData.commission_rate?.toString() || "",
         commission_rec_date: orderData.commission_rec_date
           ? new Date(orderData.commission_rec_date)
           : null,
@@ -941,8 +1014,14 @@ const EditOrder = () => {
     if (files.length === 0) return;
 
     const uploadData = new FormData();
+    const fieldName =
+      type === "image"
+        ? "images"
+        : type === "sample_file"
+          ? "sample_files"
+          : "attachments";
     for (let file of files) {
-      uploadData.append(type === "image" ? "images" : "attachments", file);
+      uploadData.append(fieldName, file);
     }
 
     setUploadingType(type);
@@ -956,6 +1035,14 @@ const EditOrder = () => {
           setOrderFiles((prev) => ({
             ...prev,
             images: [...prev.images, ...(response.data.uploaded_images || [])],
+          }));
+        } else if (type === "sample_file") {
+          setOrderFiles((prev) => ({
+            ...prev,
+            sampleFiles: [
+              ...prev.sampleFiles,
+              ...(response.data.uploaded_sample_files || []),
+            ],
           }));
         } else {
           setOrderFiles((prev) => ({
@@ -1016,6 +1103,17 @@ const EditOrder = () => {
     }
   };
 
+  const handleSampleFileDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingSampleFile(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      uploadFiles(files, "sample_file");
+    }
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1025,6 +1123,7 @@ const EditOrder = () => {
     e.preventDefault();
     e.stopPropagation();
     if (type === "image") setIsDraggingImage(true);
+    else if (type === "sample_file") setIsDraggingSampleFile(true);
     else setIsDraggingAttachment(true);
   };
 
@@ -1032,6 +1131,7 @@ const EditOrder = () => {
     e.preventDefault();
     e.stopPropagation();
     if (type === "image") setIsDraggingImage(false);
+    else if (type === "sample_file") setIsDraggingSampleFile(false);
     else setIsDraggingAttachment(false);
   };
 
@@ -1051,6 +1151,46 @@ const EditOrder = () => {
     e.target.value = "";
   };
 
+  const handleSampleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      uploadFiles(files, "sample_file");
+    }
+    e.target.value = "";
+  };
+
+  // Lets a copied image (screenshot, "Copy Image" from a browser, etc.) be
+  // pasted straight into Product Images with Ctrl/Cmd+V, without needing to
+  // save it to disk first and browse for it.
+  useEffect(() => {
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles = Array.from(items)
+        .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter(Boolean);
+
+      if (imageFiles.length === 0) return;
+
+      e.preventDefault();
+      const namedFiles = imageFiles.map((file, idx) =>
+        file.name && file.name !== "image.png"
+          ? file
+          : new File(
+              [file],
+              `pasted-image-${Date.now()}-${idx}.${(file.type.split("/")[1] || "png")}`,
+              { type: file.type },
+            ),
+      );
+      uploadFiles(namedFiles, "image");
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
+
   const handleDeleteFile = async (filePath, fileType) => {
     if (window.confirm(`Are you sure you want to delete this ${fileType}?`)) {
       try {
@@ -1060,6 +1200,11 @@ const EditOrder = () => {
           setOrderFiles((prev) => ({
             ...prev,
             attachments: prev.attachments.filter((path) => path !== filePath),
+          }));
+        } else if (fileType === "sample_file") {
+          setOrderFiles((prev) => ({
+            ...prev,
+            sampleFiles: prev.sampleFiles.filter((path) => path !== filePath),
           }));
         } else {
           setOrderFiles((prev) => ({
@@ -1119,6 +1264,13 @@ const EditOrder = () => {
               path === filePath ? response.data.new_path : path,
             ),
           }));
+        } else if (fileType === "sample_file") {
+          setOrderFiles((prev) => ({
+            ...prev,
+            sampleFiles: prev.sampleFiles.map((path) =>
+              path === filePath ? response.data.new_path : path,
+            ),
+          }));
         } else {
           setOrderFiles((prev) => ({
             ...prev,
@@ -1172,6 +1324,7 @@ const EditOrder = () => {
           ? parseInt(formData.customer_id)
           : null,
         garment: formData.garment || null,
+        season: formData.season || null,
         ref_no: formData.ref_no || null,
         supplier_id: formData.supplier_id
           ? parseInt(formData.supplier_id)
@@ -1199,8 +1352,15 @@ const EditOrder = () => {
         actual_commission: formData.actual_commission
           ? parseFloat(formData.actual_commission)
           : null,
+        commission_calc_method: formData.commission_calc_method || "manual_percent",
         commission_percent: formData.commission_percent
           ? parseFloat(formData.commission_percent)
+          : null,
+        factory_price: formData.factory_price
+          ? parseFloat(formData.factory_price)
+          : null,
+        commission_rate: formData.commission_rate
+          ? parseFloat(formData.commission_rate)
           : null,
         commission_rec_date:
           formData.commission_rec_date?.toISOString().split("T")[0] || null,
@@ -1247,6 +1407,7 @@ const EditOrder = () => {
         color_size_groups: formattedColorGroups,
         multiple_attachments: orderFiles.attachments,
         multiple_images: orderFiles.images,
+        sample_files: orderFiles.sampleFiles,
       };
 
       console.log("Submitting data:", submitData);
@@ -1501,7 +1662,7 @@ const EditOrder = () => {
                   </div>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>
-                      PDM Number <span style={styles.required}>*</span>
+                      Order NO <span style={styles.required}>*</span>
                     </label>
                     <input
                       type="text"
@@ -1564,6 +1725,22 @@ const EditOrder = () => {
                       {garmentOptions.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Season</label>
+                    <select
+                      name="season"
+                      value={formData.season}
+                      onChange={handleChange}
+                      style={styles.select}
+                    >
+                      <option value="">Select season</option>
+                      {seasonOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
                         </option>
                       ))}
                     </select>
@@ -2122,16 +2299,63 @@ const EditOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label>Commission Percent (%)</label>
-                    <input
-                      type="number"
-                      name="commission_percent"
-                      value={formData.commission_percent}
+                    <label>Commission Calculation Method</label>
+                    <select
+                      name="commission_calc_method"
+                      value={formData.commission_calc_method}
                       onChange={handleChange}
-                      step="0.01"
-                      style={styles.input}
-                    />
+                      style={styles.select}
+                    >
+                      {commissionCalcMethodOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                  {formData.commission_calc_method ===
+                  "unit_price_minus_factory" ? (
+                    <>
+                      <div style={styles.formField}>
+                        <label>Factory Price ($)</label>
+                        <input
+                          type="number"
+                          name="factory_price"
+                          value={formData.factory_price}
+                          onChange={handleChange}
+                          step="0.0001"
+                          style={styles.input}
+                        />
+                      </div>
+                      <div style={styles.formField}>
+                        <label>Commission Rate ($)</label>
+                        <input
+                          type="number"
+                          name="commission_rate"
+                          value={formData.commission_rate}
+                          readOnly
+                          placeholder="Auto: Unit Price − Factory Price"
+                          style={{
+                            ...styles.input,
+                            backgroundColor: "#f3f4f6",
+                            cursor: "not-allowed",
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div style={styles.formField}>
+                      <label>Commission Percent (%)</label>
+                      <input
+                        type="number"
+                        name="commission_percent"
+                        value={formData.commission_percent}
+                        onChange={handleChange}
+                        step="0.01"
+                        style={styles.input}
+                      />
+                    </div>
+                  )}
                   <div style={styles.formField}>
                     <label>Estimated Commission ($)</label>
                     <input
@@ -2504,6 +2728,111 @@ const EditOrder = () => {
                         )}
                     </div>
                   )}
+
+                  {/* Sample Files Drop Zone - separate from Attachments;
+                      Merchandiser - Production can view these (own tab on
+                      the Detail page) but never reaches this Edit page to
+                      upload/rename/delete them. */}
+                  <div
+                    style={{
+                      ...styles.uploadArea,
+                      ...(isDraggingSampleFile && styles.uploadAreaDragging),
+                      marginTop: "32px",
+                    }}
+                    onDragEnter={(e) => handleDragEnter("sample_file", e)}
+                    onDragLeave={(e) => handleDragLeave("sample_file", e)}
+                    onDragOver={handleDragOver}
+                    onDrop={handleSampleFileDrop}
+                  >
+                    <label style={styles.uploadLabel}>
+                      <FaFileAlt /> Sample Files
+                    </label>
+                    <div style={styles.dropZone}>
+                      <FaCloudUploadAlt style={styles.dropZoneIcon} />
+                      <p>Drag & drop files here or click to browse</p>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleSampleFileSelect}
+                        style={{ display: "none" }}
+                        id="sample-file-upload-edit"
+                      />
+                      <label
+                        htmlFor="sample-file-upload-edit"
+                        style={styles.browseButton}
+                      >
+                        Browse Sample Files
+                      </label>
+                    </div>
+
+                    {uploadingFiles && uploadingType === "sample_file" && (
+                      <div style={styles.uploadingIndicator}>
+                        <FaSpinner
+                          style={{ animation: "spin 1s linear infinite" }}
+                        />
+                        <span>Uploading sample files...</span>
+                      </div>
+                    )}
+
+                    {orderFiles.sampleFiles &&
+                      orderFiles.sampleFiles.length > 0 && (
+                        <div>
+                          {orderFiles.sampleFiles.map((filePath, idx) => {
+                            let fullUrl = filePath;
+                            if (!filePath.startsWith("http")) {
+                              if (filePath.startsWith("/media/")) {
+                                fullUrl = `${getBackendURL()}${filePath}`;
+                              } else {
+                                fullUrl = `${getBackendURL()}/media/${filePath.replace(/^\/+/, "")}`;
+                              }
+                            }
+                            const fileName = filePath.split("/").pop();
+                            return (
+                              <div key={idx} style={styles.fileItem}>
+                                <FaFileAlt style={styles.fileIcon} />
+                                <div style={styles.fileInfo}>
+                                  <span style={styles.fileName}>
+                                    {fileName}
+                                  </span>
+                                </div>
+                                <div style={styles.fileActions}>
+                                  <a
+                                    href={fullUrl}
+                                    download
+                                    style={styles.renameFileBtn}
+                                    title="Download"
+                                  >
+                                    <FaDownload /> Download
+                                  </a>
+                                  <button
+                                    onClick={() =>
+                                      openRenameModal(
+                                        filePath,
+                                        "sample_file",
+                                        fileName,
+                                      )
+                                    }
+                                    style={styles.renameFileBtn}
+                                    title="Rename"
+                                  >
+                                    <FaEditIcon /> Rename
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteFile(filePath, "sample_file")
+                                    }
+                                    style={styles.removeFileBtn}
+                                    title="Delete"
+                                  >
+                                    <FaTrash /> Delete
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                  </div>
                 </div>
               </div>
             </div>

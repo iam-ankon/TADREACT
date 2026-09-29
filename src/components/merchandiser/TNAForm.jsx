@@ -607,7 +607,7 @@ export default function TNAForm() {
       
       const formattedOrders = ordersData.map(order => ({
         value: order.id,
-        label: `${order.pdm_no || order.po_no || `Order ${order.id}`} - ${order.style || "No Style"}`,
+        label: `${order.pdm_no || order.po_no || `Order ${order.id}`} - ${order.style || "No Order NO"}`,
         subLabel: `Customer: ${order.customer_display || "N/A"} | Qty: ${order.total_qty || 0}`,
         orderData: order
       }));
@@ -1004,7 +1004,7 @@ export default function TNAForm() {
               </div>
               
               <div style={styles.formGroup}>
-                <label style={styles.label}>PDM No / Order Number *</label>
+                <label style={styles.label}>Order NO *</label>
                 <input type="text" name="order_number" value={formData.order_number} onChange={handleChange} placeholder="Enter order number" style={styles.input} required />
               </div>
               

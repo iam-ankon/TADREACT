@@ -17,6 +17,9 @@ export const canViewOrderAttachments = () => !isMerchandiserProduction();
 // delete them - view-only access.
 export const canManageOrders = () => !isMerchandiserProduction();
 
+// Merchandiser - Production must not see the Shipment Month field.
+export const canViewShipmentMonth = () => !isMerchandiserProduction();
+
 // Merchandiser - Production must not see the actual Shipment Date. In its
 // place they see the Factory Ship Date; only when the Factory Ship Date is
 // empty do they fall back to seeing the Shipment Date.

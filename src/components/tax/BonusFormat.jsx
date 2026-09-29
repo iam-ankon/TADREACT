@@ -39,6 +39,7 @@ const COMPANY_BONUS_PERCENTAGES = {
   KLOTHEN: 50,
   "KLOTHEN LTD": 50,
   "KLOTHEN LIMITED": 50,
+  LEVEDOUGH: 50,
 };
 
 const getCompanyBonusPercentage = (companyName, defaultPercentage = 100) => {

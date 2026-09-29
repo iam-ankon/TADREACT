@@ -68,6 +68,9 @@ const SalaryFormat = () => {
   const [loading, setLoading] = useState(true);
   const [openCompanies, setOpenCompanies] = useState({});
   const [manualData, setManualData] = useState({});
+  // Approved unpaid leave (leave without pay) per employee_id for the month.
+  // Each unpaid day is added to the absent deduction (one day's basic).
+  const [unpaidLeave, setUnpaidLeave] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [showSummary, setShowSummary] = useState(true);
   const [loadingAit, setLoadingAit] = useState({});
@@ -174,9 +177,24 @@ const SalaryFormat = () => {
         setSourceOther(sourceTaxOther);
         setBonusOverride(bonusData);
 
-        // 3. Load manual data
-        const savedManual = financeAPI.storage.getSalaryManualData();
-        if (savedManual) setManualData(savedManual);
+        // 3. Load this month's manual entries (advance, days worked, ...).
+        // Nothing typed in this browser yet but the month was already saved?
+        // Start from the saved salary records so a re-save keeps them.
+        let savedManual = financeAPI.storage.getSalaryManualData(
+          selectedYear,
+          selectedMonth,
+        );
+        if (!savedManual) {
+          savedManual = await loadManualFromSavedRecords();
+          if (Object.keys(savedManual).length > 0) {
+            financeAPI.storage.setSalaryManualData(
+              savedManual,
+              selectedYear,
+              selectedMonth,
+            );
+          }
+        }
+        setManualData(savedManual || {});
 
         // 4. CRITICAL: Load tax results IMMEDIATELY (like other screens do)
         // Set initial loading states
@@ -195,6 +213,20 @@ const SalaryFormat = () => {
     loadInitialData();
   }, [selectedMonth, selectedYear]);
 
+  useEffect(() => {
+    let active = true;
+    financeAPI.unpaidLeave
+      .getForMonth(selectedYear, selectedMonth)
+      .then((res) => active && setUnpaidLeave(res.data || {}))
+      .catch((err) => {
+        console.error("Failed to load unpaid leave:", err);
+        if (active) setUnpaidLeave({});
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedMonth, selectedYear]);
+
   // Auto-sync on component mount
   useEffect(() => {
     const autoSync = async () => {
@@ -209,13 +241,46 @@ const SalaryFormat = () => {
     return () => clearTimeout(timer);
   }, [employees.length, taxResults]);
 
+  // Manual entries rebuilt from an already-saved month ({} if not saved yet).
+  const loadManualFromSavedRecords = async () => {
+    try {
+      const res = await financeAPI.salaryRecords.getMonthlyDetails(
+        selectedYear,
+        selectedMonth,
+      );
+      const manual = {};
+      (res.data?.companies || []).forEach((company) =>
+        (company.records || []).forEach((r) => {
+          const empId = (r.employee_id || "").trim();
+          if (!empId) return;
+          manual[empId] = {
+            daysWorked: Number(r.days_worked) || 0,
+            advance: Number(r.advance) || 0,
+            cashPayment: Number(r.cash_payment) || 0,
+            addition: Number(r.addition) || 0,
+            otHours: Number(r.ot_hours) || 0,
+            otPay: Number(r.ot_pay) || 0,
+            remarks: r.remarks || "",
+          };
+        }),
+      );
+      return manual;
+    } catch {
+      return {}; // month not saved yet (the API answers 404)
+    }
+  };
+
   // Add this function after the useEffect
   const loadTaxResultsImmediately = async (employeeIds, employeeList) => {
     console.log("🚀 Loading tax results immediately...");
 
+    const databaseIds = new Set();
     try {
       // First check localStorage cache (fastest)
-      const cachedResults = financeAPI.storage.getTaxResultsByEmployee();
+      const cachedResults = financeAPI.storage.getTaxResultsByEmployee(
+        selectedYear,
+        selectedMonth,
+      );
       const initialResults = {};
 
       // Use cached results if available
@@ -249,6 +314,7 @@ const SalaryFormat = () => {
           Object.keys(savedResults).forEach((empId) => {
             if (savedResults[empId]?.calculation_data) {
               databaseResults[empId] = savedResults[empId].calculation_data;
+              databaseIds.add(empId);
             }
           });
 
@@ -270,6 +336,8 @@ const SalaryFormat = () => {
               financeAPI.storage.setTaxResultsByEmployee(
                 empId,
                 databaseResults[empId],
+                selectedYear,
+                selectedMonth,
               );
             });
           }
@@ -280,7 +348,7 @@ const SalaryFormat = () => {
 
       // Calculate missing ones immediately (not in background)
       const missingIds = employeeIds.filter(
-        (id) => !initialResults[id] && !taxResults[id],
+        (id) => !initialResults[id] && !taxResults[id] && !databaseIds.has(id),
       );
       if (missingIds.length > 0) {
         console.log(
@@ -289,7 +357,7 @@ const SalaryFormat = () => {
 
         // Get source and bonus data
         const { sourceTaxOther, bonusOverride: bonusData } =
-          await financeAPI.storage.getSourceTaxOther();
+          await financeAPI.storage.smartSyncData();
 
         // Start calculation immediately
         calculateMissingTaxes(
@@ -392,18 +460,17 @@ const SalaryFormat = () => {
               setLoadingAit((prev) => ({ ...prev, [empId]: false }));
 
               // Save to cache immediately
-              financeAPI.storage.setTaxResultsByEmployee(empId, taxData);
+              financeAPI.storage.setTaxResultsByEmployee(
+                empId,
+                taxData,
+                selectedYear,
+                selectedMonth,
+              );
 
-              // Save to database in background
-              financeAPI.tax
-                .saveCalculatedTax({
-                  employee_id: empId,
-                  month: selectedMonth,
-                  year: selectedYear,
-                  calculation_data: taxData,
-                  calculated_by: "system",
-                })
-                .catch((e) => console.warn(`Save failed for ${empId}:`, e));
+              // Not saved to the database: CalculatedTax holds one row per
+              // employee with the Finance Provision inputs (source other,
+              // bonus, investment, RPF) and this save would reset them to 0.
+              // Finance Provision is the only screen that writes tax rows.
             } catch (err) {
               console.error(`Failed to calculate for ${empId}:`, err);
               setLoadingAit((prev) => ({ ...prev, [empId]: false }));
@@ -685,7 +752,7 @@ const SalaryFormat = () => {
 
         // If no data, calculate taxes
         const { sourceTaxOther, bonusOverride: bonusData } =
-          await financeAPI.storage.getSourceTaxOther();
+          await financeAPI.storage.smartSyncData();
 
         await calculateMissingTaxes(
           filteredEmployees,
@@ -722,56 +789,15 @@ const SalaryFormat = () => {
         const empId = emp.employee_id?.trim();
         if (!empId) return null;
 
-        const monthlySalary = Number(emp.salary) || 0;
-        const salaryCash = Number(emp.salary_cash) || 0;
-
-        const basicFull = Number((monthlySalary * 0.6).toFixed(2));
-        const houseRentFull = Number((monthlySalary * 0.3).toFixed(2));
-        const medicalFull = Number((monthlySalary * 0.05).toFixed(2));
-        const conveyanceFull = Number((monthlySalary * 0.05).toFixed(2));
-        const grossFull = Number(monthlySalary.toFixed(2));
-
-        // Get tax calculation with deduction logic
-        const { ait } = getAitValue(empId, monthlySalary);
-
-        const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
-        const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
-        const otHours = Number(getManual(empId, "otHours")) || 0; // Get OT hours
+        const {
+          monthlySalary, salaryCash, basicFull, houseRentFull, medicalFull,
+          conveyanceFull, grossFull, ait, daysWorked, absentDays,
+          absentDeduction, advance, cashPayment, addition, totalDeduction,
+          netPayBank, totalPayable,
+        } = computeSalary(emp);
+        const otHours = Number(getManual(empId, "otHours")) || 0;
         const otPay = calculateOTPay(monthlySalary, otHours, totalDaysInMonth);
-        const additionManual = Number(getManual(empId, "addition")) || 0;
-        const addition = additionManual; // OT is already included in addition via updateManual
-        const advance = Number(getManual(empId, "advance")) || 0;
         const remarks = getManual(empId, "remarks", "") || "";
-
-        const doj = parseDate(emp.joining_date);
-        const isNewJoiner =
-          doj &&
-          doj.getMonth() + 1 === selectedMonth &&
-          doj.getFullYear() === selectedYear;
-        const defaultDays = isNewJoiner
-          ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-          : totalDaysInMonth;
-        const daysWorked =
-          daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
-        const absentDays = Math.max(0, totalDaysInMonth - daysWorked);
-
-        const dailyBasic = Number((basicFull / 30).toFixed(2));
-        const absentDeduction = Number((dailyBasic * absentDays).toFixed(2));
-        const totalDeduction = Number(
-          (ait + advance + absentDeduction).toFixed(2),
-        );
-
-        const netPayBank = Number(
-          (
-            (monthlySalary / totalDaysInMonth) * daysWorked -
-            cashPayment -
-            totalDeduction +
-            addition
-          ).toFixed(2),
-        );
-        const totalPayable = Number(
-          (netPayBank + cashPayment + ait + salaryCash).toFixed(2),
-        );
 
         // ------------------- FIXED: SIMPLIFIED DOJ FORMATTING -------------------
         let dojStr = emp.joining_date || null;
@@ -851,7 +877,10 @@ const SalaryFormat = () => {
           cash_salary: salaryCash,
           net_pay_bank: netPayBank,
           total_payable: totalPayable,
-          remarks: remarks,
+          remarks:
+            unpaidLeaveRemark(empId) && !remarks.includes("Unpaid leave")
+              ? [unpaidLeaveRemark(empId), remarks].filter(Boolean).join("; ")
+              : remarks,
           bank_account: emp.bank_account?.trim() || "",
           branch_name: emp.branch_name?.trim() || "",
           company_name: emp.company_name || "Unknown",
@@ -959,11 +988,78 @@ const SalaryFormat = () => {
     }
 
     setManualData(newData);
-    financeAPI.storage.setSalaryManualData(newData);
+    financeAPI.storage.setSalaryManualData(newData, selectedYear, selectedMonth);
   };
 
   const getManual = (empId, field, defaultVal = 0) => {
     return manualData[empId]?.[field] ?? defaultVal;
+  };
+
+  const getUnpaidLeaveDays = (empId) =>
+    unpaidLeave[(empId || "").trim()]?.unpaid_days || 0;
+
+  const unpaidLeaveRemark = (empId) => {
+    const days = getUnpaidLeaveDays(empId);
+    return days ? `Unpaid leave: ${days} day(s)` : "";
+  };
+
+  // THE salary calculation for one employee, used by the rows on screen, the
+  // company summary, the grand totals AND the saved payload, so what you see
+  // is exactly what gets saved and paid. Unpaid leave days are added to the
+  // absent days: one day's basic (basic / 30) each.
+  const round2 = (n) => Number((Number(n) || 0).toFixed(2));
+  const computeSalary = (emp) => {
+    const empId = (emp.employee_id || "").trim();
+    const monthlySalary = Number(emp.salary) || 0;
+    const salaryCash = Number(emp.salary_cash) || 0;
+
+    const basicFull = round2(monthlySalary * 0.6);
+    const houseRentFull = round2(monthlySalary * 0.3);
+    const medicalFull = round2(monthlySalary * 0.05);
+    const conveyanceFull = round2(monthlySalary * 0.05);
+    const grossFull = round2(monthlySalary);
+
+    const aitInfo = getAitValue(empId, monthlySalary);
+    const ait = Number(aitInfo.ait) || 0;
+
+    const daysWorkedManual = Number(getManual(empId, "daysWorked")) || 0;
+    const cashPayment = Number(getManual(empId, "cashPayment")) || 0;
+    const addition = Number(getManual(empId, "addition")) || 0; // includes OT pay
+    const advance = Number(getManual(empId, "advance")) || 0;
+
+    const doj = parseDate(emp.joining_date);
+    const isNewJoiner =
+      doj &&
+      doj.getMonth() + 1 === selectedMonth &&
+      doj.getFullYear() === selectedYear;
+    const defaultDays = isNewJoiner
+      ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
+      : totalDaysInMonth;
+    const daysWorked = daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
+    const unpaidLeaveDays = getUnpaidLeaveDays(empId);
+    const absentDays =
+      Math.max(0, totalDaysInMonth - daysWorked) + unpaidLeaveDays;
+
+    const dailyBasic = round2(basicFull / 30);
+    const absentDeduction = round2(dailyBasic * absentDays);
+    const totalDeduction = round2(ait + advance + absentDeduction);
+    const netPayBank = round2(
+      (monthlySalary / totalDaysInMonth) * daysWorked -
+        cashPayment -
+        totalDeduction +
+        addition,
+    );
+    const totalPayable = round2(netPayBank + cashPayment + ait + salaryCash);
+
+    return {
+      empId, monthlySalary, salaryCash,
+      basicFull, houseRentFull, medicalFull, conveyanceFull, grossFull,
+      ait, calculatedAit: aitInfo.calculatedAit || 0,
+      shouldDeduct: aitInfo.shouldDeduct, aitLoading: aitInfo.loading,
+      daysWorkedManual, defaultDays, daysWorked, unpaidLeaveDays, absentDays,
+      absentDeduction, advance, cashPayment, addition, totalDeduction,
+      netPayBank, totalPayable,
+    };
   };
 
   // FIXED: UPDATED APPROVAL FOOTER
@@ -1225,60 +1321,17 @@ const SalaryFormat = () => {
                       </thead>
                       <tbody>
                         {emps.map((emp, idx) => {
-                          const monthlySalary = Number(emp.salary) || 0;
-                          const salaryCash = Number(emp.salary_cash) || 0;
                           const empId = emp.employee_id;
-
-                          const basicFull = monthlySalary * 0.6;
-                          const houseRentFull = monthlySalary * 0.3;
-                          const medicalFull = monthlySalary * 0.05;
-                          const conveyanceFull = monthlySalary * 0.05;
-                          const grossFull = monthlySalary;
-
-                          // FIXED: Get AIT value from backend (same as FinanceProvision)
-                          const { ait, calculatedAit, shouldDeduct, loading } =
-                            getAitValue(empId, monthlySalary);
-
-                          const daysWorkedManual = getManual(
-                            empId,
-                            "daysWorked",
-                          );
-                          const cashPayment = getManual(empId, "cashPayment");
-                          const addition = getManual(empId, "addition");
-                          const advance = getManual(empId, "advance");
+                          const {
+                            monthlySalary, salaryCash, totalDeduction,
+                            basicFull, houseRentFull, medicalFull,
+                            conveyanceFull, grossFull, ait, calculatedAit,
+                            shouldDeduct, aitLoading: loading,
+                            daysWorkedManual, defaultDays, unpaidLeaveDays,
+                            absentDays, absentDeduction, advance, cashPayment,
+                            addition, netPayBank, totalPayable,
+                          } = computeSalary(emp);
                           const remarks = getManual(empId, "remarks", "");
-
-                          const doj = parseDate(emp.joining_date);
-                          const isNewJoiner =
-                            doj &&
-                            doj.getMonth() + 1 === selectedMonth &&
-                            doj.getFullYear() === selectedYear;
-                          const defaultDays = isNewJoiner
-                            ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-                            : totalDaysInMonth;
-                          const daysWorked =
-                            daysWorkedManual > 0
-                              ? daysWorkedManual
-                              : defaultDays;
-                          const absentDays = Math.max(
-                            0,
-                            totalDaysInMonth - daysWorked,
-                          );
-
-                          const dailyRate = monthlySalary / totalDaysInMonth;
-                          const dailyBasic = basicFull / BASE_MONTH;
-                          const absentDeduction = dailyBasic * absentDays;
-
-                          const totalDeduction =
-                            ait + advance + absentDeduction;
-
-                          const netPayBank =
-                            monthlySalary -
-                            cashPayment -
-                            totalDeduction +
-                            addition;
-                          const totalPayable =
-                            netPayBank + cashPayment + ait + salaryCash;
 
                           return (
                             <tr key={empId} className="data-row">
@@ -1326,7 +1379,23 @@ const SalaryFormat = () => {
                                 />
                               </td>
 
-                              <td className="absent-days">{absentDays}</td>
+                              <td
+                                className="absent-days"
+                                title={
+                                  unpaidLeaveDays
+                                    ? `Includes ${unpaidLeaveDays} unpaid leave day(s) — one day's basic each`
+                                    : undefined
+                                }
+                              >
+                                {absentDays}
+                                {unpaidLeaveDays > 0 && (
+                                  <div
+                                    style={{ fontSize: 10, color: "#b91c1c" }}
+                                  >
+                                    incl. {unpaidLeaveDays} unpaid leave
+                                  </div>
+                                )}
+                              </td>
                               <td className="deduction-amount">
                                 {formatNumber(absentDeduction)}
                               </td>
@@ -1489,7 +1558,9 @@ const SalaryFormat = () => {
                                 <input
                                   type="text"
                                   value={remarks}
-                                  placeholder="Remarks"
+                                  placeholder={
+                                    unpaidLeaveRemark(empId) || "Remarks"
+                                  }
                                   onChange={(e) =>
                                     updateManual(
                                       empId,
@@ -1649,39 +1720,16 @@ const SalaryFormat = () => {
                         const emps = grouped[comp];
                         const summary = emps.reduce(
                           (acc, e) => {
-                            const empId = e.employee_id;
-                            const salary = Number(e.salary) || 0;
-                            const doj = parseDate(e.joining_date);
-                            const isNewJoiner =
-                              doj &&
-                              doj.getMonth() + 1 === selectedMonth &&
-                              doj.getFullYear() === selectedYear;
-                            const defaultDays = isNewJoiner
-                              ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-                              : totalDaysInMonth;
-                            const daysWorked =
-                              getManual(empId, "daysWorked") || defaultDays;
-
-                            // Get tax calculation with deduction logic
-                            const result = taxResults[empId] || {};
-                            const taxCalc = result.tax_calculation || {};
-                            const shouldDeduct =
-                              taxCalc.should_deduct_tax || false;
-                            const ait = shouldDeduct
-                              ? taxCalc.monthly_tds || 0
-                              : 0;
-                            const calculatedAit = taxCalc.monthly_tds || 0;
-
-                            const absentDed =
-                              ((salary * 0.6) / BASE_MONTH) *
-                              (totalDaysInMonth - daysWorked);
-                            const advance = getManual(empId, "advance");
-                            const cash = getManual(empId, "cashPayment");
-                            const addition = getManual(empId, "addition");
-                            const totalDed = ait + advance + absentDed;
-                            const netBank = salary;
-                            cash - totalDed + addition;
-                            const totalPay = netBank + cash + ait;
+                            const c = computeSalary(e);
+                            const salary = c.monthlySalary;
+                            const ait = c.ait;
+                            const calculatedAit = c.calculatedAit;
+                            const absentDed = c.absentDeduction;
+                            const advance = c.advance;
+                            const cash = c.cashPayment;
+                            const addition = c.addition;
+                            const netBank = c.netPayBank;
+                            const totalPay = c.totalPayable;
 
                             return {
                               gross: acc.gross + salary,
@@ -1792,118 +1840,18 @@ const SalaryFormat = () => {
                         </td>
                         <td
                           className={`grand-total-net ${
-                            filteredEmployees.reduce((s, e) => {
-                              const empId = e.employee_id;
-                              const salary = Number(e.salary) || 0;
-                              const doj = parseDate(e.joining_date);
-                              const isNewJoiner =
-                                doj &&
-                                doj.getMonth() + 1 === selectedMonth &&
-                                doj.getFullYear() === selectedYear;
-                              const defaultDays = isNewJoiner
-                                ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-                                : totalDaysInMonth;
-                              const daysWorked =
-                                getManual(empId, "daysWorked") || defaultDays;
-                              const result = taxResults[empId] || {};
-                              const taxCalc = result.tax_calculation || {};
-                              const shouldDeduct =
-                                taxCalc.should_deduct_tax || false;
-                              const ait = shouldDeduct
-                                ? taxCalc.monthly_tds || 0
-                                : 0;
-                              const absentDed =
-                                ((salary * 0.6) / BASE_MONTH) *
-                                (totalDaysInMonth - daysWorked);
-                              const advance = getManual(empId, "advance");
-                              const cash = getManual(empId, "cashPayment");
-                              const addition = getManual(empId, "addition");
-                              const totalDed = ait + advance + absentDed;
-                              const netBank =
-                                (salary / totalDaysInMonth) * daysWorked -
-                                cash -
-                                totalDed +
-                                addition;
-                              return s + netBank;
-                            }, 0) < 0
+                            filteredEmployees.reduce((s, e) => s + computeSalary(e).netPayBank, 0) < 0
                               ? "negative"
                               : "positive"
                           }`}
                         >
                           {formatNumber(
-                            filteredEmployees.reduce((s, e) => {
-                              const empId = e.employee_id;
-                              const salary = Number(e.salary) || 0;
-                              const doj = parseDate(e.joining_date);
-                              const isNewJoiner =
-                                doj &&
-                                doj.getMonth() + 1 === selectedMonth &&
-                                doj.getFullYear() === selectedYear;
-                              const defaultDays = isNewJoiner
-                                ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-                                : totalDaysInMonth;
-                              const daysWorked =
-                                getManual(empId, "daysWorked") || defaultDays;
-                              const result = taxResults[empId] || {};
-                              const taxCalc = result.tax_calculation || {};
-                              const shouldDeduct =
-                                taxCalc.should_deduct_tax || false;
-                              const ait = shouldDeduct
-                                ? taxCalc.monthly_tds || 0
-                                : 0;
-                              const absentDed =
-                                ((salary * 0.6) / BASE_MONTH) *
-                                (totalDaysInMonth - daysWorked);
-                              const advance = getManual(empId, "advance");
-                              const cash = getManual(empId, "cashPayment");
-                              const addition = getManual(empId, "addition");
-                              const totalDed = ait + advance + absentDed;
-                              const netBank =
-                                (salary / totalDaysInMonth) * daysWorked -
-                                cash -
-                                totalDed +
-                                addition;
-                              return s + netBank;
-                            }, 0),
+                            filteredEmployees.reduce((s, e) => s + computeSalary(e).netPayBank, 0),
                           )}
                         </td>
                         <td className="grand-total-payable">
                           {formatNumber(
-                            filteredEmployees.reduce((s, e) => {
-                              const empId = e.employee_id;
-                              const salary = Number(e.salary) || 0;
-                              const doj = parseDate(e.joining_date);
-                              const isNewJoiner =
-                                doj &&
-                                doj.getMonth() + 1 === selectedMonth &&
-                                doj.getFullYear() === selectedYear;
-                              const defaultDays = isNewJoiner
-                                ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-                                : totalDaysInMonth;
-                              const daysWorked =
-                                getManual(empId, "daysWorked") || defaultDays;
-                              const result = taxResults[empId] || {};
-                              const taxCalc = result.tax_calculation || {};
-                              const shouldDeduct =
-                                taxCalc.should_deduct_tax || false;
-                              const ait = shouldDeduct
-                                ? taxCalc.monthly_tds || 0
-                                : 0;
-                              const absentDed =
-                                ((salary * 0.6) / BASE_MONTH) *
-                                (totalDaysInMonth - daysWorked);
-                              const advance = getManual(empId, "advance");
-                              const cash = getManual(empId, "cashPayment");
-                              const addition = getManual(empId, "addition");
-                              const totalDed = ait + advance + absentDed;
-                              const netBank =
-                                (salary / totalDaysInMonth) * daysWorked -
-                                cash -
-                                totalDed +
-                                addition;
-                              const totalPay = netBank + cash + ait;
-                              return s + totalPay;
-                            }, 0),
+                            filteredEmployees.reduce((s, e) => s + computeSalary(e).totalPayable, 0),
                           )}
                         </td>
                       </tr>

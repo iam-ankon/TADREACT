@@ -112,6 +112,19 @@ const orderStatusOptions = [
   { value: "Cancelled", label: "Cancelled" },
 ];
 
+// Mirrors Order.SEASON_CHOICES on the backend.
+const SEASON_LABELS = {
+  spring: "Spring",
+  summer: "Summer",
+  autumn: "Autumn",
+  winter: "Winter",
+  autumn_opening: "Autumn Opening",
+  boost_aw: "Boost AW",
+  boost_ss: "Boost SS",
+  main_spring: "Main Spring",
+  spring_opening: "Spring Opening",
+};
+
 // TNA progress stages - mirrors TNADetails.jsx's PROGRESS_STAGES /
 // TNA.PROGRESS_WEIGHTS on the backend (must sum to 100).
 const PROGRESS_STAGES = [
@@ -183,6 +196,31 @@ const renderDelayBadge = (delayDays, label) => {
   );
 };
 
+// Declared at module level so their identity is stable across renders -
+// otherwise every state change remounts their children (e.g. the inline
+// date editors lose focus while typing).
+const InfoRow = ({ label, value, icon }) => (
+  <div style={styles.infoRow}>
+    <div style={styles.infoLabel}>
+      {icon && <span style={styles.infoIcon}>{icon}</span>}
+      <span>{label}</span>
+    </div>
+    <div style={styles.infoValue}>{value || "—"}</div>
+  </div>
+);
+
+const SectionCard = ({ title, icon, children }) => (
+  <div style={styles.sectionCard}>
+    <div style={styles.sectionHeader}>
+      <div style={styles.sectionTitle}>
+        {icon && <span style={styles.sectionIcon}>{icon}</span>}
+        <h3 style={styles.sectionHeading}>{title}</h3>
+      </div>
+    </div>
+    <div style={styles.sectionContent}>{children}</div>
+  </div>
+);
+
 const DetailOrder = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -204,7 +242,7 @@ const DetailOrder = () => {
   });
 
   // File states
-  const [orderFiles, setOrderFiles] = useState({ attachments: [], images: [] });
+  const [orderFiles, setOrderFiles] = useState({ attachments: [], images: [], sampleFiles: [] });
   const [selectedImage, setSelectedImage] = useState(null);
   const [showImageViewer, setShowImageViewer] = useState(false);
 
@@ -246,8 +284,14 @@ const DetailOrder = () => {
   const saveEditField = async (field) => {
     try {
       setSavingField(true);
-      await patchOrder(id, { [field]: editingValue || null });
-      setOrder((prev) => ({ ...prev, [field]: editingValue || null }));
+      const response = await patchOrder(id, { [field]: editingValue || null });
+      // Merge the saved order so server-recomputed fields (e.g. the
+      // Ex-Factory delay) refresh too, not just the edited field.
+      setOrder((prev) => ({
+        ...prev,
+        [field]: editingValue || null,
+        ...(response?.data || {}),
+      }));
       setEditingField(null);
       setEditingValue("");
       setSnackbar({
@@ -337,17 +381,20 @@ const DetailOrder = () => {
 
       const attachments = response.data.attachments || [];
       const images = response.data.images || [];
+      const sampleFiles = response.data.sample_files || [];
 
       console.log(`📎 Attachments found: ${attachments.length}`);
       console.log(`🖼️ Images found: ${images.length}`);
+      console.log(`🧵 Sample files found: ${sampleFiles.length}`);
 
       setOrderFiles({
         attachments: attachments,
         images: images,
+        sampleFiles: sampleFiles,
       });
     } catch (error) {
       console.error("❌ Error fetching order files:", error);
-      setOrderFiles({ attachments: [], images: [] });
+      setOrderFiles({ attachments: [], images: [], sampleFiles: [] });
     }
   };
 
@@ -585,21 +632,14 @@ const DetailOrder = () => {
     return sizeQty?.quantity || 0;
   };
 
-  const InfoRow = ({ label, value, icon }) => (
-    <div style={styles.infoRow}>
-      <div style={styles.infoLabel}>
-        {icon && <span style={styles.infoIcon}>{icon}</span>}
-        <span>{label}</span>
-      </div>
-      <div style={styles.infoValue}>{value || "—"}</div>
-    </div>
-  );
-
   // Final Inspection / Ex-Factory / Status: the only fields a
   // Merchandiser - Production user may edit on this otherwise view-only
   // page. Renders a plain InfoRow when the current user can't edit this
   // field, otherwise an editable row with a pencil icon.
-  const EditableInfoRow = ({
+  // Called as a function, not used as <Component>: a component declared
+  // inside DetailOrder gets a new identity every render, which remounted
+  // the date input on each keystroke and broke typing a date.
+  const renderEditableInfoRow = ({
     label,
     field,
     displayValue,
@@ -718,18 +758,6 @@ const DetailOrder = () => {
       {icon}
       <span>{label}</span>
     </button>
-  );
-
-  const SectionCard = ({ title, icon, children }) => (
-    <div style={styles.sectionCard}>
-      <div style={styles.sectionHeader}>
-        <div style={styles.sectionTitle}>
-          {icon && <span style={styles.sectionIcon}>{icon}</span>}
-          <h3 style={styles.sectionHeading}>{title}</h3>
-        </div>
-      </div>
-      <div style={styles.sectionContent}>{children}</div>
-    </div>
   );
 
   // ADD THIS - Courier Section Card with title
@@ -1018,6 +1046,16 @@ const DetailOrder = () => {
                 onClick={setActiveTab}
               />
             )}
+            {/* Sample Files - unlike Files & Images, Merchandiser -
+                Production CAN see this tab, just view-only (no
+                upload/rename/delete). */}
+            <TabButton
+              id="sample-files"
+              label="Sample Files"
+              icon={<FaPaperclip />}
+              active={activeTab}
+              onClick={setActiveTab}
+            />
             {/* ADD THIS - Courier Tab */}
             <TabButton
               id="courier"
@@ -1066,6 +1104,11 @@ const DetailOrder = () => {
                       icon={<FaShoppingCart />}
                     />
                     <InfoRow
+                      label="Season"
+                      value={SEASON_LABELS[order.season] || order.season}
+                      icon={<FaCalendarAlt />}
+                    />
+                    <InfoRow
                       label="Item"
                       value={order.item}
                       icon={<FaClipboardList />}
@@ -1081,7 +1124,7 @@ const DetailOrder = () => {
                       icon={<FaClipboardList />}
                     />
                     <InfoRow
-                      label="PDM Number"
+                      label="Order NO"
                       value={order.style}
                       icon={<FaClipboardList />}
                     />
@@ -1098,20 +1141,20 @@ const DetailOrder = () => {
                   </SectionCard>
 
                   <SectionCard title="Important Dates" icon={<FaCalendarAlt />}>
-                    <EditableInfoRow
-                      label="Final Inspection"
-                      field="final_inspection_date"
-                      displayValue={formatDate(order.final_inspection_date)}
-                      icon={<FaCalendarAlt />}
-                      type="date"
-                    />
-                    <EditableInfoRow
-                      label="Ex-Factory"
-                      field="ex_factory"
-                      displayValue={formatDate(order.ex_factory)}
-                      icon={<FaIndustry />}
-                      type="date"
-                    />
+                    {renderEditableInfoRow({
+                      label: "Final Inspection",
+                      field: "final_inspection_date",
+                      displayValue: formatDate(order.final_inspection_date),
+                      icon: <FaCalendarAlt />,
+                      type: "date",
+                    })}
+                    {renderEditableInfoRow({
+                      label: "Ex-Factory",
+                      field: "ex_factory",
+                      displayValue: formatDate(order.ex_factory),
+                      icon: <FaIndustry />,
+                      type: "date",
+                    })}
                     <InfoRow
                       label="ETD"
                       value={formatDate(order.etd)}
@@ -1144,11 +1187,13 @@ const DetailOrder = () => {
                       value={formatDate(order.cargo_handover_date)}
                       icon={<FaCalendarWeek />}
                     />
-                    <InfoRow
-                      label="Shipment Month"
-                      value={order.shipment_month || "—"}
-                      icon={<FaCalendarAlt />}
-                    />
+                    {!isMerchandiserProduction() && (
+                      <InfoRow
+                        label="Shipment Month"
+                        value={order.shipment_month || "—"}
+                        icon={<FaCalendarAlt />}
+                      />
+                    )}
 
                     <InfoRow
                       label="Delay from Ex-Factory (Days)"
@@ -1239,7 +1284,7 @@ const DetailOrder = () => {
                       icon={<FaClipboardList />}
                     />
                     <InfoRow
-                      label="PDM Number"
+                      label="Order NO"
                       value={order.style}
                       icon={<FaClipboardList />}
                     />
@@ -1347,14 +1392,14 @@ const DetailOrder = () => {
                       value={formatNumber(order.grand_total)}
                       icon={<FaBoxes />}
                     />
-                    <EditableInfoRow
-                      label="Status"
-                      field="status"
-                      displayValue={order.status}
-                      icon={<FaInfoCircle />}
-                      type="select"
-                      options={orderStatusOptions}
-                    />
+                    {renderEditableInfoRow({
+                      label: "Status",
+                      field: "status",
+                      displayValue: order.status,
+                      icon: <FaInfoCircle />,
+                      type: "select",
+                      options: orderStatusOptions,
+                    })}
                   </SectionCard>
 
                   <SectionCard
@@ -1642,14 +1687,40 @@ const DetailOrder = () => {
                         icon={<FaDollarSign />}
                       />
                       <InfoRow
-                        label="Commission Percent"
+                        label="Commission Calculation Method"
                         value={
-                          order.commission_percent
-                            ? `${order.commission_percent}%`
-                            : "—"
+                          order.commission_calc_method ===
+                          "unit_price_minus_factory"
+                            ? "Unit Price − Factory Price"
+                            : "Manual Commission Percentage"
                         }
                         icon={<FaPercent />}
                       />
+                      {order.commission_calc_method ===
+                      "unit_price_minus_factory" ? (
+                        <>
+                          <InfoRow
+                            label="Factory Price"
+                            value={formatCurrency(order.factory_price)}
+                            icon={<FaDollarSign />}
+                          />
+                          <InfoRow
+                            label="Commission Rate"
+                            value={formatCurrency(order.commission_rate)}
+                            icon={<FaDollarSign />}
+                          />
+                        </>
+                      ) : (
+                        <InfoRow
+                          label="Commission Percent"
+                          value={
+                            order.commission_percent
+                              ? `${order.commission_percent}%`
+                              : "—"
+                          }
+                          icon={<FaPercent />}
+                        />
+                      )}
                       <InfoRow
                         label="Commission Receipt Date"
                         value={formatDate(order.commission_rec_date)}
@@ -1922,6 +1993,106 @@ const DetailOrder = () => {
                           <p>No files or images uploaded for this order.</p>
                         </div>
                       )}
+                  </div>
+                </SectionCard>
+              </div>
+            )}
+
+            {/* Sample Files Tab - visible to everyone, including
+                Merchandiser - Production, but only they get the read-only
+                treatment (no Rename/Delete) via canManageOrders(). */}
+            {activeTab === "sample-files" && (
+              <div style={styles.tabPanel}>
+                <SectionCard title="Sample Files" icon={<FaPaperclip />}>
+                  <div style={styles.filesSection}>
+                    {orderFiles.sampleFiles &&
+                      orderFiles.sampleFiles.length > 0 && (
+                        <div style={styles.attachmentsSection}>
+                          <h4 style={styles.sectionSubtitle}>
+                            <FaFileAlt /> Sample Files (
+                            {orderFiles.sampleFiles.length})
+                          </h4>
+                          <div style={styles.attachmentsList}>
+                            {orderFiles.sampleFiles.map((filePath, idx) => {
+                              let fullUrl = filePath;
+                              if (
+                                !filePath.startsWith("http") &&
+                                !filePath.startsWith("data:")
+                              ) {
+                                fullUrl = `${getBackendURL()}${filePath}`;
+                              }
+                              const fileName = filePath.split("/").pop();
+                              const fileExtension = fileName
+                                .split(".")
+                                .pop()
+                                .toLowerCase();
+
+                              return (
+                                <div key={idx} style={styles.attachmentCard}>
+                                  <div style={styles.attachmentIcon}>
+                                    <FaFileAlt />
+                                  </div>
+                                  <div style={styles.attachmentInfo}>
+                                    <div style={styles.attachmentName}>
+                                      {fileName}
+                                    </div>
+                                    <div style={styles.attachmentType}>
+                                      {fileExtension.toUpperCase()}
+                                    </div>
+                                  </div>
+                                  <div style={styles.attachmentActions}>
+                                    <a
+                                      href={fullUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={styles.attachmentActionBtn}
+                                    >
+                                      <FaDownload /> Download
+                                    </a>
+                                    {canManageOrders() && (
+                                      <>
+                                        <button
+                                          onClick={() =>
+                                            openRenameModal(
+                                              filePath,
+                                              "sample_file",
+                                              fileName,
+                                            )
+                                          }
+                                          style={styles.attachmentActionBtn}
+                                        >
+                                          <FaEditIcon /> Rename
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleDeleteFile(
+                                              filePath,
+                                              "sample_file",
+                                            )
+                                          }
+                                          style={{
+                                            ...styles.attachmentActionBtn,
+                                            color: "#ef4444",
+                                          }}
+                                        >
+                                          <FaTrash /> Delete
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    {(!orderFiles.sampleFiles ||
+                      orderFiles.sampleFiles.length === 0) && (
+                      <div style={styles.emptyFilesState}>
+                        <FaPaperclip style={styles.emptyFilesIcon} />
+                        <p>No sample files uploaded for this order.</p>
+                      </div>
+                    )}
                   </div>
                 </SectionCard>
               </div>

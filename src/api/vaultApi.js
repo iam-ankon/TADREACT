@@ -80,10 +80,16 @@ export const addVaultItemGrant = (itemId, userId) =>
 export const removeVaultItemGrant = (itemId, grantId) =>
   vaultAxios.delete(`${BASE()}/items/${itemId}/grants/${grantId}/`);
 
+export const getVaultSharingOverview = () =>
+  vaultAxios.get(`${BASE()}/items/sharing-overview/`);
+
 // ─── Audit log ───────────────────────────────────────────────────────────────
 
 export const getVaultAuditLogs = (params = {}) =>
   vaultAxios.get(`${BASE()}/audit-logs/`, { params });
+
+export const clearVaultAuditLogs = () =>
+  vaultAxios.delete(`${BASE()}/audit-logs/clear/`);
 
 // ─── Browser extension download ──────────────────────────────────────────────
 

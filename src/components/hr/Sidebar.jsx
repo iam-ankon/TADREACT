@@ -175,6 +175,13 @@ const Sidebar = () => {
   // Group HR Head is a limited HR user (not full access)
   const isLimitedHR = designation.toLowerCase().includes("group hr head");
 
+  // Lab/QC Officer: permissions.lab_qc === true and NOT full_access (see
+  // src/api/labQc.js). These users typically have no HR department mapping
+  // at all, so none of the departmentPermissions/designation branches below
+  // apply to them - they get their own dedicated menu instead of falling
+  // through to the generic regularEmployeeMenuItems list.
+  const isLabQcOnly = permissions.lab_qc === true && !hasFullAccess;
+
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => {
       const newState = !prev;
@@ -227,7 +234,9 @@ const Sidebar = () => {
 
   const handleDashboardClick = () => {
     // Group HR Head goes to /hr-work, not full access dashboard
-    if (isLimitedHR) {
+    if (isLabQcOnly) {
+      navigate("/lab-qc");
+    } else if (isLimitedHR) {
       navigate("/hr-work");
     } else {
       navigate(hasFullAccess ? "/hr-work" : "/dashboard");
@@ -450,15 +459,19 @@ const Sidebar = () => {
         ]
       : []),
 
-    ...(departmentPermissions.isMerchandising || isMerchandiserProduction
+    ...(departmentPermissions.isMerchandising || isMerchandiserProduction || isLabQcOnly
       ? [
           {
             // Merchandiser - Production doesn't get the Order Dashboard
             // (see merchandiser/Sidebar.jsx) - send them straight to the
-            // Order List instead.
+            // Order List instead. A restricted Lab/QC officer goes to
+            // /lab-qc directly - merchandiser/Sidebar.jsx narrows her
+            // menu there to just "Lab / QC" + "Orders".
             to: isMerchandiserProduction
               ? "/orders"
-              : "/merchandiser-dashboard",
+              : isLabQcOnly
+                ? "/lab-qc"
+                : "/merchandiser-dashboard",
             icon: <FiUsers />,
             label: "Merchandising",
             badge: null,
@@ -487,7 +500,12 @@ const Sidebar = () => {
   ];
 
   // Select menu items based on user permissions
-  // Group HR Head is NOT full access - they get limited HR menu
+  // Group HR Head is NOT full access - they get limited HR menu.
+  // A restricted Lab/QC officer gets the standard regularEmployeeMenuItems
+  // set (Password Vault, Leave Apply, RegularUser Stationery, Chatbox) plus
+  // a "Merchandising" entry point (added above) - Lab/QC itself lives
+  // inside the Merchandising module's own Sidebar, not a dedicated menu
+  // here.
   const menuItems = isLimitedHR
     ? limitedHRMenuItems
     : hasFullAccess
@@ -496,6 +514,7 @@ const Sidebar = () => {
 
   // Get department display name for user info
   const getDepartmentDisplayName = () => {
+    if (isLabQcOnly) return "Lab / QC";
     if (isZOHAER) return "Finance & Operations";
     if (departmentPermissions.isAdmin) return "Admin & Management";
     if (departmentPermissions.isAdminDepartment) return "Admin Department";
@@ -523,6 +542,7 @@ const Sidebar = () => {
   // Get user role display
   const getUserRoleDisplay = () => {
     if (hasFullAccess) return "Administrator";
+    if (isLabQcOnly) return "Lab / QC Officer";
     if (isLimitedHR) return "Group HR Head";
     if (isZOHAER) return "Team Leader - Finance & Accounts";
 
@@ -657,7 +677,7 @@ const Sidebar = () => {
   const linkStyle = (path) => ({
     display: "flex",
     alignItems: "center",
-    padding: "14px 16px",
+    padding: "10px 16px",
     borderRadius: "12px",
     background:
       location.pathname === path

@@ -649,7 +649,7 @@ export default function CustomerDetailsPage() {
                       <thead>
                         <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                           <th style={{ textAlign: "left", padding: "0.75rem", fontSize: "0.75rem", fontWeight: "600", color: "#6b7280" }}>PO Number</th>
-                          <th style={{ textAlign: "left", padding: "0.75rem", fontSize: "0.75rem", fontWeight: "600", color: "#6b7280" }}>Style</th>
+                          <th style={{ textAlign: "left", padding: "0.75rem", fontSize: "0.75rem", fontWeight: "600", color: "#6b7280" }}>Order NO</th>
                           <th style={{ textAlign: "left", padding: "0.75rem", fontSize: "0.75rem", fontWeight: "600", color: "#6b7280" }}>Quantity</th>
                           <th style={{ textAlign: "left", padding: "0.75rem", fontSize: "0.75rem", fontWeight: "600", color: "#6b7280" }}>Value</th>
                           <th style={{ textAlign: "left", padding: "0.75rem", fontSize: "0.75rem", fontWeight: "600", color: "#6b7280" }}>Status</th>

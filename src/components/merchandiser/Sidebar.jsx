@@ -12,6 +12,8 @@ import {
   FiChevronRight,
   FiDollarSign,
   FiBarChart2,
+  FiCheckSquare,
+  FiTruck,
 } from "react-icons/fi";
 
 const Sidebar = () => {
@@ -81,6 +83,19 @@ const Sidebar = () => {
 
   const fullAccess = hasFullAccess();
 
+  // Lab/QC is a feature of the Merchandising module (not its own module) -
+  // a restricted Lab/QC officer (permissions.lab_qc, not full_access) gets
+  // a narrow menu with just that entry, same pattern as Merchandiser -
+  // Production below.
+  let labQcPermission = false;
+  try {
+    labQcPermission =
+      JSON.parse(localStorage.getItem("permissions") || "{}").lab_qc === true;
+  } catch (e) {
+    labQcPermission = false;
+  }
+  const isLabQcOnly = labQcPermission && !fullAccess;
+
   // Merchandiser - Production (set at login, stored in localStorage -
   // see LoginPage.jsx) gets a narrow menu: only Orders and Courier
   // Management - not the rest of the standard restricted set.
@@ -115,6 +130,12 @@ const Sidebar = () => {
     },
     { to: "/orders/tna", icon: <FiClock />, label: "T & A", badge: null },
     {
+      to: "/lab-qc",
+      icon: <FiCheckSquare />,
+      label: "Lab / QC",
+      badge: null,
+    },
+    {
       to: "/commissions",
       icon: <FiDollarSign />,
       label: "Commissions",
@@ -126,18 +147,39 @@ const Sidebar = () => {
       label: "Supplier Capacity",
       badge: null,
     },
+    {
+      to: "/merchandiser/on-time-delivery-scorecard",
+      icon: <FiTruck />,
+      label: "On-Time Delivery",
+      badge: null,
+    },
   ];
 
-  // Filter menu items: full access sees everything; Merchandiser -
-  // Production sees only Orders + Courier Management; everyone else
-  // gets the standard restricted set (no Courier Management).
+  // A restricted Lab/QC officer gets "Lab / QC" + "Orders" - but "Orders"
+  // must point at the pricing-free /lab-qc/orders page (LabOrdersList,
+  // backed by orders-lite), NOT the regular /orders route: OrderSerializer
+  // returns every Order field including unit_price/total_value/commission
+  // with no role-based filtering, so routing her there would leak pricing.
+  const labQcOnlyMenuItems = [
+    { to: "/lab-qc", icon: <FiCheckSquare />, label: "Lab / QC", badge: null },
+    { to: "/lab-qc/orders", icon: <FiCalendar />, label: "Orders", badge: null },
+  ];
+
+  // Filter menu items: full access sees everything; a restricted Lab/QC
+  // officer sees Lab/QC + (pricing-free) Orders (Lab/QC lives inside
+  // Merchandising, not as its own module - see LabPageLayout, which
+  // renders this same Sidebar); Merchandiser - Production sees only
+  // Orders + Courier Management; everyone else gets the standard
+  // restricted set (no Courier Management).
   const menuItems = fullAccess
     ? allMenuItems
-    : isMerchandiserProduction
-      ? allMenuItems.filter(
-          (item) => item.label === "Orders" || item.label === "Courier Management",
-        )
-      : allMenuItems.filter(
+    : isLabQcOnly
+      ? labQcOnlyMenuItems
+      : isMerchandiserProduction
+        ? allMenuItems.filter(
+            (item) => item.label === "Orders" || item.label === "Courier Management",
+          )
+        : allMenuItems.filter(
           (item) =>
             item.label === "Dashboard" ||
             item.label === "Agents" ||
@@ -145,8 +187,11 @@ const Sidebar = () => {
             item.label === "Customers" ||
             item.label === "Inquiries" ||
             item.label === "Orders" ||
+            item.label === "Courier Management" ||
             item.label === "T & A" ||
-            item.label === "Commissions",
+            item.label === "Commissions" ||
+            item.label === "Supplier Capacity" ||
+            item.label === "On-Time Delivery",
         );
 
   const sidebarStyle = {

@@ -1,6 +1,20 @@
 // components/ChatInterface.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { chatService } from "../../api/chatHistory";
+import Markdown from "./Markdown";
+
+// Starter questions shown on an empty chat; each maps to one of the
+// assistant's data tools (see TADDJANGO/services/ai_tools.py).
+const SUGGESTIONS = [
+  "What's my leave balance?",
+  "Who is on leave today?",
+  "On-time delivery % for all suppliers this year",
+  "Running orders shipping in the next 30 days",
+  "TNA milestones due this week",
+  "Courier shipments currently in transit",
+  "Order quantity and value by month this year",
+  "Pending inquiries by buyer",
+];
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
@@ -100,12 +114,13 @@ const ChatInterface = () => {
     }
   };
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim()) return;
+  const sendMessage = async (override) => {
+    const text = (typeof override === "string" ? override : inputMessage).trim();
+    if (!text || isLoading) return;
 
     const userMessage = {
       role: "user",
-      content: inputMessage,
+      content: text,
       created_at: new Date().toISOString(),
       id: Date.now(), // Temporary ID for display
     };
@@ -119,7 +134,7 @@ const ChatInterface = () => {
       // ALWAYS use sendMessage for AI conversations
       // Pass conversation ID if we have one
       const response = await chatService.sendMessage(
-        inputMessage,
+        text,
         currentConversation?.id, // Will be null for new conversations
       );
 
@@ -138,7 +153,7 @@ const ChatInterface = () => {
       if (!currentConversation && response.conversation_id) {
         setCurrentConversation({
           id: response.conversation_id,
-          title: inputMessage.substring(0, 30) + "...",
+          title: text.substring(0, 30) + "...",
         });
         fetchConversations(); // Refresh conversation list
       }
@@ -640,6 +655,31 @@ const ChatInterface = () => {
 
       <div style={styles.mainChat}>
         <div style={styles.messagesContainer}>
+          {Array.isArray(messages) && messages.length === 0 && !isLoading && (
+            <div style={{ maxWidth: 720, margin: "40px auto", textAlign: "center", color: "#4a5b6b" }}>
+              <div style={{ fontSize: 40 }}>🤖</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#0f2433", margin: "8px 0 4px" }}>
+                Ask about orders, shipments, TNA, leave and more
+              </div>
+              <div style={{ fontSize: 13.5, marginBottom: 20 }}>
+                Answers come from live TAD data and only include what your account can already see.
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                {SUGGESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => sendMessage(q)}
+                    style={{
+                      padding: "8px 14px", borderRadius: 999, border: "1px solid #d5dde6", background: "#fff",
+                      fontSize: 13, color: "#1c5cab", cursor: "pointer",
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {Array.isArray(messages) &&
             messages.map((message, index) => (
               <div
@@ -678,7 +718,9 @@ const ChatInterface = () => {
                       ...(message?.isError ? styles.errorMessage : {}),
                     }}
                   >
-                    {message?.content || ""}
+                    {message?.role === "assistant" && !message?.isError
+                      ? <Markdown text={message?.content || ""} />
+                      : message?.content || ""}
                   </div>
                 </div>
               </div>
@@ -720,7 +762,7 @@ const ChatInterface = () => {
               style={styles.textarea}
             />
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={isLoading || !inputMessage.trim()}
               style={{
                 ...styles.sendButton,

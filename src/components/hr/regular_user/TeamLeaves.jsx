@@ -654,6 +654,11 @@ const TeamLeaves = () => {
                       <span style={styles.detailLabel}>Total Days</span>
                       <span style={styles.detailValue}>
                         {leave.leave_days || "N/A"} day(s)
+                        {leave.unpaid_days > 0 && (
+                          <span style={{ color: "#b91c1c", fontWeight: 600 }}>
+                            {" "}· {leave.unpaid_days} unpaid
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div style={styles.detailItem}>

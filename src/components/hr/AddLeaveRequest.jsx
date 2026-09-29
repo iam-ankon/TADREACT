@@ -8,6 +8,10 @@ import {
   addEmployeeLeave,
   getEmployeeLeaveBalances,
 } from "../../api/employeeApi";
+import LeaveSplitPreview, {
+  unpaidConfirmText,
+  useLeavePolicy,
+} from "./LeaveSplitPreview";
 
 const AddLeaveRequest = () => {
   const [loading, setLoading] = useState(false);
@@ -17,6 +21,8 @@ const AddLeaveRequest = () => {
   const [balances, setBalances] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [split, setSplit] = useState(null); // paid/unpaid preview from the backend
+  const leavePolicy = useLeavePolicy();
 
   const [newLeave, setNewLeave] = useState({
     employee: "",
@@ -193,6 +199,13 @@ const AddLeaveRequest = () => {
       return;
     }
 
+    if (split && !split.allowed) {
+      alert(split.message);
+      return;
+    }
+    const confirmText = unpaidConfirmText(split);
+    if (confirmText && !window.confirm(confirmText)) return;
+
     setLoading(true);
 
     try {
@@ -205,6 +218,8 @@ const AddLeaveRequest = () => {
         date_of_joining_after_leave:
           newLeave.date_of_joining_after_leave || null,
         actual_date_of_joining: newLeave.actual_date_of_joining || null,
+        // balance of the selected leave type at the time of applying
+        balance: split?.balance ?? newLeave.balance,
         status: "pending",
       };
 
@@ -216,7 +231,10 @@ const AddLeaveRequest = () => {
       alert("Leave request submitted successfully!");
     } catch (err) {
       console.error("Error adding leave record:", err);
-      alert("Failed to submit leave request. Please try again.");
+      alert(
+        err.response?.data?.error ||
+          "Failed to submit leave request. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -616,7 +634,9 @@ const AddLeaveRequest = () => {
                         </option>
                         <option value="casual_leave">Casual Leave</option>
                         <option value="sick_leave">Sick Leave</option>
-                        <option value="earned_leave">Earned Leave</option>
+                        {leavePolicy.earned_leave_enabled && (
+                          <option value="earned_leave">Earned Leave</option>
+                        )}
                       </select>
                     </div>
 
@@ -660,13 +680,26 @@ const AddLeaveRequest = () => {
                     </div>
 
                     <div style={styles.inputGroup}>
-                      <label style={styles.label}>Current Balance</label>
+                      <label style={styles.label}>
+                        Current Balance (selected type)
+                      </label>
                       <input
                         type="number"
                         name="balance"
-                        value={newLeave.balance}
+                        value={split?.balance ?? ""}
+                        placeholder="Select employee, type and dates"
                         readOnly
                         style={{ ...styles.input, backgroundColor: "#f7fafc" }}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <LeaveSplitPreview
+                        leaveType={newLeave.leave_type}
+                        startDate={newLeave.start_date}
+                        endDate={newLeave.end_date}
+                        employee={newLeave.employee}
+                        onChange={setSplit}
                       />
                     </div>
 

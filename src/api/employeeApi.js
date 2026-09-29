@@ -1385,6 +1385,17 @@ export const updateEmployeeLeave = (id, data) => {
   return hrmsApi.patch(`employee_leaves/${id}/`, data);
 };
 
+// Printable leave application form: leave + employee + Leave Status table
+export const getLeaveForm = (id) => hrmsApi.get(`employee_leaves/${id}/form/`);
+
+// Leave policy: which leave types are paused / may go unpaid (hrms/leave_policy.py)
+export const getLeavePolicy = () => hrmsApi.get("employee_leaves/policy/");
+
+// Paid/unpaid split for a leave before submitting it.
+// params: { leave_type, start_date, end_date, employee?, exclude? }
+export const previewLeave = (params) =>
+  hrmsApi.get("employee_leaves/preview/", { params });
+
 export const addTeamLeaderComment = (leaveId, comment) => {
   console.log("💬 Adding team leader comment for leave:", leaveId);
   return hrmsApi.post(`employee_leaves/${leaveId}/add_team_comment/`, {
@@ -3088,6 +3099,9 @@ export default {
   updateEmployeeLeave,
   deleteEmployeeLeave,
   getEmployeeLeaveBalances,
+  getLeavePolicy,
+  previewLeave,
+  getLeaveForm,
 
   // Leave Types
   getEmployeeLeaveTypes,

@@ -68,6 +68,34 @@ const toHref = (url) => {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 };
 
+// navigator.clipboard is only defined in a "secure context" (HTTPS or
+// localhost) — this app is served over plain HTTP from an IP address, so
+// that API is undefined there and writeText() throws immediately. Fall back
+// to the old execCommand("copy") trick, which still works over HTTP.
+const copyTextToClipboard = async (text) => {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // fall through to the execCommand fallback below
+    }
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    const ok = document.execCommand("copy");
+    if (!ok) throw new Error("execCommand copy failed");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+};
+
 const emptyForm = {
   id: null,
   title: "",
@@ -269,6 +297,7 @@ const ItemRow = ({ item, onEdit, onDelete, onToggleFavorite, onShare }) => {
   const [revealed, setRevealed] = useState(null); // decrypted password, or null
   const [revealing, setRevealing] = useState(false);
   const [copyStatus, setCopyStatus] = useState(null);
+  const [hovered, setHovered] = useState(false);
   const canManage = item.is_owner;
 
   useEffect(() => {
@@ -302,7 +331,7 @@ const ItemRow = ({ item, onEdit, onDelete, onToggleFavorite, onShare }) => {
   const handleCopy = async () => {
     try {
       const pw = revealed !== null ? revealed : await fetchDecrypted();
-      await navigator.clipboard.writeText(pw);
+      await copyTextToClipboard(pw);
       setCopyStatus("Copied!");
     } catch (e) {
       console.error("Failed to copy password:", e);
@@ -313,18 +342,26 @@ const ItemRow = ({ item, onEdit, onDelete, onToggleFavorite, onShare }) => {
   };
 
   return (
-    <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-      <td style={{ padding: "10px 12px" }}>
+    <tr
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        borderBottom: `1px solid ${COLORS.border}`,
+        background: hovered ? "#f8fafc" : "transparent",
+        transition: "background .12s",
+      }}
+    >
+      <td style={{ padding: "12px" }}>
         <button
           onClick={() => onToggleFavorite(item)}
           title={item.is_favorite ? "Unfavorite" : "Favorite"}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15 }}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
         >
           {item.is_favorite ? "⭐" : "☆"}
         </button>
       </td>
-      <td style={{ padding: "10px 12px" }}>
-        <div style={{ fontWeight: 600, color: COLORS.heading, fontSize: 13 }}>{item.title}</div>
+      <td style={{ padding: "12px" }}>
+        <div style={{ fontWeight: 600, color: COLORS.heading, fontSize: 13.5 }}>{item.title}</div>
         {item.website_url && (
           <a
             href={toHref(item.website_url)}
@@ -336,15 +373,15 @@ const ItemRow = ({ item, onEdit, onDelete, onToggleFavorite, onShare }) => {
           </a>
         )}
       </td>
-      <td style={{ padding: "10px 12px", fontSize: 13, color: COLORS.muted }}>
+      <td style={{ padding: "12px", fontSize: 13, color: COLORS.muted }}>
         {item.username || "—"}
       </td>
       <td
         style={{
-          padding: "10px 12px",
+          padding: "12px",
           fontSize: 12,
           color: COLORS.muted,
-          maxWidth: 220,
+          maxWidth: 200,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -353,16 +390,20 @@ const ItemRow = ({ item, onEdit, onDelete, onToggleFavorite, onShare }) => {
       >
         {item.notes || "—"}
       </td>
-      <td style={{ padding: "10px 12px" }}>
+      <td style={{ padding: "12px" }}>
         {canManage ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span
               style={{
                 fontFamily: "monospace",
                 fontSize: 13,
                 letterSpacing: revealed === null ? 2 : 0,
-                minWidth: 110,
+                minWidth: 116,
                 display: "inline-block",
+                background: "#f1f5f9",
+                borderRadius: 6,
+                padding: "4px 8px",
+                color: COLORS.heading,
               }}
             >
               {revealing ? "…" : revealed !== null ? revealed : "••••••••••"}
@@ -370,28 +411,59 @@ const ItemRow = ({ item, onEdit, onDelete, onToggleFavorite, onShare }) => {
             <button
               onClick={handleToggleReveal}
               title={revealed !== null ? "Hide" : "Reveal"}
-              style={{ background: "none", border: "none", cursor: "pointer" }}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4, borderRadius: 6 }}
             >
               {revealed !== null ? "🙈" : "👁"}
             </button>
-            <button onClick={handleCopy} title="Copy password" style={{ background: "none", border: "none", cursor: "pointer" }}>
+            <button
+              onClick={handleCopy}
+              title="Copy password"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4, borderRadius: 6 }}
+            >
               📋
             </button>
             {copyStatus && (
-              <span style={{ fontSize: 11, color: COLORS.green, fontWeight: 600 }}>{copyStatus}</span>
+              <span style={{ fontSize: 11, color: COLORS.green, fontWeight: 600, whiteSpace: "nowrap" }}>{copyStatus}</span>
             )}
           </div>
         ) : (
           <span style={{ fontSize: 12, color: COLORS.muted, fontStyle: "italic" }}>
-            Shared — use the browser extension to log in
+            Use the browser extension to log in
           </span>
         )}
       </td>
-      <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+      <td style={{ padding: "12px", textAlign: "right", whiteSpace: "nowrap" }}>
         {canManage ? (
           <>
-            <button onClick={() => onShare(item)} style={{ ...buttonStyle("#f1f5f9", COLORS.heading), padding: "6px 10px", marginRight: 6 }}>
+            <button
+              onClick={() => onShare(item)}
+              title={
+                item.shared_with_count > 0
+                  ? `Shared with ${item.shared_with_count} ${item.shared_with_count === 1 ? "person" : "people"} — click to manage`
+                  : "Share this credential"
+              }
+              style={{ ...buttonStyle("#f1f5f9", COLORS.heading), padding: "6px 10px", marginRight: 6, display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
               Share
+              {item.shared_with_count > 0 && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 16,
+                    height: 16,
+                    padding: "0 4px",
+                    borderRadius: 999,
+                    background: COLORS.blue,
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  {item.shared_with_count}
+                </span>
+              )}
             </button>
             <button onClick={() => onEdit(item)} style={{ ...buttonStyle("#f1f5f9", COLORS.heading), padding: "6px 10px", marginRight: 6 }}>
               Edit
@@ -489,7 +561,9 @@ const ShareModal = ({ item, onClose }) => {
         )}
 
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, marginBottom: 6 }}>CURRENTLY SHARED WITH</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, marginBottom: 6 }}>
+            CURRENTLY SHARED WITH{!loading && grants.length > 0 ? ` (${grants.length})` : ""}
+          </div>
           {loading ? (
             <div style={{ fontSize: 12, color: COLORS.muted }}>Loading…</div>
           ) : grants.length === 0 ? (
@@ -553,6 +627,8 @@ const VaultDashboard = () => {
   const [modalItem, setModalItem] = useState(null); // form data, or null when closed
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [shareTarget, setShareTarget] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const canManageVault = isFullAccessUser();
 
   const loadItems = useCallback(
@@ -584,6 +660,12 @@ const VaultDashboard = () => {
     const t = setTimeout(loadItems, 250); // debounce search
     return () => clearTimeout(t);
   }, [loadItems]);
+
+  // Any change to the underlying filter/search resets pagination — otherwise
+  // you can land on a now-empty page 4 of a 2-item result set.
+  useEffect(() => {
+    setPage(1);
+  }, [search, favoritesOnly]);
 
   useEffect(() => {
     // Another user (a full-access admin) can share/revoke a credential with
@@ -630,8 +712,28 @@ const VaultDashboard = () => {
     }
   };
 
+  const favoriteCount = items.filter((i) => i.is_favorite).length;
+  const sharedCount = items.filter((i) => !i.is_owner).length;
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedItems = items.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const rangeStart = items.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(safePage * pageSize, items.length);
+  const stats = [
+    { label: "Credentials", value: items.length, color: COLORS.blue, bg: "#eff6ff" },
+    { label: "Favorites", value: favoriteCount, color: COLORS.amber, bg: "#fef3c7" },
+    { label: "Shared with you", value: sharedCount, color: "#7c3aed", bg: "#f5f3ff" },
+  ];
+
   return (
     <div style={{ padding: "30px 60px", background: COLORS.bg, minHeight: "100vh" }}>
+      <style>{`
+        .vault-btn { transition: filter .12s, transform .12s; }
+        .vault-btn:hover { filter: brightness(0.96); }
+        .vault-btn:active { transform: translateY(1px); }
+        .vault-table thead th { position: sticky; top: 0; z-index: 1; }
+      `}</style>
+
       {/* ── Header ── */}
       <div
         style={{
@@ -643,23 +745,45 @@ const VaultDashboard = () => {
           gap: 12,
         }}
       >
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: COLORS.heading }}>
-            🔐 Password Vault
-          </h1>
-          <p style={{ margin: "4px 0 0", color: COLORS.muted, fontSize: 14 }}>
-            Securely store and share access to your website credentials
-          </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: 12,
+              background: "#eff6ff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 22,
+              flexShrink: 0,
+            }}
+          >
+            🔐
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: COLORS.heading }}>
+              Password Vault
+            </h1>
+            <p style={{ margin: "4px 0 0", color: COLORS.muted, fontSize: 14 }}>
+              Securely store and share access to your website credentials
+            </p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={handleDownloadExtension} style={buttonStyle("#f1f5f9", COLORS.heading)}>
+          <button className="vault-btn" onClick={handleDownloadExtension} style={buttonStyle("#f1f5f9", COLORS.heading)}>
             ⬇️ Download Extension
           </button>
-          <button onClick={() => navigate("/vault/audit-log")} style={buttonStyle("#f1f5f9", COLORS.heading)}>
+          <button className="vault-btn" onClick={() => navigate("/vault/audit-log")} style={buttonStyle("#f1f5f9", COLORS.heading)}>
             📜 Audit Log
           </button>
           {canManageVault && (
-            <button onClick={() => setModalItem({ ...emptyForm })} style={buttonStyle(COLORS.blue)}>
+            <button className="vault-btn" onClick={() => navigate("/vault/sharing")} style={buttonStyle("#f1f5f9", COLORS.heading)}>
+              🔗 Sharing Overview
+            </button>
+          )}
+          {canManageVault && (
+            <button className="vault-btn" onClick={() => setModalItem({ ...emptyForm })} style={buttonStyle(COLORS.blue)}>
               + Add Credential
             </button>
           )}
@@ -672,67 +796,212 @@ const VaultDashboard = () => {
         </div>
       )}
 
-      <div>
-        {/* ── Item list ── */}
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+      {/* ── Stat summary ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+          gap: 14,
+          marginBottom: 24,
+        }}
+      >
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            style={{
+              background: s.bg,
+              borderRadius: 12,
+              padding: "16px 18px",
+              border: `1px solid ${s.color}22`,
+              boxShadow: "0 1px 2px rgba(15,23,42,.03)",
+              transition: "transform .12s, box-shadow .12s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.boxShadow = "0 6px 16px rgba(15,23,42,.08)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "none";
+              e.currentTarget.style.boxShadow = "0 1px 2px rgba(15,23,42,.03)";
+            }}
+          >
+            <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Search / filter bar ── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 14,
+          marginBottom: 16,
+          background: "#fff",
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: 12,
+          padding: "12px 16px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <input
+            style={{ ...inputStyle, maxWidth: 340 }}
+            placeholder="🔍 Search by title, URL or username…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.heading, cursor: "pointer" }}>
             <input
-              style={{ ...inputStyle, maxWidth: 340 }}
-              placeholder="Search by title, URL or username…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              type="checkbox"
+              checked={favoritesOnly}
+              onChange={(e) => setFavoritesOnly(e.target.checked)}
             />
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.heading, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={favoritesOnly}
-                onChange={(e) => setFavoritesOnly(e.target.checked)}
-              />
-              ⭐ Favorites only
-            </label>
-          </div>
-
-          {error && (
-            <div style={{ background: "#fee2e2", color: COLORS.red, padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-              {error}
-            </div>
-          )}
-
-          <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
-            {loading ? (
-              <div style={{ padding: 40, textAlign: "center", color: COLORS.muted }}>Loading…</div>
-            ) : items.length === 0 ? (
-              <div style={{ padding: 40, textAlign: "center", color: COLORS.muted }}>
-                No credentials yet. Click "+ Add Credential" to store your first one.
-              </div>
-            ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-                    <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase" }}></th>
-                    <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase" }}>Title</th>
-                    <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase" }}>Username</th>
-                    <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase" }}>Notes</th>
-                    <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase" }}>Password</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <ItemRow
-                      key={item.id}
-                      item={item}
-                      onEdit={(it) => setModalItem({ ...emptyForm, ...it, password: "" })}
-                      onDelete={setDeleteTarget}
-                      onToggleFavorite={handleToggleFavorite}
-                      onShare={setShareTarget}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+            ⭐ Favorites only
+          </label>
         </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: COLORS.muted }}>
+          Rows per page
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(1);
+            }}
+            style={{ ...inputStyle, width: "auto", padding: "6px 8px" }}
+          >
+            {[10, 25, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {error && (
+        <div style={{ background: "#fee2e2", color: COLORS.red, padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
+      {/* ── Item list ── */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          border: `1px solid ${COLORS.border}`,
+          overflow: "hidden",
+          boxShadow: "0 1px 3px rgba(15,23,42,.04)",
+        }}
+      >
+        {loading ? (
+          <div style={{ padding: "56px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                border: `3px solid ${COLORS.border}`,
+                borderTop: `3px solid ${COLORS.blue}`,
+                borderRadius: "50%",
+                animation: "vault-spin .8s linear infinite",
+              }}
+            />
+            <div style={{ fontSize: 13, color: COLORS.muted }}>Loading your vault…</div>
+            <style>{`@keyframes vault-spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : items.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "64px 0", color: COLORS.muted }}>
+            <div style={{ fontSize: 46, marginBottom: 12 }}>🔒</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.heading, marginBottom: 6 }}>
+              No credentials yet
+            </div>
+            <div style={{ fontSize: 13 }}>
+              {canManageVault
+                ? 'Click "+ Add Credential" to store your first one.'
+                : "Nothing has been shared with you yet."}
+            </div>
+          </div>
+        ) : (
+          <table className="vault-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", textAlign: "left" }}>
+                <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: ".03em" }}></th>
+                <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: ".03em" }}>Title</th>
+                <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: ".03em" }}>Username</th>
+                <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: ".03em" }}>Notes</th>
+                <th style={{ padding: "10px 12px", fontSize: 11, color: COLORS.muted, textTransform: "uppercase", letterSpacing: ".03em" }}>Password</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedItems.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  onEdit={(it) => setModalItem({ ...emptyForm, ...it, password: "" })}
+                  onDelete={setDeleteTarget}
+                  onToggleFavorite={handleToggleFavorite}
+                  onShare={setShareTarget}
+                />
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {items.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 10,
+              padding: "12px 16px",
+              borderTop: `1px solid ${COLORS.border}`,
+              background: "#f8fafc",
+            }}
+          >
+            <span style={{ fontSize: 12, color: COLORS.muted }}>
+              Showing {rangeStart}–{rangeEnd} of {items.length}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                className="vault-btn"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                style={{
+                  ...buttonStyle("#fff", COLORS.heading),
+                  padding: "6px 12px",
+                  border: `1px solid ${COLORS.border}`,
+                  opacity: safePage <= 1 ? 0.5 : 1,
+                  cursor: safePage <= 1 ? "default" : "pointer",
+                }}
+              >
+                ← Prev
+              </button>
+              <span style={{ fontSize: 12, color: COLORS.muted, padding: "0 4px" }}>
+                Page {safePage} of {totalPages}
+              </span>
+              <button
+                className="vault-btn"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                style={{
+                  ...buttonStyle("#fff", COLORS.heading),
+                  padding: "6px 12px",
+                  border: `1px solid ${COLORS.border}`,
+                  opacity: safePage >= totalPages ? 0.5 : 1,
+                  cursor: safePage >= totalPages ? "default" : "pointer",
+                }}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {modalItem && (

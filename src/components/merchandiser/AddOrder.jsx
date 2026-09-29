@@ -73,6 +73,25 @@ const orderTypeOptions = [
   { value: "programmer", label: "Programmer" },
 ];
 
+const seasonOptions = [
+  { value: "spring", label: "Spring" },
+  { value: "summer", label: "Summer" },
+  { value: "autumn", label: "Autumn" },
+  { value: "winter", label: "Winter" },
+  { value: "autumn_opening", label: "Autumn Opening" },
+  { value: "boost_aw", label: "Boost AW" },
+  { value: "boost_ss", label: "Boost SS" },
+  { value: "main_spring", label: "Main Spring" },
+  { value: "spring_opening", label: "Spring Opening" },
+];
+
+// Commission is not tied to any specific buyer — any order can use either
+// method, chosen freely per-order via this dropdown.
+const commissionCalcMethodOptions = [
+  { value: "manual_percent", label: "Manual Commission Percentage" },
+  { value: "unit_price_minus_factory", label: "Unit Price − Factory Price" },
+];
+
 const sizeTypeOptions = [
   { value: "numeric", label: "Numeric Sizes (Even numbers only)" },
   { value: "alpha", label: "Alpha Sizes (XS-10XL)" },
@@ -121,6 +140,7 @@ const AddOrder = () => {
     department_id: "",
     customer_id: "",
     garment: "",
+    season: "",
     ref_no: "",
     supplier_id: "",
     supplier_name: "",
@@ -139,7 +159,10 @@ const AddOrder = () => {
     total_value: "",
     estimated_commission: "",
     actual_commission: "",
+    commission_calc_method: "manual_percent",
     commission_percent: "",
+    factory_price: "",
+    commission_rate: "",
     commission_rec_date: null,
     status: "Running",
     shipped_qty: 0,
@@ -175,6 +198,7 @@ const AddOrder = () => {
   const [pendingFiles, setPendingFiles] = useState({
     attachments: [],
     images: [],
+    sampleFiles: [],
   });
 
   // Rename state
@@ -210,11 +234,34 @@ const AddOrder = () => {
     fetchSuppliers();
   }, []);
 
-  // ==================== FORMULA 1: Estimated Commission = Commission Percent × Total Value ====================
+  // ==================== FORMULA 1: Estimated Commission ====================
+  // Manual Commission Percentage (existing/default behavior):
+  //   Estimated Commission = Total Value × Commission Percent
+  // Unit Price − Factory Price:
+  //   Commission Rate = Unit Price − Factory Price (auto-calculated, not entered)
+  //   Estimated Commission = Total Quantity × Commission Rate
   useEffect(() => {
-    const commissionPercent = parseFloat(formData.commission_percent);
     const totalValue = parseFloat(formData.total_value);
 
+    if (formData.commission_calc_method === "unit_price_minus_factory") {
+      const unitPrice = parseFloat(formData.unit_price);
+      const factoryPrice = parseFloat(formData.factory_price);
+      const totalQty = parseFloat(formData.total_qty);
+      const rateValid = !isNaN(unitPrice) && !isNaN(factoryPrice);
+      const rate = rateValid ? unitPrice - factoryPrice : null;
+
+      setFormData((prev) => ({
+        ...prev,
+        commission_rate: rateValid ? rate.toFixed(4) : "",
+        estimated_commission:
+          rateValid && !isNaN(totalQty) && totalQty > 0
+            ? (rate * totalQty).toFixed(2)
+            : "",
+      }));
+      return;
+    }
+
+    const commissionPercent = parseFloat(formData.commission_percent);
     if (
       !isNaN(commissionPercent) &&
       !isNaN(totalValue) &&
@@ -224,6 +271,7 @@ const AddOrder = () => {
       const estimatedCommission = (commissionPercent / 100) * totalValue;
       setFormData((prev) => ({
         ...prev,
+        commission_rate: "",
         estimated_commission: estimatedCommission.toFixed(2),
       }));
     } else if (
@@ -234,14 +282,21 @@ const AddOrder = () => {
     ) {
       setFormData((prev) => ({
         ...prev,
+        commission_rate: "",
         estimated_commission: "",
       }));
     }
-  }, [formData.commission_percent, formData.total_value]);
+  }, [
+    formData.commission_calc_method,
+    formData.commission_percent,
+    formData.total_value,
+    formData.total_qty,
+    formData.unit_price,
+    formData.factory_price,
+  ]);
 
   // ==================== FORMULA 2 & 3: Actual Commission & Shipped Value & Factory Value ====================
   useEffect(() => {
-    const commissionPercent = parseFloat(formData.commission_percent);
     const shippedQty = parseFloat(formData.shipped_qty);
     const unitPrice = parseFloat(formData.unit_price);
 
@@ -254,24 +309,26 @@ const AddOrder = () => {
       const shippedValue = shippedQty * unitPrice;
       const factoryValue = shippedQty * unitPrice;
 
+      let actualCommission = "";
+      if (formData.commission_calc_method === "unit_price_minus_factory") {
+        const factoryPrice = parseFloat(formData.factory_price);
+        if (!isNaN(factoryPrice)) {
+          const rate = unitPrice - factoryPrice;
+          actualCommission = (rate * shippedQty).toFixed(2);
+        }
+      } else {
+        const commissionPercent = parseFloat(formData.commission_percent);
+        if (!isNaN(commissionPercent) && commissionPercent > 0) {
+          actualCommission = ((commissionPercent / 100) * shippedValue).toFixed(2);
+        }
+      }
+
       setFormData((prev) => ({
         ...prev,
         shipped_value: shippedValue.toFixed(2),
         factory_value: factoryValue.toFixed(2),
+        actual_commission: actualCommission,
       }));
-
-      if (!isNaN(commissionPercent) && commissionPercent > 0) {
-        const actualCommission = (commissionPercent / 100) * shippedValue;
-        setFormData((prev) => ({
-          ...prev,
-          actual_commission: actualCommission.toFixed(2),
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          actual_commission: "",
-        }));
-      }
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -280,7 +337,13 @@ const AddOrder = () => {
         actual_commission: "",
       }));
     }
-  }, [formData.commission_percent, formData.shipped_qty, formData.unit_price]);
+  }, [
+    formData.commission_calc_method,
+    formData.commission_percent,
+    formData.factory_price,
+    formData.shipped_qty,
+    formData.unit_price,
+  ]);
 
   // ==================== FORMULA 4: Delay from Ex-Factory = Shipment Date - Ex-Factory Date ====================
   useEffect(() => {
@@ -641,8 +704,7 @@ const AddOrder = () => {
   };
 
   // ==================== FILE HANDLERS ====================
-  const handleImageSelect = (e) => {
-    const files = Array.from(e.target.files);
+  const addPendingImages = (files) => {
     const newImages = files.map((file, idx) => ({
       id: Date.now() + idx + Math.random(),
       file: file,
@@ -654,6 +716,11 @@ const AddOrder = () => {
       ...prev,
       images: [...prev.images, ...newImages],
     }));
+  };
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    addPendingImages(files);
     e.target.value = null;
   };
 
@@ -668,6 +735,53 @@ const AddOrder = () => {
     setPendingFiles((prev) => ({
       ...prev,
       attachments: [...prev.attachments, ...newAttachments],
+    }));
+    e.target.value = null;
+  };
+
+  // Lets a copied image (screenshot, "Copy Image" from a browser, etc.) be
+  // pasted straight into Product Images with Ctrl/Cmd+V, without needing to
+  // save it to disk first and browse for it.
+  useEffect(() => {
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles = Array.from(items)
+        .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter(Boolean);
+
+      if (imageFiles.length === 0) return;
+
+      e.preventDefault();
+      const namedFiles = imageFiles.map((file, idx) =>
+        file.name && file.name !== "image.png"
+          ? file
+          : new File(
+              [file],
+              `pasted-image-${Date.now()}-${idx}.${(file.type.split("/")[1] || "png")}`,
+              { type: file.type },
+            ),
+      );
+      addPendingImages(namedFiles);
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
+
+  const handleSampleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const newSampleFiles = files.map((file, idx) => ({
+      id: Date.now() + idx + Math.random(),
+      file: file,
+      name: file.name,
+      type: "sample_file",
+    }));
+    setPendingFiles((prev) => ({
+      ...prev,
+      sampleFiles: [...prev.sampleFiles, ...newSampleFiles],
     }));
     e.target.value = null;
   };
@@ -743,11 +857,13 @@ const AddOrder = () => {
 
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isDraggingAttachment, setIsDraggingAttachment] = useState(false);
+  const [isDraggingSampleFile, setIsDraggingSampleFile] = useState(false);
 
   const handleDrop = (type, e) => {
     e.preventDefault();
     e.stopPropagation();
     if (type === "image") setIsDraggingImage(false);
+    else if (type === "sample_file") setIsDraggingSampleFile(false);
     else setIsDraggingAttachment(false);
 
     const files = Array.from(e.dataTransfer.files);
@@ -764,6 +880,17 @@ const AddOrder = () => {
       setPendingFiles((prev) => ({
         ...prev,
         images: [...prev.images, ...newImages],
+      }));
+    } else if (type === "sample_file") {
+      const newSampleFiles = files.map((file, idx) => ({
+        id: Date.now() + idx + Math.random(),
+        file: file,
+        name: file.name,
+        type: "sample_file",
+      }));
+      setPendingFiles((prev) => ({
+        ...prev,
+        sampleFiles: [...prev.sampleFiles, ...newSampleFiles],
       }));
     } else {
       const newAttachments = files.map((file, idx) => ({
@@ -783,7 +910,7 @@ const AddOrder = () => {
     if (!formData.style || !formData.po_no || !formData.customer_id) {
       setSnackbar({
         open: true,
-        message: "Please fill all required fields (Style, PO Number, Customer)",
+        message: "Please fill all required fields (Order NO, PO Number, Customer)",
         type: "warning",
       });
       return false;
@@ -819,6 +946,7 @@ const AddOrder = () => {
           ? parseInt(formData.customer_id)
           : null,
         garment: formData.garment || null,
+        season: formData.season || null,
         ref_no: formData.ref_no || null,
         supplier_id: formData.supplier_id
           ? parseInt(formData.supplier_id)
@@ -846,8 +974,15 @@ const AddOrder = () => {
         actual_commission: formData.actual_commission
           ? parseFloat(formData.actual_commission)
           : null,
+        commission_calc_method: formData.commission_calc_method || "manual_percent",
         commission_percent: formData.commission_percent
           ? parseFloat(formData.commission_percent)
+          : null,
+        factory_price: formData.factory_price
+          ? parseFloat(formData.factory_price)
+          : null,
+        commission_rate: formData.commission_rate
+          ? parseFloat(formData.commission_rate)
           : null,
         commission_rec_date:
           formData.commission_rec_date?.toISOString().split("T")[0] || null,
@@ -897,13 +1032,20 @@ const AddOrder = () => {
       console.log("Submitting data:", submitData);
       const response = await createOrder(submitData);
 
-      if (pendingFiles.attachments.length || pendingFiles.images.length) {
+      if (
+        pendingFiles.attachments.length ||
+        pendingFiles.images.length ||
+        pendingFiles.sampleFiles.length
+      ) {
         const uploadData = new FormData();
         pendingFiles.attachments.forEach((item) =>
           uploadData.append("attachments", item.file),
         );
         pendingFiles.images.forEach((item) =>
           uploadData.append("images", item.file),
+        );
+        pendingFiles.sampleFiles.forEach((item) =>
+          uploadData.append("sample_files", item.file),
         );
         await uploadOrderFiles(response.data.id, uploadData);
       }
@@ -1100,7 +1242,7 @@ const AddOrder = () => {
                   </div>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>
-                      PDM Number <span style={styles.required}>*</span>
+                      Order NO <span style={styles.required}>*</span>
                     </label>
                     <input
                       type="text"
@@ -1156,6 +1298,22 @@ const AddOrder = () => {
                       {garmentOptions.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Season</label>
+                    <select
+                      name="season"
+                      value={formData.season}
+                      onChange={handleChange}
+                      style={styles.select}
+                    >
+                      <option value="">Select season</option>
+                      {seasonOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
                         </option>
                       ))}
                     </select>
@@ -1689,16 +1847,63 @@ const AddOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label>Commission Percent (%)</label>
-                    <input
-                      type="number"
-                      name="commission_percent"
-                      value={formData.commission_percent}
+                    <label>Commission Calculation Method</label>
+                    <select
+                      name="commission_calc_method"
+                      value={formData.commission_calc_method}
                       onChange={handleChange}
-                      step="0.01"
-                      style={styles.input}
-                    />
+                      style={styles.select}
+                    >
+                      {commissionCalcMethodOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                  {formData.commission_calc_method ===
+                  "unit_price_minus_factory" ? (
+                    <>
+                      <div style={styles.formField}>
+                        <label>Factory Price ($)</label>
+                        <input
+                          type="number"
+                          name="factory_price"
+                          value={formData.factory_price}
+                          onChange={handleChange}
+                          step="0.0001"
+                          style={styles.input}
+                        />
+                      </div>
+                      <div style={styles.formField}>
+                        <label>Commission Rate ($)</label>
+                        <input
+                          type="number"
+                          name="commission_rate"
+                          value={formData.commission_rate}
+                          readOnly
+                          placeholder="Auto: Unit Price − Factory Price"
+                          style={{
+                            ...styles.input,
+                            backgroundColor: "#f3f4f6",
+                            cursor: "not-allowed",
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div style={styles.formField}>
+                      <label>Commission Percent (%)</label>
+                      <input
+                        type="number"
+                        name="commission_percent"
+                        value={formData.commission_percent}
+                        onChange={handleChange}
+                        step="0.01"
+                        style={styles.input}
+                      />
+                    </div>
+                  )}
                   <div style={styles.formField}>
                     <label>Estimated Commission ($)</label>
                     <input
@@ -1975,6 +2180,82 @@ const AddOrder = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Sample Files - separate from Attachments; shown to
+                      Merchandiser - Production in its own view-only tab on
+                      the Detail page, but they never reach this Add page to
+                      upload/rename/remove them. */}
+                  <div
+                    style={{
+                      ...styles.uploadArea,
+                      ...(isDraggingSampleFile && styles.uploadAreaDragging),
+                      marginTop: "32px",
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      setIsDraggingSampleFile(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setIsDraggingSampleFile(false);
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleDrop("sample_file", e)}
+                  >
+                    <label style={styles.uploadLabel}>
+                      <FaFileAlt /> Sample Files
+                    </label>
+                    <div style={styles.dropZone}>
+                      <FaCloudUploadAlt style={styles.dropZoneIcon} />
+                      <p>Drag & drop files here or click to browse</p>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleSampleFileSelect}
+                        style={{ display: "none" }}
+                        id="sample-file-upload"
+                      />
+                      <label
+                        htmlFor="sample-file-upload"
+                        style={styles.browseButton}
+                      >
+                        Browse Files
+                      </label>
+                    </div>
+                    {pendingFiles.sampleFiles.map((item) => (
+                      <div key={item.id} style={styles.fileItem}>
+                        <FaFileAlt style={styles.fileIcon} />
+                        <div style={styles.fileInfo}>
+                          <span style={styles.fileName}>{item.name}</span>
+                          <span style={styles.fileSize}>
+                            {(item.file.size / 1024).toFixed(1)} KB
+                          </span>
+                        </div>
+                        <div style={styles.fileActions}>
+                          <button
+                            onClick={() =>
+                              openRenameModal(
+                                "sampleFiles",
+                                item.id,
+                                item.name,
+                              )
+                            }
+                            style={styles.renameFileBtn}
+                          >
+                            <FaEditIcon /> Rename
+                          </button>
+                          <button
+                            onClick={() =>
+                              removePendingFile("sampleFiles", item.id)
+                            }
+                            style={styles.removeFileBtn}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

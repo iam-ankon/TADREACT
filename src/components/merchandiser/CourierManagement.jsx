@@ -98,7 +98,7 @@ export default function CourierManagement() {
       
       const [bookingsRes, statsRes] = await Promise.all([
         getCourierBookings(currentPage, itemsPerPage, { filters }),
-        getCourierBookingStats(),
+        getCourierBookingStats(filters),
       ]);
       
       setBookings(bookingsRes.data || []);
@@ -173,9 +173,12 @@ export default function CourierManagement() {
     return 0;
   });
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentBookings = sortedBookings.slice(indexOfFirstItem, indexOfLastItem);
+  // `bookings` already holds only the current server page (see getCourierBookings),
+  // so it must not be sliced again here — that double-pagination was hiding all
+  // rows on page 2+ whenever the last page had fewer than `itemsPerPage` items.
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
+  const indexOfLastItem = indexOfFirstItem + sortedBookings.length;
+  const currentBookings = sortedBookings;
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const handleSort = (field) => {

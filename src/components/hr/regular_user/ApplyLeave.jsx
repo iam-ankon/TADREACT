@@ -6,9 +6,15 @@ import {
   addEmployeeLeave,
   getEmployeeDetailsByCode,
 } from "../../../api/employeeApi";
+import LeaveSplitPreview, {
+  unpaidConfirmText,
+  useLeavePolicy,
+} from "../LeaveSplitPreview";
 
 const ApplyLeave = () => {
   const [loading, setLoading] = useState(false);
+  const [split, setSplit] = useState(null); // paid/unpaid preview from the backend
+  const leavePolicy = useLeavePolicy();
   const [leaveBalances, setLeaveBalances] = useState({
     casual_leave: 0,
     sick_leave: 0,
@@ -174,17 +180,14 @@ const ApplyLeave = () => {
       return;
     }
 
-    const selectedLeaveType = leaveForm.leave_type;
-    const availableBalance = leaveBalances[selectedLeaveType] || 0;
-    if (leaveForm.leave_days > availableBalance) {
-      alert(
-        `Insufficient ${selectedLeaveType.replace(
-          "_",
-          " "
-        )} balance. Available: ${availableBalance} days`
-      );
+    // Casual/Sick beyond the balance is allowed as unpaid leave (the backend
+    // enforces the policy); other types must fit the balance.
+    if (split && !split.allowed) {
+      alert(split.message);
       return;
     }
+    const confirmText = unpaidConfirmText(split);
+    if (confirmText && !window.confirm(confirmText)) return;
 
     setLoading(true);
 
@@ -243,7 +246,9 @@ const ApplyLeave = () => {
         console.error("Backend validation errors:", error.response.data);
 
         // Handle specific backend errors
-        if (error.response.data.date) {
+        if (error.response.data.error) {
+          alert(error.response.data.error);
+        } else if (error.response.data.date) {
           alert(`Date error: ${error.response.data.date.join(", ")}`);
         } else if (error.response.data.employee) {
           alert(`Employee error: ${error.response.data.employee}`);
@@ -522,7 +527,10 @@ const ApplyLeave = () => {
                 </div>
               </div>
               <div style={styles.balanceCard}>
-                <div style={styles.balanceLabel}>Earned Leave</div>
+                <div style={styles.balanceLabel}>
+                  Earned Leave
+                  {!leavePolicy.earned_leave_enabled && " (paused)"}
+                </div>
                 <div style={styles.balanceValue}>
                   {leaveBalances.earned_leave}
                 </div>
@@ -643,6 +651,13 @@ const ApplyLeave = () => {
                 />
               </div>
             </div>
+
+            <LeaveSplitPreview
+              leaveType={leaveForm.leave_type}
+              startDate={leaveForm.start_date}
+              endDate={leaveForm.end_date}
+              onChange={setSplit}
+            />
 
             <div style={styles.inputGroup}>
               <label style={styles.label}>

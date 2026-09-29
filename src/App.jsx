@@ -65,6 +65,7 @@ import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
 // Merchandiser
 import DashboardPage from "./components/merchandiser/DashboardPage";
 import SupplierCapacityReport from "./components/merchandiser/SupplierCapacityReport";
+import OnTimeDeliveryScorecard from "./components/merchandiser/OnTimeDeliveryScorecard";
 import CustomerPage from "./components/merchandiser/CustomerPage";
 import BuyerPage from "./components/merchandiser/BuyerPage";
 import AgentPage from "./components/merchandiser/AgentPage";
@@ -103,6 +104,14 @@ import CourierManagement from "./components/merchandiser/CourierManagement";
 import CourierForm from "./components/merchandiser/CourierForm";
 import ShipmentDetailsPage from "./components/merchandiser/ShipmentDetailsPage";
 
+// Lab / QC
+import LabDashboard from "./components/lab_qc/LabDashboard.jsx";
+import LabReportList from "./components/lab_qc/LabReportList.jsx";
+import LabReportForm from "./components/lab_qc/LabReportForm.jsx";
+import LabReportDetail from "./components/lab_qc/LabReportDetail.jsx";
+import LabFactoryAssignments from "./components/lab_qc/LabFactoryAssignments.jsx";
+import LabOrdersList from "./components/lab_qc/LabOrdersList.jsx";
+
 //CSR Pages
 import DashboardCSR from "./components/csr/DashboardCSR.jsx";
 import AddSupplierCSR from "./components/csr/AddSupplierCSR.jsx";
@@ -136,6 +145,7 @@ import CompanyDetail from "./components/company_docs/CompanyDetail.jsx";
 // Password Vault
 import VaultDashboard from "./components/vault/VaultDashboard.jsx";
 import VaultAuditLog from "./components/vault/VaultAuditLog.jsx";
+import VaultSharingOverview from "./components/vault/VaultSharingOverview.jsx";
 
 // chatbox
 import ChatApp from "./components/chatbox/ChatApp.jsx";
@@ -616,6 +626,14 @@ const AppContent = () => {
             }
           />
           <Route
+            path="/merchandiser/on-time-delivery-scorecard"
+            element={
+              <ProtectedRoute>
+                <OnTimeDeliveryScorecard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/customers"
             element={
               <ProtectedRoute>
@@ -812,6 +830,64 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <DevelopmentSamples />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Lab / QC Routes (role-gated client-side by permissions.lab_qc) */}
+          <Route
+            path="/lab-qc"
+            element={
+              <ProtectedRoute>
+                <LabDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lab-qc/reports"
+            element={
+              <ProtectedRoute>
+                <LabReportList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lab-qc/reports/new"
+            element={
+              <ProtectedRoute>
+                <LabReportForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lab-qc/reports/:id"
+            element={
+              <ProtectedRoute>
+                <LabReportDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lab-qc/reports/:id/edit"
+            element={
+              <ProtectedRoute>
+                <LabReportForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lab-qc/factory-assignments"
+            element={
+              <ProtectedRoute>
+                <LabFactoryAssignments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lab-qc/orders"
+            element={
+              <ProtectedRoute>
+                <LabOrdersList />
               </ProtectedRoute>
             }
           />
@@ -1030,6 +1106,14 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <VaultAuditLog />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/vault/sharing"
+            element={
+              <ProtectedRoute>
+                <VaultSharingOverview />
               </ProtectedRoute>
             }
           />

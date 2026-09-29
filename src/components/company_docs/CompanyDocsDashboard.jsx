@@ -13,6 +13,8 @@ import {
   getCompanyDocsDashboard,
   sendExpiryNotifications,
   createCompany,
+  updateCompany,
+  getCompany,
   deleteCompany,
 } from "../../api/companyDocsApi";
 
@@ -36,7 +38,7 @@ const Chip = ({ count, label, color, bg }) => (
 );
 
 // ── Company card ──────────────────────────────────────────────────────────────
-const CompanyCard = ({ company, onClick, onDelete }) => {
+const CompanyCard = ({ company, onClick, onEdit, onDelete }) => {
   const hasIssues = company.expired > 0 || company.expiring_soon > 0;
   let borderColor = "#e2e8f0"; // neutral – no docs yet
   if (company.total > 0) {
@@ -142,39 +144,62 @@ const CompanyCard = ({ company, onClick, onDelete }) => {
         <span style={{ fontSize: 12, color: "#94a3b8" }}>
           {company.total} document{company.total !== 1 ? "s" : ""}
         </span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(company.id, company.name);
-          }}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "#cbd5e1",
-            fontSize: 14,
-            padding: "2px 6px",
-            borderRadius: 4,
-          }}
-          onMouseEnter={(e) => (e.target.style.color = "#ef4444")}
-          onMouseLeave={(e) => (e.target.style.color = "#cbd5e1")}
-          title="Delete company"
-        >
-          🗑
-        </button>
+        <div style={{ display: "flex", gap: 2 }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(company.id);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#cbd5e1",
+              fontSize: 14,
+              padding: "2px 6px",
+              borderRadius: 4,
+            }}
+            onMouseEnter={(e) => (e.target.style.color = "#2563eb")}
+            onMouseLeave={(e) => (e.target.style.color = "#cbd5e1")}
+            title="Edit company"
+          >
+            ✎
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(company.id, company.name);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#cbd5e1",
+              fontSize: 14,
+              padding: "2px 6px",
+              borderRadius: 4,
+            }}
+            onMouseEnter={(e) => (e.target.style.color = "#ef4444")}
+            onMouseLeave={(e) => (e.target.style.color = "#cbd5e1")}
+            title="Delete company"
+          >
+            🗑
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-// ── Add Company Modal ─────────────────────────────────────────────────────────
-const AddCompanyModal = ({ onClose, onCreated }) => {
+// ── Add / Edit Company Modal ──────────────────────────────────────────────────
+const CompanyFormModal = ({ company, onClose, onSaved }) => {
+  const isEdit = !!company;
   const [form, setForm] = useState({
-    name: "",
-    short_name: "",
-    address: "",
-    email: "",
-    phone: "",
+    name: company?.name || "",
+    short_name: company?.short_name || "",
+    address: company?.address || "",
+    email: company?.email || "",
+    phone: company?.phone || "",
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
@@ -194,8 +219,12 @@ const AddCompanyModal = ({ onClose, onCreated }) => {
       Object.entries(form).forEach(([k, v]) => {
         if (v.trim()) fd.append(k, v);
       });
-      await createCompany(fd);
-      onCreated();
+      if (isEdit) {
+        await updateCompany(company.id, fd);
+      } else {
+        await createCompany(fd);
+      }
+      onSaved();
       onClose();
     } catch (ex) {
       const msg = ex.response?.data
@@ -204,7 +233,7 @@ const AddCompanyModal = ({ onClose, onCreated }) => {
               .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
               .join(" | ")
           : String(ex.response.data)
-        : "Failed to create company. Please try again.";
+        : `Failed to ${isEdit ? "update" : "create"} company. Please try again.`;
       setErr(msg);
       setSaving(false);
     }
@@ -251,7 +280,7 @@ const AddCompanyModal = ({ onClose, onCreated }) => {
           }}
         >
           <h2 style={{ margin: 0, fontSize: 18, color: "#0f172a" }}>
-            Add New Company
+            {isEdit ? "Edit Company" : "Add New Company"}
           </h2>
           <button
             onClick={onClose}
@@ -377,7 +406,7 @@ const AddCompanyModal = ({ onClose, onCreated }) => {
                 opacity: saving ? 0.7 : 1,
               }}
             >
-              {saving ? "Saving…" : "Add Company"}
+              {saving ? "Saving…" : isEdit ? "Save Changes" : "Add Company"}
             </button>
           </div>
         </form>
@@ -395,6 +424,8 @@ const CompanyDocsDashboard = () => {
   const [notifStatus, setNotifStatus] = useState(null);
   const [sendingNotif, setSendingNotif] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null); // full company object being edited
+  const [editLoading, setEditLoading] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -436,6 +467,18 @@ const CompanyDocsDashboard = () => {
       });
     } finally {
       setSendingNotif(false);
+    }
+  };
+
+  const handleEditCompany = async (id) => {
+    setEditLoading(true);
+    try {
+      const res = await getCompany(id);
+      setEditingCompany(res.data);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to load company details.");
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -700,6 +743,7 @@ const CompanyDocsDashboard = () => {
               key={c.id}
               company={c}
               onClick={() => navigate(`/company-docs/${c.id}`)}
+              onEdit={handleEditCompany}
               onDelete={handleDeleteCompany}
             />
           ))}
@@ -708,9 +752,18 @@ const CompanyDocsDashboard = () => {
 
       {/* ── Add Company Modal ── */}
       {showAddModal && (
-        <AddCompanyModal
+        <CompanyFormModal
           onClose={() => setShowAddModal(false)}
-          onCreated={fetchDashboard}
+          onSaved={fetchDashboard}
+        />
+      )}
+
+      {/* ── Edit Company Modal ── */}
+      {editingCompany && (
+        <CompanyFormModal
+          company={editingCompany}
+          onClose={() => setEditingCompany(null)}
+          onSaved={fetchDashboard}
         />
       )}
     </div>

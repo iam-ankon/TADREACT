@@ -21,6 +21,7 @@ import {
   deleteCourierDocument,
   getOrders,
   getCourierStatusOptions,
+  exportCourierBookingItemsInvoice,
 } from '../../api/merchandiser';
 
 const emptyItemForm = {
@@ -50,17 +51,32 @@ const emptyItemForm = {
 
 // Mirrors merchandiser.models.SampleType on the backend, so a Sample Type
 // picked here lines up with the same taxonomy used in Sample Management /
-// the Order detail page's Samples tab.
+// the Order detail page's Samples tab. "Development Sample", "Prototype",
+// "Salesman Sample", "Client Sample" and "Improved Sample" aren't SampleType
+// choices on the backend (Development Sample stays on Inquiry, see
+// Inquiry.development_sample_status; the others have no Sample Management
+// equivalent), so an item booked with one of them falls back to "other" if
+// ever synced into Sample Management via SampleSection.jsx's
+// COURIER_SAMPLE_LABEL_TO_TYPE map. The "Revised ..." variants map onto
+// their base SampleType (fit/pp/ps_shipment) in that same map.
 const SAMPLE_TYPE_OPTIONS = [
   { value: '', label: 'Select Sample Type...' },
+  { value: 'Development Sample', label: 'Development Sample' },
   { value: 'Lab Dip', label: 'Lab Dip' },
   { value: 'Fabric', label: 'Fabric' },
   { value: 'Fit Sample', label: 'Fit Sample' },
+  { value: 'Revised Fit Sample', label: 'Revised Fit Sample' },
   { value: 'PP Sample', label: 'PP Sample' },
+  { value: 'Revised PP Sample', label: 'Revised PP Sample' },
   { value: 'PS / Shipment Sample', label: 'PS / Shipment Sample' },
+  { value: 'Revised PS Sample', label: 'Revised PS Sample' },
   { value: 'Counter Sample', label: 'Counter Sample' },
   { value: 'Photo Sample', label: 'Photo Sample' },
   { value: 'E-Commerce Sample', label: 'E-Commerce Sample' },
+  { value: 'Prototype', label: 'Prototype' },
+  { value: 'Salesman Sample', label: 'Salesman Sample' },
+  { value: 'Client Sample', label: 'Client Sample' },
+  { value: 'Improved Sample', label: 'Improved Sample' },
   { value: 'Other', label: 'Other' },
 ];
 
@@ -176,7 +192,7 @@ export default function ShipmentDetailsPage() {
       order: item.order || null,
       order_display: item.order ? `${item.order_pdm_no || item.order_po_no || ''} - ${item.order_style || ''}` : '',
       no_order: !item.order,
-      order_no: item.order_no || '',
+      order_no: item.order_style || item.order_no || '',
       item_description: item.item_description || '',
       wgr: item.wgr || '',
       factory: item.factory || '',
@@ -206,11 +222,10 @@ export default function ShipmentDetailsPage() {
     setItemForm((prev) => ({
       ...prev,
       order: order.id,
-      // PDM No. (starts with "P") is the single canonical order
-      // reference; po_no can hold multiple comma-separated PO numbers
-      // and is kept only as a fallback.
       order_display: `${order.pdm_no || order.po_no || 'N/A'} - ${order.style || 'N/A'} (${order.customer_name || 'No Customer'})`,
-      order_no: order.pdm_no || order.po_no || prev.order_no,
+      // The "Order No." field shows the order's Style; PDM/PO No. is only
+      // used as a fallback when the order has no Style set.
+      order_no: order.style || order.pdm_no || order.po_no || prev.order_no,
       item_description: order.item || prev.item_description,
       wgr: order.wgr || prev.wgr,
       factory: order.supplier_name || prev.factory,
@@ -371,6 +386,31 @@ export default function ShipmentDetailsPage() {
 
   const totalQty = items.reduce((sum, it) => sum + (parseInt(it.qty, 10) || 0), 0);
 
+  const [exportingItems, setExportingItems] = useState(false);
+
+  // Downloads a styled .xlsx (Proforma Invoice look - To/From block, item
+  // table, totals, disclaimer, signature) generated server-side, rather
+  // than a plain CSV, since CSV can't carry fonts/borders/merged cells.
+  const handleExportItems = async () => {
+    setExportingItems(true);
+    try {
+      const response = await exportCourierBookingItemsInvoice(id);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Proforma_Invoice_${booking.tracking_no || id}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting items:', err);
+      alert('Failed to export items');
+    } finally {
+      setExportingItems(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -452,6 +492,9 @@ export default function ShipmentDetailsPage() {
         <div style={styles.tableContainer}>
           <div style={styles.tableHeader}>
             <span style={styles.tableTitle}>Items ({items.length})</span>
+            <button onClick={handleExportItems} style={styles.btnOutline} disabled={items.length === 0 || exportingItems}>
+              {exportingItems ? 'Exporting...' : '⬇ Export Invoice'}
+            </button>
           </div>
           <div style={styles.tableWrapper}>
             <table style={styles.table}>
@@ -593,7 +636,7 @@ export default function ShipmentDetailsPage() {
               {/* Order search */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>
-                  Order (search by PO No., Style, or Item)
+                  Order (search by PO No., Order NO, or Item)
                   <label style={styles.noOrderToggle}>
                     <input type="checkbox" checked={itemForm.no_order} onChange={handleNoOrderToggle} />
                     {' '}No linked order

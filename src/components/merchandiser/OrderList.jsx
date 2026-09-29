@@ -21,7 +21,7 @@ import {
   exportOrdersToExcelFiltered,
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
-import { canViewOrderPricing, canManageOrders, isMerchandiserProduction, getDisplayShipmentDate } from "../../utils/accessControl";
+import { canViewOrderPricing, canManageOrders, canViewShipmentMonth, isMerchandiserProduction, getDisplayShipmentDate } from "../../utils/accessControl";
 import {
   FaPlus,
   FaTrash,
@@ -302,7 +302,7 @@ const ALL_COLUMNS = [
   },
   {
     key: "pdm_no_style",
-    label: "PDM No / Style",
+    label: "Order NO / Style",
     sortable: true,
     sortKey: "po_no",
     width: "180px",
@@ -376,7 +376,7 @@ const ALL_COLUMNS = [
   },
   {
     key: "style",
-    label: "Style",
+    label: "Order NO",
     sortable: true,
     sortKey: "style",
     width: "120px",
@@ -784,11 +784,14 @@ const OrderList = () => {
     // Deduplicate to prevent duplicates when dragging the remarks column
     const combined = [...visible, ...missing];
     const deduped = combined.filter((key, idx) => combined.indexOf(key) === idx);
-    // Strip pricing columns for users without order pricing access, even
+    // Strip pricing columns for users without order pricing access, and the
+    // shipment month column for users without shipment month access, even
     // if an old localStorage preference still has them turned on.
-    return canViewOrderPricing()
-      ? deduped
-      : deduped.filter((key) => !PRICING_COLUMN_KEYS.includes(key));
+    return deduped.filter((key) => {
+      if (!canViewOrderPricing() && PRICING_COLUMN_KEYS.includes(key)) return false;
+      if (!canViewShipmentMonth() && key === "shipment_month") return false;
+      return true;
+    });
   }, [columnOrder, visibleColumns]);
 
   // ========== BUILD FILTERS OBJECT ==========
@@ -3000,7 +3003,7 @@ const fetchStats = useCallback(async () => {
                     <FaSearch style={styles.searchIconSmall} />
                     <input
                       type="text"
-                      placeholder="Search orders by PO No, Style, Customer, Supplier, Item..."
+                      placeholder="Search orders by PO No, Order NO, Customer, Supplier, Item..."
                       value={searchInputValue}
                       onChange={(e) => setSearchInputValue(e.target.value)}
                       style={styles.searchInputSmall}
@@ -3778,8 +3781,10 @@ const fetchStats = useCallback(async () => {
                         <div style={styles.columnSelectorList}>
                           {ALL_COLUMNS.filter(
                             (column) =>
-                              canViewOrderPricing() ||
-                              !PRICING_COLUMN_KEYS.includes(column.key),
+                              (canViewOrderPricing() ||
+                                !PRICING_COLUMN_KEYS.includes(column.key)) &&
+                              (canViewShipmentMonth() ||
+                                column.key !== "shipment_month"),
                           ).map((column) => (
                             <label
                               key={column.key}

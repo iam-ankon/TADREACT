@@ -28,8 +28,13 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  CheckCheck,
 } from "lucide-react";
-import { getEmployeeLeaves, deleteEmployeeLeave } from "../../api/employeeApi";
+import {
+  getEmployeeLeaves,
+  deleteEmployeeLeave,
+  updateEmployeeLeave,
+} from "../../api/employeeApi";
 
 const EmployeeLeave = () => {
   const [allLeaves, setAllLeaves] = useState([]);
@@ -44,6 +49,7 @@ const EmployeeLeave = () => {
   const [viewMode, setViewMode] = useState("list");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [approvingAll, setApprovingAll] = useState(false);
 
   // Pagination states - 100 items per page
   const [currentPage, setCurrentPage] = useState(1);
@@ -224,6 +230,53 @@ const EmployeeLeave = () => {
     }
   };
 
+  const handleApproveAll = async () => {
+    const pendingLeaves = allLeaves.filter(
+      (leave) => (leave.status || "").toLowerCase() === "pending"
+    );
+    if (pendingLeaves.length === 0) return;
+
+    // Casual/Sick days beyond the balance are approved as unpaid (salary deduction).
+    const withUnpaid = pendingLeaves.filter((leave) => leave.unpaid_days > 0);
+    const unpaidNote = withUnpaid.length
+      ? `\n\n${withUnpaid.length} of them go beyond the leave balance (about ${withUnpaid.reduce(
+          (sum, leave) => sum + leave.unpaid_days,
+          0,
+        )} unpaid day(s) in total) — one day's basic salary will be deducted per unpaid day.`
+      : "";
+    if (
+      !window.confirm(
+        `Approve all ${pendingLeaves.length} pending leave request(s)? This cannot be undone.${unpaidNote}`
+      )
+    )
+      return;
+
+    setApprovingAll(true);
+    try {
+      const results = await Promise.allSettled(
+        pendingLeaves.map((leave) =>
+          updateEmployeeLeave(leave.id, { status: "approved" })
+        )
+      );
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+
+      await fetchAllLeaves();
+
+      if (failedCount > 0) {
+        alert(
+          `Approved ${pendingLeaves.length - failedCount} of ${pendingLeaves.length} leave request(s). ${failedCount} failed — please retry those individually.`
+        );
+      } else {
+        alert(`✅ Approved ${pendingLeaves.length} pending leave request(s).`);
+      }
+    } catch (e) {
+      console.error("Bulk approve error:", e);
+      alert("Failed to approve leave requests. Please try again.");
+    } finally {
+      setApprovingAll(false);
+    }
+  };
+
   const handleEdit = (id) => navigate(`/edit-leave-request/${id}`);
   const handleView = (id) => navigate(`/leave-request-details/${id}`);
 
@@ -293,6 +346,11 @@ const EmployeeLeave = () => {
   };
 
   const stats = getStats();
+  // Independent of the current search/status filter — "Approve All" always
+  // targets every pending leave, not just the ones currently visible.
+  const totalPendingCount = allLeaves.filter(
+    (leave) => (leave.status || "").toLowerCase() === "pending"
+  ).length;
   const totalItems = filteredLeaves.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
@@ -833,6 +891,36 @@ const EmployeeLeave = () => {
                     List
                   </button>
                 </div>
+
+                {totalPendingCount > 0 && (
+                  <motion.button
+                    whileHover={{ scale: approvingAll ? 1 : 1.02 }}
+                    whileTap={{ scale: approvingAll ? 1 : 0.98 }}
+                    onClick={handleApproveAll}
+                    disabled={approvingAll}
+                    title="Approve every pending leave request"
+                    style={{
+                      padding: "12px 20px",
+                      background: approvingAll
+                        ? "#9CA3AF"
+                        : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "12px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: approvingAll ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <CheckCheck size={18} />
+                    {approvingAll
+                      ? "Approving…"
+                      : `Approve All (${totalPendingCount})`}
+                  </motion.button>
+                )}
 
                 <Link
                   to="/add-leave-request"
@@ -1467,6 +1555,11 @@ const LeaveCard = ({
             <Clock size={14} style={{ color: status.bg, flexShrink: 0 }} />
             <span style={{ color: "#6B7280" }}>
               {leave.leave_days || 0} day{leave.leave_days !== 1 ? "s" : ""}
+              {leave.unpaid_days > 0 && (
+                <span style={{ color: "#b91c1c", fontWeight: 600 }}>
+                  {" "}· {leave.unpaid_days} unpaid
+                </span>
+              )}
             </span>
           </div>
           <div
@@ -1802,6 +1895,11 @@ const LeaveListItem = ({ leave, index, onEdit, onDelete, onView }) => {
           }}
         >
           {leave.leave_days || 0} day{leave.leave_days !== 1 ? "s" : ""}
+          {leave.unpaid_days > 0 && (
+                <span style={{ color: "#b91c1c", fontWeight: 600 }}>
+                  {" "}· {leave.unpaid_days} unpaid
+                </span>
+              )}
         </div>
       </div>
 

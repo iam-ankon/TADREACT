@@ -81,6 +81,10 @@ const LoginPage = () => {
       );
       if (permissions.full_access) {
         navigate("/hr-work");
+      } else if (permissions.lab_qc) {
+        // Pure Lab/QC officer (not full_access) - no reason to land on the
+        // general HR dashboard.
+        navigate("/lab-qc");
       } else {
         navigate("/dashboard");
       }
@@ -191,6 +195,10 @@ const LoginPage = () => {
       setTimeout(() => {
         if (data.permissions?.full_access) {
           navigate("/hr-work");
+        } else if (data.permissions?.lab_qc) {
+          // Pure Lab/QC officer (not full_access) - no reason to land on the
+          // general HR dashboard.
+          navigate("/lab-qc");
         } else {
           navigate("/dashboard");
         }

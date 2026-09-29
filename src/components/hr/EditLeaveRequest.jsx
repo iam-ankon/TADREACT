@@ -7,10 +7,13 @@ import {
   sendLeaveEmailToMD,
 } from "../../api/employeeApi";
 import Sidebars from "./sidebars";
+import LeaveSplitPreview from "./LeaveSplitPreview";
 
 const EditLeaveRequest = () => {
   const [loading, setLoading] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [split, setSplit] = useState(null); // paid/unpaid split if approved now
+  const [saved, setSaved] = useState(null); // status + split as stored on the server
   const { id } = useParams();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -160,6 +163,12 @@ const EditLeaveRequest = () => {
 
         console.log("🔄 Mapped Form Data:", mappedData);
         setFormData(mappedData);
+        setSaved({
+          status: data.status,
+          employee: typeof data.employee === "number" ? data.employee : null,
+          paid_days: data.paid_days || 0,
+          unpaid_days: data.unpaid_days || 0,
+        });
       } catch (err) {
         console.error("Error fetching leave request:", err);
         alert("Failed to load leave request data. Please try again.");
@@ -176,6 +185,37 @@ const EditLeaveRequest = () => {
   };
 
   const handleSubmit = async () => {
+    const approvingNow =
+      formData.status === "approved" && saved?.status !== "approved";
+    if (
+      approvingNow &&
+      split?.unpaid_days > 0 &&
+      !window.confirm(
+        `${split.unpaid_days} of ${split.days} day(s) exceed ${formData.employee}'s balance and will be UNPAID.\n\n` +
+          `One day's basic salary will be deducted from their salary for each unpaid day.\n\nApprove anyway?`,
+      )
+    )
+      return;
+
+    // Undoing an approval gives the deducted days back to the balance.
+    const unapprovingNow =
+      saved?.status === "approved" && formData.status !== "approved";
+    if (
+      unapprovingNow &&
+      !window.confirm(
+        `This leave is currently APPROVED. Changing it to ${formData.status.toUpperCase()} will:\n\n` +
+          `• return ${saved.paid_days || 0} day(s) to ${formData.employee}'s leave balance\n` +
+          (saved.unpaid_days
+            ? `• cancel the ${saved.unpaid_days} unpaid day(s) salary deduction\n`
+            : "") +
+          (formData.status === "pending"
+            ? `• email ${formData.employee} that the request is pending again\n`
+            : "") +
+          `\nContinue?`,
+      )
+    )
+      return;
+
     try {
       setLoading(true);
 
@@ -194,12 +234,21 @@ const EditLeaveRequest = () => {
 
       console.log("📤 Sending update data:", updateData);
 
-      await updateEmployeeLeave(id, updateData);
+      const res = await updateEmployeeLeave(id, updateData);
+      setSaved((prev) => ({
+        ...prev,
+        status: res.data?.status ?? formData.status,
+        paid_days: res.data?.paid_days ?? prev?.paid_days,
+        unpaid_days: res.data?.unpaid_days ?? prev?.unpaid_days,
+      }));
       alert("Leave request updated successfully!");
     } catch (err) {
       console.error("Error updating leave request:", err);
       console.error("Error details:", err.response?.data);
-      alert("Failed to update leave request. Please try again.");
+      alert(
+        err.response?.data?.error ||
+          "Failed to update leave request. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -385,6 +434,35 @@ const EditLeaveRequest = () => {
                   </p>
                 </div>
               </div>
+
+              {saved?.status === "approved" ? (
+                saved.unpaid_days > 0 && (
+                  <div
+                    style={{
+                      background: "#fffbeb",
+                      border: "1px solid #fcd34d",
+                      color: "#92400e",
+                      borderRadius: 8,
+                      padding: "12px 14px",
+                      margin: "0 0 12px",
+                    }}
+                  >
+                    Approved with <strong>{saved.paid_days}</strong> paid and{" "}
+                    <strong>{saved.unpaid_days}</strong> unpaid day(s) — one
+                    day's basic salary is deducted per unpaid day.
+                  </div>
+                )
+              ) : (
+                <LeaveSplitPreview
+                  leaveType={formData.leave_type}
+                  startDate={formData.start_date}
+                  endDate={formData.end_date}
+                  employee={saved?.employee}
+                  excludeId={id}
+                  atApproval
+                  onChange={setSplit}
+                />
+              )}
 
               <div style={styles.formGrid}>
                 <div style={styles.formGroup}>

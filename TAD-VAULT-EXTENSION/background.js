@@ -78,8 +78,9 @@ async function handleFillCurrentTab(itemId, tabId, username) {
   const res = await apiFetch(`/api/vault/items/${itemId}/reveal/`, { method: "POST" });
   if (!res.ok) return { ok: false, error: `Could not reveal password (${res.status})` };
   const { password } = await res.json();
+  let result;
   try {
-    await chrome.tabs.sendMessage(tabId, {
+    result = await chrome.tabs.sendMessage(tabId, {
       type: "TAD_VAULT_FILL_CREDENTIALS",
       username,
       password,
@@ -88,7 +89,10 @@ async function handleFillCurrentTab(itemId, tabId, username) {
   } catch (e) {
     return { ok: false, error: "Could not reach the page. Try reloading it and retry." };
   }
-  return { ok: true };
+  // The content script's own ok/error must reach the popup — without this the
+  // popup always reported "Filled! Logging in…" even when nothing on the page
+  // was actually filled (e.g. no password field was found yet).
+  return result || { ok: false, error: "No response from the page." };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

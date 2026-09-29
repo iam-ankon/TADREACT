@@ -478,11 +478,21 @@ const DocFormModal = ({
     setSaving(true);
     setErr(null);
     try {
+      // DRF's DateField only accepts null (not "") for an empty value, so
+      // convert blank date inputs to null before sending — otherwise
+      // leaving Issue Date / Expiry Date empty fails validation and makes
+      // them feel mandatory even though the model allows them to be blank.
+      const payload = {
+        ...form,
+        issue_date: form.issue_date || null,
+        expiry_date: form.expiry_date || null,
+      };
+
       let docId = editDoc?.id;
       if (isEdit) {
-        await updateDocumentType(editDoc.id, form);
+        await updateDocumentType(editDoc.id, payload);
       } else {
-        const created = await createDocumentType(form);
+        const created = await createDocumentType(payload);
         docId = created.data.id;
       }
 

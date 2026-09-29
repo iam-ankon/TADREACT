@@ -581,6 +581,52 @@ export const storageAPI = {
     return JSON.parse(localStorage.getItem("sourceTaxMinimum") || "{}");
   },
 
+  // Source-tax "other" income and bonus overrides maintained on the Finance
+  // Provision screen, as { sourceTaxOther, bonusOverride }.
+  smartSyncData: async () => ({
+    sourceTaxOther: storageAPI.getSourceTaxOther(),
+    bonusOverride: storageAPI.getBonusOverride(),
+  }),
+
+  // Salary sheet manual entries (daysWorked, advance, cashPayment, addition,
+  // otHours, remarks), keyed by employee_id and stored PER MONTH so an advance
+  // typed for September never carries into October.
+  getSalaryManualData: (year, month) => {
+    try {
+      return JSON.parse(localStorage.getItem(`salaryManual_${year}_${month}`) || "null");
+    } catch {
+      return null;
+    }
+  },
+
+  setSalaryManualData: (data, year, month) => {
+    try {
+      localStorage.setItem(`salaryManual_${year}_${month}`, JSON.stringify(data || {}));
+    } catch (e) {
+      console.warn("Could not store salary manual data:", e);
+    }
+  },
+
+  // Cached tax calculations per month: { [employee_id]: { data, savedAt } }.
+  getTaxResultsByEmployee: (year, month) => {
+    try {
+      return JSON.parse(localStorage.getItem(`taxResults_${year}_${month}`) || "{}");
+    } catch {
+      return {};
+    }
+  },
+
+  setTaxResultsByEmployee: (empId, data, year, month) => {
+    const key = `taxResults_${year}_${month}`;
+    try {
+      const all = JSON.parse(localStorage.getItem(key) || "{}");
+      all[empId] = { data, savedAt: Date.now() };
+      localStorage.setItem(key, JSON.stringify(all));
+    } catch (e) {
+      console.warn("Could not cache tax result:", e);
+    }
+  },
+
   clearAll: () => {
     localStorage.removeItem("sourceTaxOther");
     localStorage.removeItem("bonusOverride");
@@ -811,7 +857,15 @@ export const broadcastUpdate = (type, data) => {
 };
 
 // Main export
+// Approved unpaid leave days (leave without pay) per employee for a month:
+// { [employee_id]: { unpaid_days, leaves: [...] } }
+export const unpaidLeaveAPI = {
+  getForMonth: (year, month) =>
+    apiClient.get("/unpaid-leave/", { params: { year, month } }),
+};
+
 export const financeAPI = {
+  unpaidLeave: unpaidLeaveAPI,
   employee: employeeAPI,
   tax: taxAPI,
   salary: salaryAPI,

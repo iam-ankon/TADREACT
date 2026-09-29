@@ -619,11 +619,12 @@ export const getOrderFiles = async (orderId) => {
       data: {
         attachments: response.data.multiple_attachments || [],
         images: response.data.multiple_images || [],
+        sample_files: response.data.sample_files || [],
       },
     };
   } catch (error) {
     console.error("Error fetching order files:", error);
-    return { data: { attachments: [], images: [] } };
+    return { data: { attachments: [], images: [], sample_files: [] } };
   }
 };
 
@@ -2236,8 +2237,18 @@ export const patchCourierBooking = (id, data) =>
 export const deleteCourierBooking = (id) =>
   merchandiserApi.delete(`courier-bookings/${id}/`);
 
-export const getCourierBookingStats = () =>
-  merchandiserApi.get("courier-bookings/stats/");
+// Accepts the same filters as getCourierBookings (search, status, type,
+// courier_name, from_date, to_date) so the summary cards match the list.
+export const getCourierBookingStats = (filters = {}) => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== "" && value !== "null" && value !== "undefined") {
+      params.append(key, value);
+    }
+  });
+  const qs = params.toString();
+  return merchandiserApi.get(`courier-bookings/stats/${qs ? `?${qs}` : ""}`);
+};
 
 export const updateCourierBookingStatus = (id, data) =>
   merchandiserApi.post(`courier-bookings/${id}/update-status/`, data);
@@ -2269,6 +2280,21 @@ export const exportCourierBookings = async (filters = {}) => {
     return response;
   } catch (error) {
     console.error("❌ Error exporting courier bookings:", error);
+    throw error;
+  }
+};
+
+// Export a single booking's items as the styled Proforma-Invoice-style .xlsx
+// (Shipment Details "Items" table -> export-invoice action).
+export const exportCourierBookingItemsInvoice = async (bookingId) => {
+  try {
+    const response = await merchandiserApi.get(
+      `courier-bookings/${bookingId}/export-invoice/`,
+      { responseType: "blob", timeout: 120000 },
+    );
+    return response;
+  } catch (error) {
+    console.error("❌ Error exporting shipment items invoice:", error);
     throw error;
   }
 };
@@ -2637,6 +2663,7 @@ export default {
   reopenCourierBooking,
   getCourierBookingsByOrder,
   exportCourierBookings,
+  exportCourierBookingItemsInvoice,
   getSamplesByOrder,
   getSamples,
   getSampleById,
@@ -2710,6 +2737,25 @@ export const downloadSupplierCapacityReportExcel = async (filters = {}) => {
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+};
+
+/* -------------------------------------------------------------------------- */
+/*  ON-TIME DELIVERY SCORECARD                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * start/end must be "YYYY-MM" strings. Returns { period, totals,
+ * delivery_split, delay_buckets, overall_in_time_percent, monthly }.
+ */
+export const getOnTimeDeliveryScorecard = ({ start, end, suppliers = [], buyers = [], statuses = [], basis }) => {
+  const params = new URLSearchParams();
+  if (start) params.append("start", start);
+  if (end) params.append("end", end);
+  if (suppliers.length) params.append("supplier", suppliers.join(","));
+  if (buyers.length) params.append("buyer", buyers.join(","));
+  if (statuses.length) params.append("status", statuses.join(","));
+  if (basis) params.append("basis", basis);
+  return merchandiserApi.get(`reports/on-time-delivery/?${params.toString()}`);
 };
 
 /* -------------------------------------------------------------------------- */

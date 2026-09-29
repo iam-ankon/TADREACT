@@ -1184,9 +1184,12 @@ const OrderMonthlyChart = React.memo(
                     dataKey="value"
                     position="top"
                     content={(props) => {
-                      const { cx, cy, value } = props;
+                      // Recharts 3 passes the point as x/y; older versions used cx/cy.
+                      const cx = props.cx ?? props.x;
+                      const cy = props.cy ?? props.y;
+                      const { value } = props;
                       const safeValue = safeNumber(value);
-                      if (safeValue === 0 || isNaN(cy)) return null;
+                      if (safeValue === 0 || cx == null || isNaN(cy)) return null;
                       return (
                         <text
                           x={cx}
@@ -1250,6 +1253,158 @@ const OrderMonthlyChart = React.memo(
     );
   },
 );
+
+// ============================================================================
+// MONTHLY COMPARISON (one series per selected year / customer / supplier)
+// ============================================================================
+// Fixed categorical order (colour-blind-safe for adjacent series); never cycled.
+const COMPARE_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+const COMPARE_MAX_SERIES = COMPARE_COLORS.length;
+const COMPARE_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const COMPARE_DIM_LABEL = { year: "Year", customer: "Customer", supplier: "Supplier" };
+
+// API figures are in millions (pieces / US$).
+const fmtMillions = (v, prefix = "") => {
+  const n = safeNumber(v, 0);
+  if (!n) return "—";
+  if (n >= 1) return `${prefix}${n.toFixed(2)}M`;
+  return `${prefix}${Math.round(n * 1000)}K`;
+};
+
+const MonthlyComparison = React.memo(({ compare, selectedMetric, onCompareByChange, loading }) => {
+  if (loading) return <SkeletonChart height={400} />;
+  const { by, dims, series, truncated } = compare;
+  const metrics = selectedMetric === "both" ? ["quantity", "value"] : [selectedMetric];
+
+  const rows = COMPARE_MONTHS.map((month, i) => {
+    const row = { month };
+    series.forEach((sr) => {
+      row[`q_${sr.key}`] = safeNumber(sr.quantities[i], 0);
+      row[`v_${sr.key}`] = safeNumber(sr.values[i], 0);
+      row[`c_${sr.key}`] = safeNumber(sr.counts[i], 0);
+    });
+    return row;
+  });
+
+  const CompareTooltip = ({ active, payload, label, metric }) => {
+    if (!active || !payload?.length) return null;
+    const row = payload[0].payload;
+    return (
+      <div style={{ background: "white", padding: "10px 14px", borderRadius: 10, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15)", fontSize: 12.5 }}>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+        {series.map((sr, i) => (
+          <div key={sr.key} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "2px 0" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#475569" }}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: COMPARE_COLORS[i] }} />{sr.label}
+            </span>
+            <span style={{ fontWeight: 600, color: "#0f172a" }}>
+              {metric === "quantity"
+                ? `${Math.round(row[`q_${sr.key}`] * 1e6).toLocaleString()} pcs`
+                : `$${Math.round(row[`v_${sr.key}`] * 1e6).toLocaleString()}`}
+              <span style={{ color: "#94a3b8", fontWeight: 400 }}> · {row[`c_${sr.key}`]} orders</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8, fontSize: 13, color: "#475569" }}>
+        <span>Comparing by</span>
+        {dims.map((d) => (
+          <button
+            key={d}
+            onClick={() => onCompareByChange(d)}
+            style={{
+              padding: "3px 12px", borderRadius: 999, fontSize: 12.5, cursor: dims.length > 1 ? "pointer" : "default",
+              border: d === by ? "2px solid #8b5cf6" : "1px solid #e2e8f0",
+              background: d === by ? "#ede9fe" : "white", color: d === by ? "#6d28d9" : "#64748b", fontWeight: 600,
+            }}
+          >
+            {COMPARE_DIM_LABEL[d]}
+          </button>
+        ))}
+        <span style={{ color: "#94a3b8" }}>
+          {dims.length > 1 ? "· other selections are applied as filters" : ""}
+          {truncated ? ` · showing the first ${COMPARE_MAX_SERIES} selected` : ""}
+        </span>
+      </div>
+
+      {metrics.map((metric) => (
+        <div key={metric} style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", margin: "6px 0 2px" }}>
+            {metric === "quantity" ? "Order quantity (pieces)" : "Order value (US$)"}
+          </div>
+          <div style={{ height: 300, width: "100%" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rows} margin={{ top: 10, right: 16, left: 6, bottom: 0 }} barCategoryGap="16%" barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="month" stroke="#64748b" tick={{ fontSize: 12 }} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 11 }}
+                  tickFormatter={(v) => (metric === "quantity" ? `${safeNumber(v).toFixed(0)}M` : `$${safeNumber(v).toFixed(0)}M`)} />
+                <Tooltip content={<CompareTooltip metric={metric} />} cursor={{ fill: "rgba(139,92,246,0.06)" }} />
+                <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                {series.map((sr, i) => (
+                  <Bar key={sr.key} dataKey={`${metric === "quantity" ? "q" : "v"}_${sr.key}`} name={sr.label}
+                    fill={COMPARE_COLORS[i]} radius={[3, 3, 0, 0]} maxBarSize={28} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ))}
+
+      {/* Exact figures for each series, always visible */}
+      <div style={{ overflowX: "auto", marginTop: 14, border: "1px solid #e2e8f0", borderRadius: 10 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: "#f8fafc" }}>
+              <th style={{ textAlign: "left", padding: "8px 10px", color: "#475569", position: "sticky", left: 0, background: "#f8fafc" }}>
+                {COMPARE_DIM_LABEL[by]}
+              </th>
+              {COMPARE_MONTHS.map((m) => (
+                <th key={m} style={{ textAlign: "right", padding: "8px 8px", color: "#475569", fontWeight: 600 }}>{m}</th>
+              ))}
+              <th style={{ textAlign: "right", padding: "8px 10px", color: "#0f172a" }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {series.map((sr, i) => {
+              const tq = sr.quantities.reduce((a, v) => a + safeNumber(v, 0), 0);
+              const tv = sr.values.reduce((a, v) => a + safeNumber(v, 0), 0);
+              const tc = sr.counts.reduce((a, v) => a + safeNumber(v, 0), 0);
+              const cell = (q, v) => (
+                <>
+                  {metrics.includes("quantity") && <div style={{ color: "#0f172a", fontWeight: 600 }}>{fmtMillions(q)}</div>}
+                  {metrics.includes("value") && <div style={{ color: "#64748b" }}>{fmtMillions(v, "$")}</div>}
+                </>
+              );
+              return (
+                <tr key={sr.key} style={{ borderTop: "1px solid #f1f5f9" }}>
+                  <td style={{ padding: "7px 10px", whiteSpace: "nowrap", position: "sticky", left: 0, background: "white", fontWeight: 600, color: "#1e293b" }}>
+                    <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: COMPARE_COLORS[i], marginRight: 7 }} />
+                    {sr.label}
+                  </td>
+                  {COMPARE_MONTHS.map((m, mi) => (
+                    <td key={m} style={{ textAlign: "right", padding: "7px 8px", whiteSpace: "nowrap" }}>
+                      {cell(sr.quantities[mi], sr.values[mi])}
+                    </td>
+                  ))}
+                  <td style={{ textAlign: "right", padding: "7px 10px", whiteSpace: "nowrap", background: "#faf5ff" }}>
+                    {cell(tq, tv)}
+                    <div style={{ color: "#94a3b8" }}>{tc.toLocaleString()} orders</div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+});
 
 // ============================================================================
 // YEARLY CHART COMPONENT
@@ -1663,9 +1818,12 @@ const CustomerChart = React.memo(
                     dataKey="value"
                     position="top"
                     content={(props) => {
-                      const { cx, cy, value } = props;
+                      // Recharts 3 passes the point as x/y; older versions used cx/cy.
+                      const cx = props.cx ?? props.x;
+                      const cy = props.cy ?? props.y;
+                      const { value } = props;
                       const safeValue = safeNumber(value);
-                      if (safeValue === 0 || isNaN(cy)) return null;
+                      if (safeValue === 0 || cx == null || isNaN(cy)) return null;
                       return (
                         <text
                           x={cx}
@@ -2127,6 +2285,10 @@ const DashboardPage = () => {
   ]);
 
   const [selectedMetric, setSelectedMetric] = useState("both");
+  // Monthly chart comparison: one series per selected year/customer/supplier.
+  const [monthlyCompareBy, setMonthlyCompareBy] = useState(null);
+  const [monthlyCompare, setMonthlyCompare] = useState(null);
+  const monthlyRequestId = useRef(0);
   const [selectedYearlyMetric, setSelectedYearlyMetric] = useState("both");
   const [selectedCustomerGraphMetric, setSelectedCustomerGraphMetric] =
     useState("both");
@@ -2463,28 +2625,67 @@ const DashboardPage = () => {
   
   // Monthly Chart Filter Handler
   const handleMonthlyFilterChange = useCallback(async () => {
+    const requestId = ++monthlyRequestId.current; // ignore responses from older selections
     setLoadingMonthly(true);
     try {
       const token = getToken();
-      const params = new URLSearchParams();
-      
-      if (!selectedYears.includes("all")) {
-        params.append("year", selectedYears.join("|"));
+      const picked = {
+        year: selectedYears.filter((y) => y !== "all"),
+        customer: selectedCustomers.filter((c) => c !== "all"),
+        supplier: selectedSuppliers.filter((s) => s !== "all"),
+      };
+      const buildParams = (override = {}) => {
+        const params = new URLSearchParams();
+        Object.entries(picked).forEach(([dim, list]) => {
+          const values = override[dim] ?? list;
+          if (values.length) params.append(dim, values.join("|"));
+        });
+        return params;
+      };
+      const fetchMonthly = (params) =>
+        axios.get(`${API_BASE_URL}/orders/monthly-data/?${params.toString()}`, {
+          headers: { Authorization: `Token ${token}` },
+        });
+
+      // With 2+ years/customers/suppliers picked, also fetch one series per
+      // pick so the chart can show each separately instead of one merged total.
+      const dims = ["year", "customer", "supplier"].filter((d) => picked[d].length > 1);
+      const by = dims.includes(monthlyCompareBy) ? monthlyCompareBy : dims[0] || null;
+      const ordered = by === "year" ? [...picked.year].sort() : by ? picked[by] : [];
+      const seriesValues = ordered.slice(0, COMPARE_MAX_SERIES);
+
+      const [response, ...seriesResponses] = await Promise.all([
+        fetchMonthly(buildParams()),
+        ...seriesValues.map((v) => fetchMonthly(buildParams({ [by]: [v] }))),
+      ]);
+      if (requestId !== monthlyRequestId.current) return;
+
+      if (by) {
+        const labelFor = (v) => {
+          if (by === "year") return String(v);
+          const list = by === "customer" ? masterCustomerList : masterSupplierList;
+          const hit = (list || []).find((x) => String(x.id) === String(v));
+          return hit?.name || `${COMPARE_DIM_LABEL[by]} ${v}`;
+        };
+        setMonthlyCompare({
+          by,
+          dims,
+          truncated: picked[by].length > COMPARE_MAX_SERIES,
+          series: seriesResponses.map((r, i) => {
+            const d = r.data?.data || {};
+            return {
+              key: String(seriesValues[i]).replace(/[^A-Za-z0-9]/g, "_"),
+              label: labelFor(seriesValues[i]),
+              quantities: (d.quantities || Array(12).fill(0)).map((v) => safeNumber(v, 0)),
+              values: (d.values || Array(12).fill(0)).map((v) => safeNumber(v, 0)),
+              counts: (d.counts || Array(12).fill(0)).map((v) => safeNumber(v, 0)),
+            };
+          }),
+        });
+      } else {
+        setMonthlyCompare(null);
       }
-      
-      if (!selectedCustomers.includes("all")) {
-        params.append("customer", selectedCustomers.join("|"));
-      }
-      
-      if (!selectedSuppliers.includes("all")) {
-        params.append("supplier", selectedSuppliers.join("|"));
-      }
-      
-      const url = `${API_BASE_URL}/orders/monthly-data/?${params.toString()}`;
-      const response = await axios.get(url, {
-        headers: { Authorization: `Token ${token}` }
-      });
-      
+
       if (response.data?.success && response.data.data) {
         setOrderMonthlyData({
           months: response.data.data.months || [],
@@ -2496,8 +2697,8 @@ const DashboardPage = () => {
     } catch (error) {
       console.error("Error updating monthly chart:", error);
     }
-    setLoadingMonthly(false);
-  }, [selectedYears, selectedCustomers, selectedSuppliers]);
+    if (requestId === monthlyRequestId.current) setLoadingMonthly(false);
+  }, [selectedYears, selectedCustomers, selectedSuppliers, monthlyCompareBy, masterCustomerList, masterSupplierList]);
 
   // Yearly Chart Filter Handler
   const handleYearlyFilterChange = useCallback(async () => {
@@ -3019,12 +3220,21 @@ const DashboardPage = () => {
               </div>
             </div>
           </div>
-          <OrderMonthlyChart
-            data={orderMonthlyData}
-            loading={loadingMonthly}
-            selectedMetric={selectedMetric}
-            multiYearData={multiYearMonthlyData}
-          />
+          {monthlyCompare?.series?.length ? (
+            <MonthlyComparison
+              compare={monthlyCompare}
+              loading={loadingMonthly}
+              selectedMetric={selectedMetric}
+              onCompareByChange={setMonthlyCompareBy}
+            />
+          ) : (
+            <OrderMonthlyChart
+              data={orderMonthlyData}
+              loading={loadingMonthly}
+              selectedMetric={selectedMetric}
+              multiYearData={multiYearMonthlyData}
+            />
+          )}
         </div>
 
         {/* Yearly Order Chart */}

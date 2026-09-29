@@ -268,11 +268,11 @@ const CommissionForm = () => {
                     readOnly
                   />
                   <Field
-                    label="Style"
+                    label="Order NO"
                     name="style"
                     value={formData.style}
                     onChange={handleChange}
-                    placeholder="Style name"
+                    placeholder="Order NO"
                     readOnly
                   />
                   <Field

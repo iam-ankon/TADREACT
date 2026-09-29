@@ -775,7 +775,7 @@ const CommissionList = () => {
 
   // Build filters for API
   const buildFilters = useCallback(() => {
-    const filters = {};
+    const filters = { has_commission: "1" };
 
     if (searchInputValue && searchInputValue.trim()) {
       filters.search = searchInputValue.trim();
@@ -796,7 +796,13 @@ const CommissionList = () => {
     if (supplierFilter && supplierFilter !== "All") {
       const supplier = supplierOptions.find((s) => {
         const name = s.supplier_name || s.name || s.display_name || "";
-        return name === supplierFilter || s.code === supplierFilter || s.supplier_code === supplierFilter;
+        const code = s.supplier_code || s.code || "";
+        const display = code ? `${name} (${code})` : name;
+        return (
+          display === supplierFilter ||
+          name === supplierFilter ||
+          code === supplierFilter
+        );
       });
       if (supplier) {
         filters.supplier = supplier.id;
@@ -833,11 +839,7 @@ const CommissionList = () => {
         const filters = buildFilters();
         const response = await getOrders(page, rowsPerPage, { filters });
 
-        const commissionOrders = (response.data || []).filter(
-          (o) =>
-            o.estimated_commission !== null &&
-            o.estimated_commission !== undefined,
-        );
+        const commissionOrders = response.data || [];
 
         setOrders(commissionOrders);
         setTotalItems(response.pagination?.count || 0);

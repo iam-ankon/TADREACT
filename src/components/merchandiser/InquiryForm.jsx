@@ -141,6 +141,11 @@ const InquiryForm = () => {
     { value: "summer", label: "Summer" },
     { value: "autumn", label: "Autumn" },
     { value: "winter", label: "Winter" },
+    { value: "autumn_opening", label: "Autumn Opening" },
+    { value: "boost_aw", label: "Boost AW" },
+    { value: "boost_ss", label: "Boost SS" },
+    { value: "main_spring", label: "Main Spring" },
+    { value: "spring_opening", label: "Spring Opening" },
   ];
 
   const withHangerOptions = [

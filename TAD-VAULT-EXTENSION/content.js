@@ -59,26 +59,42 @@ function findSubmitControl(passwordField) {
     'button[type="submit"]',
     'input[type="submit"]',
     "button",
+    '[role="button"]',
   ].join(",");
   const candidates = Array.from(scope.querySelectorAll(selector)).filter(isVisible);
   const loginLike = candidates.find((el) =>
-    /log ?in|sign ?in|submit|continue/i.test(el.innerText || el.value || "")
+    /log ?in|sign ?in|submit|continue|next/i.test(el.innerText || el.value || "")
   );
   return loginLike || candidates[0] || null;
 }
 
-function fillAndSubmit(username, password, submit) {
-  const passwordField = findPasswordField();
-  if (!passwordField) {
-    return { ok: false, error: "No login form found on this page." };
-  }
+// Google (and other SSO providers) split login into two screens under one
+// URL: an email-only step, then — after the user/script clicks Next — a
+// password step rendered into the DOM afterwards. There is no password field
+// to find until that happens.
+function findEmailStepField() {
+  const selector = [
+    'input[type="email"]',
+    'input[name="identifier"]',
+    'input[autocomplete="username"]',
+    'input[type="text"]',
+  ].join(",");
+  const candidates = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+  return candidates[0] || null;
+}
 
-  const usernameField = findUsernameField(passwordField);
-  if (usernameField) setNativeValue(usernameField, username);
-  setNativeValue(passwordField, password);
+function findNextControl(emailField) {
+  const form = emailField.closest("form");
+  const scope = form || document;
+  const selector = ["button", '[role="button"]', 'input[type="submit"]'].join(",");
+  const candidates = Array.from(scope.querySelectorAll(selector)).filter(isVisible);
+  const nextLike = candidates.find((el) =>
+    /next|continue|log ?in|sign ?in/i.test(el.innerText || el.value || "")
+  );
+  return nextLike || candidates[0] || null;
+}
 
-  if (!submit) return { ok: true };
-
+function submitPasswordField(passwordField) {
   // Give any framework's onChange handlers a tick to process, then submit by
   // clicking the actual button when one exists. Many sites (cPanel included)
   // attach a click handler to the submit button that injects a CSRF/security
@@ -96,8 +112,52 @@ function fillAndSubmit(username, password, submit) {
       form.submit();
     }
   }, 200);
+}
 
-  return { ok: true };
+// Waits for a password field to appear after the email step is submitted
+// (Google-style staged login renders it into the DOM rather than navigating).
+function waitForPasswordField(password, submit, timeoutMs = 8000) {
+  const existing = findPasswordField();
+  if (existing) {
+    setNativeValue(existing, password);
+    if (submit) submitPasswordField(existing);
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    const field = findPasswordField();
+    if (!field) return;
+    observer.disconnect();
+    setNativeValue(field, password);
+    if (submit) submitPasswordField(field);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => observer.disconnect(), timeoutMs);
+}
+
+function fillAndSubmit(username, password, submit) {
+  const passwordField = findPasswordField();
+  if (passwordField) {
+    const usernameField = findUsernameField(passwordField);
+    if (usernameField) setNativeValue(usernameField, username);
+    setNativeValue(passwordField, password);
+    if (submit) submitPasswordField(passwordField);
+    return { ok: true };
+  }
+
+  // No password field yet — try the staged-login path (email step first).
+  const emailField = findEmailStepField();
+  if (!emailField) {
+    return { ok: false, error: "No login form found on this page." };
+  }
+  setNativeValue(emailField, username);
+  if (submit) {
+    setTimeout(() => {
+      const nextControl = findNextControl(emailField);
+      if (nextControl) nextControl.click();
+      waitForPasswordField(password, true);
+    }, 200);
+  }
+  return { ok: true, staged: true };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -132,7 +192,10 @@ function showToast(text) {
 }
 
 async function tryAutoLogin() {
-  if (!findPasswordField()) return; // nothing on this page to fill
+  // Nothing to fill yet — either a password field or a staged login's email
+  // step (e.g. Google's identifier screen, where the password field only
+  // renders after that step is submitted).
+  if (!findPasswordField() && !findEmailStepField()) return;
 
   const hostname = location.hostname.replace(/^www\./i, "");
   const guardKey = `tad_vault_autofilled_${hostname}`;

@@ -292,7 +292,7 @@ const CommissionDetails = () => {
               <div style={S.infoGrid}>
                 {[
                   ["Order No. (PDM)", order.pdm_no || order.po_no || "—"],
-                  ["Style", order.style || "—"],
+                  ["Order NO", order.style || "—"],
                   ["Customer", customerName],
                   ["Supplier", supplierName],
                   [
