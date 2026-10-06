@@ -1,6 +1,26 @@
 // SupplierListCSR.jsx - Updated with new compliance logic
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  FiAlertTriangle,
+  FiBell,
+  FiCheckCircle,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronUp,
+  FiClock,
+  FiEdit2,
+  FiEye,
+  FiInbox,
+  FiLayers,
+  FiMapPin,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiTrash2,
+  FiX,
+} from "react-icons/fi";
 import { getSuppliers, deleteSupplier } from "../../api/supplierApi";
 
 // Enhanced color system with better contrast and professional palette
@@ -187,7 +207,7 @@ const complianceStatusStyles = {
     text: colors.success[700],
     border: colors.success[200],
     label: "Compliant",
-    icon: "✅",
+    icon: <FiCheckCircle />,
     dot: colors.success[500],
   },
   non_compliant: {
@@ -195,7 +215,7 @@ const complianceStatusStyles = {
     text: colors.danger[700],
     border: colors.danger[200],
     label: "Non-Compliant",
-    icon: "⚠️",
+    icon: <FiAlertTriangle />,
     dot: colors.danger[500],
   },
   under_review: {
@@ -203,7 +223,7 @@ const complianceStatusStyles = {
     text: colors.warning[700],
     border: colors.warning[200],
     label: "Under Review",
-    icon: "⏳",
+    icon: <FiClock />,
     dot: colors.warning[500],
   },
 };
@@ -306,7 +326,8 @@ const SupplierListCSR = () => {
   const [deletingId, setDeletingId] = useState(null);
   const [selectedSuppliers, setSelectedSuppliers] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [actionError, setActionError] = useState("");
 
   // Parse URL params on mount and when URL changes
   useEffect(() => {
@@ -422,10 +443,8 @@ const SupplierListCSR = () => {
     }
 
     const name = (supplier.supplier_name || supplier.name || "").toLowerCase();
-    const vendorId = (
-      supplier.supplier_id ||
-      supplier.vendor_id ||
-      ""
+    const vendorId = String(
+      supplier.supplier_id || supplier.vendor_id || "",
     ).toLowerCase();
     const email = (supplier.email || "").toLowerCase();
     const location = (supplier.location || "").toLowerCase();
@@ -450,16 +469,24 @@ const SupplierListCSR = () => {
 
   const totalPages = Math.ceil(sortedSuppliers.length / itemsPerPage);
 
+  // After deletes or filter changes, don't leave the user on an empty page.
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this supplier?"))
       return;
 
     try {
       setDeletingId(id);
+      setActionError("");
       await deleteSupplier(id);
       setSuppliers((prev) => prev.filter((s) => s.id !== id));
+      setSelectedSuppliers((prev) => prev.filter((s) => s !== id));
     } catch (error) {
       console.error("Error deleting supplier:", error);
+      setActionError("Could not delete the supplier. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -475,16 +502,24 @@ const SupplierListCSR = () => {
     )
       return;
 
-    try {
-      for (const id of selectedSuppliers) {
+    // Remove each supplier from the list as soon as its delete succeeds, so
+    // a failure halfway through doesn't leave deleted rows on screen.
+    setActionError("");
+    const failed = [];
+    for (const id of selectedSuppliers) {
+      try {
         await deleteSupplier(id);
+        setSuppliers((prev) => prev.filter((s) => s.id !== id));
+      } catch (error) {
+        console.error("Error deleting supplier:", id, error);
+        failed.push(id);
       }
-      setSuppliers((prev) =>
-        prev.filter((s) => !selectedSuppliers.includes(s.id)),
+    }
+    setSelectedSuppliers(failed);
+    if (failed.length > 0) {
+      setActionError(
+        `${failed.length} supplier(s) could not be deleted. They are still selected - try again.`,
       );
-      setSelectedSuppliers([]);
-    } catch (error) {
-      console.error("Error deleting suppliers:", error);
     }
   };
 
@@ -512,8 +547,8 @@ const SupplierListCSR = () => {
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "↑" : "↓";
+    if (sortConfig.key !== key) return <FiChevronDown className="sl-sort-idle" />;
+    return sortConfig.direction === "asc" ? <FiChevronUp /> : <FiChevronDown />;
   };
 
   const getStatusBadge = (supplier) => {
@@ -537,6 +572,7 @@ const SupplierListCSR = () => {
 
   const handleStatusFilter = (status) => {
     const params = new URLSearchParams();
+    if (filterCategory !== "all") params.set("category", filterCategory);
     if (status !== "all") {
       params.set("status", status);
     }
@@ -545,1239 +581,837 @@ const SupplierListCSR = () => {
 
   const handleExpiringFilter = () => {
     const params = new URLSearchParams();
+    if (filterCategory !== "all") params.set("category", filterCategory);
     params.set("filter", "expiring");
     navigate(`/suppliersCSR?${params.toString()}`, { replace: true });
   };
 
-  return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.headerContent}>
-          <div>
-            <h1 style={styles.title}>
-              Suppliers
-              <span style={styles.titleBadge}>{suppliers.length} total</span>
-            </h1>
-            <p style={styles.subtitle}>
-              Manage and monitor your supplier network
-            </p>
-          </div>
 
-          <Link to="/add-supplierCSR" style={styles.primaryButton}>
-            <span style={styles.buttonIcon}>+</span>
+  const hasFilters =
+    searchTerm || filterStatus !== "all" || filterExpiring || filterCategory !== "all";
+
+  const activeChips = [
+    filterStatus !== "all" && {
+      key: "status",
+      label: complianceStatusStyles[filterStatus]?.label || filterStatus,
+      onRemove: () => handleStatusFilter("all"),
+    },
+    filterExpiring && {
+      key: "expiring",
+      label: "Expiring documents",
+      onRemove: () => handleStatusFilter("all"),
+    },
+    filterCategory !== "all" && {
+      key: "category",
+      label: `Category: ${filterCategory}`,
+      onRemove: () => handleCategoryChange("all"),
+    },
+    searchTerm && {
+      key: "search",
+      label: `Search: "${searchTerm}"`,
+      onRemove: () => setSearchTerm(""),
+    },
+  ].filter(Boolean);
+
+  const kpis = [
+    {
+      key: "all",
+      label: "Total Suppliers",
+      hint: "In the CSR register",
+      value: suppliers.length,
+      icon: <FiLayers />,
+      tone: "blue",
+      active: filterStatus === "all" && !filterExpiring,
+      onClick: () => handleStatusFilter("all"),
+    },
+    {
+      key: "compliant",
+      label: "Compliant",
+      hint: "> 30 days remaining",
+      value: stats.compliant,
+      icon: <FiCheckCircle />,
+      tone: "green",
+      active: filterStatus === "compliant",
+      onClick: () => handleStatusFilter("compliant"),
+    },
+    {
+      key: "under_review",
+      label: "Under Review",
+      hint: "Expiring within 30 days",
+      value: stats.underReview,
+      icon: <FiClock />,
+      tone: "amber",
+      active: filterStatus === "under_review",
+      onClick: () => handleStatusFilter("under_review"),
+    },
+    {
+      key: "non_compliant",
+      label: "Non-Compliant",
+      hint: "Expired documents",
+      value: stats.nonCompliant,
+      icon: <FiAlertTriangle />,
+      tone: "red",
+      active: filterStatus === "non_compliant",
+      onClick: () => handleStatusFilter("non_compliant"),
+    },
+    {
+      key: "expiring",
+      label: "Need Attention",
+      hint: "At a reminder milestone",
+      value: expiringCount,
+      icon: <FiBell />,
+      tone: "violet",
+      active: filterExpiring,
+      onClick: handleExpiringFilter,
+    },
+  ];
+
+  const daysTone = (days) => (days <= 30 ? "red" : days <= 60 ? "amber" : "blue");
+
+  const initials = (name) =>
+    (name || "?")
+      .replace(/[^A-Za-z0-9 ]/g, " ")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0].toUpperCase())
+      .join("") || "?";
+
+  const pageButtons = () => {
+    const pages = [];
+    const count = Math.min(5, totalPages);
+    for (let i = 0; i < count; i++) {
+      let page;
+      if (totalPages <= 5 || currentPage <= 3) page = i + 1;
+      else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
+      else page = currentPage - 2 + i;
+      pages.push(page);
+    }
+    return pages;
+  };
+
+  const SortHeader = ({ label, sortKey }) => (
+    <th
+      className={`sl-th sl-sortable ${sortConfig.key === sortKey ? "sorted" : ""}`}
+      onClick={() => handleSort(sortKey)}
+      aria-sort={
+        sortConfig.key === sortKey
+          ? sortConfig.direction === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <span className="sl-th-inner">
+        {label}
+        {getSortIcon(sortKey)}
+      </span>
+    </th>
+  );
+
+  return (
+    <div className="csr-sl">
+      <style>{SUPPLIER_LIST_CSS}</style>
+
+      {/* Header */}
+      <header className="sl-header">
+        <div>
+          <div className="sl-eyebrow">CSR Compliance</div>
+          <h1 className="sl-title">
+            Suppliers
+            <span className="sl-count">{suppliers.length}</span>
+          </h1>
+          <p className="sl-subtitle">
+            Audit certificates, licences and compliance status across your supplier network.
+          </p>
+        </div>
+        <div className="sl-header-actions">
+          <button
+            type="button"
+            className="sl-btn sl-btn-ghost"
+            onClick={fetchSuppliers}
+            disabled={loading}
+            title="Reload suppliers"
+          >
+            <FiRefreshCw className={loading ? "sl-spin" : ""} />
+            Refresh
+          </button>
+          <Link to="/add-supplierCSR" className="sl-btn sl-btn-primary">
+            <FiPlus />
             Add Supplier
           </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Active Filter Banner */}
-      {(filterStatus !== "all" ||
-        filterExpiring ||
-        filterCategory !== "all" ||
-        searchTerm) && (
-        <div style={styles.activeFilterBanner}>
-          <div style={styles.activeFilterContent}>
-            <span style={styles.activeFilterIcon}>
-              {filterStatus === "non_compliant" && "⚠️"}
-              {filterStatus === "under_review" && "⏳"}
-              {filterStatus === "compliant" && "✅"}
-              {filterExpiring && "🔔"}
-              {filterCategory !== "all" && "📁"}
-              {searchTerm && "🔍"}
-            </span>
-            <span>
-              <strong>
-                {filterStatus === "non_compliant" && "Non-Compliant Suppliers"}
-                {filterStatus === "under_review" && "Under Review Suppliers"}
-                {filterStatus === "compliant" && "Compliant Suppliers"}
-                {filterExpiring && "Expiring Documents"}
-                {filterCategory !== "all" && `Category: ${filterCategory}`}
-                {searchTerm && `Search: "${searchTerm}"`}
-              </strong>
-              {` (${filteredSuppliers.length} found)`}
-            </span>
-          </div>
-          <button onClick={clearAllFilters} style={styles.clearFilterButton}>
-            Clear all filters
-          </button>
+      <div className="sl-body">
+        {/* KPI cards */}
+        <div className="sl-kpis">
+          {kpis.map((k) => (
+            <button
+              type="button"
+              key={k.key}
+              className={`sl-kpi tone-${k.tone} ${k.active ? "active" : ""}`}
+              onClick={k.onClick}
+              disabled={loading}
+            >
+              <span className="sl-kpi-icon">{k.icon}</span>
+              <span className="sl-kpi-text">
+                <span className="sl-kpi-value">{loading ? "–" : k.value}</span>
+                <span className="sl-kpi-label">{k.label}</span>
+                <span className="sl-kpi-hint">{k.hint}</span>
+              </span>
+            </button>
+          ))}
         </div>
-      )}
 
-      {loading ? (
-        <div style={styles.loadingContainer}>
-          <div style={styles.spinner}></div>
-          <p style={styles.loadingText}>Loading suppliers...</p>
-        </div>
-      ) : (
-        <>
-          {/* Stats Grid */}
-          <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
-              <div
-                style={{
-                  ...styles.statIcon,
-                  backgroundColor: colors.primary[50],
-                  color: colors.primary[600],
-                }}
-              >
-                🏭
-              </div>
-              <div>
-                <div style={styles.statValue}>{suppliers.length}</div>
-                <div style={styles.statLabel}>Total Suppliers</div>
-              </div>
-            </div>
-
-            <div
-              style={{ ...styles.statCard, cursor: "pointer" }}
-              onClick={() => handleStatusFilter("compliant")}
-            >
-              <div
-                style={{
-                  ...styles.statIcon,
-                  backgroundColor: colors.success[50],
-                  color: colors.success[600],
-                }}
-              >
-                ✅
-              </div>
-              <div>
-                <div style={styles.statValue}>{stats.compliant}</div>
-                <div style={styles.statLabel}>Compliant</div>
-                <div style={styles.statSubLabel}>&gt;30 days remaining</div>
-              </div>
-            </div>
-
-            <div
-              style={{ ...styles.statCard, cursor: "pointer" }}
-              onClick={() => handleStatusFilter("under_review")}
-            >
-              <div
-                style={{
-                  ...styles.statIcon,
-                  backgroundColor: colors.warning[50],
-                  color: colors.warning[600],
-                }}
-              >
-                ⏳
-              </div>
-              <div>
-                <div style={styles.statValue}>{stats.underReview}</div>
-                <div style={styles.statLabel}>Under Review</div>
-                <div style={styles.statSubLabel}>Expiring ≤30 days</div>
-              </div>
-            </div>
-
-            <div
-              style={{ ...styles.statCard, cursor: "pointer" }}
-              onClick={() => handleStatusFilter("non_compliant")}
-            >
-              <div
-                style={{
-                  ...styles.statIcon,
-                  backgroundColor: colors.danger[50],
-                  color: colors.danger[600],
-                }}
-              >
-                ⚠️
-              </div>
-              <div>
-                <div style={styles.statValue}>{stats.nonCompliant}</div>
-                <div style={styles.statLabel}>Non-Compliant</div>
-                <div style={styles.statSubLabel}>Expired documents</div>
-              </div>
-            </div>
-
-            <div
-              style={{ ...styles.statCard, cursor: "pointer" }}
-              onClick={handleExpiringFilter}
-            >
-              <div
-                style={{
-                  ...styles.statIcon,
-                  backgroundColor: colors.warning[50],
-                  color: colors.warning[600],
-                }}
-              >
-                🔔
-              </div>
-              <div>
-                <div style={styles.statValue}>{expiringCount}</div>
-                <div style={styles.statLabel}>Need Attention</div>
-              </div>
-            </div>
+        {actionError && (
+          <div className="sl-alert" role="alert">
+            <FiAlertTriangle />
+            <span>{actionError}</span>
+            <button type="button" className="sl-icon-btn" onClick={() => setActionError("")} title="Dismiss">
+              <FiX />
+            </button>
           </div>
+        )}
 
-          {/* Filters */}
-          <div style={styles.filtersCard}>
-            <div style={styles.filtersHeader}>
-              <h3 style={styles.filtersTitle}>Filters</h3>
-              {(searchTerm ||
-                filterStatus !== "all" ||
-                filterExpiring ||
-                filterCategory !== "all") && (
-                <button onClick={clearAllFilters} style={styles.clearButton}>
-                  Clear all
+        {/* Table card with toolbar */}
+        <section className="sl-card">
+          <div className="sl-toolbar">
+            <div className="sl-search">
+              <FiSearch className="sl-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by name, ID, email, location or category"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="sl-search-clear"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setCurrentPage(1);
+                  }}
+                  title="Clear search"
+                >
+                  <FiX />
                 </button>
               )}
             </div>
 
-            <div style={styles.filtersGrid}>
-              <div style={styles.searchWrapper}>
-                <span style={styles.searchIcon}>🔍</span>
-                <input
-                  type="text"
-                  placeholder="Search by name, ID, email, location, or category..."
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  style={styles.searchInput}
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    style={styles.clearSearch}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
+            <select
+              className="sl-select"
+              value={filterExpiring ? "expiring" : filterStatus}
+              onChange={(e) =>
+                e.target.value === "expiring"
+                  ? handleExpiringFilter()
+                  : handleStatusFilter(e.target.value)
+              }
+              aria-label="Compliance status"
+            >
+              <option value="all">All statuses</option>
+              <option value="compliant">Compliant (&gt; 30 days)</option>
+              <option value="under_review">Under Review (≤ 30 days)</option>
+              <option value="non_compliant">Non-Compliant (expired)</option>
+              <option value="expiring">Need attention (reminder due)</option>
+            </select>
 
-              <select
-                value={filterStatus}
-                onChange={(e) => handleStatusFilter(e.target.value)}
-                style={styles.select}
-              >
-                <option value="all">All statuses</option>
-                <option value="compliant">✅ Compliant (&gt;30 days)</option>
-                <option value="under_review">⏳ Under Review (≤30 days)</option>
-                <option value="non_compliant">
-                  ⚠️ Non-Compliant (Expired)
+            <select
+              className="sl-select"
+              value={filterCategory}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              aria-label="Category"
+            >
+              <option value="all">All categories</option>
+              {uniqueCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
                 </option>
-              </select>
-
-              <select
-                value={filterCategory}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                style={styles.select}
-              >
-                <option value="all">📁 All Categories</option>
-                {uniqueCategories.map((category) => (
-                  <option key={category} value={category}>
-                    📁 {category}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={styles.quickFilters}>
-              <button
-                onClick={() => handleStatusFilter("non_compliant")}
-                style={{
-                  ...styles.quickFilter,
-                  ...(filterStatus === "non_compliant" && {
-                    backgroundColor: colors.danger[50],
-                    color: colors.danger[700],
-                  }),
-                }}
-              >
-                ⚠️ Non-Compliant ({stats.nonCompliant})
-              </button>
-              <button
-                onClick={() => handleStatusFilter("under_review")}
-                style={{
-                  ...styles.quickFilter,
-                  ...(filterStatus === "under_review" && {
-                    backgroundColor: colors.warning[50],
-                    color: colors.warning[700],
-                  }),
-                }}
-              >
-                ⏳ Under Review ({stats.underReview})
-              </button>
-              <button
-                onClick={() => handleStatusFilter("compliant")}
-                style={{
-                  ...styles.quickFilter,
-                  ...(filterStatus === "compliant" && {
-                    backgroundColor: colors.success[50],
-                    color: colors.success[700],
-                  }),
-                }}
-              >
-                ✅ Compliant ({stats.compliant})
-              </button>
-              <button
-                onClick={handleExpiringFilter}
-                style={{
-                  ...styles.quickFilter,
-                  ...(filterExpiring && {
-                    backgroundColor: colors.warning[50],
-                    color: colors.warning[700],
-                  }),
-                }}
-              >
-                🔔 Expiring ({expiringCount})
-              </button>
-            </div>
-
-            {filterCategory !== "all" && (
-              <div style={styles.activeCategoryBadge}>
-                <span>📁 Active Category Filter:</span>
-                <span style={styles.categoryBadge}>
-                  {filterCategory}
-                  <button
-                    onClick={() => handleCategoryChange("all")}
-                    style={styles.removeCategory}
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-            )}
+              ))}
+            </select>
           </div>
 
-          {/* Bulk Actions */}
-          {selectedSuppliers.length > 0 && (
-            <div style={styles.bulkActions}>
-              <span style={styles.bulkSelected}>
-                {selectedSuppliers.length} selected
+          {activeChips.length > 0 && (
+            <div className="sl-chips">
+              <span className="sl-chips-label">
+                {filteredSuppliers.length} result{filteredSuppliers.length === 1 ? "" : "s"} for
               </span>
-              <button
-                onClick={handleBulkDelete}
-                style={styles.bulkDeleteButton}
-              >
-                <span>🗑️</span>
-                Delete selected
+              {activeChips.map((chip) => (
+                <span key={chip.key} className="sl-chip">
+                  {chip.label}
+                  <button type="button" onClick={chip.onRemove} title="Remove filter">
+                    <FiX />
+                  </button>
+                </span>
+              ))}
+              <button type="button" className="sl-link-btn" onClick={clearAllFilters}>
+                Clear all
               </button>
             </div>
           )}
 
-          {/* Table */}
-          <div style={styles.tableCard}>
-            {filteredSuppliers.length === 0 ? (
-              <div style={styles.emptyState}>
-                <div style={styles.emptyStateIcon}>📭</div>
-                <h3 style={styles.emptyStateTitle}>No suppliers found</h3>
-                <p style={styles.emptyStateText}>
-                  {searchTerm ||
-                  filterStatus !== "all" ||
-                  filterExpiring ||
-                  filterCategory !== "all"
-                    ? "Try adjusting your filters"
-                    : "Add your first supplier to get started"}
-                </p>
-                {!searchTerm &&
-                  filterStatus === "all" &&
-                  !filterExpiring &&
-                  filterCategory === "all" && (
-                    <Link to="/add-supplierCSR" style={styles.primaryButton}>
-                      + Add Supplier
-                    </Link>
-                  )}
-                {(searchTerm ||
-                  filterStatus !== "all" ||
-                  filterExpiring ||
-                  filterCategory !== "all") && (
-                  <button
-                    onClick={clearAllFilters}
-                    style={styles.secondaryButton}
-                  >
-                    Clear filters
-                  </button>
-                )}
+          {selectedSuppliers.length > 0 && (
+            <div className="sl-bulk">
+              <span>
+                <strong>{selectedSuppliers.length}</strong> selected
+              </span>
+              <div className="sl-bulk-actions">
+                <button type="button" className="sl-link-btn" onClick={() => setSelectedSuppliers([])}>
+                  Clear selection
+                </button>
+                <button type="button" className="sl-btn sl-btn-danger" onClick={handleBulkDelete}>
+                  <FiTrash2 />
+                  Delete selected
+                </button>
               </div>
-            ) : (
-              <>
-                <div style={styles.tableContainer}>
-                  <table style={styles.table}>
-                    <thead>
-                      <tr>
-                        <th style={styles.checkboxCell}>
-                          <input
-                            type="checkbox"
-                            checked={
-                              selectedSuppliers.length ===
-                                currentItems.length && currentItems.length > 0
-                            }
-                            onChange={handleSelectAll}
-                            style={styles.checkbox}
-                          />
-                        </th>
-                        <th
-                          style={styles.headerCell}
-                          onClick={() => handleSort("sl_no")}
-                        >
-                          <div style={styles.headerCellContent}>
-                            SL NO {getSortIcon("sl_no")}
-                          </div>
-                        </th>
-                        <th
-                          style={styles.headerCell}
-                          onClick={() => handleSort("supplier_name")}
-                        >
-                          <div style={styles.headerCellContent}>
-                            Supplier {getSortIcon("supplier_name")}
-                          </div>
-                        </th>
-                        <th
-                          style={styles.headerCell}
-                          onClick={() => handleSort("location")}
-                        >
-                          <div style={styles.headerCellContent}>
-                            Location {getSortIcon("location")}
-                          </div>
-                        </th>
-                        <th
-                          style={styles.headerCell}
-                          onClick={() => handleSort("supplier_category")}
-                        >
-                          <div style={styles.headerCellContent}>
-                            Category {getSortIcon("supplier_category")}
-                          </div>
-                        </th>
-                        <th
-                          style={styles.headerCell}
-                          onClick={() => handleSort("compliance_status")}
-                        >
-                          <div style={styles.headerCellContent}>
-                            Compliance Status {getSortIcon("compliance_status")}
-                          </div>
-                        </th>
-                        <th style={styles.headerCell}>Expiring Items</th>
-                        <th style={styles.headerCell}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((supplier, index) => {
-                        const { status, style: statusStyle } =
-                          getStatusBadge(supplier);
-                        const expiring = hasExpiringCertifications(supplier);
-                        const expiringCerts =
-                          getExpiringCertifications(supplier);
-                        const complianceReason = getComplianceReason(supplier);
-                        const isNonCompliant = status === "non_compliant";
-                        const isUnderReview = status === "under_review";
+            </div>
+          )}
 
-                        return (
-                          <tr
-                            key={supplier.id}
-                            style={{
-                              ...styles.row,
-                              backgroundColor: isNonCompliant
-                                ? colors.danger[50]
-                                : isUnderReview
-                                  ? colors.warning[50]
-                                  : index % 2 === 0
-                                    ? "white"
-                                    : colors.gray[50],
-                            }}
-                          >
-                            <td style={styles.cell}>
-                              <input
-                                type="checkbox"
-                                checked={selectedSuppliers.includes(
-                                  supplier.id,
-                                )}
-                                onChange={() => handleSelect(supplier.id)}
-                                style={styles.checkbox}
-                              />
-                            </td>
-                            <td style={styles.cell}>
-                              <span style={styles.id}>
-                                {supplier.sl_no || indexOfFirstItem + index + 1}
-                              </span>
-                            </td>
-                            <td style={styles.cell}>
-                              <Link
-                                to={`/suppliersCSR/${supplier.id}`}
-                                style={styles.supplierLink}
-                              >
-                                <span style={styles.supplierName}>
-                                  {supplier.supplier_name ||
-                                    supplier.name ||
-                                    "Unnamed"}
-                                </span>
-                                {supplier.email && (
-                                  <span style={styles.supplierEmail}>
-                                    {supplier.email}
-                                  </span>
-                                )}
-                              </Link>
-                            </td>
-                            <td style={styles.cell}>
-                              <span style={styles.location}>
-                                📍 {supplier.location || "—"}
-                              </span>
-                            </td>
-                            <td style={styles.cell}>
-                              <span style={styles.category}>
-                                {supplier.supplier_category || "—"}
-                              </span>
-                            </td>
-                            <td style={styles.cell}>
-                              <div
-                                style={{
-                                  ...styles.statusBadge,
-                                  backgroundColor: statusStyle.bg,
-                                  color: statusStyle.text,
-                                  borderColor: statusStyle.border,
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    ...styles.statusDot,
-                                    backgroundColor: statusStyle.dot,
-                                  }}
-                                ></span>
-                                {statusStyle.icon} {statusStyle.label}
-                              </div>
-                              {(isNonCompliant || isUnderReview) && (
-                                <div
-                                  style={{
-                                    ...styles.complianceReason,
-                                    color: isNonCompliant
-                                      ? colors.danger[600]
-                                      : colors.warning[700],
-                                  }}
-                                >
-                                  {complianceReason}
-                                </div>
-                              )}
-                            </td>
-                            <td style={styles.cell}>
-                              {expiring ? (
-                                <div style={styles.expiringCerts}>
-                                  {expiringCerts
-                                    .slice(0, 3)
-                                    .map((cert, idx) => (
-                                      <span
-                                        key={idx}
-                                        style={styles.expiringCert}
-                                        title={`${cert.type} - ${cert.days} days remaining`}
-                                      >
-                                        {cert.type}
-                                        <span style={styles.expiringDays}>
-                                          {cert.days}d
-                                        </span>
-                                      </span>
-                                    ))}
-                                  {expiringCerts.length > 3 && (
-                                    <span style={styles.moreExpiring}>
-                                      +{expiringCerts.length - 3} more
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={styles.noExpiring}>—</span>
-                              )}
-                            </td>
-                            <td style={{ ...styles.cell, textAlign: "center" }}>
-                              <div style={styles.actions}>
-                                <Link
-                                  to={`/edit-supplier/${supplier.id}`}
-                                  style={styles.actionButton}
-                                  title="Edit"
-                                >
-                                  ✎
-                                </Link>
-                                <button
-                                  onClick={() => handleDelete(supplier.id)}
-                                  disabled={deletingId === supplier.id}
-                                  style={{
-                                    ...styles.actionButton,
-                                    ...(deletingId === supplier.id &&
-                                      styles.actionButtonDisabled),
-                                  }}
-                                  title="Delete"
-                                >
-                                  {deletingId === supplier.id ? "⋯" : "🗑️"}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination */}
-                <div style={styles.pagination}>
-                  <div style={styles.paginationInfo}>
-                    Showing {indexOfFirstItem + 1} to{" "}
-                    {Math.min(indexOfLastItem, filteredSuppliers.length)} of{" "}
-                    {filteredSuppliers.length}
-                  </div>
-
-                  <div style={styles.paginationControls}>
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                      disabled={currentPage === 1}
-                      style={{
-                        ...styles.paginationArrow,
-                        opacity: currentPage === 1 ? 0.5 : 1,
-                        cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      ←
-                    </button>
-
-                    <div style={styles.pageNumbers}>
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          let page;
-                          if (totalPages <= 5) {
-                            page = i + 1;
-                          } else if (currentPage <= 3) {
-                            page = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            page = totalPages - 4 + i;
-                          } else {
-                            page = currentPage - 2 + i;
+          {loading ? (
+            <div className="sl-state">
+              <div className="sl-spinner" />
+              <p>Loading suppliers…</p>
+            </div>
+          ) : filteredSuppliers.length === 0 ? (
+            <div className="sl-state">
+              <div className="sl-state-icon">
+                <FiInbox />
+              </div>
+              <h3>No suppliers found</h3>
+              <p>{hasFilters ? "Try adjusting or clearing your filters." : "Add your first supplier to get started."}</p>
+              {hasFilters ? (
+                <button type="button" className="sl-btn sl-btn-ghost" onClick={clearAllFilters}>
+                  Clear filters
+                </button>
+              ) : (
+                <Link to="/add-supplierCSR" className="sl-btn sl-btn-primary">
+                  <FiPlus />
+                  Add Supplier
+                </Link>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="sl-table-wrap">
+                <table className="sl-table">
+                  <thead>
+                    <tr>
+                      <th className="sl-th sl-th-check">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedSuppliers.length === currentItems.length && currentItems.length > 0
                           }
+                          onChange={handleSelectAll}
+                          aria-label="Select all on this page"
+                        />
+                      </th>
+                      <SortHeader label="SL" sortKey="sl_no" />
+                      <SortHeader label="Supplier" sortKey="supplier_name" />
+                      <SortHeader label="Location" sortKey="location" />
+                      <SortHeader label="Category" sortKey="supplier_category" />
+                      <SortHeader label="Compliance" sortKey="compliance_status" />
+                      <th className="sl-th">Upcoming expiries</th>
+                      <th className="sl-th sl-th-actions">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentItems.map((supplier, index) => {
+                      const { status, style: statusStyle } = getStatusBadge(supplier);
+                      const expiringCerts = getExpiringCertifications(supplier);
+                      const complianceReason = getComplianceReason(supplier);
+                      const name = supplier.supplier_name || supplier.name || "Unnamed";
+                      const selected = selectedSuppliers.includes(supplier.id);
 
-                          return (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
+                      return (
+                        <tr
+                          key={supplier.id}
+                          className={`sl-row status-${status} ${selected ? "selected" : ""}`}
+                        >
+                          <td className="sl-td sl-td-check">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => handleSelect(supplier.id)}
+                              aria-label={`Select ${name}`}
+                            />
+                          </td>
+                          <td className="sl-td">
+                            <span className="sl-sl">{supplier.sl_no || indexOfFirstItem + index + 1}</span>
+                          </td>
+                          <td className="sl-td">
+                            <Link to={`/suppliersCSR/${supplier.id}`} className="sl-supplier">
+                              <span className="sl-avatar">{initials(name)}</span>
+                              <span className="sl-supplier-text">
+                                <span className="sl-supplier-name">{name}</span>
+                                {supplier.email && (
+                                  <span className="sl-supplier-email">{supplier.email}</span>
+                                )}
+                              </span>
+                            </Link>
+                          </td>
+                          <td className="sl-td">
+                            {supplier.location ? (
+                              <span className="sl-location">
+                                <FiMapPin />
+                                {supplier.location}
+                              </span>
+                            ) : (
+                              <span className="sl-muted">—</span>
+                            )}
+                          </td>
+                          <td className="sl-td">
+                            {supplier.supplier_category ? (
+                              <span className="sl-pill">{supplier.supplier_category}</span>
+                            ) : (
+                              <span className="sl-muted">—</span>
+                            )}
+                          </td>
+                          <td className="sl-td">
+                            <span
+                              className="sl-status"
                               style={{
-                                ...styles.pageNumber,
-                                ...(currentPage === page &&
-                                  styles.pageNumberActive),
+                                background: statusStyle.bg,
+                                color: statusStyle.text,
+                                borderColor: statusStyle.border,
                               }}
                             >
-                              {page}
-                            </button>
-                          );
-                        },
-                      )}
+                              {statusStyle.icon}
+                              {statusStyle.label}
+                            </span>
+                            {status !== "compliant" && (
+                              <div className={`sl-reason status-${status}`} title={complianceReason}>
+                                {complianceReason}
+                              </div>
+                            )}
+                          </td>
+                          <td className="sl-td">
+                            {expiringCerts.length > 0 ? (
+                              <div className="sl-expiring">
+                                {expiringCerts.slice(0, 3).map((cert) => (
+                                  <span
+                                    key={cert.type}
+                                    className={`sl-exp tone-${daysTone(cert.days)}`}
+                                    title={`${cert.type} - ${cert.days} days remaining`}
+                                  >
+                                    {cert.type}
+                                    <b>{cert.days}d</b>
+                                  </span>
+                                ))}
+                                {expiringCerts.length > 3 && (
+                                  <span
+                                    className="sl-more"
+                                    title={expiringCerts
+                                      .slice(3)
+                                      .map((c) => `${c.type} (${c.days}d)`)
+                                      .join(", ")}
+                                  >
+                                    +{expiringCerts.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="sl-muted">—</span>
+                            )}
+                          </td>
+                          <td className="sl-td sl-td-actions">
+                            <div className="sl-actions">
+                              <Link to={`/suppliersCSR/${supplier.id}`} className="sl-icon-btn" title="View">
+                                <FiEye />
+                              </Link>
+                              <Link to={`/edit-supplier/${supplier.id}`} className="sl-icon-btn" title="Edit">
+                                <FiEdit2 />
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(supplier.id)}
+                                disabled={deletingId === supplier.id}
+                                className="sl-icon-btn danger"
+                                title="Delete"
+                              >
+                                {deletingId === supplier.id ? <span className="sl-spinner sm" /> : <FiTrash2 />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                      {totalPages > 5 && currentPage < totalPages - 2 && (
-                        <>
-                          <span style={styles.ellipsis}>...</span>
-                          <button
-                            onClick={() => setCurrentPage(totalPages)}
-                            style={styles.pageNumber}
-                          >
-                            {totalPages}
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(p + 1, totalPages))
-                      }
-                      disabled={currentPage === totalPages}
-                      style={{
-                        ...styles.paginationArrow,
-                        opacity: currentPage === totalPages ? 0.5 : 1,
-                        cursor:
-                          currentPage === totalPages
-                            ? "not-allowed"
-                            : "pointer",
+              {/* Pagination */}
+              <div className="sl-pagination">
+                <div className="sl-page-info">
+                  Showing <strong>{indexOfFirstItem + 1}</strong>–
+                  <strong>{Math.min(indexOfLastItem, filteredSuppliers.length)}</strong> of{" "}
+                  <strong>{filteredSuppliers.length}</strong>
+                  <label className="sl-page-size">
+                    Rows
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
                       }}
                     >
-                      →
-                    </button>
-                  </div>
+                      {[10, 25, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
+
+                <div className="sl-pages">
+                  <button
+                    type="button"
+                    className="sl-page"
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    title="Previous page"
+                  >
+                    <FiChevronLeft />
+                  </button>
+                  {pageButtons().map((page) => (
+                    <button
+                      type="button"
+                      key={page}
+                      className={`sl-page ${currentPage === page ? "active" : ""}`}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <>
+                      <span className="sl-ellipsis">…</span>
+                      <button type="button" className="sl-page" onClick={() => setCurrentPage(totalPages)}>
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="sl-page"
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    title="Next page"
+                  >
+                    <FiChevronRight />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 };
 
-// Professional styles
-const styles = {
-  container: {
-    minHeight: "100vh",
-    backgroundColor: colors.gray[50],
-    fontFamily:
-      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  },
-  header: {
-    backgroundColor: "white",
-    borderBottom: `1px solid ${colors.gray[200]}`,
-    padding: "1.5rem 4rem",
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-  },
-  headerContent: {
-    maxWidth: "1440px",
-    margin: "0 auto",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: "28px",
-    fontWeight: "600",
-    color: colors.gray[900],
-    margin: "0 0 4px 0",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  titleBadge: {
-    fontSize: "14px",
-    fontWeight: "500",
-    color: colors.gray[600],
-    backgroundColor: colors.gray[100],
-    padding: "4px 10px",
-    borderRadius: "20px",
-  },
-  subtitle: {
-    fontSize: "14px",
-    color: colors.gray[600],
-    margin: 0,
-  },
-  primaryButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "10px 20px",
-    backgroundColor: colors.primary[600],
-    color: "white",
-    textDecoration: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "500",
-    border: "none",
-    cursor: "pointer",
-    transition: "background-color 0.2s",
-  },
-  secondaryButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "10px 20px",
-    backgroundColor: colors.gray[100],
-    color: colors.gray[700],
-    textDecoration: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: "500",
-    border: `1px solid ${colors.gray[200]}`,
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  buttonIcon: {
-    fontSize: "18px",
-    lineHeight: 1,
-  },
-  activeFilterBanner: {
-    backgroundColor: colors.primary[50],
-    border: `1px solid ${colors.primary[200]}`,
-    borderRadius: "8px",
-    padding: "12px 20px",
-    margin: "24px 32px 0",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  activeFilterContent: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    color: colors.primary[700],
-    fontSize: "14px",
-  },
-  activeFilterIcon: {
-    fontSize: "16px",
-  },
-  clearFilterButton: {
-    padding: "6px 12px",
-    backgroundColor: "transparent",
-    border: `1px solid ${colors.primary[200]}`,
-    borderRadius: "6px",
-    color: colors.primary[700],
-    fontSize: "13px",
-    fontWeight: "500",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  loadingContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "400px",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: `3px solid ${colors.gray[200]}`,
-    borderTopColor: colors.primary[600],
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-    marginBottom: "16px",
-  },
-  loadingText: {
-    fontSize: "14px",
-    color: colors.gray[600],
-    margin: 0,
-  },
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "20px",
-    padding: "24px 32px",
-    maxWidth: "1440px",
-    margin: "0 auto",
-  },
-  statCard: {
-    backgroundColor: "white",
-    padding: "20px",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-    border: `1px solid ${colors.gray[200]}`,
-    transition: "all 0.2s",
-  },
-  statIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "20px",
-  },
-  statValue: {
-    fontSize: "24px",
-    fontWeight: "600",
-    color: colors.gray[900],
-    lineHeight: 1.2,
-    marginBottom: "4px",
-  },
-  statLabel: {
-    fontSize: "13px",
-    color: colors.gray[600],
-  },
-  statSubLabel: {
-    fontSize: "10px",
-    color: colors.gray[400],
-    marginTop: "2px",
-  },
-  filtersCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    padding: "20px",
-    margin: "0 32px 24px",
-    border: `1px solid ${colors.gray[200]}`,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-  },
-  filtersHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "16px",
-  },
-  filtersTitle: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: colors.gray[700],
-    margin: 0,
-  },
-  clearButton: {
-    padding: "4px 10px",
-    backgroundColor: colors.gray[100],
-    border: `1px solid ${colors.gray[200]}`,
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "500",
-    color: colors.gray[600],
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  filtersGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 200px 200px",
-    gap: "12px",
-    marginBottom: "12px",
-  },
-  searchWrapper: {
-    position: "relative",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    color: colors.gray[400],
-    fontSize: "14px",
-  },
-  searchInput: {
-    width: "100%",
-    padding: "10px 12px 10px 36px",
-    border: `1px solid ${colors.gray[200]}`,
-    borderRadius: "8px",
-    fontSize: "14px",
-    transition: "all 0.2s",
-    outline: "none",
-  },
-  clearSearch: {
-    position: "absolute",
-    right: "10px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    backgroundColor: colors.gray[200],
-    border: "none",
-    borderRadius: "50%",
-    width: "20px",
-    height: "20px",
-    fontSize: "16px",
-    color: colors.gray[600],
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 0,
-  },
-  select: {
-    padding: "10px 12px",
-    border: `1px solid ${colors.gray[200]}`,
-    borderRadius: "8px",
-    fontSize: "14px",
-    backgroundColor: "white",
-    cursor: "pointer",
-    outline: "none",
-  },
-  quickFilters: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-    marginBottom: "12px",
-  },
-  quickFilter: {
-    padding: "6px 14px",
-    borderRadius: "20px",
-    border: "none",
-    fontSize: "13px",
-    fontWeight: "500",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    backgroundColor: colors.gray[100],
-    color: colors.gray[700],
-  },
-  activeCategoryBadge: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "8px 12px",
-    backgroundColor: colors.primary[50],
-    borderRadius: "8px",
-    fontSize: "13px",
-    color: colors.primary[700],
-    marginTop: "12px",
-  },
-  categoryBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "4px 8px 4px 12px",
-    backgroundColor: colors.primary[100],
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "500",
-  },
-  removeCategory: {
-    background: "none",
-    border: "none",
-    fontSize: "16px",
-    cursor: "pointer",
-    color: colors.primary[600],
-    padding: "0 4px",
-    marginLeft: "4px",
-  },
-  bulkActions: {
-    backgroundColor: colors.primary[50],
-    border: `1px solid ${colors.primary[200]}`,
-    borderRadius: "8px",
-    padding: "12px 20px",
-    margin: "0 32px 16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  bulkSelected: {
-    fontSize: "14px",
-    fontWeight: "500",
-    color: colors.primary[700],
-  },
-  bulkDeleteButton: {
-    padding: "6px 14px",
-    backgroundColor: "transparent",
-    border: `1px solid ${colors.primary[200]}`,
-    borderRadius: "6px",
-    color: colors.primary[700],
-    fontSize: "13px",
-    fontWeight: "500",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    transition: "all 0.2s",
-  },
-  tableCard: {
-    backgroundColor: "white",
-    borderRadius: "12px",
-    margin: "0 32px 32px",
-    border: `1px solid ${colors.gray[200]}`,
-    overflow: "hidden",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-  },
-  tableContainer: {
-    overflowX: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "14px",
-  },
-  headerCell: {
-    padding: "16px 20px",
-    textAlign: "left",
-    backgroundColor: colors.gray[50],
-    borderBottom: `1px solid ${colors.gray[200]}`,
-    color: colors.gray[600],
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  headerCellContent: {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-  },
-  checkboxCell: {
-    padding: "16px 20px",
-    backgroundColor: colors.gray[50],
-    borderBottom: `1px solid ${colors.gray[200]}`,
-    width: "40px",
-  },
-  checkbox: {
-    width: "16px",
-    height: "16px",
-    cursor: "pointer",
-    accentColor: colors.primary[600],
-  },
-  row: {
-    transition: "background-color 0.2s",
-  },
-  cell: {
-    padding: "16px 20px",
-    borderBottom: `1px solid ${colors.gray[200]}`,
-    color: colors.gray[700],
-  },
-  id: {
-    display: "inline-block",
-    padding: "4px 8px",
-    backgroundColor: colors.primary[50],
-    color: colors.primary[700],
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "600",
-  },
-  supplierLink: {
-    color: "inherit",
-    textDecoration: "none",
-  },
-  supplierName: {
-    display: "block",
-    fontWeight: "500",
-    color: colors.gray[900],
-    marginBottom: "4px",
-  },
-  supplierEmail: {
-    display: "block",
-    fontSize: "12px",
-    color: colors.gray[500],
-  },
-  location: {
-    color: colors.gray[600],
-    fontSize: "13px",
-  },
-  category: {
-    display: "inline-block",
-    padding: "4px 10px",
-    backgroundColor: colors.gray[100],
-    color: colors.gray[700],
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "500",
-  },
-  statusBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "4px 10px",
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontWeight: "500",
-    border: "1px solid",
-  },
-  statusDot: {
-    width: "6px",
-    height: "6px",
-    borderRadius: "50%",
-  },
-  complianceReason: {
-    fontSize: "10px",
-    marginTop: "4px",
-    maxWidth: "200px",
-  },
-  expiringCerts: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  expiringCert: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "4px",
-    padding: "4px 8px",
-    backgroundColor: colors.warning[50],
-    color: colors.warning[700],
-    borderRadius: "4px",
-    fontSize: "11px",
-    fontWeight: "500",
-    width: "fit-content",
-  },
-  expiringDays: {
-    padding: "2px 4px",
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    borderRadius: "3px",
-    fontSize: "10px",
-  },
-  moreExpiring: {
-    fontSize: "11px",
-    color: colors.gray[500],
-    paddingLeft: "4px",
-  },
-  noExpiring: {
-    color: colors.gray[400],
-    fontSize: "12px",
-  },
-  actions: {
-    display: "flex",
-    gap: "8px",
-    justifyContent: "center",
-  },
-  actionButton: {
-    padding: "6px",
-    backgroundColor: "transparent",
-    border: `1px solid ${colors.gray[200]}`,
-    borderRadius: "6px",
-    color: colors.gray[600],
-    fontSize: "14px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    textDecoration: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "32px",
-    height: "32px",
-  },
-  actionButtonDisabled: {
-    opacity: 0.5,
-    pointerEvents: "none",
-  },
-  pagination: {
-    padding: "20px",
-    borderTop: `1px solid ${colors.gray[200]}`,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  paginationInfo: {
-    fontSize: "13px",
-    color: colors.gray[600],
-  },
-  paginationControls: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  paginationArrow: {
-    width: "36px",
-    height: "36px",
-    borderRadius: "8px",
-    border: `1px solid ${colors.gray[200]}`,
-    backgroundColor: "white",
-    color: colors.gray[700],
-    fontSize: "16px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pageNumbers: {
-    display: "flex",
-    gap: "4px",
-    alignItems: "center",
-  },
-  pageNumber: {
-    minWidth: "36px",
-    height: "36px",
-    borderRadius: "8px",
-    border: `1px solid ${colors.gray[200]}`,
-    backgroundColor: "white",
-    color: colors.gray[700],
-    fontSize: "13px",
-    fontWeight: "500",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pageNumberActive: {
-    backgroundColor: colors.primary[600],
-    color: "white",
-    borderColor: colors.primary[600],
-  },
-  ellipsis: {
-    color: colors.gray[400],
-    padding: "0 4px",
-  },
-  emptyState: {
-    padding: "64px 24px",
-    textAlign: "center",
-  },
-  emptyStateIcon: {
-    fontSize: "48px",
-    marginBottom: "16px",
-    color: colors.gray[400],
-  },
-  emptyStateTitle: {
-    fontSize: "18px",
-    fontWeight: "600",
-    color: colors.gray[800],
-    margin: "0 0 8px 0",
-  },
-  emptyStateText: {
-    fontSize: "14px",
-    color: colors.gray[600],
-    margin: "0 0 24px 0",
-  },
-};
+// Scoped under .csr-sl; same tokens as the CSR dashboard / department sidebar.
+const SUPPLIER_LIST_CSS = `
+.csr-sl {
+  --c-bg: #f3f5f9;
+  --c-surface: #ffffff;
+  --c-soft: #f8fafc;
+  --c-border: #e6eaf0;
+  --c-border-strong: #d5dbe4;
+  --c-text: #0f172a;
+  --c-text-2: #334155;
+  --c-muted: #64748b;
+  --c-faint: #94a3b8;
+  --c-primary: #2563eb;
+  --c-primary-dark: #1d4ed8;
+  --c-primary-soft: #eef4ff;
+  --c-green: #15803d; --c-green-soft: #f0fdf4; --c-green-line: #bbf7d0;
+  --c-amber: #b45309; --c-amber-soft: #fffbeb; --c-amber-line: #fde68a;
+  --c-red: #b91c1c;   --c-red-soft: #fef2f2;   --c-red-line: #fecaca;
+  --c-violet: #6d28d9; --c-violet-soft: #f5f3ff;
+  --c-blue: #1d4ed8;  --c-blue-soft: #eff6ff;  --c-blue-line: #bfdbfe;
+  min-height: 100vh;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  font-size: 14px;
+}
+.csr-sl *, .csr-sl *::before, .csr-sl *::after { box-sizing: border-box; }
+
+/* Header */
+.csr-sl .sl-header {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 20px 28px 18px;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--c-border);
+}
+.csr-sl .sl-eyebrow {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--c-primary); margin-bottom: 4px;
+}
+.csr-sl .sl-title {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--c-text);
+}
+.csr-sl .sl-count {
+  font-size: 12.5px; font-weight: 600; color: var(--c-primary-dark);
+  background: var(--c-primary-soft); border: 1px solid #dbe6fe; border-radius: 999px; padding: 2px 10px;
+}
+.csr-sl .sl-subtitle { margin: 4px 0 0; color: var(--c-muted); font-size: 13.5px; }
+.csr-sl .sl-header-actions { display: flex; gap: 10px; }
+
+/* Buttons */
+.csr-sl .sl-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 16px; border-radius: 10px;
+  font-size: 13.5px; font-weight: 600; text-decoration: none; cursor: pointer;
+  border: 1px solid transparent; transition: background .15s, border-color .15s, box-shadow .15s, color .15s;
+  white-space: nowrap;
+}
+.csr-sl .sl-btn:disabled { opacity: .6; cursor: not-allowed; }
+.csr-sl .sl-btn-primary { background: var(--c-primary); color: #fff; box-shadow: 0 1px 2px rgba(37,99,235,.25); }
+.csr-sl .sl-btn-primary:hover { background: var(--c-primary-dark); }
+.csr-sl .sl-btn-ghost { background: var(--c-surface); color: var(--c-text-2); border-color: var(--c-border-strong); }
+.csr-sl .sl-btn-ghost:hover:not(:disabled) { background: var(--c-soft); }
+.csr-sl .sl-btn-danger { background: var(--c-red); color: #fff; height: 34px; padding: 0 14px; }
+.csr-sl .sl-btn-danger:hover { background: #991b1b; }
+.csr-sl .sl-link-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--c-primary); font-size: 13px; font-weight: 600;
+}
+.csr-sl .sl-link-btn:hover { text-decoration: underline; }
+.csr-sl .sl-icon-btn {
+  width: 32px; height: 32px; display: inline-grid; place-items: center;
+  border-radius: 8px; border: 1px solid var(--c-border); background: var(--c-surface);
+  color: var(--c-muted); cursor: pointer; text-decoration: none; transition: all .15s;
+}
+.csr-sl .sl-icon-btn:hover:not(:disabled) { color: var(--c-primary); border-color: #c7d7fe; background: var(--c-primary-soft); }
+.csr-sl .sl-icon-btn.danger:hover:not(:disabled) { color: var(--c-red); border-color: var(--c-red-line); background: var(--c-red-soft); }
+.csr-sl .sl-icon-btn:disabled { opacity: .6; cursor: not-allowed; }
+.csr-sl button:focus-visible, .csr-sl a:focus-visible, .csr-sl input:focus-visible, .csr-sl select:focus-visible {
+  outline: 2px solid var(--c-primary); outline-offset: 2px;
+}
+
+.csr-sl .sl-body { padding: 22px 28px 32px; max-width: 1600px; margin: 0 auto; }
+
+/* KPI cards */
+.csr-sl .sl-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 18px;
+}
+.csr-sl .sl-kpi {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 16px; border-radius: 14px; cursor: pointer;
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  box-shadow: 0 1px 2px rgba(15,23,42,.04);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+  font: inherit; color: inherit;
+}
+.csr-sl .sl-kpi:hover:not(:disabled) { border-color: var(--c-border-strong); box-shadow: 0 4px 14px rgba(15,23,42,.06); transform: translateY(-1px); }
+.csr-sl .sl-kpi.active { border-color: var(--kpi-color); box-shadow: 0 0 0 3px var(--kpi-ring); }
+.csr-sl .sl-kpi-icon {
+  flex-shrink: 0; width: 42px; height: 42px; border-radius: 11px;
+  display: grid; place-items: center; font-size: 19px;
+  color: var(--kpi-color); background: var(--kpi-soft);
+}
+.csr-sl .sl-kpi-text { display: flex; flex-direction: column; min-width: 0; }
+.csr-sl .sl-kpi-value { font-size: 24px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+.csr-sl .sl-kpi-label { font-size: 13px; font-weight: 600; color: var(--c-text-2); margin-top: 2px; }
+.csr-sl .sl-kpi-hint { font-size: 11.5px; color: var(--c-faint); margin-top: 1px; }
+.csr-sl .tone-blue   { --kpi-color: var(--c-blue);   --kpi-soft: var(--c-blue-soft);   --kpi-ring: rgba(37,99,235,.12); }
+.csr-sl .tone-green  { --kpi-color: var(--c-green);  --kpi-soft: var(--c-green-soft);  --kpi-ring: rgba(21,128,61,.12); }
+.csr-sl .tone-amber  { --kpi-color: var(--c-amber);  --kpi-soft: var(--c-amber-soft);  --kpi-ring: rgba(180,83,9,.12); }
+.csr-sl .tone-red    { --kpi-color: var(--c-red);    --kpi-soft: var(--c-red-soft);    --kpi-ring: rgba(185,28,28,.12); }
+.csr-sl .tone-violet { --kpi-color: var(--c-violet); --kpi-soft: var(--c-violet-soft); --kpi-ring: rgba(109,40,217,.12); }
+
+/* Alert */
+.csr-sl .sl-alert {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  padding: 10px 12px 10px 14px; border-radius: 10px;
+  background: var(--c-red-soft); border: 1px solid var(--c-red-line); color: var(--c-red); font-weight: 500;
+}
+.csr-sl .sl-alert span { flex: 1; }
+
+/* Card + toolbar */
+.csr-sl .sl-card {
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04); overflow: hidden;
+}
+.csr-sl .sl-toolbar {
+  display: grid; grid-template-columns: minmax(240px, 1fr) 220px 200px; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--c-border);
+}
+.csr-sl .sl-search { position: relative; }
+.csr-sl .sl-search input {
+  width: 100%; height: 38px; padding: 0 34px 0 36px;
+  border: 1px solid var(--c-border-strong); border-radius: 10px; background: var(--c-surface);
+  font-size: 13.5px; color: var(--c-text); outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.csr-sl .sl-search input:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.csr-sl .sl-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--c-faint); }
+.csr-sl .sl-search-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; display: grid; place-items: center;
+  border: none; border-radius: 6px; background: var(--c-soft); color: var(--c-muted); cursor: pointer;
+}
+.csr-sl .sl-select {
+  height: 38px; padding: 0 12px; border: 1px solid var(--c-border-strong); border-radius: 10px;
+  background: var(--c-surface); color: var(--c-text-2); font-size: 13.5px; cursor: pointer; outline: none;
+}
+.csr-sl .sl-select:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+.csr-sl .sl-chips {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 10px 16px; border-bottom: 1px solid var(--c-border); background: var(--c-soft);
+}
+.csr-sl .sl-chips-label { font-size: 12.5px; color: var(--c-muted); }
+.csr-sl .sl-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 4px 3px 10px; border-radius: 999px;
+  background: var(--c-primary-soft); border: 1px solid #dbe6fe; color: var(--c-primary-dark);
+  font-size: 12.5px; font-weight: 600;
+}
+.csr-sl .sl-chip button {
+  width: 18px; height: 18px; display: grid; place-items: center;
+  border: none; border-radius: 999px; background: transparent; color: inherit; cursor: pointer;
+}
+.csr-sl .sl-chip button:hover { background: #dbe6fe; }
+
+.csr-sl .sl-bulk {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; background: #fff7ed; border-bottom: 1px solid #fed7aa; color: #9a3412; font-size: 13.5px;
+}
+.csr-sl .sl-bulk-actions { display: flex; align-items: center; gap: 14px; }
+
+/* Table */
+.csr-sl .sl-table-wrap { overflow-x: auto; }
+.csr-sl .sl-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.csr-sl .sl-th {
+  position: sticky; top: 0; z-index: 1;
+  padding: 11px 14px; text-align: left; white-space: nowrap;
+  background: var(--c-soft); border-bottom: 1px solid var(--c-border);
+  font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--c-muted);
+}
+.csr-sl .sl-sortable { cursor: pointer; user-select: none; }
+.csr-sl .sl-sortable:hover, .csr-sl .sl-sortable.sorted { color: var(--c-text); }
+.csr-sl .sl-th-inner { display: inline-flex; align-items: center; gap: 4px; }
+.csr-sl .sl-sort-idle { opacity: .35; }
+.csr-sl .sl-th-check, .csr-sl .sl-td-check { width: 44px; padding-right: 0; }
+.csr-sl .sl-th-actions, .csr-sl .sl-td-actions { text-align: right; }
+.csr-sl input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--c-primary); }
+
+.csr-sl .sl-td {
+  padding: 12px 14px; border-bottom: 1px solid var(--c-border);
+  color: var(--c-text-2); vertical-align: middle;
+}
+.csr-sl .sl-row { transition: background .12s; }
+.csr-sl .sl-row:hover { background: #f8fafd; }
+.csr-sl .sl-row.selected { background: var(--c-primary-soft); }
+.csr-sl .sl-row:last-child .sl-td { border-bottom: none; }
+/* status accent on the left edge instead of tinting the whole row */
+.csr-sl .sl-row .sl-td-check { box-shadow: inset 3px 0 0 transparent; }
+.csr-sl .sl-row.status-non_compliant .sl-td-check { box-shadow: inset 3px 0 0 #ef4444; }
+.csr-sl .sl-row.status-under_review .sl-td-check { box-shadow: inset 3px 0 0 #f59e0b; }
+
+.csr-sl .sl-sl {
+  display: inline-block; min-width: 30px; text-align: center;
+  font-size: 12px; font-weight: 600; color: var(--c-muted);
+  background: var(--c-soft); border: 1px solid var(--c-border); border-radius: 6px; padding: 2px 6px;
+}
+.csr-sl .sl-supplier { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; min-width: 220px; }
+.csr-sl .sl-avatar {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
+  display: grid; place-items: center; font-size: 12.5px; font-weight: 700;
+  color: var(--c-primary-dark); background: linear-gradient(135deg, #eef4ff, #e0e7ff);
+  border: 1px solid #dbe6fe;
+}
+.csr-sl .sl-supplier-text { display: flex; flex-direction: column; min-width: 0; }
+.csr-sl .sl-supplier-name { font-weight: 600; color: var(--c-text); line-height: 1.3; }
+.csr-sl .sl-supplier:hover .sl-supplier-name { color: var(--c-primary); }
+.csr-sl .sl-supplier-email { font-size: 12px; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.csr-sl .sl-location { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--c-text-2); }
+.csr-sl .sl-location svg { color: var(--c-faint); flex-shrink: 0; }
+.csr-sl .sl-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  background: #f1f5f9; border: 1px solid var(--c-border); color: var(--c-text-2);
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.csr-sl .sl-muted { color: var(--c-faint); }
+
+.csr-sl .sl-status {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  padding: 3px 10px; border-radius: 999px; border: 1px solid;
+  font-size: 12px; font-weight: 600;
+}
+.csr-sl .sl-reason {
+  margin-top: 5px; max-width: 240px; font-size: 11.5px; line-height: 1.35;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.csr-sl .sl-reason.status-non_compliant { color: var(--c-red); }
+.csr-sl .sl-reason.status-under_review { color: var(--c-amber); }
+
+.csr-sl .sl-expiring { display: flex; flex-wrap: wrap; gap: 5px; max-width: 280px; }
+.csr-sl .sl-exp {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  padding: 2px 4px 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600;
+  color: var(--kpi-color); background: var(--kpi-soft); border: 1px solid var(--kpi-ring);
+}
+.csr-sl .sl-exp b { font-weight: 700; background: rgba(255,255,255,.7); border-radius: 4px; padding: 0 4px; }
+.csr-sl .sl-more { font-size: 11.5px; color: var(--c-muted); align-self: center; cursor: help; }
+.csr-sl .sl-actions { display: inline-flex; gap: 6px; }
+
+/* Pagination */
+.csr-sl .sl-pagination {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  padding: 12px 16px; border-top: 1px solid var(--c-border); background: var(--c-surface);
+}
+.csr-sl .sl-page-info { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 13px; color: var(--c-muted); }
+.csr-sl .sl-page-info strong { color: var(--c-text); font-weight: 600; }
+.csr-sl .sl-page-size { display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; }
+.csr-sl .sl-page-size select {
+  height: 30px; padding: 0 6px; border: 1px solid var(--c-border-strong); border-radius: 8px;
+  background: var(--c-surface); color: var(--c-text-2); font-size: 13px;
+}
+.csr-sl .sl-pages { display: flex; align-items: center; gap: 4px; }
+.csr-sl .sl-page {
+  min-width: 34px; height: 34px; padding: 0 8px; display: inline-grid; place-items: center;
+  border-radius: 8px; border: 1px solid var(--c-border); background: var(--c-surface);
+  color: var(--c-text-2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.csr-sl .sl-page:hover:not(:disabled):not(.active) { background: var(--c-soft); border-color: var(--c-border-strong); }
+.csr-sl .sl-page.active { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+.csr-sl .sl-page:disabled { opacity: .45; cursor: not-allowed; }
+.csr-sl .sl-ellipsis { color: var(--c-faint); padding: 0 4px; }
+
+/* Loading / empty */
+.csr-sl .sl-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 64px 24px; color: var(--c-muted); }
+.csr-sl .sl-state h3 { margin: 0 0 6px; font-size: 16px; color: var(--c-text); }
+.csr-sl .sl-state p { margin: 0 0 18px; font-size: 13.5px; }
+.csr-sl .sl-state-icon {
+  width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center;
+  font-size: 24px; color: var(--c-faint); background: var(--c-soft); border: 1px solid var(--c-border); margin-bottom: 14px;
+}
+.csr-sl .sl-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid var(--c-border); border-top-color: var(--c-primary);
+  animation: sl-spin .8s linear infinite; margin-bottom: 14px;
+}
+.csr-sl .sl-spinner.sm { width: 14px; height: 14px; border-width: 2px; margin: 0; }
+.csr-sl .sl-spin { animation: sl-spin .8s linear infinite; }
+@keyframes sl-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 900px) {
+  .csr-sl .sl-toolbar { grid-template-columns: 1fr 1fr; }
+  .csr-sl .sl-search { grid-column: 1 / -1; }
+  .csr-sl .sl-header, .csr-sl .sl-body { padding-left: 16px; padding-right: 16px; }
+}
+`;
 
 // Add global styles
 const styleSheet = document.createElement("style");

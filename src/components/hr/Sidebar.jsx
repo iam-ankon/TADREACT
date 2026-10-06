@@ -29,6 +29,7 @@ import {
 import { TfiEmail, TfiWorld } from "react-icons/tfi";
 // Try different import paths for the logo
 import logo from "../../assets/texweave_Logo_1.png";
+import "../../styles/sidebar.css";
 
 class ErrorBoundary extends React.Component {
   state = { hasError: false };
@@ -180,7 +181,12 @@ const Sidebar = () => {
   // at all, so none of the departmentPermissions/designation branches below
   // apply to them - they get their own dedicated menu instead of falling
   // through to the generic regularEmployeeMenuItems list.
-  const isLabQcOnly = permissions.lab_qc === true && !hasFullAccess;
+  const isLabQcOnly = permissions.lab_qc === true && !hasFullAccess && permissions.lab_admin !== true;
+
+  // Team leader as decided by the server at login (its TEAM_LEADERS list, or
+  // employees whose reporting leader is this user). Several leaders' job
+  // titles don't contain "Team Leader", so the title checks above missed them.
+  const isApiTeamLeader = permissions.is_team_leader === true;
 
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => {
@@ -381,7 +387,8 @@ const Sidebar = () => {
     isHeadOfFinance ||
     isDirectorOfTadLogistic ||
     isSupplyChainManager ||
-    isZOHAER // Add ZOHAER to team leader checks
+    isZOHAER || // Add ZOHAER to team leader checks
+    isApiTeamLeader
       ? [
           {
             to: "/team-leaves",
@@ -415,7 +422,8 @@ const Sidebar = () => {
     isHeadOfFinance ||
     isDirectorOfTadLogistic ||
     isSupplyChainManager ||
-    isZOHAER // Add ZOHAER to team leader checks
+    isZOHAER || // Add ZOHAER to team leader checks
+    isApiTeamLeader
       ? [
           {
             to: "/performance-appraisal",
@@ -583,206 +591,11 @@ const Sidebar = () => {
 
   const isHRDashboard = hasFullAccess || isLimitedHR || isTeamLeaderForTheme;
 
-  const sidebarStyle = {
-    position: "fixed",
-    left: isSidebarOpen ? "0" : "-280px",
-    top: "0",
-    height: "100vh",
-    width: "280px",
-    background: isHRDashboard
-      ? "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)"
-      : "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)",
-    color: isHRDashboard ? "#374151" : "white",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    display: "flex",
-    flexDirection: "column",
-    boxShadow: isSidebarOpen ? "4px 0 20px rgba(0, 0, 0, 0.3)" : "none",
-    paddingTop: "0",
-    zIndex: 1000,
-    fontFamily:
-      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    overflow: "hidden",
-    borderRight: isHRDashboard ? "1px solid rgba(203, 213, 225, 0.5)" : "none",
-  };
-
-  const headerStyle = {
-    height: "80px",
-    padding: "0 24px",
-    background: isHRDashboard
-      ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
-      : "rgba(255, 255, 255, 0.05)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    position: "relative",
-    overflow: "hidden",
-    borderBottom: isHRDashboard ? "none" : "1px solid rgba(255, 255, 255, 0.1)",
-  };
-
-  const headerOverlayStyle = {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background:
-      "linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%)",
-    display: isHRDashboard ? "block" : "none",
-  };
-
-  const headerTextStyle = {
-    fontSize: "1.25rem",
-    fontWeight: "700",
-    color: isHRDashboard ? "white" : "#cbd5e1",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    letterSpacing: "-0.025em",
-    position: "relative",
-    zIndex: 1,
-  };
-
-  const logoStyle = {
-    marginRight: isSidebarOpen ? "12px" : "0",
-    transition: "all 0.3s ease",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
-
-  const logoImageStyle = {
-    width: "70px",
-    height: "50px",
-    borderRadius: "8px",
-    objectFit: "contain",
-    backgroundColor: isHRDashboard ? "#3b82f6" : "transparent",
-    padding: isHRDashboard ? "6px" : "0",
-    border: isHRDashboard ? "1px solid rgba(0, 0, 0, 0.1)" : "none",
-  };
-  const navStyle = {
-    padding: "24px 0",
-    flex: 1,
-    overflowY: "auto",
-  };
-
-  const ulStyle = {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-    listStyleType: "none",
-    padding: "0 16px",
-    margin: 0,
-  };
-
-  const linkStyle = (path) => ({
-    display: "flex",
-    alignItems: "center",
-    padding: "10px 16px",
-    borderRadius: "12px",
-    background:
-      location.pathname === path
-        ? isHRDashboard
-          ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)"
-          : "rgba(59, 130, 246, 0.2)"
-        : "transparent",
-    color:
-      location.pathname === path
-        ? isHRDashboard
-          ? "#1d4ed8"
-          : "#60a5fa"
-        : isHRDashboard
-          ? "#475569"
-          : "#cbd5e1",
-    textDecoration: "none",
-    transition: "all 0.2s ease",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    border:
-      location.pathname === path
-        ? isHRDashboard
-          ? "1px solid rgba(59, 130, 246, 0.2)"
-          : "1px solid rgba(59, 130, 246, 0.3)"
-        : "1px solid transparent",
-    position: "relative",
-    fontWeight: location.pathname === path ? "500" : "400",
-  });
-
-  const iconStyle = (path) => ({
-    marginRight: isSidebarOpen ? "16px" : "0",
-    fontSize: "1.25rem",
-    transition: "all 0.3s ease",
-    minWidth: "24px",
-    textAlign: "center",
-    color:
-      location.pathname === path
-        ? isHRDashboard
-          ? "#3b82f6"
-          : "#3b82f6"
-        : isHRDashboard
-          ? "#64748b"
-          : "#cbd5e1",
-  });
-
-  const badgeStyle = {
-    position: "absolute",
-    right: "16px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "#3b82f6",
-    color: "white",
-    fontSize: "0.7rem",
-    fontWeight: "600",
-    padding: "2px 8px",
-    borderRadius: "10px",
-    display: isSidebarOpen ? "block" : "none",
-  };
-
-  const toggleButtonStyle = {
-    background: isHRDashboard
-      ? "rgba(255, 255, 255, 0.2)"
-      : "rgba(255, 255, 255, 0.1)",
-    border: isHRDashboard ? "1px solid rgba(255, 255, 255, 0.3)" : "none",
-    color: isHRDashboard ? "white" : "#cbd5e1",
-    borderRadius: "10px",
-    width: "36px",
-    height: "36px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-    position: "relative",
-    zIndex: 1,
-  };
-
-  const userInfoStyle = {
-    padding: "20px",
-    borderTop: isHRDashboard
-      ? "1px solid rgba(203, 213, 225, 0.5)"
-      : "1px solid rgba(255, 255, 255, 0.1)",
-    borderBottom: isHRDashboard
-      ? "1px solid rgba(203, 213, 225, 0.5)"
-      : "1px solid rgba(255, 255, 255, 0.1)",
-    backgroundColor: isHRDashboard
-      ? "rgba(241, 245, 249, 0.5)"
-      : "rgba(255, 255, 255, 0.03)",
-  };
-
-  const userAvatarStyle = {
-    width: "40px",
-    height: "40px",
-    borderRadius: "50%",
-    background: isHRDashboard
-      ? "linear-gradient(135deg, #3b82f6, #8b5cf6)"
-      : "linear-gradient(135deg, #3b82f6, #1e40af)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "18px",
-    fontWeight: "bold",
-    marginRight: "12px",
-    color: "white",
-  };
+  const portalTitle = hrDashboardMenuItems.includes(menuItems[0])
+    ? "Management"
+    : isLimitedHR
+      ? "HR Portal"
+      : "Employee Portal";
 
   // Handle logo error - show fallback
   const handleLogoError = () => {
@@ -793,104 +606,45 @@ const Sidebar = () => {
   return (
     <ErrorBoundary>
       <div>
-        {/* Sidebar */}
-        <div ref={sidebarRef} style={sidebarStyle}>
-          {/* Header */}
-          <div style={headerStyle}>
-            <div style={headerOverlayStyle} />
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <div style={logoStyle}>
-                {logoError ? (
-                  <div
-                    style={{
-                      ...logoImageStyle,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isHRDashboard
-                        ? "white"
-                        : "rgba(255,255,255,0.1)",
-                      color: isHRDashboard ? "#3b82f6" : "white",
-                      fontSize: "14px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    TAD
-                  </div>
-                ) : (
-                  <img
-                    src={logo}
-                    alt="Logo"
-                    style={logoImageStyle}
-                    onError={handleLogoError}
-                  />
-                )}
-              </div>
-              {isSidebarOpen && (
-                <span style={headerTextStyle}>
-                  {hrDashboardMenuItems.includes(menuItems[0])
-                    ? "Management"
-                    : isLimitedHR
-                      ? "HR Portal"
-                      : "Employee Portal"}
-                </span>
+        {/* Sidebar (slide-in drawer) */}
+        <div
+          ref={sidebarRef}
+          className={`tad-drawer tad-sb-wrap ${isSidebarOpen ? "open" : ""}`}
+          aria-hidden={!isSidebarOpen}
+        >
+          <aside className="tad-sb" aria-label="Main menu">
+            {/* Header */}
+            <div className="tad-sb-header">
+              {logoError ? (
+                <div className="tad-drawer-logo tad-drawer-logo-fallback">TAD</div>
+              ) : (
+                <img
+                  src={logo}
+                  alt="TAD Group"
+                  className="tad-drawer-logo"
+                  onError={handleLogoError}
+                />
               )}
+              <div className="tad-sb-brand">
+                <span className="tad-sb-title">{portalTitle}</span>
+                <span className="tad-sb-subtitle">TAD Group</span>
+              </div>
             </div>
-            {/* No toggle button in header when sidebar is open */}
-          </div>
 
-          {/* User Info */}
-          {isSidebarOpen && (
-            <div style={userInfoStyle}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "12px",
-                }}
-              >
-                <div style={userAvatarStyle}>
-                  {employeeInfo.name?.charAt(0) || "U"}
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: "600",
-                      fontSize: "0.95rem",
-                      color: isHRDashboard ? "#1e293b" : "white",
-                    }}
-                  >
-                    {employeeInfo.name || "User"}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.8rem",
-                      color: isHRDashboard
-                        ? "#64748b"
-                        : "rgba(255, 255, 255, 0.8)",
-                    }}
-                  >
-                    {employeeInfo.designation || "Employee"}
-                  </div>
+            {/* User Info */}
+            <div className="tad-drawer-profile">
+              <div className="tad-sb-user">
+                <span className="tad-sb-avatar">{employeeInfo.name?.charAt(0) || "U"}</span>
+                <div className="tad-sb-user-text">
+                  <div className="tad-sb-user-name">{employeeInfo.name || "User"}</div>
+                  <div className="tad-sb-user-role">{employeeInfo.designation || "Employee"}</div>
                 </div>
               </div>
-
-              <div
-                style={{
-                  fontSize: "0.75rem",
-                  color: isHRDashboard ? "#64748b" : "rgba(255, 255, 255, 0.7)",
-                  padding: "8px 12px",
-                  backgroundColor: isHRDashboard
-                    ? "rgba(255, 255, 255, 0.5)"
-                    : "rgba(255, 255, 255, 0.05)",
-                  borderRadius: "8px",
-                  marginTop: "8px",
-                }}
-              >
-                <div style={{ marginBottom: "4px" }}>
+              <div className="tad-drawer-meta">
+                <div>
                   <strong>Department:</strong> {getDepartmentDisplayName()}
                 </div>
-                <div style={{ marginBottom: "4px" }}>
+                <div>
                   <strong>Role:</strong> {getUserRoleDisplay()}
                 </div>
                 {employeeInfo.reporting_leader && (
@@ -898,201 +652,54 @@ const Sidebar = () => {
                     <strong>Reports to:</strong> {employeeInfo.reporting_leader}
                   </div>
                 )}
-                {isZOHAER && (
-                  <div style={{ marginTop: "4px", color: "#3b82f6" }}>
-                    <strong>✓ Team Leader Access</strong>
-                  </div>
-                )}
+                {isZOHAER && <span className="tad-drawer-chip">✓ Team Leader Access</span>}
               </div>
             </div>
-          )}
 
-          {/* Navigation Menu */}
-          <nav style={navStyle}>
-            <ul style={ulStyle}>
-              {menuItems.map(({ to, icon, label, badge, onClick, highlight }) => (
-                <li key={to}>
-                  <Link
-                    to={to}
-                    style={
-                      highlight
-                        ? {
-                            ...linkStyle(to),
-                            background:
-                              location.pathname === to
-                                ? "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)"
-                                : "rgba(16, 185, 129, 0.14)",
-                            color: "#047857",
-                            border: "1px solid rgba(16, 185, 129, 0.35)",
-                            fontWeight: 700,
-                          }
-                        : linkStyle(to)
-                    }
-                    onClick={onClick}
-                    title={!isSidebarOpen ? label : ""}
-                    onMouseOver={(e) => {
-                      if (location.pathname !== to) {
-                        if (highlight) {
-                          e.currentTarget.style.background = "rgba(16, 185, 129, 0.22)";
-                          e.currentTarget.style.color = "#047857";
-                        } else {
-                          e.currentTarget.style.background = isHRDashboard
-                            ? "rgba(241, 245, 249, 1)"
-                            : "rgba(255, 255, 255, 0.05)";
-                          e.currentTarget.style.color = isHRDashboard
-                            ? "#334155"
-                            : "#e2e8f0";
-                        }
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (location.pathname !== to) {
-                        if (highlight) {
-                          e.currentTarget.style.background = "rgba(16, 185, 129, 0.14)";
-                          e.currentTarget.style.color = "#047857";
-                        } else {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = isHRDashboard
-                            ? "#475569"
-                            : "#cbd5e1";
-                        }
-                      }
-                    }}
-                  >
-                    <span style={highlight ? { ...iconStyle(to), color: "#059669" } : iconStyle(to)}>
-                      {icon}
-                    </span>
-                    {isSidebarOpen && <span>{label}</span>}
-                    {badge && isSidebarOpen && (
-                      <span style={badgeStyle}>{badge}</span>
-                    )}
-                    {location.pathname === to && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: "0",
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          width: "4px",
-                          height: "24px",
-                          background: highlight
-                            ? "linear-gradient(180deg, #10b981 0%, #047857 100%)"
-                            : isHRDashboard
-                              ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
-                              : "linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%)",
-                          borderRadius: "0 2px 2px 0",
-                        }}
-                      />
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+            {/* Navigation Menu */}
+            <nav className="tad-sb-nav">
+              <div className="tad-sb-section-label">Menu</div>
+              <ul className="tad-sb-list">
+                {menuItems.map(({ to, icon, label, badge, onClick, highlight }) => {
+                  const active = location.pathname === to;
+                  return (
+                    <li key={to}>
+                      <Link
+                        to={to}
+                        onClick={onClick}
+                        className={`tad-sb-link ${active ? "active" : ""} ${highlight ? "highlight" : ""}`}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        <span className="tad-sb-icon">{icon}</span>
+                        <span className="tad-sb-label">{label}</span>
+                        {badge && <span className="tad-sb-badge">{badge}</span>}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
 
-          {/* Logout Button */}
-          <div
-            style={{
-              padding: "20px",
-              borderTop: isHRDashboard
-                ? "1px solid rgba(203, 213, 225, 0.5)"
-                : "1px solid rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            <button
-              onClick={handleLogout}
-              style={{
-                background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                color: "white",
-                padding: "12px 20px",
-                borderRadius: "12px",
-                fontSize: "0.95rem",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: "none",
-                width: "100%",
-                fontWeight: "500",
-                boxShadow: "0 4px 12px rgba(239, 68, 68, 0.2)",
-              }}
-              onMouseOver={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-                e.target.style.boxShadow = "0 6px 16px rgba(239, 68, 68, 0.3)";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.2)";
-              }}
-              title={!isSidebarOpen ? "Logout" : ""}
-            >
-              <FiLogOut
-                style={{
-                  marginRight: isSidebarOpen ? "10px" : "0",
-                  fontSize: "1.2rem",
-                }}
-              />
-              {isSidebarOpen && "Logout"}
-            </button>
-          </div>
+            {/* Logout Button */}
+            <div className="tad-sb-footer">
+              <button type="button" onClick={handleLogout} className="tad-logout-btn">
+                <FiLogOut /> Logout
+              </button>
+            </div>
+          </aside>
         </div>
 
         {/* Toggle Button (always visible, position changes based on sidebar state) */}
         <button
           ref={toggleBtnRef}
+          type="button"
           onClick={toggleSidebar}
-          className="menu-btn"
-          style={{
-            position: "fixed",
-            top: "15px",
-            left: isSidebarOpen ? "300px" : "5px", // Changed this line
-            background: isHRDashboard
-              ? "linear-gradient(135deg, #3b82f6, #1d4ed8)"
-              : "linear-gradient(135deg, #3b82f6, #1e40af)",
-            color: "white",
-            border: "none",
-            padding: "12px",
-            borderRadius: "25px",
-            cursor: "pointer",
-            zIndex: 2000, // Increased z-index
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-          }}
-          onMouseOver={(e) => {
-            e.target.style.transform = "scale(1.1)";
-            e.target.style.boxShadow = "0 6px 16px rgba(59, 130, 246, 0.4)";
-          }}
-          onMouseOut={(e) => {
-            e.target.style.transform = "scale(1)";
-            e.target.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)";
-          }}
+          className={`menu-btn tad-menu-btn ${isSidebarOpen ? "open" : ""}`}
+          aria-label={isSidebarOpen ? "Close main menu" : "Open main menu"}
+          title={isSidebarOpen ? "Close menu" : "Main menu"}
         >
           {isSidebarOpen ? <FiChevronLeft size={20} /> : <FiMenu size={20} />}
         </button>
-
-        {/* Overlay when sidebar is open (for mobile/tablet) */}
-        {isSidebarOpen && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: "280px",
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.3)",
-              zIndex: 900,
-              display: "none", // Hidden on desktop
-            }}
-            onClick={() => {
-              setIsSidebarOpen(false);
-              localStorage.setItem("sidebarOpen", JSON.stringify(false));
-            }}
-          />
-        )}
 
         <style>{`
           .main-content {
@@ -1103,46 +710,29 @@ const Sidebar = () => {
             margin-left: ${isSidebarOpen ? "280px" : "0"};
           }
 
+          /* app-wide scrollbars (this component is mounted on every page) */
           ::-webkit-scrollbar {
             width: 6px;
           }
 
           ::-webkit-scrollbar-track {
-            background: ${isHRDashboard ? "rgba(203, 213, 225, 0.3)" : "rgba(255, 255, 255, 0.05)"};
+            background: rgba(203, 213, 225, 0.3);
             border-radius: 3px;
           }
 
           ::-webkit-scrollbar-thumb {
-            background: ${isHRDashboard ? "rgba(148, 163, 184, 0.5)" : "rgba(255, 255, 255, 0.2)"};
+            background: rgba(148, 163, 184, 0.5);
             border-radius: 3px;
           }
 
           ::-webkit-scrollbar-thumb:hover {
-            background: ${isHRDashboard ? "rgba(148, 163, 184, 0.7)" : "rgba(255, 255, 255, 0.3)"};
+            background: rgba(148, 163, 184, 0.7);
           }
 
           @media (max-width: 768px) {
             .main-content {
               margin-left: 0;
               padding: 20px;
-            }
-
-            button.menu-btn {
-              top: 15px;
-              left: ${isSidebarOpen ? "calc(100% - 60px)" : "15px"};
-            }
-
-            /* On mobile, sidebar takes full width */
-            .sidebar {
-              width: 100% !important;
-              left: ${isSidebarOpen ? "0" : "-100%"} !important;
-            }
-
-            /* Show overlay on mobile when sidebar is open */
-            .overlay {
-              display: block !important;
-              left: 0 !important;
-              background-color: rgba(0, 0, 0, 0.5) !important;
             }
           }
         `}</style>

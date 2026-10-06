@@ -53,7 +53,15 @@ const api1 = axios.create({
   xsrfHeaderName: "X-CSRFToken",
 });
 
+api1.interceptors.request.use((config) => {
+  const authToken = localStorage.getItem("token");
+  if (authToken) config.headers.Authorization = `Token ${authToken}`;
+  return config;
+});
+
 api.interceptors.request.use((config) => {
+  const authToken = localStorage.getItem("token");
+  if (authToken) config.headers.Authorization = `Token ${authToken}`;
   const token = getCookie("csrftoken");
   if (token) {
     config.headers["X-CSRFToken"] = token;
@@ -456,6 +464,12 @@ const Inquiry = () => {
     if (selectedDepartments && selectedDepartments.length > 0) {
       params.append("department", selectedDepartments.join("|"));
     }
+    if (selectedSupplier && selectedSupplier !== "all") {
+      params.append("supplier", selectedSupplier);
+    }
+    if (selectedMonth && selectedMonth !== "all") {
+      params.append("ship_month", selectedMonth);
+    }
     fetchStatsAndYears(params);
   }, [
     selectedGarment,
@@ -465,6 +479,8 @@ const Inquiry = () => {
     selectedStatus,
     selectedCustomers,
     selectedDepartments,
+    selectedSupplier,
+    selectedMonth,
   ]);
 
   // Fetch inquiries when page or filters change
@@ -479,10 +495,18 @@ const Inquiry = () => {
     searchTerm,
     selectedCustomers,
     selectedDepartments,
+    selectedSupplier,
+    selectedMonth,
   ]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters change (not on first render, so the
+  // remembered page survives coming back from an inquiry)
+  const skipFirstPageReset = useRef(true);
   useEffect(() => {
+    if (skipFirstPageReset.current) {
+      skipFirstPageReset.current = false;
+      return;
+    }
     setCurrentPage(1);
   }, [
     selectedYear,
@@ -492,6 +516,8 @@ const Inquiry = () => {
     searchTerm,
     selectedCustomers,
     selectedDepartments,
+    selectedSupplier,
+    selectedMonth,
   ]);
 
   const fetchStatsAndYears = async (filterParams) => {
@@ -500,12 +526,18 @@ const Inquiry = () => {
       params.delete("page");
       params.delete("page_size");
 
-      const response = await api.get(
-        `/inquiry/?${params.toString()}&page_size=10000`,
-      );
+      // The server returns at most 500 rows per page, so read every page.
+      let allInquiries = [];
+      for (let page = 1; page <= 50; page++) {
+        const response = await api.get(
+          `/inquiry/?${params.toString()}&page=${page}&page_size=500`,
+        );
+        const rows = response.data?.results || (Array.isArray(response.data) ? response.data : []);
+        allInquiries = allInquiries.concat(rows);
+        if (!response.data?.next) break;
+      }
 
-      if (response.data && response.data.results) {
-        const allInquiries = response.data.results;
+      {
 
         const totalQty = allInquiries.reduce((sum, inquiry) => {
           return sum + (parseFloat(inquiry.order_quantity) || 0);
@@ -597,6 +629,16 @@ const Inquiry = () => {
         params.append("department", selectedDepartments.join("|"));
       }
 
+      // Month and supplier are filtered on the server, across all pages
+      // (they used to filter only the 100 rows of the current page).
+      if (selectedSupplier && selectedSupplier !== "all") {
+        params.append("supplier", selectedSupplier);
+      }
+
+      if (selectedMonth && selectedMonth !== "all") {
+        params.append("ship_month", selectedMonth);
+      }
+
       const url = `/inquiry/?${params.toString()}`;
       console.log("📦 Fetching with filters:", url);
 
@@ -613,31 +655,7 @@ const Inquiry = () => {
         total = response.data.length;
       }
 
-      let filteredResults = fetchedInquiries;
-
-      if (selectedMonth && selectedMonth !== "all" && selectedMonth !== "") {
-        const monthNum = parseInt(selectedMonth);
-        filteredResults = filteredResults.filter((inquiry) => {
-          if (!inquiry.shipment_date) return false;
-          const date = new Date(inquiry.shipment_date);
-          return date.getMonth() + 1 === monthNum;
-        });
-      }
-
-      if (
-        selectedSupplier &&
-        selectedSupplier !== "all" &&
-        selectedSupplier !== ""
-      ) {
-        filteredResults = filteredResults.filter((inquiry) => {
-          const supplierPrices = inquiry.supplier_prices_display || [];
-          return supplierPrices.some(
-            (sp) =>
-              sp.supplier_id?.toString() === selectedSupplier ||
-              sp.supplier?.toString() === selectedSupplier,
-          );
-        });
-      }
+      const filteredResults = fetchedInquiries;
 
       setInquiries(filteredResults);
       setTotalCount(total);
@@ -1066,8 +1084,12 @@ const Inquiry = () => {
         console.error("Invalid status:", newStatus);
         return false;
       }
-      const response = await api.patch(`/inquiry/${inquiryId}/update-status/`, {
-        current_status: newStatus,
+      // Inquiries have no /update-status/ endpoint; use the normal inquiry
+      // update (same request format the Remarks column uses).
+      const formData = new FormData();
+      formData.append("data", JSON.stringify({ current_status: newStatus }));
+      const response = await api.put(`/inquiry/${inquiryId}/`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
       if (response.status === 200) {
         await fetchInquiries();
@@ -1164,7 +1186,15 @@ const Inquiry = () => {
     { count: 0, totalQuantity: 0, totalValue: 0 },
   );
 
+  // All suppliers (the filter now runs on the server across every page);
+  // fall back to the suppliers quoting on this page if the list didn't load.
   const availableSuppliers = React.useMemo(() => {
+    const list = Array.isArray(allSuppliers) ? allSuppliers : allSuppliers?.results || [];
+    if (list.length > 0) {
+      return list
+        .map((sup) => ({ id: sup.id, name: sup.supplier_name || `Supplier ${sup.id}` }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
     const supplierMap = new Map();
     inquiries.forEach((inquiry) => {
       const prices = inquiry.supplier_prices_display || [];
@@ -1178,7 +1208,7 @@ const Inquiry = () => {
       });
     });
     return Array.from(supplierMap.values());
-  }, [inquiries]);
+  }, [inquiries, allSuppliers]);
 
   const statusColors = {
     pending: "linear-gradient(135deg, #f59e0b, #f97316)",

@@ -2,9 +2,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Sidebar from "../merchandiser/Sidebar.jsx";
+import { withSupplierFormTheme, SUPPLIER_FORM_CSS } from "./supplierFormTheme";
 import { useNavigate } from "react-router-dom";
 
 const AddSupplier = () => {
@@ -77,7 +78,7 @@ const AddSupplier = () => {
     }
   };
 
-  const styles = {
+  const baseStyles = {
     mainContainer: {
       display: "flex",
       minHeight: "100vh",
@@ -136,7 +137,6 @@ const AddSupplier = () => {
     },
     activeTab: {
       color: "#2563eb",
-      borderBottomColor: "#2563eb",
     },
     gridContainer: {
       display: "grid",
@@ -306,6 +306,7 @@ const AddSupplier = () => {
       cursor: "not-allowed",
     },
   };
+  const styles = withSupplierFormTheme(baseStyles);
 
   const onSubmit = async (data) => {
     // Calculate total manpower if not provided
@@ -333,7 +334,7 @@ const AddSupplier = () => {
       await axios.post(
         `http://119.148.51.38:8000/api/csr/api/supplier/`,
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        { headers: { "Content-Type": "multipart/form-data", Authorization: `Token ${localStorage.getItem("token")}` } }
       );
       toast.success("Supplier added successfully");
       setTimeout(() => navigate("/suppliers"), 1500);
@@ -416,6 +417,9 @@ const AddSupplier = () => {
                   <option value="Knit & Lingerie">Knit & Lingerie</option>
                   <option value="Knit">Knit</option>
                   <option value="Lingerie">Lingerie</option>
+                  <option value="Socks">Socks</option>
+                  <option value="Bags & Luggage">Bags & Luggage</option>
+                  <option value="Tent">Tent</option>
                 </select>
               </div>
               <div style={styles.inputGroup}>
@@ -747,7 +751,7 @@ const AddSupplier = () => {
                     <label style={styles.label}>Status</label>
                     <select {...register("bsci_status")} style={styles.select}>
                       <option value="">Select Status</option>
-                      <option value="active">Active</option>
+                      <option value="valid">Valid</option>
                       <option value="pending">Pending</option>
                       <option value="expired">Expired</option>
                     </select>
@@ -798,7 +802,7 @@ const AddSupplier = () => {
                     <label style={styles.label}>Status</label>
                     <select {...register("sedex_status")} style={styles.select}>
                       <option value="">Select Status</option>
-                      <option value="active">Active</option>
+                      <option value="valid">Valid</option>
                       <option value="pending">Pending</option>
                       <option value="expired">Expired</option>
                     </select>
@@ -849,7 +853,7 @@ const AddSupplier = () => {
                     <label style={styles.label}>Status</label>
                     <select {...register("wrap_status")} style={styles.select}>
                       <option value="">Select Status</option>
-                      <option value="active">Active</option>
+                      <option value="valid">Valid</option>
                       <option value="pending">Pending</option>
                       <option value="expired">Expired</option>
                     </select>
@@ -900,7 +904,7 @@ const AddSupplier = () => {
                     <label style={styles.label}>Status</label>
                     <select {...register("security_audit_status")} style={styles.select}>
                       <option value="">Select Status</option>
-                      <option value="active">Active</option>
+                      <option value="valid">Valid</option>
                       <option value="pending">Pending</option>
                       <option value="expired">Expired</option>
                     </select>
@@ -934,7 +938,7 @@ const AddSupplier = () => {
                     <label style={styles.label}>Status</label>
                     <select {...register("oeko_tex_status")} style={styles.select}>
                       <option value="">Select Status</option>
-                      <option value="active">Active</option>
+                      <option value="valid">Valid</option>
                       <option value="pending">Pending</option>
                       <option value="expired">Expired</option>
                     </select>
@@ -968,7 +972,7 @@ const AddSupplier = () => {
                     <label style={styles.label}>Status</label>
                     <select {...register("gots_status")} style={styles.select}>
                       <option value="">Select Status</option>
-                      <option value="active">Active</option>
+                      <option value="valid">Valid</option>
                       <option value="pending">Pending</option>
                       <option value="expired">Expired</option>
                     </select>
@@ -1002,7 +1006,7 @@ const AddSupplier = () => {
                     <label style={styles.label}>Status</label>
                     <select {...register("iso_9001_status")} style={styles.select}>
                       <option value="">Select Status</option>
-                      <option value="active">Active</option>
+                      <option value="valid">Valid</option>
                       <option value="pending">Pending</option>
                       <option value="expired">Expired</option>
                     </select>
@@ -1738,7 +1742,9 @@ const AddSupplier = () => {
   };
 
   return (
-    <div style={styles.mainContainer}>
+    <div style={styles.mainContainer} className="sup-form">
+      <style>{SUPPLIER_FORM_CSS}</style>
+      <ToastContainer position="top-right" autoClose={3500} />
       <Sidebar />
       <div style={styles.contentContainer}>
         <h1 style={styles.header}>Add Supplier</h1>

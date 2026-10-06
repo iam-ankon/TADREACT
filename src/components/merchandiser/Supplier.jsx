@@ -1,674 +1,460 @@
-import React, { useState, useEffect } from "react";
+// Supplier.jsx - Merchandising suppliers list (route /suppliers).
+// Same Supplier records as the CSR module (api/csr/api/supplier/), shown
+// with the production-side columns merchandisers need. Compliance uses the
+// same rule as the CSR supplier list (expired document = non-compliant,
+// anything expiring within 30 days = under review).
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../merchandiser/Sidebar.jsx";
-import { 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  ChevronRight,
-  Package,
-  MapPin,
-  Mail,
-  Building2,
-  TrendingUp,
-  TrendingDown,
-  MoreVertical
-} from "lucide-react";
+import {
+  FiAlertTriangle,
+  FiCheck,
+  FiCheckCircle,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronUp,
+  FiClock,
+  FiDownload,
+  FiEdit2,
+  FiEye,
+  FiMail,
+  FiMapPin,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiTrash2,
+  FiTruck,
+  FiX,
+} from "react-icons/fi";
+import Sidebar from "./Sidebar.jsx";
+import SupplierDeleteModal from "./SupplierDeleteModal.jsx";
+import { AGENT_CSS, initialsOf } from "./agentTheme";
 
-const Supplier = () => {
-  const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    pending: 0,
-    expired: 0
-  });
+const API = "http://119.148.51.38:8000/api/csr/api/supplier/";
+const authHeaders = () => ({ Authorization: `Token ${localStorage.getItem("token")}` });
+const asList = (data) => (Array.isArray(data) ? data : data?.results || data?.data || []);
+
+const DAYS_FIELDS = [
+  "bsci_validity_days_remaining",
+  "sedex_validity_days_remaining",
+  "wrap_validity_days_remaining",
+  "trade_license_days_remaining",
+  "factory_license_days_remaining",
+  "fire_license_days_remaining",
+  "oeko_tex_validity_days_remaining",
+  "gots_validity_days_remaining",
+  "iso_9001_validity_days_remaining",
+  "iso_14001_validity_days_remaining",
+  "iso_45001_validity_days_remaining",
+];
+// Same rule as csr/SupplierListCSR.jsx getComplianceStatus.
+const complianceOf = (s) => {
+  const days = DAYS_FIELDS.map((f) => s[f]).filter((d) => d !== null && d !== undefined && d !== "");
+  if (days.some((d) => d <= 0)) return "non_compliant";
+  if (days.some((d) => d > 0 && d <= 30)) return "under_review";
+  if (days.length > 0) return "compliant";
+  return "under_review";
+};
+const COMPLIANCE = {
+  compliant: { label: "Compliant", tone: "green", icon: <FiCheckCircle /> },
+  under_review: { label: "Under review", tone: "amber", icon: <FiClock /> },
+  non_compliant: { label: "Non-compliant", tone: "", icon: <FiAlertTriangle />, style: { background: "#fef2f2", color: "#b91c1c", borderColor: "#fecaca" } },
+};
+
+const csvCell = (v) => {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const num = (v) => {
+  const n = parseInt(String(v ?? "").replace(/[^\d]/g, ""), 10);
+  return Number.isFinite(n) ? n : -1;
+};
+
+export default function Supplier() {
   const navigate = useNavigate();
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [category, setCategory] = useState("all");
+  const [compliance, setCompliance] = useState("all");
+  const [sort, setSort] = useState({ key: "name", dir: "asc" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [deleting, setDeleting] = useState(null);
 
-  // Status colors mapping with modern gradients
-  const statusStyles = {
-    active: { 
-      bg: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)", 
-      text: "#065f46",
-      icon: "✅"
-    },
-    valid: { 
-      bg: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)", 
-      text: "#065f46",
-      icon: "✅"
-    },
-    pending: { 
-      bg: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)", 
-      text: "#92400e",
-      icon: "⏳"
-    },
-    "in progress": { 
-      bg: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)", 
-      text: "#1e40af",
-      icon: "🔄"
-    },
-    expired: { 
-      bg: "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)", 
-      text: "#991b1b",
-      icon: "⚠️"
-    },
-    invalid: { 
-      bg: "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)", 
-      text: "#991b1b",
-      icon: "❌"
-    },
-    cancelled: { 
-      bg: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", 
-      text: "#374151",
-      icon: "🚫"
-    },
-  };
-
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(
-          "http://119.148.51.38:8000/api/csr/api/supplier/"
-        );
-        let suppliersData = [];
-        if (Array.isArray(response.data)) {
-          suppliersData = response.data;
-        } else if (response.data && Array.isArray(response.data.results)) {
-          suppliersData = response.data.results;
-        } else if (response.data && Array.isArray(response.data.data)) {
-          suppliersData = response.data.data;
-        } else {
-          console.error("Unexpected API response structure:", response.data);
-          toast.error("Unexpected data format from server");
-          setSuppliers([]);
-          return;
-        }
-        
-        setSuppliers(suppliersData);
-        
-        // Calculate stats
-        const total = suppliersData.length;
-        const active = suppliersData.filter(s => 
-          ['active', 'valid'].includes(getEffectiveStatus(s))
-        ).length;
-        const pending = suppliersData.filter(s => 
-          ['pending', 'in progress'].includes(getEffectiveStatus(s))
-        ).length;
-        const expired = suppliersData.filter(s => 
-          ['expired', 'invalid'].includes(getEffectiveStatus(s))
-        ).length;
-        
-        setStats({ total, active, pending, expired });
-        
-      } catch (error) {
-        console.error("API Error:", error);
-        toast.error("Failed to fetch suppliers");
-        setSuppliers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSuppliers();
-  }, []);
-
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this supplier?")) {
-      try {
-        await axios.delete(
-          `http://119.148.51.38:8000/api/csr/api/supplier/${id}/`
-        );
-        setSuppliers(suppliers.filter((supplier) => supplier.id !== id));
-        toast.success("Supplier deleted successfully");
-      } catch (error) {
-        console.error("Delete Error:", error);
-        toast.error("Failed to delete supplier");
-      }
+  const fetchSuppliers = async ({ quiet = false } = {}) => {
+    if (quiet) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get(API, { headers: authHeaders() });
+      setSuppliers(asList(res.data));
+    } catch (err) {
+      console.error("API Error:", err);
+      setError(err.response?.status === 401 ? "Your session has expired - please log in again." : "Failed to load suppliers.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const getEffectiveStatus = (supplier) => {
-    return (
-      supplier.bsci_status ||
-      supplier.sedex_status ||
-      supplier.agreement_status ||
-      "unknown"
-    ).toLowerCase();
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
+
+  const categories = useMemo(
+    () => [...new Set(suppliers.map((s) => s.supplier_category).filter(Boolean))].sort(),
+    [suppliers],
+  );
+
+  const counts = useMemo(() => {
+    const c = { compliant: 0, under_review: 0, non_compliant: 0 };
+    suppliers.forEach((s) => (c[complianceOf(s)] += 1));
+    return c;
+  }, [suppliers]);
+
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const list = suppliers.filter((s) => {
+      if (category !== "all" && s.supplier_category !== category) return false;
+      if (compliance !== "all" && complianceOf(s) !== compliance) return false;
+      if (!q) return true;
+      return [s.supplier_name, s.supplier_id, s.email, s.location, s.manufacturing_item, s.production_process, s.factory_main_contact]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+    const value = (s) => {
+      if (sort.key === "capacity") return num(s.capacity_per_month);
+      if (sort.key === "lines") return Number(s.number_of_sewing_line || -1);
+      if (sort.key === "manpower") return Number(s.total_manpower || -1);
+      if (sort.key === "id") return String(s.supplier_id || "").toLowerCase();
+      return String(s.supplier_name || "").toLowerCase();
+    };
+    return list.sort((a, b) => {
+      const av = value(a);
+      const bv = value(b);
+      if (av === bv) return 0;
+      return (av > bv ? 1 : -1) * (sort.dir === "asc" ? 1 : -1);
+    });
+  }, [suppliers, searchTerm, category, compliance, sort]);
+
+  useEffect(() => setCurrentPage(1), [searchTerm, category, compliance, perPage]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+  const first = (currentPage - 1) * perPage;
+  const pageItems = filtered.slice(first, first + perPage);
+
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" || key === "id" ? "asc" : "desc" }));
+
+  const exportCSV = () => {
+    const header = ["Supplier", "Supplier ID", "Category", "Location", "Capacity / month", "Sewing lines", "Manpower", "Items", "Compliance", "Email", "Phone"];
+    const rows = filtered.map((s) => [
+      s.supplier_name,
+      s.supplier_id,
+      s.supplier_category,
+      s.location,
+      s.capacity_per_month,
+      s.number_of_sewing_line,
+      s.total_manpower,
+      s.manufacturing_item,
+      COMPLIANCE[complianceOf(s)].label,
+      s.email,
+      s.phone,
+    ]);
+    const blob = new Blob(["﻿" + [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `suppliers-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
-  const filteredSuppliers = suppliers.filter((supplier) => {
-    if (!supplier) return false;
-    
-    const matchesSearch = (() => {
-      const name = (supplier.supplier_name || supplier.name || "").toLowerCase();
-      const vendorId = (supplier.supplier_id || supplier.vendor_id || "").toLowerCase();
-      const email = (supplier.email || "").toLowerCase();
-      const search = searchTerm.toLowerCase().trim();
-      return name.includes(search) || vendorId.includes(search) || email.includes(search);
-    })();
-    
-    const matchesFilter = selectedFilter === "all" || getEffectiveStatus(supplier) === selectedFilter;
-    
-    return matchesSearch && matchesFilter;
-  });
+  const SortTh = ({ k, children, right }) => (
+    <th className={`sortable ${sort.key === k ? "sorted" : ""} ${right ? "right" : ""}`} onClick={() => toggleSort(k)}>
+      <span className="th">
+        {children}
+        {sort.key === k ? sort.dir === "asc" ? <FiChevronUp /> : <FiChevronDown /> : null}
+      </span>
+    </th>
+  );
 
-  // Stat cards data
-  const statCards = [
-    { label: "Total Suppliers", value: stats.total, icon: Building2, color: "#3b82f6", bg: "#eff6ff" },
-    { label: "Active Suppliers", value: stats.active, icon: TrendingUp, color: "#10b981", bg: "#d1fae5" },
-    { label: "Pending Review", value: stats.pending, icon: MoreVertical, color: "#f59e0b", bg: "#fef3c7" },
-    { label: "Expired/Invalid", value: stats.expired, icon: TrendingDown, color: "#ef4444", bg: "#fee2e2" },
+  const pageNumbers = () => {
+    const count = Math.min(5, totalPages);
+    const start = Math.max(1, Math.min(currentPage - 2, totalPages - count + 1));
+    return Array.from({ length: count }, (_, i) => start + i);
+  };
+
+  const kpis = [
+    { key: "all", label: "Suppliers", value: suppliers.length, icon: <FiTruck />, tone: "t-blue" },
+    { key: "compliant", label: "Compliant", value: counts.compliant, icon: <FiCheckCircle />, tone: "t-green" },
+    { key: "under_review", label: "Under review", value: counts.under_review, icon: <FiClock />, tone: "t-amber" },
+    { key: "non_compliant", label: "Non-compliant", value: counts.non_compliant, icon: <FiAlertTriangle />, tone: "t-red" },
   ];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        backgroundColor: "#f3f4f6", // Light gray background instead of gradient
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      }}
-    >
+    <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
+      <div className="ag-app">
+        <style>{AGENT_CSS + `.t-red { color: #b91c1c; background: #fef2f2; } .ag-kpi.btn { cursor: pointer; font: inherit; text-align: left; color: inherit; } .ag-kpi.btn:hover { border-color: #d5dbe4; } .ag-kpi.on { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }`}</style>
 
-      <div
-        style={{
-          flexGrow: 1,
-          padding: "2rem",
-          overflowY: "auto",
-          maxHeight: "100vh",
-        }}
-      >
-        {/* Header Section */}
-        <div style={{ marginBottom: "2rem" }}>
-          <h1
-            style={{
-              fontSize: "2.5rem",
-              fontWeight: "700",
-              color: "#1f2937",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Supplier Management
-          </h1>
-          <p style={{ color: "#6b7280", fontSize: "1rem" }}>
-            Manage and track all your supplier information in one place
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "1.5rem",
-            marginBottom: "2rem",
-          }}
-        >
-          {statCards.map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={index}
-                style={{
-                  background: "white",
-                  borderRadius: "1rem",
-                  padding: "1.25rem",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-5px)";
-                  e.currentTarget.style.boxShadow = "0 10px 40px rgba(0,0,0,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: "1rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: stat.bg,
-                      padding: "0.75rem",
-                      borderRadius: "0.75rem",
-                      display: "inline-flex",
-                    }}
-                  >
-                    <Icon size={24} color={stat.color} />
-                  </div>
-                  <span
-                    style={{
-                      fontSize: "1.5rem",
-                      fontWeight: "bold",
-                      color: stat.color,
-                    }}
-                  >
-                    {stat.value}
-                  </span>
-                </div>
-                <p
-                  style={{
-                    color: "#6b7280",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    margin: 0,
-                  }}
-                >
-                  {stat.label}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Search and Filter Section */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "1rem",
-            padding: "1.5rem",
-            marginBottom: "1.5rem",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "1rem",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* Search Box */}
-            <div
-              style={{
-                flex: "1",
-                minWidth: "250px",
-                position: "relative",
-              }}
-            >
-              <Search
-                size={20}
-                style={{
-                  position: "absolute",
-                  left: "1rem",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#9ca3af",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Search suppliers by name, ID, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.875rem 1rem 0.875rem 2.75rem",
-                  borderRadius: "0.75rem",
-                  border: "1px solid #e5e7eb",
-                  fontSize: "0.875rem",
-                  transition: "all 0.3s ease",
-                  outline: "none",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#3b82f6";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e5e7eb";
-                  e.target.style.boxShadow = "none";
-                }}
-              />
-            </div>
-
-            {/* Filter Buttons */}
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {["all", "active", "pending", "expired"].map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setSelectedFilter(filter)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: "0.5rem",
-                    border: selectedFilter === filter ? "2px solid #3b82f6" : "1px solid #e5e7eb",
-                    background: selectedFilter === filter ? "#eff6ff" : "white",
-                    color: selectedFilter === filter ? "#3b82f6" : "#6b7280",
-                    fontWeight: "600",
-                    fontSize: "0.875rem",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {filter}
-                </button>
-              ))}
-            </div>
-
-            {/* Add Button */}
-            <button
-              onClick={() => navigate("/add-supplier")}
-              style={{
-                background: "#3b82f6",
-                color: "white",
-                border: "none",
-                borderRadius: "0.75rem",
-                padding: "0.75rem 1.5rem",
-                cursor: "pointer",
-                fontWeight: "600",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-              }}
-            >
-              <Plus size={18} />
-              Add Supplier
+        <header className="ag-header">
+          <div>
+            <div className="ag-eyebrow">Partners</div>
+            <h1 className="ag-title">
+              Suppliers <span className="ag-count">{suppliers.length}</span>
+            </h1>
+            <p className="ag-subtitle">Factories, their capacity and compliance. Shared with the CSR module.</p>
+          </div>
+          <div className="ag-actions">
+            <button type="button" className="ag-btn ghost" onClick={() => fetchSuppliers({ quiet: true })} disabled={refreshing}>
+              <FiRefreshCw className={refreshing ? "ag-spin" : ""} /> Refresh
+            </button>
+            <button type="button" className="ag-btn ghost" onClick={exportCSV} disabled={filtered.length === 0}>
+              <FiDownload /> Export CSV
+            </button>
+            <button type="button" className="ag-btn primary" onClick={() => navigate("/add-supplier")}>
+              <FiPlus /> New Supplier
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Suppliers Table with Scrollbar */}
-        <div
-          style={{
-            background: "white",
-            borderRadius: "1rem",
-            overflow: "hidden",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            display: "flex",
-            flexDirection: "column",
-            maxHeight: "calc(100vh - 380px)", // Adjust height to fit viewport
-          }}
-        >
-          <div style={{ 
-            overflowX: "auto", 
-            overflowY: "auto",
-            flex: 1,
-            scrollbarWidth: "thin",
-            scrollbarColor: "#cbd5e1 #f1f5f9",
-          }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
-              <thead style={{ position: "sticky", top: 0, background: "white", zIndex: 10 }}>
-                <tr style={{ background: "#f9fafb", borderBottom: "2px solid #e5e7eb" }}>
-                  {[
-                    { label: "Vendor ID", icon: Building2 },
-                    { label: "Supplier Name", icon: Package },
-                    { label: "Location", icon: MapPin },
-                    { label: "Email", icon: Mail },
-                    { label: "Category", icon: Package },
-                    { label: "Status", icon: null },
-                    { label: "Actions", icon: null },
-                  ].map((head, idx) => (
-                    <th
-                      key={idx}
-                      style={{
-                        textAlign: "left",
-                        padding: "1rem",
-                        fontSize: "0.75rem",
-                        fontWeight: "700",
-                        color: "#4b5563",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        background: "#f9fafb",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        {head.icon && <head.icon size={14} />}
-                        {head.label}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: "center", padding: "3rem" }}>
-                      <div style={{ display: "inline-block" }}>
-                        <div
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            border: "3px solid #e5e7eb",
-                            borderTopColor: "#3b82f6",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite",
-                            margin: "0 auto 1rem",
-                          }}
-                        />
-                        <p style={{ color: "#6b7280" }}>Loading suppliers...</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredSuppliers.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: "center", padding: "3rem" }}>
-                      <div style={{ textAlign: "center" }}>
-                        <Package size={48} style={{ color: "#d1d5db", marginBottom: "1rem" }} />
-                        <p style={{ color: "#6b7280", fontSize: "1rem", fontWeight: "500" }}>
-                          {suppliers.length === 0 
-                            ? "No suppliers found. The API might be returning empty data." 
-                            : "No suppliers match your search"}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredSuppliers.map((supplier, idx) => {
-                    const status = getEffectiveStatus(supplier);
-                    const statusStyle = statusStyles[status] || statusStyles.cancelled;
-                    const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+        <div className="ag-body" style={{ maxWidth: 1600 }}>
+          {notice && (
+            <div className={`ag-alert ${notice.ok ? "ok" : "err"}`}>
+              {notice.ok ? <FiCheck /> : <FiAlertTriangle />}
+              <span>{notice.msg}</span>
+              <button type="button" className="ag-icon-btn" onClick={() => setNotice(null)} title="Dismiss">
+                <FiX />
+              </button>
+            </div>
+          )}
 
-                    return (
-                      <tr
-                        key={supplier.id}
-                        style={{
-                          borderBottom: "1px solid #f3f4f6",
-                          transition: "background 0.3s ease",
-                          cursor: "pointer",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#f9fafb";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <td style={{ padding: "1rem" }}>
-                          <span
-                            style={{
-                              fontFamily: "monospace",
-                              fontWeight: "600",
-                              color: "#4b5563",
-                            }}
-                          >
-                            {supplier.supplier_id || supplier.vendor_id || "N/A"}
-                          </span>
-                        </td>
-                        <td
-                          style={{
-                            padding: "1rem",
-                            fontWeight: "600",
-                            color: "#3b82f6",
-                          }}
-                        >
-                          <div
-                            onClick={() => navigate(`/suppliers/${supplier.id}`)}
-                            style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
-                          >
-                            {supplier.supplier_name || supplier.name || "Unnamed Supplier"}
-                            <ChevronRight size={14} />
-                          </div>
-                        </td>
-                        <td style={{ padding: "1rem", color: "#6b7280" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <MapPin size={14} />
-                            {supplier.location || "—"}
-                          </div>
-                        </td>
-                        <td style={{ padding: "1rem", color: "#6b7280" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <Mail size={14} />
-                            <span style={{ fontSize: "0.875rem" }}>
-                              {supplier.email || "—"}
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{ padding: "1rem", color: "#6b7280" }}>
-                          <span
-                            style={{
-                              background: "#f3f4f6",
-                              padding: "0.25rem 0.5rem",
-                              borderRadius: "0.375rem",
-                              fontSize: "0.75rem",
-                              fontWeight: "500",
-                            }}
-                          >
-                            {supplier.supplier_category || supplier.vendor_type || "—"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "1rem" }}>
-                          <span
-                            style={{
-                              padding: "0.375rem 0.75rem",
-                              borderRadius: "9999px",
-                              fontSize: "0.75rem",
-                              fontWeight: "600",
-                              background: statusStyle.bg,
-                              color: statusStyle.text,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "0.375rem",
-                            }}
-                          >
-                            <span>{statusStyle.icon}</span>
-                            {statusLabel}
-                          </span>
-                        </td>
-                        <td style={{ padding: "1rem" }}>
-                          <div style={{ display: "flex", gap: "0.5rem" }}>
-                            <button
-                              onClick={() => navigate(`/edit/suppliers/${supplier.id}`)}
-                              style={{
-                                padding: "0.5rem",
-                                color: "#3b82f6",
-                                background: "#eff6ff",
-                                border: "none",
-                                borderRadius: "0.5rem",
-                                cursor: "pointer",
-                                transition: "all 0.3s ease",
-                                display: "inline-flex",
-                                alignItems: "center",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#dbeafe";
-                                e.currentTarget.style.transform = "scale(1.05)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "#eff6ff";
-                                e.currentTarget.style.transform = "scale(1)";
-                              }}
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(supplier.id)}
-                              style={{
-                                padding: "0.5rem",
-                                color: "#dc2626",
-                                background: "#fee2e2",
-                                border: "none",
-                                borderRadius: "0.5rem",
-                                cursor: "pointer",
-                                transition: "all 0.3s ease",
-                                display: "inline-flex",
-                                alignItems: "center",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "#fecaca";
-                                e.currentTarget.style.transform = "scale(1.05)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "#fee2e2";
-                                e.currentTarget.style.transform = "scale(1)";
-                              }}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+          <div className="ag-kpis">
+            {kpis.map((k) => (
+              <button
+                key={k.key}
+                type="button"
+                className={`ag-kpi btn ${compliance === k.key && k.key !== "all" ? "on" : ""}`}
+                onClick={() => setCompliance(k.key === "all" || compliance === k.key ? "all" : k.key)}
+              >
+                <span className={`ag-kpi-icon ${k.tone}`}>{k.icon}</span>
+                <span>
+                  <span className="ag-kpi-value">{loading ? "–" : k.value}</span>
+                  <span className="ag-kpi-label">{k.label}</span>
+                </span>
+              </button>
+            ))}
           </div>
-        </div>
 
-        {/* Custom Scrollbar Styles */}
-        <style>
-          {`
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-            
-            /* Custom scrollbar for webkit browsers */
-            .supplier-table-container::-webkit-scrollbar {
-              width: 8px;
-              height: 8px;
-            }
-            
-            .supplier-table-container::-webkit-scrollbar-track {
-              background: #f1f5f9;
-              border-radius: 10px;
-            }
-            
-            .supplier-table-container::-webkit-scrollbar-thumb {
-              background: #cbd5e1;
-              border-radius: 10px;
-            }
-            
-            .supplier-table-container::-webkit-scrollbar-thumb:hover {
-              background: #94a3b8;
-            }
-            
-            /* Smooth scrolling */
-            div {
-              scroll-behavior: smooth;
-            }
-          `}
-        </style>
+          <section className="ag-card">
+            <div className="ag-toolbar">
+              <div className="ag-search">
+                <FiSearch />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search name, ID, location, items, contact…"
+                />
+                {searchTerm && (
+                  <button type="button" className="clear" onClick={() => setSearchTerm("")} title="Clear">
+                    <FiX />
+                  </button>
+                )}
+              </div>
+              <select className="ag-select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
+                <option value="all">All categories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <select className="ag-select" value={compliance} onChange={(e) => setCompliance(e.target.value)} aria-label="Compliance">
+                <option value="all">Any compliance</option>
+                <option value="compliant">Compliant</option>
+                <option value="under_review">Under review</option>
+                <option value="non_compliant">Non-compliant</option>
+              </select>
+              <span className="ag-spacer" />
+              <span className="ag-note">
+                {filtered.length} of {suppliers.length}
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="ag-loading">
+                <div className="ag-spinner" />
+                Loading suppliers…
+              </div>
+            ) : error ? (
+              <div className="ag-state">
+                <div className="ag-state-icon">
+                  <FiAlertTriangle />
+                </div>
+                <h3>Couldn't load suppliers</h3>
+                <p>{error}</p>
+                <button type="button" className="ag-btn ghost" onClick={() => fetchSuppliers()}>
+                  <FiRefreshCw /> Retry
+                </button>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="ag-state">
+                <div className="ag-state-icon">
+                  <FiTruck />
+                </div>
+                <h3>{suppliers.length === 0 ? "No suppliers yet" : "No suppliers match"}</h3>
+                <p>{suppliers.length === 0 ? "Add your first supplier." : "Try a different search or filter."}</p>
+              </div>
+            ) : (
+              <>
+                <div className="ag-table-wrap">
+                  <table className="ag-table">
+                    <thead>
+                      <tr>
+                        <SortTh k="name">Supplier</SortTh>
+                        <th>Category</th>
+                        <th>Location</th>
+                        <SortTh k="capacity" right>
+                          Capacity / month
+                        </SortTh>
+                        <SortTh k="lines" right>
+                          Lines
+                        </SortTh>
+                        <SortTh k="manpower" right>
+                          Manpower
+                        </SortTh>
+                        <th>Compliance</th>
+                        <th className="right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((s) => {
+                        const c = COMPLIANCE[complianceOf(s)];
+                        return (
+                          <tr key={s.id} onClick={() => navigate(`/suppliers/${s.id}`)}>
+                            <td>
+                              <div className="ag-person">
+                                <span className="ag-avatar">{initialsOf(s.supplier_name)}</span>
+                                <span style={{ minWidth: 0 }}>
+                                  <span className="ag-name">{s.supplier_name || "Unnamed supplier"}</span>
+                                  <span className="ag-sub">
+                                    {s.supplier_id ? `ID ${s.supplier_id}` : `#${s.id}`}
+                                    {s.email && (
+                                      <>
+                                        {" · "}
+                                        <FiMail size={10} style={{ verticalAlign: -1 }} /> {s.email}
+                                      </>
+                                    )}
+                                  </span>
+                                </span>
+                              </div>
+                            </td>
+                            <td>{s.supplier_category ? <span className="ag-chip blue">{s.supplier_category}</span> : <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                            <td>
+                              {s.location ? (
+                                <span className="ag-address" title={s.location} style={{ maxWidth: 260, display: "-webkit-box" }}>
+                                  <FiMapPin size={12} style={{ verticalAlign: -1, color: "#94a3b8", marginRight: 4 }} />
+                                  {s.location}
+                                </span>
+                              ) : (
+                                <span style={{ color: "#94a3b8" }}>—</span>
+                              )}
+                            </td>
+                            <td className="right" style={{ whiteSpace: "nowrap" }}>
+                              {s.capacity_per_month || <span style={{ color: "#94a3b8" }}>—</span>}
+                            </td>
+                            <td className="right">{s.number_of_sewing_line ?? <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                            <td className="right">
+                              {s.total_manpower ? Number(s.total_manpower).toLocaleString() : <span style={{ color: "#94a3b8" }}>—</span>}
+                            </td>
+                            <td>
+                              <span className={`ag-chip ${c.tone}`} style={c.style}>
+                                {c.icon} {c.label}
+                              </span>
+                            </td>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              <div className="ag-row-actions">
+                                <button type="button" className="ag-icon-btn" title="View" onClick={() => navigate(`/suppliers/${s.id}`)}>
+                                  <FiEye />
+                                </button>
+                                <button type="button" className="ag-icon-btn" title="Edit" onClick={() => navigate(`/edit/suppliers/${s.id}`)}>
+                                  <FiEdit2 />
+                                </button>
+                                <button type="button" className="ag-icon-btn danger" title="Delete" onClick={() => setDeleting(s)}>
+                                  <FiTrash2 />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="ag-pagination">
+                  <div className="ag-page-info">
+                    Showing <strong>{first + 1}</strong>–<strong>{Math.min(first + perPage, filtered.length)}</strong> of{" "}
+                    <strong>{filtered.length}</strong>
+                    <select value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} aria-label="Rows per page">
+                      {[10, 25, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {n} / page
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="ag-pages">
+                      <button type="button" className="ag-page" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)} title="Previous">
+                        <FiChevronLeft />
+                      </button>
+                      {pageNumbers().map((n) => (
+                        <button key={n} type="button" className={`ag-page ${n === currentPage ? "active" : ""}`} onClick={() => setCurrentPage(n)}>
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="ag-page"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        title="Next"
+                      >
+                        <FiChevronRight />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        </div>
       </div>
+
+      {deleting && (
+        <SupplierDeleteModal
+          supplier={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={(sup) => {
+            setDeleting(null);
+            setSuppliers((prev) => prev.filter((x) => x.id !== sup.id));
+            setNotice({ ok: true, msg: `Deleted ${sup.supplier_name}.` });
+          }}
+        />
+      )}
     </div>
   );
-};
-
-export default Supplier;
+}

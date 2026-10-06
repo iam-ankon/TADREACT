@@ -2,6 +2,26 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  FiShield,
+  FiRefreshCw,
+  FiCalendar,
+  FiPlus,
+  FiClock,
+  FiInfo,
+  FiBell,
+  FiAlertTriangle,
+  FiCheckCircle,
+  FiBriefcase,
+  FiBarChart2,
+  FiAward,
+  FiUserPlus,
+  FiFileText,
+  FiZap,
+  FiArrowRight,
+  FiMapPin,
+} from "react-icons/fi";
+import { FaFire, FaLeaf, FaHardHat, FaBuilding } from "react-icons/fa";
+import {
   getSuppliers,
   getDashboardExpirySummary,
   sendBulkReminders,
@@ -545,7 +565,7 @@ const SupplierDashboardCSR = () => {
       {/* Header */}
       <div className="dashboard-header">
         <div className="header-left">
-          <div className="header-icon">🏭</div>
+          <div className="header-icon"><FiShield /></div>
           <div>
             <h1>CSR Compliance Dashboard</h1>
             <p>
@@ -571,24 +591,24 @@ const SupplierDashboardCSR = () => {
             onClick={fetchDashboardData}
             disabled={loading}
           >
-            🔄 Refresh
+            <FiRefreshCw className={loading ? "spin" : ""} /> Refresh
           </button>
           <button
             className="btn-recalc"
             onClick={handleRecalculateDays}
             disabled={recalculating}
           >
-            {recalculating ? "⏳..." : "📅 Recalc Days"}
+            <FiCalendar /> {recalculating ? "Recalculating…" : "Recalc Days"}
           </button>
           <Link to="/add-supplierCSR" className="btn-add">
-            ➕ Add Supplier
+            <FiPlus /> Add Supplier
           </Link>
         </div>
       </div>
 
       {/* Last Updated */}
       <div className="last-updated">
-        <span>📡 Last updated: {lastUpdated.toLocaleTimeString()}</span>
+        <span><FiClock /> Last updated: {lastUpdated.toLocaleTimeString()}</span>
         {autoRefresh && (
           <span className="auto-refresh-badge">Auto-refresh active</span>
         )}
@@ -596,7 +616,7 @@ const SupplierDashboardCSR = () => {
 
       {/* Info Box - Explain Compliance Calculation */}
       <div className="info-box">
-        <span>ℹ️</span>
+        <span className="info-icon"><FiInfo /></span>
         <div>
           <strong>How Compliance is Calculated:</strong> Suppliers are
           automatically marked as:
@@ -612,7 +632,7 @@ const SupplierDashboardCSR = () => {
       {/* Expiry Alert Banner - Show when there are expiring items */}
       {expirySummary.total_expiring > 0 && (
         <div className="expiry-alert-banner">
-          <div className="banner-icon">🔔</div>
+          <div className="banner-icon"><FiBell /></div>
           <div className="banner-content">
             <div className="banner-title">
               {expirySummary.total_expiring} document(s) expiring soon!
@@ -630,7 +650,7 @@ const SupplierDashboardCSR = () => {
       {/* Error Alert */}
       {error && (
         <div className="alert-error">
-          <span>⚠️</span>
+          <FiAlertTriangle />
           <p>{error}</p>
           <button onClick={fetchDashboardData}>Try Again</button>
         </div>
@@ -645,7 +665,7 @@ const SupplierDashboardCSR = () => {
           tabIndex={0}
           onKeyPress={(e) => e.key === "Enter" && navigate("/suppliersCSR")}
         >
-          <div className="stat-icon">🏢</div>
+          <div className="stat-icon"><FiBriefcase /></div>
           <div className="stat-info">
             <h3>{stats.totalSuppliers.toLocaleString()}</h3>
             <p>Total Suppliers</p>
@@ -662,7 +682,7 @@ const SupplierDashboardCSR = () => {
             e.key === "Enter" && navigate("/suppliersCSR?status=compliant")
           }
         >
-          <div className="stat-icon">✅</div>
+          <div className="stat-icon"><FiCheckCircle /></div>
           <div className="stat-info">
             <h3>{stats.compliantSuppliers.toLocaleString()}</h3>
             <p>
@@ -681,7 +701,7 @@ const SupplierDashboardCSR = () => {
             e.key === "Enter" && navigate("/suppliersCSR?status=non_compliant")
           }
         >
-          <div className="stat-icon">⚠️</div>
+          <div className="stat-icon"><FiAlertTriangle /></div>
           <div className="stat-info">
             <h3>{stats.nonCompliantSuppliers.toLocaleString()}</h3>
             <p>Non-Compliant</p>
@@ -700,7 +720,7 @@ const SupplierDashboardCSR = () => {
             e.key === "Enter" && navigate("/suppliersCSR?status=under_review")
           }
         >
-          <div className="stat-icon">⏳</div>
+          <div className="stat-icon"><FiClock /></div>
           <div className="stat-info">
             <h3>{stats.underReview.toLocaleString()}</h3>
             <p>Under Review</p>
@@ -712,22 +732,22 @@ const SupplierDashboardCSR = () => {
       {/* Expiry Days Grid - Show cards for each notification day */}
       {expirySummary.total_expiring > 0 && (
         <div className="expiry-days-section">
-          <h3 className="section-title">📅 Documents Expiring Soon</h3>
+          <h3 className="section-title"><FiCalendar /> Documents Expiring Soon</h3>
           <div className="expiry-days-grid">
             {NOTIFICATION_DAYS.map((day) => {
               const dayData = expirySummary.byDay[day];
               const count = dayData?.count || 0;
 
               // Determine color based on days
-              let bgColor = "#3b82f6";
-              if (day <= 30) bgColor = "#ef4444";
-              else if (day <= 60) bgColor = "#f59e0b";
+              let bgColor = "#2563eb";
+              if (day <= 30) bgColor = "#dc2626";
+              else if (day <= 60) bgColor = "#d97706";
 
               return (
-                <div key={day} className="expiry-day-card">
+                <div key={day} className="expiry-day-card" style={{ borderTopColor: bgColor }}>
                   <div
                     className="expiry-day-header"
-                    style={{ backgroundColor: bgColor }}
+                    style={{ color: bgColor, backgroundColor: `${bgColor}0f` }}
                   >
                     <span className="day-number">{day}</span>
                     <span className="day-label">Days Remaining</span>
@@ -770,7 +790,7 @@ const SupplierDashboardCSR = () => {
           {/* Compliance Score Card */}
           <div className="card">
             <div className="card-header">
-              <h3>📊 Overall Compliance Rate</h3>
+              <h3><span className="title-icon"><FiBarChart2 /></span>Overall Compliance Rate</h3>
               <span className="score-value">{calculateComplianceRate()}%</span>
             </div>
             <div className="progress-large">
@@ -813,14 +833,14 @@ const SupplierDashboardCSR = () => {
           {/* Compliance by Category */}
           <div className="card">
             <div className="card-header">
-              <h3>📊 Compliance by Category</h3>
+              <h3><span className="title-icon"><FiShield /></span>Compliance by Category</h3>
             </div>
             <div className="compliance-list">
               {[
                 {
                   key: "fireSafety",
                   label: "Fire Safety",
-                  icon: "🔥",
+                  icon: <FaFire />,
                   color: "#ef4444",
                   desc: "Training & drill records",
                   filter: "fire_safety",
@@ -828,7 +848,7 @@ const SupplierDashboardCSR = () => {
                 {
                   key: "environmental",
                   label: "Environmental",
-                  icon: "🌱",
+                  icon: <FaLeaf />,
                   color: "#10b981",
                   desc: "Water test reports",
                   filter: "environmental",
@@ -836,7 +856,7 @@ const SupplierDashboardCSR = () => {
                 {
                   key: "labor",
                   label: "Labor Standards",
-                  icon: "👷",
+                  icon: <FaHardHat />,
                   color: "#f59e0b",
                   desc: "Wages & festival bonus",
                   filter: "labor",
@@ -844,7 +864,7 @@ const SupplierDashboardCSR = () => {
                 {
                   key: "structural",
                   label: "Structural Safety",
-                  icon: "🏗️",
+                  icon: <FaBuilding />,
                   color: "#3b82f6",
                   desc: "RSC audit ≥80%",
                   filter: "structural",
@@ -900,7 +920,7 @@ const SupplierDashboardCSR = () => {
           {/* Certifications */}
           <div className="card">
             <div className="card-header">
-              <h3>🏅 Valid Certifications</h3>
+              <h3><span className="title-icon"><FiAward /></span>Valid Certifications</h3>
               <Link to="/suppliersCSR?tab=certifications" className="link">
                 View All →
               </Link>
@@ -974,7 +994,7 @@ const SupplierDashboardCSR = () => {
           {/* Recent Suppliers */}
           <div className="card">
             <div className="card-header">
-              <h3>🆕 Recently Added</h3>
+              <h3><span className="title-icon"><FiUserPlus /></span>Recently Added</h3>
               <Link to="/suppliersCSR" className="link">
                 View All →
               </Link>
@@ -1001,15 +1021,14 @@ const SupplierDashboardCSR = () => {
                         <strong>{supplier.name}</strong>
                         <span
                           className="status-badge"
-                          style={{ backgroundColor: status.bg }}
+                          style={{ backgroundColor: `${status.bg}1a`, color: status.bg }}
                         >
-                          {status.icon}{" "}
                           {supplier.compliance_status?.replace(/_/g, " ")}
                         </span>
                       </div>
                       <div className="supplier-meta">
                         <span>ID: {supplier.supplier_id}</span>
-                        <span>📍 {supplier.location?.substring(0, 20)}</span>
+                        <span><FiMapPin /> {supplier.location?.substring(0, 20)}</span>
                       </div>
                       {supplier.compliance_reason && (
                         <div className="compliance-reason">
@@ -1040,7 +1059,7 @@ const SupplierDashboardCSR = () => {
           {nonCompliantList.length > 0 && (
             <div className="card noncompliant-card">
               <div className="card-header">
-                <h3>⚠️ Non-Compliant Suppliers</h3>
+                <h3><span className="title-icon danger"><FiAlertTriangle /></span>Non-Compliant Suppliers</h3>
                 <span className="badge-danger">
                   {nonCompliantList.length} suppliers
                 </span>
@@ -1084,7 +1103,7 @@ const SupplierDashboardCSR = () => {
                 onClick={() => navigate("/suppliersCSR?status=non_compliant")}
                 className="view-all-btn"
               >
-                View All Non-Compliant →
+                View All Non-Compliant <FiArrowRight />
               </button>
             </div>
           )}
@@ -1092,7 +1111,7 @@ const SupplierDashboardCSR = () => {
           {/* Licenses Expiring Soon */}
           <div className="card">
             <div className="card-header">
-              <h3>📋 Licenses Expiring Soon</h3>
+              <h3><span className="title-icon warning"><FiFileText /></span>Licenses Expiring Soon</h3>
             </div>
             <div className="license-list">
               {Object.entries(licenseExpiring).map(
@@ -1101,11 +1120,7 @@ const SupplierDashboardCSR = () => {
                     <div key={key} className="license-item">
                       <div className="license-header">
                         <span className="license-icon">
-                          {key === "trade_license" && "📋"}
-                          {key === "factory_license" && "🏭"}
-                          {key === "fire_license" && "🚒"}
-                          {key === "membership" && "📜"}
-                          {key === "group_insurance" && "🛡️"}
+                          <FiFileText />
                         </span>
                         <span className="license-name">
                           {key.replace("_", " ").toUpperCase()}
@@ -1139,7 +1154,7 @@ const SupplierDashboardCSR = () => {
               )}
               {Object.values(licenseExpiring).every((d) => d.count === 0) && (
                 <div className="empty-licenses">
-                  ✅ All licenses are current
+                  <FiCheckCircle /> All licenses are current
                 </div>
               )}
             </div>
@@ -1148,65 +1163,91 @@ const SupplierDashboardCSR = () => {
           {/* Quick Actions */}
           <div className="card">
             <div className="card-header">
-              <h3>⚡ Quick Actions</h3>
+              <h3><span className="title-icon"><FiZap /></span>Quick Actions</h3>
             </div>
             <div className="actions-grid">
               <button
                 onClick={() => navigate("/suppliersCSR?status=non_compliant")}
                 className="action-btn danger"
               >
-                <span>⚠️</span> Non-Compliant ({stats.nonCompliantSuppliers})
+                <FiAlertTriangle /> Non-Compliant ({stats.nonCompliantSuppliers})
               </button>
               <button
                 onClick={() => navigate("/suppliersCSR?status=under_review")}
                 className="action-btn warning"
               >
-                <span>⏳</span> Under Review ({stats.underReview})
+                <FiClock /> Under Review ({stats.underReview})
               </button>
               <button
                 onClick={() => navigate("/suppliersCSR?filter=expiring")}
                 className="action-btn info"
               >
-                <span>🔔</span> Expiring ({expirySummary.total_expiring})
+                <FiBell /> Expiring ({expirySummary.total_expiring})
               </button>
               <Link to="/add-supplierCSR" className="action-btn primary">
-                <span>➕</span> Add Supplier
+                <FiPlus /> Add Supplier
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .csr-dashboard {
+          --c-bg: #f3f5f9;
+          --c-surface: #ffffff;
+          --c-soft: #f8fafc;
+          --c-border: #e3e8ef;
+          --c-border-strong: #cfd7e2;
+          --c-text: #0f172a;
+          --c-text2: #334155;
+          --c-muted: #64748b;
+          --c-faint: #94a3b8;
+          --c-primary: #2563eb;
+          --c-primary-soft: #eff6ff;
+          --c-success: #059669;
+          --c-success-soft: #ecfdf5;
+          --c-warning: #d97706;
+          --c-warning-soft: #fffbeb;
+          --c-danger: #dc2626;
+          --c-danger-soft: #fef2f2;
           margin: 0 auto;
-          padding: 34px;
-          background: linear-gradient(135deg, #f5f7fa 0%, #eef2f6 100%);
+          padding: 22px 28px 32px 28px;
+          background: var(--c-bg);
           min-height: 100vh;
-          font-family:
-            "Inter",
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            Roboto,
-            sans-serif;
+          color: var(--c-text);
+          font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+          font-size: 14px;
+        }
+        .csr-dashboard svg {
+          flex-shrink: 0;
+        }
+        .spin {
+          animation: spin 0.9s linear infinite;
         }
 
         /* Clickable styles */
         .clickable {
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
         }
         .clickable:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.15);
+          border-color: var(--c-border-strong);
+          box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.2);
+        }
+        .clickable:focus-visible,
+        .clickable-item:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
         }
         .clickable-item {
           cursor: pointer;
-          transition: opacity 0.2s ease;
+          transition: background 0.15s;
+          border-radius: 8px;
         }
         .clickable-item:hover {
-          opacity: 0.8;
+          background: var(--c-soft);
         }
 
         /* Header */
@@ -1215,31 +1256,42 @@ const SupplierDashboardCSR = () => {
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
-          gap: 20px;
-          margin-bottom: 20px;
+          gap: 16px;
+          padding-bottom: 16px;
+          margin-bottom: 14px;
+          border-bottom: 1px solid var(--c-border);
         }
         .header-left {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
         }
         .header-icon {
-          font-size: 48px;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: grid;
+          place-items: center;
+          font-size: 20px;
+          color: #fff;
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          box-shadow: 0 6px 14px rgba(37, 99, 235, 0.28);
         }
         .header-left h1 {
-          font-size: 28px;
-          font-weight: 700;
-          color: #1f2937;
-          margin: 0 0 4px 0;
+          font-size: 22px;
+          font-weight: 800;
+          color: var(--c-text);
+          margin: 0 0 2px 0;
+          letter-spacing: -0.02em;
         }
         .header-left p {
-          font-size: 14px;
-          color: #6b7280;
+          font-size: 13px;
+          color: var(--c-muted);
           margin: 0;
         }
         .header-right {
           display: flex;
-          gap: 12px;
+          gap: 10px;
           align-items: center;
           flex-wrap: wrap;
         }
@@ -1247,14 +1299,20 @@ const SupplierDashboardCSR = () => {
           display: flex;
           align-items: center;
           gap: 8px;
+          height: 38px;
+          padding: 0 12px;
+          border: 1px solid var(--c-border);
+          border-radius: 10px;
+          background: var(--c-surface);
           font-size: 13px;
-          color: #6b7280;
+          font-weight: 500;
+          color: var(--c-text2);
         }
         .toggle-switch {
           position: relative;
           display: inline-block;
-          width: 44px;
-          height: 24px;
+          width: 36px;
+          height: 20px;
         }
         .toggle-switch input {
           opacity: 0;
@@ -1264,185 +1322,242 @@ const SupplierDashboardCSR = () => {
         .toggle-slider {
           position: absolute;
           cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: #ccc;
-          transition: 0.3s;
-          border-radius: 24px;
+          inset: 0;
+          background-color: #cbd5e1;
+          transition: 0.2s;
+          border-radius: 20px;
         }
         .toggle-slider:before {
           position: absolute;
           content: "";
-          height: 18px;
-          width: 18px;
+          height: 14px;
+          width: 14px;
           left: 3px;
           bottom: 3px;
           background-color: white;
-          transition: 0.3s;
+          transition: 0.2s;
           border-radius: 50%;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
         }
         input:checked + .toggle-slider {
-          background-color: #3b82f6;
+          background-color: var(--c-primary);
         }
         input:checked + .toggle-slider:before {
-          transform: translateX(20px);
+          transform: translateX(16px);
         }
         .btn-refresh,
         .btn-recalc,
         .btn-add {
-          padding: 8px 16px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          height: 38px;
+          padding: 0 16px;
           border-radius: 10px;
-          font-size: 13px;
-          font-weight: 500;
+          font-size: 13.5px;
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
-          border: none;
-        }
-        .btn-refresh {
-          background: white;
-          border: 1px solid #e5e7eb;
-          color: #374151;
-        }
-        .btn-refresh:hover {
-          background: #f9fafb;
-        }
-        .btn-recalc {
-          background: #fef3c7;
-          color: #92400e;
-        }
-        .btn-recalc:hover {
-          background: #fde68a;
-        }
-        .btn-add {
-          background: #3b82f6;
-          color: white;
+          transition: all 0.15s;
+          border: 1px solid transparent;
+          font-family: inherit;
           text-decoration: none;
         }
+        .btn-refresh:disabled,
+        .btn-recalc:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .btn-refresh {
+          background: var(--c-surface);
+          border-color: var(--c-border-strong);
+          color: var(--c-text2);
+        }
+        .btn-refresh:hover:not(:disabled) {
+          background: var(--c-soft);
+        }
+        .btn-recalc {
+          background: var(--c-warning-soft);
+          border-color: #fde68a;
+          color: #92400e;
+        }
+        .btn-recalc:hover:not(:disabled) {
+          background: #fef3c7;
+        }
+        .btn-add {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+        }
         .btn-add:hover {
-          background: #2563eb;
+          color: white;
+          filter: brightness(1.05);
         }
         .last-updated {
           display: flex;
           align-items: center;
-          gap: 12px;
-          margin-bottom: 20px;
-          font-size: 12px;
-          color: #6b7280;
+          gap: 10px;
+          margin-bottom: 14px;
+          font-size: 12.5px;
+          color: var(--c-muted);
+        }
+        .last-updated span:first-child {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
         }
         .auto-refresh-badge {
-          background: #dbeafe;
+          background: var(--c-primary-soft);
           color: #1e40af;
-          padding: 4px 8px;
-          border-radius: 20px;
-          font-size: 11px;
+          padding: 3px 9px;
+          border-radius: 999px;
+          font-size: 11.5px;
+          font-weight: 600;
         }
 
         /* Info Box */
         .info-box {
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
+          background: var(--c-surface);
+          border: 1px solid var(--c-border);
+          border-left: 3px solid var(--c-primary);
           border-radius: 12px;
           padding: 12px 16px;
           display: flex;
           align-items: center;
           gap: 12px;
-          margin-bottom: 20px;
+          margin-bottom: 16px;
           font-size: 13px;
+          color: var(--c-text2);
+          line-height: 1.55;
+        }
+        .info-icon {
+          width: 30px;
+          height: 30px;
+          border-radius: 9px;
+          display: grid;
+          place-items: center;
+          background: var(--c-primary-soft);
+          color: var(--c-primary);
+          flex-shrink: 0;
         }
         .compliant-text {
-          color: #10b981;
-          margin-left: 8px;
+          color: var(--c-success);
+          margin-left: 6px;
         }
         .review-text {
-          color: #f59e0b;
-          margin-left: 8px;
+          color: var(--c-warning);
+          margin-left: 6px;
         }
         .noncompliant-text {
-          color: #ef4444;
-          margin-left: 8px;
+          color: var(--c-danger);
+          margin-left: 6px;
         }
 
         /* Expiry Alert Banner */
         .expiry-alert-banner {
-          background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+          background: var(--c-warning-soft);
           border: 1px solid #fde68a;
-          border-radius: 16px;
-          padding: 16px 24px;
-          margin-bottom: 24px;
+          border-radius: 12px;
+          padding: 12px 16px;
+          margin-bottom: 18px;
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
           flex-wrap: wrap;
         }
         .banner-icon {
-          font-size: 28px;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          display: grid;
+          place-items: center;
+          font-size: 17px;
+          background: #fef3c7;
+          color: var(--c-warning);
         }
         .banner-content {
           flex: 1;
         }
         .banner-title {
           font-weight: 700;
-          font-size: 15px;
+          font-size: 14.5px;
           color: #92400e;
         }
         .banner-subtitle {
-          font-size: 12px;
+          font-size: 12.5px;
           color: #b45309;
-          margin-top: 4px;
+          margin-top: 2px;
         }
         .banner-link {
-          color: #d97706;
+          display: inline-flex;
+          align-items: center;
+          height: 34px;
+          padding: 0 14px;
+          border-radius: 9px;
+          background: var(--c-surface);
+          border: 1px solid #fde68a;
+          color: #b45309;
           text-decoration: none;
-          font-weight: 500;
+          font-weight: 600;
           font-size: 13px;
         }
 
         /* Expiry Days Section */
         .expiry-days-section {
-          margin-bottom: 24px;
+          margin-bottom: 18px;
         }
         .section-title {
-          font-size: 18px;
-          font-weight: 600;
-          color: #1f2937;
-          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.07em;
+          color: var(--c-muted);
+          margin: 0 0 10px;
         }
         .expiry-days-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 16px;
+          gap: 14px;
         }
         .expiry-day-card {
-          background: white;
-          border-radius: 16px;
+          background: var(--c-surface);
+          border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--c-border);
+          border-top: 3px solid var(--c-primary);
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
         }
         .expiry-day-header {
-          padding: 12px;
-          text-align: center;
-          color: white;
+          padding: 12px 14px;
+          display: grid;
+          grid-template-columns: auto 1fr;
+          grid-template-rows: auto auto;
+          column-gap: 10px;
+          align-items: center;
+          border-bottom: 1px solid var(--c-border);
         }
         .day-number {
-          font-size: 24px;
-          font-weight: 700;
-          display: block;
+          grid-row: 1 / span 2;
+          font-size: 26px;
+          font-weight: 800;
+          line-height: 1;
+          letter-spacing: -0.02em;
         }
         .day-label {
-          font-size: 11px;
-          opacity: 0.9;
+          font-size: 11.5px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
         .day-count {
           font-size: 12px;
-          display: block;
-          margin-top: 6px;
-          font-weight: 500;
+          font-weight: 600;
+          color: var(--c-text2);
         }
         .expiry-day-items {
-          padding: 12px;
+          padding: 6px 8px 10px;
           max-height: 200px;
           overflow-y: auto;
         }
@@ -1450,57 +1565,66 @@ const SupplierDashboardCSR = () => {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-size: 12px;
-          padding: 6px 0;
-          border-bottom: 1px solid #f3f4f6;
+          font-size: 12.5px;
+          padding: 7px 6px;
+          border-bottom: 1px solid #f1f5f9;
           cursor: pointer;
         }
         .expiry-item:hover {
-          background: #f9fafb;
+          background: var(--c-soft);
         }
         .item-name {
-          font-weight: 500;
+          font-weight: 600;
           flex: 1;
+          color: var(--c-text);
         }
         .supplier-name {
-          color: #9ca3af;
-          font-size: 10px;
-          max-width: 80px;
+          color: var(--c-faint);
+          font-size: 11px;
+          max-width: 90px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .more-items {
           text-align: center;
-          font-size: 11px;
-          color: #3b82f6;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--c-primary);
           margin-top: 8px;
           cursor: pointer;
         }
         .empty-item {
           text-align: center;
-          font-size: 11px;
-          color: #9ca3af;
+          font-size: 12px;
+          color: var(--c-faint);
           padding: 12px;
         }
 
         /* Alert Error */
         .alert-error {
-          background: #fef2f2;
+          background: var(--c-danger-soft);
           border: 1px solid #fecaca;
+          color: #991b1b;
           border-radius: 12px;
-          padding: 12px 16px;
+          padding: 10px 14px;
           display: flex;
           align-items: center;
           gap: 12px;
-          margin-bottom: 20px;
+          margin-bottom: 16px;
+        }
+        .alert-error p {
+          margin: 0;
+          flex: 1;
         }
         .alert-error button {
-          background: #dc2626;
-          color: white;
-          border: none;
-          padding: 4px 12px;
-          border-radius: 6px;
+          background: var(--c-surface);
+          color: var(--c-danger);
+          border: 1px solid #fecaca;
+          height: 32px;
+          padding: 0 12px;
+          border-radius: 8px;
+          font-weight: 600;
           cursor: pointer;
         }
 
@@ -1508,182 +1632,268 @@ const SupplierDashboardCSR = () => {
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 20px;
-          margin-bottom: 20px;
+          gap: 14px;
+          margin-bottom: 18px;
         }
         .stat-card {
-          background: white;
-          border-radius: 20px;
-          padding: 20px;
+          position: relative;
+          background: var(--c-surface);
+          border-radius: 14px;
+          padding: 18px 20px;
           display: flex;
           align-items: center;
-          gap: 16px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          border: 1px solid #e5e7eb;
+          gap: 14px;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.03);
+          border: 1px solid var(--c-border);
+          overflow: hidden;
+          --accent: var(--c-primary);
         }
+        .stat-card::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 16px;
+          bottom: 16px;
+          width: 3px;
+          border-radius: 0 3px 3px 0;
+          background: var(--accent);
+        }
+        .stat-card.success { --accent: var(--c-success); }
+        .stat-card.danger { --accent: var(--c-danger); }
+        .stat-card.warning { --accent: var(--c-warning); }
         .stat-icon {
-          font-size: 32px;
+          width: 46px;
+          height: 46px;
+          border-radius: 12px;
+          display: grid;
+          place-items: center;
+          font-size: 20px;
+          color: var(--accent);
+          background: color-mix(in srgb, var(--accent) 10%, white);
+          flex-shrink: 0;
         }
         .stat-info h3 {
-          font-size: 28px;
-          font-weight: 700;
+          font-size: 26px;
+          font-weight: 800;
           margin: 0;
-          color: #1f2937;
+          color: var(--c-text);
+          letter-spacing: -0.02em;
+          font-variant-numeric: tabular-nums;
+          line-height: 1.1;
         }
         .stat-info p {
-          font-size: 13px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
           margin: 4px 0 0;
-          color: #6b7280;
+          color: var(--c-muted);
         }
         .stat-info small {
-          font-size: 10px;
-          color: #9ca3af;
+          font-size: 11.5px;
+          color: var(--c-faint);
           display: block;
-          margin-top: 4px;
+          margin-top: 3px;
         }
         .stat-card.success .stat-info p span {
-          color: #10b981;
-          font-weight: 600;
+          color: var(--c-success);
+          margin-left: 4px;
         }
         .stat-card.danger .stat-info p {
-          color: #ef4444;
+          color: var(--c-danger);
         }
         .stat-card.warning .stat-info p {
-          color: #f59e0b;
+          color: var(--c-warning);
         }
 
         /* Dashboard Grid */
         .dashboard-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 24px;
+          gap: 18px;
+          align-items: start;
         }
         .grid-col {
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          gap: 18px;
+          min-width: 0;
         }
 
         /* Cards */
         .card {
-          background: white;
-          border-radius: 20px;
-          padding: 24px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          border: 1px solid #e5e7eb;
+          background: var(--c-surface);
+          border-radius: 14px;
+          padding: 18px 20px 20px;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.03);
+          border: 1px solid var(--c-border);
         }
         .card-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
+          margin: -2px 0 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid var(--c-border);
           flex-wrap: wrap;
           gap: 8px;
         }
         .card-header h3 {
-          font-size: 16px;
-          font-weight: 600;
-          color: #1f2937;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 15px;
+          font-weight: 700;
+          color: var(--c-text);
           margin: 0;
+          letter-spacing: -0.01em;
+        }
+        .title-icon {
+          width: 30px;
+          height: 30px;
+          border-radius: 9px;
+          display: grid;
+          place-items: center;
+          font-size: 15px;
+          background: var(--c-primary-soft);
+          color: var(--c-primary);
+        }
+        .title-icon.danger {
+          background: var(--c-danger-soft);
+          color: var(--c-danger);
+        }
+        .title-icon.warning {
+          background: var(--c-warning-soft);
+          color: var(--c-warning);
         }
         .link {
-          color: #3b82f6;
+          color: var(--c-primary);
           text-decoration: none;
           font-size: 13px;
+          font-weight: 600;
         }
         .badge-danger {
-          background: #fee2e2;
-          color: #dc2626;
-          padding: 4px 10px;
-          border-radius: 20px;
+          background: var(--c-danger-soft);
+          color: var(--c-danger);
+          padding: 3px 10px;
+          border-radius: 999px;
           font-size: 12px;
-          font-weight: 600;
+          font-weight: 700;
+          border: 1px solid #fecaca;
         }
 
         /* Non-Compliant Card */
         .noncompliant-card {
-          background: linear-gradient(135deg, #fef2f2 0%, #fff 100%);
-          border-left: 4px solid #ef4444;
+          border-top: 3px solid var(--c-danger);
         }
         .noncompliant-list {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
         }
         .noncompliant-item {
-          padding: 12px;
-          background: white;
-          border-radius: 12px;
+          padding: 12px 14px;
+          background: var(--c-surface);
+          border-radius: 10px;
           cursor: pointer;
-          border: 1px solid #fee2e2;
+          border: 1px solid var(--c-border);
+          transition: border-color 0.15s, background 0.15s;
+        }
+        .noncompliant-item:hover {
+          border-color: #fecaca;
+          background: #fffafa;
         }
         .noncompliant-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 8px;
           margin-bottom: 8px;
         }
+        .noncompliant-header strong {
+          font-size: 13.5px;
+        }
         .reason-badge {
-          font-size: 11px;
-          background: #fef3c7;
-          color: #d97706;
+          font-size: 11.5px;
+          font-weight: 600;
+          background: var(--c-warning-soft);
+          color: #b45309;
           padding: 2px 8px;
-          border-radius: 12px;
+          border-radius: 999px;
+          border: 1px solid #fde68a;
         }
         .noncompliant-details {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 6px;
         }
         .expired-badge {
-          font-size: 10px;
-          padding: 2px 6px;
-          border-radius: 10px;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 999px;
+          text-transform: capitalize;
         }
         .expired-badge.expired {
-          background: #dc2626;
-          color: white;
+          background: var(--c-danger-soft);
+          color: var(--c-danger);
+          border: 1px solid #fecaca;
         }
         .expired-badge.critical {
-          background: #f97316;
-          color: white;
+          background: #fff7ed;
+          color: #c2410c;
+          border: 1px solid #fed7aa;
+        }
+        .view-more {
+          text-align: center;
+          font-size: 12.5px;
+          color: var(--c-muted);
         }
         .view-all-btn {
-          margin-top: 16px;
+          margin-top: 14px;
           width: 100%;
-          padding: 10px;
-          background: #f3f4f6;
-          border: none;
+          height: 38px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          background: var(--c-surface);
+          border: 1px solid var(--c-border-strong);
           border-radius: 10px;
           cursor: pointer;
           font-size: 13px;
-          font-weight: 500;
-          color: #374151;
+          font-weight: 600;
+          color: var(--c-text2);
+          font-family: inherit;
+        }
+        .view-all-btn:hover {
+          background: var(--c-soft);
         }
 
         /* Progress */
         .progress-large {
-          height: 8px;
-          background: #e5e7eb;
-          border-radius: 4px;
+          height: 10px;
+          background: #e2e8f0;
+          border-radius: 999px;
           overflow: hidden;
-          margin-bottom: 16px;
+          margin-bottom: 14px;
         }
         .progress-fill {
           height: 100%;
-          background: #3b82f6;
-          border-radius: 4px;
+          background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+          border-radius: 999px;
           transition: width 0.3s;
         }
         .score-value {
           font-size: 24px;
-          font-weight: 700;
-          color: #3b82f6;
+          font-weight: 800;
+          color: var(--c-primary);
+          letter-spacing: -0.02em;
         }
         .status-breakdown {
           display: flex;
           flex-wrap: wrap;
-          gap: 16px;
+          gap: 8px;
           margin-top: 8px;
         }
         .status-item {
@@ -1691,30 +1901,35 @@ const SupplierDashboardCSR = () => {
           align-items: center;
           gap: 8px;
           font-size: 13px;
+          font-weight: 500;
+          color: var(--c-text2);
+          padding: 6px 10px;
+          border: 1px solid var(--c-border);
         }
         .dot {
-          width: 10px;
-          height: 10px;
+          width: 9px;
+          height: 9px;
           border-radius: 50%;
         }
         .dot.compliant {
-          background: #10b981;
+          background: var(--c-success);
         }
         .dot.review {
-          background: #f59e0b;
+          background: var(--c-warning);
         }
         .dot.non-compliant {
-          background: #ef4444;
+          background: var(--c-danger);
         }
 
         /* Compliance List */
         .compliance-list {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 8px;
         }
         .compliance-item {
           width: 100%;
+          padding: 10px;
         }
         .compliance-header {
           display: flex;
@@ -1723,189 +1938,224 @@ const SupplierDashboardCSR = () => {
           margin-bottom: 8px;
         }
         .compliance-icon {
-          width: 36px;
-          height: 36px;
+          width: 34px;
+          height: 34px;
           border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 18px;
+          font-size: 15px;
         }
         .compliance-title {
           flex: 1;
         }
         .compliance-title strong {
           display: block;
-          font-size: 14px;
+          font-size: 13.5px;
+          color: var(--c-text);
         }
         .compliance-title small {
-          font-size: 11px;
-          color: #9ca3af;
+          font-size: 12px;
+          color: var(--c-faint);
         }
         .compliance-stats {
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 600;
+          color: var(--c-muted);
+          font-variant-numeric: tabular-nums;
         }
         .compliant-count {
-          color: #10b981;
+          color: var(--c-success);
+          font-weight: 800;
         }
         .progress-bar {
           height: 6px;
-          background: #e5e7eb;
-          border-radius: 3px;
+          background: #e2e8f0;
+          border-radius: 999px;
           overflow: hidden;
           margin-bottom: 4px;
         }
         .progress-label {
-          font-size: 11px;
-          color: #9ca3af;
+          font-size: 11.5px;
+          color: var(--c-faint);
         }
 
         /* Certifications Grid */
         .certs-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
+          gap: 10px;
         }
         .cert-item {
           text-align: center;
           cursor: pointer;
+          padding: 12px 8px;
+          border: 1px solid var(--c-border);
+          border-radius: 12px;
         }
         .cert-circle {
-          width: 56px;
-          height: 56px;
+          width: 52px;
+          height: 52px;
           border-radius: 50%;
           border: 3px solid;
           display: flex;
           align-items: center;
           justify-content: center;
           margin: 0 auto 8px;
+          background: var(--c-surface);
         }
         .cert-circle span {
           font-size: 18px;
-          font-weight: 700;
-          color: #1f2937;
+          font-weight: 800;
+          color: var(--c-text);
         }
         .cert-name {
           font-size: 12px;
-          color: #6b7280;
+          font-weight: 700;
+          color: var(--c-text2);
+          letter-spacing: 0.03em;
         }
 
         /* License List */
         .license-list {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 12px;
         }
         .license-item {
-          border-bottom: 1px solid #f3f4f6;
-          padding-bottom: 12px;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 10px;
+        }
+        .license-item:last-child {
+          border-bottom: none;
         }
         .license-header {
           display: flex;
           align-items: center;
           gap: 10px;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
         .license-icon {
-          font-size: 18px;
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          display: grid;
+          place-items: center;
+          font-size: 14px;
+          background: var(--c-warning-soft);
+          color: var(--c-warning);
         }
         .license-name {
-          font-weight: 600;
-          font-size: 13px;
+          font-weight: 700;
+          font-size: 12.5px;
+          letter-spacing: 0.03em;
           flex: 1;
+          color: var(--c-text);
         }
         .license-count {
-          font-size: 11px;
-          color: #f59e0b;
-          font-weight: 500;
+          font-size: 12px;
+          color: #b45309;
+          font-weight: 600;
         }
         .license-suppliers {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 2px;
         }
         .license-supplier {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: 12px;
-          padding-left: 28px;
+          font-size: 12.5px;
+          padding: 5px 6px 5px 38px;
           cursor: pointer;
+          color: var(--c-text2);
         }
         .days-badge {
-          padding: 2px 6px;
-          border-radius: 12px;
-          font-size: 10px;
-          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
         }
         .badge-critical {
-          background: #fee2e2;
-          color: #dc2626;
+          background: var(--c-danger-soft);
+          color: var(--c-danger);
         }
         .badge-warning {
-          background: #fed7aa;
-          color: #ea580c;
+          background: #fff7ed;
+          color: #c2410c;
         }
         .badge-upcoming {
-          background: #fef3c7;
-          color: #d97706;
+          background: var(--c-warning-soft);
+          color: #b45309;
         }
         .badge-valid {
-          background: #d1fae5;
-          color: #059669;
+          background: var(--c-success-soft);
+          color: var(--c-success);
         }
         .badge-secondary {
-          background: #f3f4f6;
-          color: #6b7280;
+          background: #f1f5f9;
+          color: var(--c-muted);
         }
         .badge-expired {
-          background: #fecaca;
-          color: #dc2626;
+          background: #fee2e2;
+          color: #b91c1c;
         }
         .empty-licenses {
-          text-align: center;
-          padding: 20px;
-          color: #10b981;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 18px;
+          color: var(--c-success);
           font-size: 13px;
+          font-weight: 600;
+          background: var(--c-success-soft);
+          border-radius: 10px;
         }
 
         /* Actions Grid */
         .actions-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 12px;
+          gap: 10px;
         }
         .action-btn {
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          padding: 12px;
-          border-radius: 12px;
+          height: 44px;
+          padding: 0 12px;
+          border-radius: 10px;
           font-size: 13px;
-          font-weight: 500;
+          font-weight: 600;
           text-decoration: none;
           cursor: pointer;
-          border: none;
+          border: 1px solid transparent;
+          font-family: inherit;
+          transition: filter 0.15s;
+        }
+        .action-btn:hover {
+          filter: brightness(0.97);
         }
         .action-btn.danger {
-          background: #fef2f2;
-          color: #dc2626;
-          border: 1px solid #fecaca;
+          background: var(--c-danger-soft);
+          color: var(--c-danger);
+          border-color: #fecaca;
         }
         .action-btn.warning {
-          background: #fffbeb;
-          color: #d97706;
-          border: 1px solid #fde68a;
+          background: var(--c-warning-soft);
+          color: #b45309;
+          border-color: #fde68a;
         }
         .action-btn.info {
-          background: #eff6ff;
-          color: #2563eb;
-          border: 1px solid #bfdbfe;
+          background: var(--c-primary-soft);
+          color: var(--c-primary);
+          border-color: #bfdbfe;
         }
         .action-btn.primary {
-          background: #3b82f6;
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
           color: white;
         }
 
@@ -1913,74 +2163,84 @@ const SupplierDashboardCSR = () => {
         .suppliers-list {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 8px;
         }
         .supplier-row {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px;
-          background: #f9fafb;
-          border-radius: 14px;
+          padding: 10px 12px;
+          background: var(--c-surface);
+          border: 1px solid var(--c-border);
+          border-radius: 12px;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: border-color 0.15s, background 0.15s;
         }
         .supplier-row:hover {
-          background: #f3f4f6;
-          transform: translateX(2px);
+          background: var(--c-soft);
+          border-color: var(--c-border-strong);
         }
         .supplier-avatar {
-          width: 40px;
-          height: 40px;
-          background: #3b82f6;
-          color: white;
-          border-radius: 12px;
+          width: 38px;
+          height: 38px;
+          background: var(--c-primary-soft);
+          color: var(--c-primary);
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-weight: 700;
-          font-size: 16px;
+          font-weight: 800;
+          font-size: 15px;
+          flex-shrink: 0;
         }
         .supplier-details {
           flex: 1;
+          min-width: 0;
         }
         .supplier-name-row {
           display: flex;
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-          margin-bottom: 4px;
+          margin-bottom: 2px;
         }
         .supplier-name-row strong {
-          font-size: 13px;
+          font-size: 13.5px;
+          color: var(--c-text);
         }
         .status-badge {
           padding: 2px 8px;
-          border-radius: 20px;
-          font-size: 10px;
-          font-weight: 500;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: capitalize;
         }
         .supplier-meta {
           display: flex;
           gap: 12px;
-          font-size: 11px;
-          color: #9ca3af;
+          font-size: 12px;
+          color: var(--c-faint);
+        }
+        .supplier-meta span {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
         }
         .compliance-reason {
-          font-size: 10px;
-          color: #6b7280;
-          margin-top: 4px;
+          font-size: 11.5px;
+          color: var(--c-muted);
+          margin-top: 3px;
         }
         .days-indicator {
-          padding: 4px 8px;
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 600;
+          padding: 3px 9px;
+          border-radius: 999px;
+          font-size: 11.5px;
+          font-weight: 700;
         }
         .empty-state {
           text-align: center;
-          padding: 30px;
-          color: #9ca3af;
+          padding: 28px;
+          color: var(--c-faint);
         }
 
         .loading-container {
@@ -1991,12 +2251,12 @@ const SupplierDashboardCSR = () => {
           min-height: 400px;
         }
         .loading-spinner {
-          width: 40px;
-          height: 40px;
-          border: 3px solid #e5e7eb;
-          border-top-color: #3b82f6;
+          width: 36px;
+          height: 36px;
+          border: 3px solid #dbeafe;
+          border-top-color: var(--c-primary);
           border-radius: 50%;
-          animation: spin 1s linear infinite;
+          animation: spin 0.8s linear infinite;
         }
         @keyframes spin {
           to {
@@ -2016,6 +2276,9 @@ const SupplierDashboardCSR = () => {
           }
         }
         @media (max-width: 640px) {
+          .csr-dashboard {
+            padding: 70px 14px 24px;
+          }
           .stats-grid {
             grid-template-columns: 1fr;
           }

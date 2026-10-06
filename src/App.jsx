@@ -10,6 +10,8 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import Sidebar from "./components/hr/Sidebar";
 import ProtectedRoute from "./components/hr/ProtectedRoute";
 import ProtectedRouteForAll from "./components/hr/ProtectedRouteForAll";
+import NotFound from "./components/common/NotFound";
+import AccessNotice from "./components/common/AccessNotice";
 import LoginPage from "./components/hr/LoginPage";
 
 // HR Pages
@@ -65,6 +67,7 @@ import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
 // Merchandiser
 import DashboardPage from "./components/merchandiser/DashboardPage";
 import SupplierCapacityReport from "./components/merchandiser/SupplierCapacityReport";
+import ProductionPlanning from "./components/merchandiser/ProductionPlanning";
 import OnTimeDeliveryScorecard from "./components/merchandiser/OnTimeDeliveryScorecard";
 import CustomerPage from "./components/merchandiser/CustomerPage";
 import BuyerPage from "./components/merchandiser/BuyerPage";
@@ -118,6 +121,7 @@ import AddSupplierCSR from "./components/csr/AddSupplierCSR.jsx";
 import EditSupplierCSR from "./components/csr/EditSupplierCSR.jsx";
 import SupplierListCSR from "./components/csr/SupplierListCSR.jsx";
 import SupplierDetailsCSR from "./components/csr/SupplierDetailsCSR.jsx";
+import { CSRLayout } from "./components/csr/CSRSidebar.jsx";
 
 // Tax Calculator
 import TaxCalculators from "./components/tax/TaxCalculators.jsx";
@@ -134,12 +138,14 @@ import RegularUserStationery from "./components/stationery/RegularUserStationery
 import StationeryItems from "./components/stationery/StationeryItems.jsx";
 import StationeryUsage from "./components/stationery/StationeryUsage.jsx";
 import StockReport from "./components/stationery/StockReport.jsx";
+import { StationeryLayout } from "./components/stationery/StationerySidebar.jsx";
 
 //ai assistant
 import ChatInterface from "./components/ai_assistant/ChatInterface.jsx";
 
 // Company Documents
 import CompanyDocsDashboard from "./components/company_docs/CompanyDocsDashboard.jsx";
+import { CompanyDocsLayout } from "./components/company_docs/CompanyDocsSidebar.jsx";
 import CompanyDetail from "./components/company_docs/CompanyDetail.jsx";
 
 // Password Vault
@@ -159,6 +165,7 @@ const AppContent = () => {
   return (
     <>
       {!isLoginPage && <Sidebar />}
+      <AccessNotice />
       <div className="container">
         <Routes>
           {/* Public Route */}
@@ -173,7 +180,14 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/canada/*" element={<CanadaApp />} />
+          <Route
+            path="/canada/*"
+            element={
+              <ProtectedRoute>
+                <CanadaApp />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/employees"
@@ -447,7 +461,9 @@ const AppContent = () => {
             path="/StationeryDashboard"
             element={
               <ProtectedRouteForAll>
-                <StationeryDashboard />
+                <StationeryLayout>
+                  <StationeryDashboard />
+                </StationeryLayout>
               </ProtectedRouteForAll>
             }
           />
@@ -455,7 +471,9 @@ const AppContent = () => {
             path="/RegularUserStationery"
             element={
               <ProtectedRouteForAll>
-                <RegularUserStationery />
+                <StationeryLayout>
+                  <RegularUserStationery />
+                </StationeryLayout>
               </ProtectedRouteForAll>
             }
           />
@@ -463,7 +481,9 @@ const AppContent = () => {
             path="/StationeryItems"
             element={
               <ProtectedRouteForAll>
-                <StationeryItems />
+                <StationeryLayout>
+                  <StationeryItems />
+                </StationeryLayout>
               </ProtectedRouteForAll>
             }
           />
@@ -471,7 +491,9 @@ const AppContent = () => {
             path="/StationeryUsage"
             element={
               <ProtectedRouteForAll>
-                <StationeryUsage />
+                <StationeryLayout>
+                  <StationeryUsage />
+                </StationeryLayout>
               </ProtectedRouteForAll>
             }
           />
@@ -479,7 +501,9 @@ const AppContent = () => {
             path="/StockReport"
             element={
               <ProtectedRouteForAll>
-                <StockReport />
+                <StationeryLayout>
+                  <StockReport />
+                </StationeryLayout>
               </ProtectedRouteForAll>
             }
           />
@@ -622,6 +646,14 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <SupplierCapacityReport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/production-planning"
+            element={
+              <ProtectedRoute>
+                <ProductionPlanning />
               </ProtectedRoute>
             }
           />
@@ -1027,7 +1059,9 @@ const AppContent = () => {
             path="/csr-dashboard"
             element={
               <ProtectedRoute>
-                <DashboardCSR />
+                <CSRLayout>
+                  <DashboardCSR />
+                </CSRLayout>
               </ProtectedRoute>
             }
           />
@@ -1035,7 +1069,9 @@ const AppContent = () => {
             path="/suppliersCSR"
             element={
               <ProtectedRoute>
-                <SupplierListCSR />
+                <CSRLayout>
+                  <SupplierListCSR />
+                </CSRLayout>
               </ProtectedRoute>
             }
           />
@@ -1043,7 +1079,9 @@ const AppContent = () => {
             path="/add-supplierCSR"
             element={
               <ProtectedRoute>
-                <AddSupplierCSR />
+                <CSRLayout>
+                  <AddSupplierCSR />
+                </CSRLayout>
               </ProtectedRoute>
             }
           />
@@ -1051,7 +1089,9 @@ const AppContent = () => {
             path="/edit-supplier/:id"
             element={
               <ProtectedRoute>
-                <EditSupplierCSR />
+                <CSRLayout>
+                  <EditSupplierCSR />
+                </CSRLayout>
               </ProtectedRoute>
             }
           />
@@ -1059,7 +1099,9 @@ const AppContent = () => {
             path="/suppliersCSR/:id"
             element={
               <ProtectedRoute>
-                <SupplierDetailsCSR />
+                <CSRLayout>
+                  <SupplierDetailsCSR />
+                </CSRLayout>
               </ProtectedRoute>
             }
           />
@@ -1079,7 +1121,9 @@ const AppContent = () => {
             path="/company-docs"
             element={
               <ProtectedRoute>
-                <CompanyDocsDashboard />
+                <CompanyDocsLayout>
+                  <CompanyDocsDashboard />
+                </CompanyDocsLayout>
               </ProtectedRoute>
             }
           />
@@ -1087,7 +1131,9 @@ const AppContent = () => {
             path="/company-docs/:id"
             element={
               <ProtectedRoute>
-                <CompanyDetail />
+                <CompanyDocsLayout>
+                  <CompanyDetail />
+                </CompanyDocsLayout>
               </ProtectedRoute>
             }
           />
@@ -1149,6 +1195,9 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+
+          {/* Any address that isn't a page above */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </>

@@ -2,8 +2,17 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import baseAxios from "axios";
 import Sidebar from "../merchandiser/Sidebar.jsx";
+
+// Every request from this page carries the login token (the inquiry APIs
+// require it).
+const axios = baseAxios.create();
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Token ${token}`;
+  return config;
+});
 
 const InquiryForm = () => {
   const { id } = useParams();
@@ -232,9 +241,9 @@ const InquiryForm = () => {
     const fetchInitialData = async () => {
       try {
         const [buyersRes, customersRes, suppliersRes, departmentsRes] = await Promise.all([
-          axios.get("http://119.148.51.38:8000/api/merchandiser/api/buyer/"),
-          axios.get("http://119.148.51.38:8000/api/merchandiser/api/customer/"),
-          axios.get("http://119.148.51.38:8000/api/csr/api/supplier/"),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/buyer/", { headers: { Authorization: `Token ${localStorage.getItem("token")}` } }),
+          axios.get("http://119.148.51.38:8000/api/merchandiser/api/customer/", { headers: { Authorization: `Token ${localStorage.getItem("token")}` } }),
+          axios.get("http://119.148.51.38:8000/api/csr/api/supplier/", { headers: { Authorization: `Token ${localStorage.getItem("token")}` } }),
           axios.get("http://119.148.51.38:8000/api/merchandiser/api/department/"),
         ]);
 

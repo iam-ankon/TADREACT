@@ -59,6 +59,7 @@ import {
   FaShip, // Added for shipped orders icon
   FaBoxOpen, // Added for not shipped icon
 } from "react-icons/fa";
+import { withOrderListTheme, ROW_TINT, ORDER_LIST_CSS } from "./orderListTheme";
 
 // Debounce function
 function debounce(func, wait) {
@@ -472,30 +473,6 @@ const ALL_COLUMNS = [
     width: "120px",
   },
   {
-    key: "physical_test",
-    label: "Physical Test",
-    sortable: false,
-    width: "120px",
-  },
-  {
-    key: "chemical_test",
-    label: "Chemical Test",
-    sortable: false,
-    width: "120px",
-  },
-  {
-    key: "during_production_inspection",
-    label: "During Production Inspection",
-    sortable: false,
-    width: "150px",
-  },
-  {
-    key: "final_random_inspection",
-    label: "Final Random Inspection",
-    sortable: false,
-    width: "150px",
-  },
-  {
     key: "factory_value",
     label: "Factory Value",
     sortable: true,
@@ -788,6 +765,9 @@ const OrderList = () => {
     // shipment month column for users without shipment month access, even
     // if an old localStorage preference still has them turned on.
     return deduped.filter((key) => {
+      // Saved preferences may name columns that no longer exist (e.g. the
+      // test/inspection columns removed 2026-10-02).
+      if (!ALL_COLUMNS.some((col) => col.key === key)) return false;
       if (!canViewOrderPricing() && PRICING_COLUMN_KEYS.includes(key)) return false;
       if (!canViewShipmentMonth() && key === "shipment_month") return false;
       return true;
@@ -997,7 +977,7 @@ const fetchStats = useCallback(async () => {
       return (
         <div style={styles.noImageContainer}>
           <FaFileAlt style={styles.noImageIcon} />
-          <span style={styles.noImageText}>No images</span>
+          <span style={styles.noImageText}>—</span>
         </div>
       );
     }
@@ -2001,8 +1981,10 @@ const fetchStats = useCallback(async () => {
     return `http://119.148.51.38:8000/media/${imagePath}`;
   };
 
+  // Same rule as before (Shipped rows stand out, selected rows highlighted),
+  // softer tints from orderListTheme.
   const getRowBackgroundColor = (status, isSelected) =>
-    isSelected ? "#6a88af" : (statusConfig[status] || statusConfig.Draft).rowBg;
+    isSelected ? ROW_TINT.selected : status === "Shipped" ? ROW_TINT.shipped : ROW_TINT.other;
 
   const getOrderSupplierDisplay = useCallback(
     (order) => {
@@ -2071,10 +2053,12 @@ const fetchStats = useCallback(async () => {
           <div style={styles.orderInfo}>
             <div style={styles.orderDetails}>
               <div style={styles.orderPoNo}>{order.style || "N/A"}</div>
-              <div style={styles.orderStyle}>
-                <FaTag style={styles.icon} />
-                {order.pdm_no || "No Style No"}
-              </div>
+              {order.pdm_no && (
+                <div style={styles.orderStyle}>
+                  <FaTag style={styles.icon} />
+                  {order.pdm_no}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2247,14 +2231,6 @@ const fetchStats = useCallback(async () => {
         return formatNumber(order.shipped_qty);
       case "shipped_value":
         return formatCurrency(order.shipped_value);
-      case "physical_test":
-        return truncateText(order.physical_test, 30);
-      case "chemical_test":
-        return truncateText(order.chemical_test, 30);
-      case "during_production_inspection":
-        return truncateText(order.during_production_inspection, 30);
-      case "final_random_inspection":
-        return truncateText(order.final_random_inspection, 30);
       case "factory_value":
         return formatCurrency(order.factory_value);
       case "group_name":
@@ -2302,7 +2278,7 @@ const fetchStats = useCallback(async () => {
               <div style={styles.remarksDisplay}>
                 <span style={styles.remarksText}>
                   {order.production_remarks || (
-                    <span style={styles.noRemarks}>No remarks</span>
+                    <span style={styles.noRemarks}>—</span>
                   )}
                 </span>
                 <button
@@ -2320,7 +2296,7 @@ const fetchStats = useCallback(async () => {
             <div style={styles.remarksDisplay}>
               <span style={styles.remarksText}>
                 {order.remarks || (
-                  <span style={styles.noRemarks}>No remarks</span>
+                  <span style={styles.noRemarks}>—</span>
                 )}
               </span>
               <button
@@ -2474,7 +2450,7 @@ const fetchStats = useCallback(async () => {
           return (
             <div style={styles.noImageContainer}>
               <FaFileAlt style={styles.noImageIcon} />
-              <span style={styles.noImageText}>No images</span>
+              <span style={styles.noImageText}>—</span>
             </div>
           );
         }
@@ -2654,18 +2630,23 @@ const fetchStats = useCallback(async () => {
   }
 
   return (
-    <div style={styles.appContainer}>
+    <div style={styles.appContainer} className="order-list-themed">
+      <style>{ORDER_LIST_CSS}</style>
       <Sidebar />
       <div style={styles.mainContent}>
         <div style={styles.orderDashboard}>
           {/* Header */}
           <div style={styles.pageHeader}>
-            <div style={styles.headerLeft}>
-              <h1 style={styles.pageTitle}>Orders</h1>
-              <div style={styles.headerBadge}>
-                <FaBoxes />
-                <span>{totalItems} Total</span>
+            <div>
+              <div className="ol-eyebrow">Merchandising · Operations</div>
+              <div style={styles.headerLeft}>
+                <h1 style={styles.pageTitle}>Orders</h1>
+                <div style={styles.headerBadge}>
+                  <FaBoxes />
+                  <span>{Number(totalItems || 0).toLocaleString("en-US")} total</span>
+                </div>
               </div>
+              <p className="ol-subtitle">Every buyer order with quantities, values, shipment dates and status.</p>
             </div>
             <div style={styles.headerActions}>
               {canViewOrderPricing() && (
@@ -4118,6 +4099,7 @@ const fetchStats = useCallback(async () => {
                             {!column.frozen && (
                               <FaGripVertical
                                 style={styles.dragHandle}
+                                className="ol-grip"
                                 size={12}
                               />
                             )}
@@ -4275,7 +4257,7 @@ const fetchStats = useCallback(async () => {
 };
 
 // Styles (keep all your existing styles)
-const styles = {
+const baseStyles = {
   appContainer: {
     display: "flex",
     minHeight: "100vh",
@@ -5393,6 +5375,8 @@ const styles = {
     fontSize: "20px",
   },
 };
+
+const styles = withOrderListTheme(baseStyles);
 
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `

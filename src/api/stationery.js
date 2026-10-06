@@ -233,6 +233,21 @@ export const stationeryAPI = {
     }
   },
 
+  rejectUsage: async (usageId, reason = "") => {
+    try {
+      debugLog("Reject usage", `${API_BASE}stationery_usage/${usageId}/reject_request/`);
+      const response = await axios.post(
+        `${API_BASE}stationery_usage/${usageId}/reject_request/`,
+        reason ? { reason } : {},
+        { headers: getAuthHeaders() },
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error rejecting usage request:", error);
+      throw error;
+    }
+  },
+
   // ========== TRANSACTIONS ==========
   fetchTransactions: async () => {
     return fetchAllPages(`${API_BASE}stationery_transactions/`);

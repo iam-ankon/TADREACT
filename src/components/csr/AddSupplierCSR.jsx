@@ -7,6 +7,7 @@ import {
   getChainSupplies1,
   createChainSupply1,
 } from "../../api/supplierApi";
+import { csrStyle, CSR_FORM_CSS } from "./csrFormTheme";
 
 const colors = {
   primary: "#2563eb",
@@ -1434,7 +1435,8 @@ const AddSupplierCSR = () => {
   );
 
   return (
-    <div style={containerStyle}>
+    <div style={containerStyle} className="csr-form">
+      <style>{CSR_FORM_CSS}</style>
       <div style={headerStyle}>
         <div style={headerContentStyle}>
           <button
@@ -3092,67 +3094,67 @@ const AddSupplierCSR = () => {
 };
 
 // Style constants
-const checklistItemStyle = {
+const checklistItemStyle = csrStyle("checklistItemStyle", {
   display: "flex",
   flexDirection: "column",
   gap: "0.75rem",
   padding: "1rem",
   borderBottom: `1px solid ${colors.border}`,
-};
-const checklistCheckboxStyle = { flex: "1" };
-const checklistFindingsStyle = { marginLeft: "1.5rem" };
-const statusHintStyle = {
+});
+const checklistCheckboxStyle = csrStyle("checklistCheckboxStyle", { flex: "1" });
+const checklistFindingsStyle = csrStyle("checklistFindingsStyle", { marginLeft: "1.5rem" });
+const statusHintStyle = csrStyle("statusHintStyle", {
   fontSize: "0.7rem",
   marginTop: "0.25rem",
   padding: "0.25rem 0.5rem",
   borderRadius: "4px",
-};
-const validStatusStyle = {
+});
+const validStatusStyle = csrStyle("validStatusStyle", {
   backgroundColor: colors.successLight,
   color: colors.success,
-};
-const expiredStatusStyle = {
+});
+const expiredStatusStyle = csrStyle("expiredStatusStyle", {
   backgroundColor: colors.dangerLight,
   color: colors.danger,
-};
-const subSectionIndentStyle = {
+});
+const subSectionIndentStyle = csrStyle("subSectionIndentStyle", {
   marginLeft: "1.5rem",
   marginTop: "1rem",
   paddingLeft: "1rem",
   borderLeft: `2px solid ${colors.primary}`,
-};
-const subSectionHeaderStyle = {
+});
+const subSectionHeaderStyle = csrStyle("subSectionHeaderStyle", {
   fontSize: "0.875rem",
   fontWeight: "600",
   color: colors.primary,
   marginBottom: "1rem",
-};
-const cardSubtitleStyle = {
+});
+const cardSubtitleStyle = csrStyle("cardSubtitleStyle", {
   fontSize: "0.75rem",
   color: colors.textMuted,
   marginTop: "0.25rem",
   marginBottom: 0,
-};
-const containerStyle = {
+});
+const containerStyle = csrStyle("containerStyle", {
   backgroundColor: "#f3f4f6",
   minHeight: "100vh",
   fontFamily:
     "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-};
-const headerStyle = {
+});
+const headerStyle = csrStyle("headerStyle", {
   backgroundColor: colors.background,
   padding: "2rem 4rem",
   borderBottom: `1px solid ${colors.border}`,
   boxShadow:
     "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-};
-const headerContentStyle = {
+});
+const headerContentStyle = csrStyle("headerContentStyle", {
   display: "flex",
   alignItems: "center",
   gap: "1.5rem",
   marginBottom: "1.5rem",
-};
-const backButtonStyle = {
+});
+const backButtonStyle = csrStyle("backButtonStyle", {
   display: "flex",
   alignItems: "center",
   gap: "0.5rem",
@@ -3165,43 +3167,43 @@ const backButtonStyle = {
   fontWeight: "500",
   color: colors.gray,
   transition: "all 0.2s",
-};
-const backArrowStyle = { fontSize: "1.125rem" };
-const titleSectionStyle = { flex: 1 };
-const titleStyle = {
+});
+const backArrowStyle = csrStyle("backArrowStyle", { fontSize: "1.125rem" });
+const titleSectionStyle = csrStyle("titleSectionStyle", { flex: 1 });
+const titleStyle = csrStyle("titleStyle", {
   fontSize: "1.875rem",
   fontWeight: "600",
   color: colors.textPrimary,
   margin: "0 0 0.25rem 0",
   letterSpacing: "-0.025em",
-};
-const subtitleStyle = {
+});
+const subtitleStyle = csrStyle("subtitleStyle", {
   fontSize: "0.875rem",
   color: colors.textSecondary,
   margin: 0,
-};
-const progressSectionStyle = { maxWidth: "400px" };
-const progressTextStyle = {
+});
+const progressSectionStyle = csrStyle("progressSectionStyle", { maxWidth: "400px" });
+const progressTextStyle = csrStyle("progressTextStyle", {
   fontSize: "0.75rem",
   fontWeight: "600",
   color: colors.textSecondary,
   marginBottom: "0.5rem",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
-};
-const progressBarStyle = {
+});
+const progressBarStyle = csrStyle("progressBarStyle", {
   height: "8px",
   backgroundColor: colors.border,
   borderRadius: "4px",
   overflow: "hidden",
-};
-const progressFillStyle = {
+});
+const progressFillStyle = csrStyle("progressFillStyle", {
   height: "100%",
   backgroundColor: colors.primary,
   transition: "width 0.3s ease",
   borderRadius: "4px",
-};
-const errorAlertStyle = {
+});
+const errorAlertStyle = csrStyle("errorAlertStyle", {
   backgroundColor: colors.dangerLight,
   color: colors.danger,
   padding: "1rem 2rem",
@@ -3212,24 +3214,24 @@ const errorAlertStyle = {
   alignItems: "flex-start",
   gap: "0.75rem",
   boxShadow: "0 4px 6px -1px rgba(220, 38, 38, 0.1)",
-};
-const errorIconStyle = { fontSize: "1.25rem" };
-const errorContentStyle = { flex: 1 };
-const errorMessageStyle = {
+});
+const errorIconStyle = csrStyle("errorIconStyle", { fontSize: "1.25rem" });
+const errorContentStyle = csrStyle("errorContentStyle", { flex: 1 });
+const errorMessageStyle = csrStyle("errorMessageStyle", {
   fontSize: "0.875rem",
   whiteSpace: "pre-wrap",
   marginTop: "0.25rem",
-};
-const contentWrapperStyle = { margin: "0 auto", padding: "2rem 3rem" };
-const tabsContainerStyle = {
+});
+const contentWrapperStyle = csrStyle("contentWrapperStyle", { margin: "0 auto", padding: "2rem 3rem" });
+const tabsContainerStyle = csrStyle("tabsContainerStyle", {
   backgroundColor: colors.background,
   borderRadius: "12px 12px 0 0",
   borderBottom: `1px solid ${colors.border}`,
   overflowX: "auto",
   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-};
-const tabsStyle = { display: "flex", padding: "0 1rem", gap: "0.25rem" };
-const tabButtonStyle = {
+});
+const tabsStyle = csrStyle("tabsStyle", { display: "flex", padding: "0 1rem", gap: "0.25rem" });
+const tabButtonStyle = csrStyle("tabButtonStyle", {
   padding: "1rem 1.5rem",
   backgroundColor: "transparent",
   border: "none",
@@ -3243,9 +3245,9 @@ const tabButtonStyle = {
   gap: "0.5rem",
   position: "relative",
   whiteSpace: "nowrap",
-};
-const activeTabStyle = { color: colors.primary, fontWeight: "600" };
-const activeTabIndicatorStyle = {
+});
+const activeTabStyle = csrStyle("activeTabStyle", { color: colors.primary, fontWeight: "600" });
+const activeTabIndicatorStyle = csrStyle("activeTabIndicatorStyle", {
   position: "absolute",
   bottom: 0,
   left: 0,
@@ -3253,18 +3255,18 @@ const activeTabIndicatorStyle = {
   height: "2px",
   backgroundColor: colors.primary,
   borderRadius: "2px 2px 0 0",
-};
-const tabIconStyle = { fontSize: "1rem" };
-const formStyle = {
+});
+const tabIconStyle = csrStyle("tabIconStyle", { fontSize: "1rem" });
+const formStyle = csrStyle("formStyle", {
   backgroundColor: colors.background,
   borderRadius: "0 0 12px 12px",
   boxShadow:
     "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-};
-const tabContentStyle = { padding: "2.5rem" };
-const formSectionStyle = { animation: "fadeIn 0.3s ease" };
-const sectionHeaderStyle = { marginBottom: "2rem" };
-const sectionTitleStyle = {
+});
+const tabContentStyle = csrStyle("tabContentStyle", { padding: "2.5rem" });
+const formSectionStyle = csrStyle("formSectionStyle", { animation: "fadeIn 0.3s ease" });
+const sectionHeaderStyle = csrStyle("sectionHeaderStyle", { marginBottom: "2rem" });
+const sectionTitleStyle = csrStyle("sectionTitleStyle", {
   fontSize: "1.5rem",
   fontWeight: "600",
   color: colors.textPrimary,
@@ -3273,27 +3275,27 @@ const sectionTitleStyle = {
   gap: "0.75rem",
   marginBottom: "0.5rem",
   letterSpacing: "-0.025em",
-};
-const sectionIconStyle = { fontSize: "1.5rem" };
-const sectionDescriptionStyle = {
+});
+const sectionIconStyle = csrStyle("sectionIconStyle", { fontSize: "1.5rem" });
+const sectionDescriptionStyle = csrStyle("sectionDescriptionStyle", {
   fontSize: "0.875rem",
   color: colors.textSecondary,
-};
-const subSectionTitleStyle = {
+});
+const subSectionTitleStyle = csrStyle("subSectionTitleStyle", {
   fontSize: "1.125rem",
   fontWeight: "600",
   color: colors.textPrimary,
   marginBottom: "1.5rem",
-};
-const formGridStyle = {
+});
+const formGridStyle = csrStyle("formGridStyle", {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
   gap: "2.5rem",
   padding: "1.5rem 1.5rem",
-};
-const fullWidthStyle = { gridColumn: "1 / -1" };
-const formGroupStyle = { display: "flex", flexDirection: "column" };
-const labelStyle = {
+});
+const fullWidthStyle = csrStyle("fullWidthStyle", { gridColumn: "1 / -1" });
+const formGroupStyle = csrStyle("formGroupStyle", { display: "flex", flexDirection: "column" });
+const labelStyle = csrStyle("labelStyle", {
   fontSize: "0.875rem",
   fontWeight: "500",
   color: colors.textSecondary,
@@ -3301,87 +3303,87 @@ const labelStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.5rem",
-};
-const autoUpdateBadgeStyle = {
+});
+const autoUpdateBadgeStyle = csrStyle("autoUpdateBadgeStyle", {
   fontSize: "0.75rem",
   color: colors.info,
   marginLeft: "0.25rem",
   cursor: "help",
-};
-const daysRemainingFieldStyle = {
+});
+const daysRemainingFieldStyle = csrStyle("daysRemainingFieldStyle", {
   backgroundColor: colors.light,
   color: colors.textSecondary,
   cursor: "not-allowed",
-};
-const inputStyle = {
+});
+const inputStyle = csrStyle("inputStyle", {
   padding: "0.625rem 0.875rem",
   border: `1px solid ${colors.border}`,
   borderRadius: "8px",
   fontSize: "0.875rem",
   transition: "all 0.2s",
   outline: "none",
-};
-const textareaStyle = { minHeight: "100px", resize: "vertical" };
-const inputErrorStyle = { borderColor: colors.error };
-const inputDisabledStyle = {
+});
+const textareaStyle = csrStyle("textareaStyle", { minHeight: "100px", resize: "vertical" });
+const inputErrorStyle = csrStyle("inputErrorStyle", { borderColor: colors.error });
+const inputDisabledStyle = csrStyle("inputDisabledStyle", {
   backgroundColor: colors.light,
   color: colors.textMuted,
   cursor: "not-allowed",
-};
-const fieldErrorStyle = {
+});
+const fieldErrorStyle = csrStyle("fieldErrorStyle", {
   fontSize: "0.75rem",
   color: colors.error,
   marginTop: "0.25rem",
-};
-const selectStyle = {
+});
+const selectStyle = csrStyle("selectStyle", {
   ...inputStyle,
   backgroundColor: colors.background,
   cursor: "pointer",
-};
-const checkboxWrapperStyle = { marginBottom: "0.5rem" };
-const checkboxLabelStyle = {
+});
+const checkboxWrapperStyle = csrStyle("checkboxWrapperStyle", { marginBottom: "0.5rem" });
+const checkboxLabelStyle = csrStyle("checkboxLabelStyle", {
   display: "flex",
   alignItems: "flex-start",
   gap: "0.75rem",
   cursor: "pointer",
-};
-const checkboxStyle = {
+});
+const checkboxStyle = csrStyle("checkboxStyle", {
   width: "1rem",
   height: "1rem",
   marginTop: "0.125rem",
   accentColor: colors.primary,
   cursor: "pointer",
-};
-const checkboxContentStyle = { flex: 1 };
-const checkboxTextStyle = {
+});
+const checkboxContentStyle = csrStyle("checkboxContentStyle", { flex: 1 });
+const checkboxTextStyle = csrStyle("checkboxTextStyle", {
   fontSize: "0.875rem",
   fontWeight: "500",
   color: colors.textPrimary,
-};
-const checkboxDescriptionStyle = {
+});
+const checkboxDescriptionStyle = csrStyle("checkboxDescriptionStyle", {
   fontSize: "0.75rem",
   color: colors.textSecondary,
   marginTop: "0.125rem",
-};
-const checkboxGridStyle = {
+});
+const checkboxGridStyle = csrStyle("checkboxGridStyle", {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
   gap: "1rem",
   padding: "0.5rem 0",
-};
-const checkboxGroupTitleStyle = {
+});
+const checkboxGroupTitleStyle = csrStyle("checkboxGroupTitleStyle", {
   fontSize: "0.875rem",
   fontWeight: "600",
   color: colors.textPrimary,
   marginBottom: "1rem",
-};
-const fileInputWrapperStyle = {
+});
+const fileInputWrapperStyle = csrStyle("fileInputWrapperStyle", {
   position: "relative",
   display: "flex",
   alignItems: "center",
   gap: "0.5rem",
-};
-const fileInputStyle = {
+});
+const fileInputStyle = csrStyle("fileInputStyle", {
   position: "absolute",
   width: "1px",
   height: "1px",
@@ -3390,8 +3392,8 @@ const fileInputStyle = {
   overflow: "hidden",
   clip: "rect(0, 0, 0, 0)",
   border: 0,
-};
-const fileInputLabelStyle = {
+});
+const fileInputLabelStyle = csrStyle("fileInputLabelStyle", {
   display: "inline-flex",
   alignItems: "center",
   padding: "0.625rem 1rem",
@@ -3403,8 +3405,8 @@ const fileInputLabelStyle = {
   cursor: "pointer",
   transition: "all 0.2s",
   width: "100%",
-};
-const filePreviewStyle = {
+});
+const filePreviewStyle = csrStyle("filePreviewStyle", {
   display: "flex",
   alignItems: "center",
   gap: "0.5rem",
@@ -3415,49 +3417,49 @@ const filePreviewStyle = {
   backgroundColor: colors.light,
   borderRadius: "6px",
   border: `1px solid ${colors.border}`,
-};
-const fileSizeStyle = { marginLeft: "auto", color: colors.textMuted };
-const dividerStyle = {
+});
+const fileSizeStyle = csrStyle("fileSizeStyle", { marginLeft: "auto", color: colors.textMuted });
+const dividerStyle = csrStyle("dividerStyle", {
   height: "1px",
   backgroundColor: colors.border,
   margin: "2rem 0",
-};
-const cardsContainerStyle = {
+});
+const cardsContainerStyle = csrStyle("cardsContainerStyle", {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
   gap: "5rem",
-};
-const cardStyle = {
+});
+const cardStyle = csrStyle("cardStyle", {
   backgroundColor: colors.background,
   border: `1px solid ${colors.border}`,
   borderRadius: "12px",
   overflow: "hidden",
   transition: "all 0.2s",
-};
-const cardHeaderStyle = {
+});
+const cardHeaderStyle = csrStyle("cardHeaderStyle", {
   padding: "1rem 1.5rem",
   backgroundColor: colors.light,
   borderBottom: `1px solid ${colors.border}`,
-};
-const cardTitleStyle = {
+});
+const cardTitleStyle = csrStyle("cardTitleStyle", {
   fontSize: "1rem",
   fontWeight: "600",
   color: colors.textPrimary,
   margin: 0,
-};
-const cardBodyStyle = { padding: "1.5rem" };
-const formActionsStyle = {
+});
+const cardBodyStyle = csrStyle("cardBodyStyle", { padding: "1.5rem" });
+const formActionsStyle = csrStyle("formActionsStyle", {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   padding: "1.5rem 2.5rem",
   borderTop: `1px solid ${colors.border}`,
   backgroundColor: colors.light,
-};
-const requiredHintStyle = { fontSize: "0.75rem", color: colors.textSecondary };
-const actionButtonsStyle = { display: "flex", gap: "1rem" };
-const navigationButtonsStyle = { display: "flex", gap: "0.75rem" };
-const cancelButtonStyle = {
+});
+const requiredHintStyle = csrStyle("requiredHintStyle", { fontSize: "0.75rem", color: colors.textSecondary });
+const actionButtonsStyle = csrStyle("actionButtonsStyle", { display: "flex", gap: "1rem" });
+const navigationButtonsStyle = csrStyle("navigationButtonsStyle", { display: "flex", gap: "0.75rem" });
+const cancelButtonStyle = csrStyle("cancelButtonStyle", {
   padding: "0.625rem 1.5rem",
   backgroundColor: "transparent",
   color: colors.textSecondary,
@@ -3467,8 +3469,8 @@ const cancelButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-};
-const previousButtonStyle = {
+});
+const previousButtonStyle = csrStyle("previousButtonStyle", {
   padding: "0.625rem 1.5rem",
   backgroundColor: colors.background,
   color: colors.textPrimary,
@@ -3478,8 +3480,8 @@ const previousButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-};
-const nextButtonStyle = {
+});
+const nextButtonStyle = csrStyle("nextButtonStyle", {
   padding: "0.625rem 1.5rem",
   backgroundColor: colors.primary,
   color: "white",
@@ -3489,8 +3491,8 @@ const nextButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-};
-const submitButtonStyle = {
+});
+const submitButtonStyle = csrStyle("submitButtonStyle", {
   padding: "0.625rem 1.5rem",
   backgroundColor: colors.success,
   color: "white",
@@ -3500,44 +3502,44 @@ const submitButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-};
-const submitButtonDisabledStyle = {
+});
+const submitButtonDisabledStyle = csrStyle("submitButtonDisabledStyle", {
   backgroundColor: colors.gray,
   cursor: "not-allowed",
-};
-const buttonContentStyle = {
+});
+const buttonContentStyle = csrStyle("buttonContentStyle", {
   display: "flex",
   alignItems: "center",
   gap: "0.5rem",
-};
-const spinnerSmallStyle = {
+});
+const spinnerSmallStyle = csrStyle("spinnerSmallStyle", {
   width: "1rem",
   height: "1rem",
   border: `2px solid ${colors.border}`,
   borderTopColor: "white",
   borderRadius: "50%",
   animation: "spin 0.6s linear infinite",
-};
-const imageGridStyle = {
+});
+const imageGridStyle = csrStyle("imageGridStyle", {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
   gap: "1rem",
   marginTop: "1rem",
-};
-const imagePreviewContainerStyle = {
+});
+const imagePreviewContainerStyle = csrStyle("imagePreviewContainerStyle", {
   position: "relative",
   border: `1px solid ${colors.border}`,
   borderRadius: "8px",
   padding: "0.5rem",
   backgroundColor: colors.light,
-};
-const imagePreviewStyle = {
+});
+const imagePreviewStyle = csrStyle("imagePreviewStyle", {
   width: "100%",
   height: "120px",
   objectFit: "cover",
   borderRadius: "4px",
-};
-const removeImageButtonStyle = {
+});
+const removeImageButtonStyle = csrStyle("removeImageButtonStyle", {
   position: "absolute",
   top: "0.25rem",
   right: "0.25rem",
@@ -3553,20 +3555,20 @@ const removeImageButtonStyle = {
   justifyContent: "center",
   fontSize: "1rem",
   fontWeight: "bold",
-};
-const imageInfoStyle = {
+});
+const imageInfoStyle = csrStyle("imageInfoStyle", {
   fontSize: "0.75rem",
   marginTop: "0.5rem",
   color: colors.textSecondary,
   wordBreak: "break-all",
-};
-const readOnlyFieldStyle = {
+});
+const readOnlyFieldStyle = csrStyle("readOnlyFieldStyle", {
   backgroundColor: colors.light,
   color: colors.textPrimary,
   cursor: "not-allowed",
   fontWeight: "500",
-};
-const modalOverlayStyle = {
+});
+const modalOverlayStyle = csrStyle("modalOverlayStyle", {
   position: "fixed",
   top: 0,
   left: 0,
@@ -3577,8 +3579,8 @@ const modalOverlayStyle = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 2000,
-};
-const modalContentStyle = {
+});
+const modalContentStyle = csrStyle("modalContentStyle", {
   backgroundColor: colors.background,
   borderRadius: "12px",
   width: "480px",
@@ -3588,18 +3590,18 @@ const modalContentStyle = {
   border: `1px solid ${colors.border}`,
   maxHeight: "90vh",
   overflowY: "auto",
-};
-const twoColumnGridStyle = {
+});
+const twoColumnGridStyle = csrStyle("twoColumnGridStyle", {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
   gap: "2rem",
-};
-const checkboxListContainerStyle = {
+});
+const checkboxListContainerStyle = csrStyle("checkboxListContainerStyle", {
   display: "flex",
   flexDirection: "column",
   gap: "1rem",
-};
-const checkboxListHeaderStyle = {
+});
+const checkboxListHeaderStyle = csrStyle("checkboxListHeaderStyle", {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
@@ -3607,8 +3609,8 @@ const checkboxListHeaderStyle = {
   fontSize: "0.875rem",
   fontWeight: "500",
   color: colors.textSecondary,
-};
-const createNewButtonStyle = {
+});
+const createNewButtonStyle = csrStyle("createNewButtonStyle", {
   padding: "0.5rem 1rem",
   backgroundColor: colors.primary,
   color: "white",
@@ -3618,21 +3620,21 @@ const createNewButtonStyle = {
   fontSize: "0.75rem",
   fontWeight: "500",
   transition: "all 0.2s",
-};
-const checkboxListStyle = {
+});
+const checkboxListStyle = csrStyle("checkboxListStyle", {
   maxHeight: "300px",
   overflowY: "auto",
   border: `1px solid ${colors.border}`,
   borderRadius: "8px",
   backgroundColor: colors.background,
-};
-const emptyStateStyle = {
+});
+const emptyStateStyle = csrStyle("emptyStateStyle", {
   padding: "2rem",
   textAlign: "center",
   color: colors.textMuted,
   fontSize: "0.875rem",
-};
-const checkboxItemStyle = {
+});
+const checkboxItemStyle = csrStyle("checkboxItemStyle", {
   display: "flex",
   alignItems: "flex-start",
   gap: "0.75rem",
@@ -3640,17 +3642,17 @@ const checkboxItemStyle = {
   cursor: "pointer",
   borderBottom: `1px solid ${colors.border}`,
   transition: "background-color 0.2s",
-};
-const checkboxInputStyle = {
+});
+const checkboxInputStyle = csrStyle("checkboxInputStyle", {
   marginTop: "0.125rem",
   width: "1rem",
   height: "1rem",
   cursor: "pointer",
   accentColor: colors.primary,
   flexShrink: 0,
-};
-const checkboxItemContentStyle = { flex: 1 };
-const checkboxItemNameStyle = {
+});
+const checkboxItemContentStyle = csrStyle("checkboxItemContentStyle", { flex: 1 });
+const checkboxItemNameStyle = csrStyle("checkboxItemNameStyle", {
   fontSize: "0.875rem",
   fontWeight: "500",
   color: colors.textPrimary,
@@ -3658,28 +3660,28 @@ const checkboxItemNameStyle = {
   alignItems: "center",
   gap: "0.5rem",
   flexWrap: "wrap",
-};
-const checkboxItemBadgeStyle = {
+});
+const checkboxItemBadgeStyle = csrStyle("checkboxItemBadgeStyle", {
   fontSize: "0.7rem",
   padding: "0.125rem 0.5rem",
   backgroundColor: colors.light,
   color: colors.textSecondary,
   borderRadius: "12px",
   fontWeight: "normal",
-};
-const checkboxItemAddressStyle = {
+});
+const checkboxItemAddressStyle = csrStyle("checkboxItemAddressStyle", {
   fontSize: "0.75rem",
   color: colors.textMuted,
   marginTop: "0.25rem",
-};
-const modalTitleStyle = {
+});
+const modalTitleStyle = csrStyle("modalTitleStyle", {
   margin: "0 0 1.5rem 0",
   color: colors.textPrimary,
   fontSize: "1.25rem",
   fontWeight: "600",
-};
-const modalActionsStyle = { display: "flex", gap: "12px", marginTop: "1.5rem" };
-const modalCancelButtonStyle = {
+});
+const modalActionsStyle = csrStyle("modalActionsStyle", { display: "flex", gap: "12px", marginTop: "1.5rem" });
+const modalCancelButtonStyle = csrStyle("modalCancelButtonStyle", {
   flex: 1,
   padding: "0.625rem 1.5rem",
   backgroundColor: "transparent",
@@ -3690,8 +3692,8 @@ const modalCancelButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-};
-const modalCreateButtonStyle = {
+});
+const modalCreateButtonStyle = csrStyle("modalCreateButtonStyle", {
   flex: 1,
   padding: "0.625rem 1.5rem",
   backgroundColor: colors.success,
@@ -3702,8 +3704,8 @@ const modalCreateButtonStyle = {
   fontWeight: "500",
   fontSize: "0.875rem",
   transition: "all 0.2s",
-};
-const removeFileButtonStyle = {
+});
+const removeFileButtonStyle = csrStyle("removeFileButtonStyle", {
   marginLeft: "0.5rem",
   padding: "0.25rem 0.75rem",
   backgroundColor: colors.danger,
@@ -3715,15 +3717,15 @@ const removeFileButtonStyle = {
   fontWeight: "500",
   transition: "all 0.2s",
   whiteSpace: "nowrap",
-};
-const newImagePreviewStyle = {
+});
+const newImagePreviewStyle = csrStyle("newImagePreviewStyle", {
   width: "40px",
   height: "40px",
   objectFit: "cover",
   borderRadius: "4px",
   marginRight: "0.5rem",
-};
-const imageCountHeaderStyle = {
+});
+const imageCountHeaderStyle = csrStyle("imageCountHeaderStyle", {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
@@ -3731,8 +3733,8 @@ const imageCountHeaderStyle = {
   marginBottom: "0.5rem",
   fontSize: "0.75rem",
   color: colors.textSecondary,
-};
-const clearAllButtonStyle = {
+});
+const clearAllButtonStyle = csrStyle("clearAllButtonStyle", {
   padding: "0.25rem 0.75rem",
   backgroundColor: colors.warning,
   color: "white",
@@ -3742,17 +3744,17 @@ const clearAllButtonStyle = {
   fontSize: "0.7rem",
   fontWeight: "500",
   transition: "all 0.2s",
-};
+});
 
 // NEW STYLES FOR MULTIPLE FILE UPLOAD
-const fileListContainerStyle = {
+const fileListContainerStyle = csrStyle("fileListContainerStyle", {
   marginTop: "0.75rem",
   border: `1px solid ${colors.border}`,
   borderRadius: "8px",
   overflow: "hidden",
-};
+});
 
-const fileListHeaderStyle = {
+const fileListHeaderStyle = csrStyle("fileListHeaderStyle", {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
@@ -3761,15 +3763,15 @@ const fileListHeaderStyle = {
   borderBottom: `1px solid ${colors.border}`,
   fontSize: "0.75rem",
   color: colors.textSecondary,
-};
+});
 
-const fileListStyle = {
+const fileListStyle = csrStyle("fileListStyle", {
   maxHeight: "200px",
   overflowY: "auto",
   padding: "0.5rem",
-};
+});
 
-const fileListItemStyle = {
+const fileListItemStyle = csrStyle("fileListItemStyle", {
   display: "flex",
   alignItems: "center",
   gap: "0.75rem",
@@ -3778,26 +3780,26 @@ const fileListItemStyle = {
   borderRadius: "6px",
   border: `1px solid ${colors.border}`,
   marginBottom: "0.25rem",
-};
+});
 
-const fileIconStyle = {
+const fileIconStyle = csrStyle("fileIconStyle", {
   fontSize: "1.25rem",
-};
+});
 
-const fileListNameStyle = {
+const fileListNameStyle = csrStyle("fileListNameStyle", {
   flex: 1,
   fontSize: "0.8rem",
   color: colors.textPrimary,
   wordBreak: "break-all",
-};
+});
 
-const fileListSizeStyle = {
+const fileListSizeStyle = csrStyle("fileListSizeStyle", {
   fontSize: "0.7rem",
   color: colors.textMuted,
   marginRight: "0.5rem",
-};
+});
 
-const removeMultiFileButtonStyle = {
+const removeMultiFileButtonStyle = csrStyle("removeMultiFileButtonStyle", {
   background: "none",
   border: "none",
   color: colors.danger,
@@ -3806,7 +3808,7 @@ const removeMultiFileButtonStyle = {
   fontWeight: "bold",
   padding: "0 0.25rem",
   lineHeight: 1,
-};
+});
 
 // Add animation styles
 const styleSheet = document.styleSheets[0];

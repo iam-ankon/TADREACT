@@ -184,63 +184,15 @@ const PerformanceAppraisal = () => {
         console.log("👑 Full access user - showing all appraisals");
         filteredAppraisals = allAppraisals;
       } else {
-        // For team leaders - find employees who report to this user
-        console.log("🔍 Finding team members for:", currentUserName);
-
-        // Method 1: Find employees where reporting_leader contains current user's name
-        const teamMembers = allEmployees.filter((emp) => {
-          const reportingLeader = (emp.reporting_leader || "").toLowerCase();
-          const userNameMatch = currentUserName.toLowerCase();
-          const userEmployeeIdMatch = currentUserEmployeeId.toLowerCase();
-
-          // Check various patterns
-          const matches =
-            reportingLeader.includes(userNameMatch) ||
-            reportingLeader.includes(userEmployeeIdMatch) ||
-            reportingLeader.includes(currentUsername.toLowerCase()) ||
-            (userNameMatch.includes("mizan") &&
-              reportingLeader.includes("mr. mizan")) ||
-            (userNameMatch.includes("mizan") &&
-              reportingLeader.includes("mizan"));
-
-          if (matches && emp.employee_id !== currentUserEmployeeId) {
-            console.log(
-              `  ✅ Team member: ${emp.name} (${emp.employee_id}) - Reports to: ${emp.reporting_leader}`,
-            );
-          }
-
-          return matches;
-        });
-
-        // Get employee IDs of team members
-        const teamEmployeeIds = teamMembers.map((emp) => emp.employee_id);
-
-        // Always include the user's own ID
-        if (
-          currentUserEmployeeId &&
-          !teamEmployeeIds.includes(currentUserEmployeeId)
-        ) {
-          teamEmployeeIds.push(currentUserEmployeeId);
-        }
-
-        console.log("📋 Team Employee IDs:", teamEmployeeIds);
-        console.log("📋 Team Members Count:", teamMembers.length);
-
-        // Filter appraisals for team members
-        filteredAppraisals = allAppraisals.filter((appraisal) =>
-          teamEmployeeIds.includes(appraisal.employee_id),
-        );
-
+        // Team leaders: the server already limits the list to the leader's
+        // team (+ their own), using its reporting-leader matching. Matching
+        // names again here dropped teams whose "reporting leader" text is
+        // spelled differently from the leader's name (e.g. "Mr. Abu Bakkar
+        // Siddik" vs ABO BAKAR SIDDIK).
+        filteredAppraisals = allAppraisals;
         console.log(
           `📊 Found ${filteredAppraisals.length} appraisals for team`,
         );
-
-        // Log which appraisals were found
-        filteredAppraisals.forEach((app) => {
-          console.log(
-            `  - ${app.name} (${app.employee_id}) - Score: ${app.total_score || "N/A"}`,
-          );
-        });
       }
 
       setAppraisals(filteredAppraisals);
@@ -404,62 +356,10 @@ const PerformanceAppraisal = () => {
     // TEAM LEADERS - only see team members, NOT themselves
     console.log("🔍 Team Leader - showing team members only (excluding self)");
 
-    // First, find all employees who report to this team leader
-    let teamMembers = employees.filter((emp) => {
-      // Exclude self
-      if (emp.employee_id === currentUserEmployeeId) return false;
-
-      const reportingLeader = (emp.reporting_leader || "").toLowerCase();
-      const userNameMatch = currentUserName.toLowerCase();
-      const userEmployeeIdMatch = currentUserEmployeeId.toLowerCase();
-      const usernameMatch = currentUsername.toLowerCase();
-
-      // Check various patterns for reporting relationship
-      return (
-        reportingLeader.includes(userNameMatch) ||
-        reportingLeader.includes(userEmployeeIdMatch) ||
-        reportingLeader.includes(usernameMatch)
-      );
-    });
-
-    // Also check using the REPORTING_PATTERNS from backend
-    const reportingPatterns = {
-      MIZANUR2: ["mr. mizan", "mizanur", "mizan"],
-      SHAFIQUL: ["md. shafiqul islam", "shafiqul islam", "shafiq"],
-      SHAMOLY: ["ms. shamoly sultana", "shamoly sultana", "shamoly"],
-      HABIBUR: ["mr. habib", "habibur", "habib"],
-      ATIQUZZAMAN: ["mr. atiquzzaman", "atiquzzaman", "atiq"],
-      SOYEB: ["mr. soyeb rahman", "soyeb rahman", "soyeb"],
-      AMRAN: ["mr. amran", "amran khan", "amran"],
-      AARIJAH: ["ms. auhona rashid", "auhona rashid", "auhona"],
-      MAHMUDA: ["ms. mahmuda", "mahmuda hossain", "mahmuda"],
-      SOHEL1: ["mr. sohel rana", "sohel rana", "sohel"],
-      NAYEEM: ["mr. nayeem", "nayeem hasan", "nayeem"],
-      SWAPON: ["mr. swapon", "swapon kumar", "swapon"],
-      ABIR: ["mr. abir", "abir sultana", "abir"],
-      ATIQUR: ["mr. atiq", "atiqur rahman", "atiq"],
-    };
-
-    const patterns = reportingPatterns[currentUsername] || [];
-
-    // Add team members based on patterns
-    const patternTeamMembers = employees.filter((emp) => {
-      if (emp.employee_id === currentUserEmployeeId) return false;
-
-      const reportingLeader = (emp.reporting_leader || "").toLowerCase();
-      for (const pattern of patterns) {
-        if (reportingLeader.includes(pattern.toLowerCase())) {
-          return true;
-        }
-      }
-      return false;
-    });
-
-    // Combine both methods and remove duplicates
-    const allTeamMembers = [...teamMembers, ...patternTeamMembers];
-    const uniqueTeamMembers = allTeamMembers.filter(
-      (emp, index, self) =>
-        index === self.findIndex((e) => e.employee_id === emp.employee_id),
+    // The server's employee list for a team leader is already just their
+    // team plus themselves (see fetchAppraisals) - drop self.
+    const uniqueTeamMembers = employees.filter(
+      (emp) => emp.employee_id !== currentUserEmployeeId,
     );
 
     // Apply search filter if search term exists

@@ -1,68 +1,253 @@
 // src/components/stationery/StationeryUsage.jsx
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+//
+// Requests & Usage: every stationery request. Approve, reject (with an
+// optional reason) and issue; create a request on someone's behalf; search,
+// filter by status, CSV export. Shared look: stationeryTheme.js.
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Plus,
-  CheckCircle,
-  Clock,
-  XCircle,
-  Package,
-  User,
-  Calendar,
-  Search,
-  Filter,
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  Check,
-  Download,
-  Eye,
-  MoreVertical,
-  TrendingUp,
-  BarChart3,
-  Users,
-  FileText,
-} from "lucide-react";
+  FiAlertTriangle,
+  FiCheck,
+  FiCheckCircle,
+  FiClipboard,
+  FiClock,
+  FiDownload,
+  FiPackage,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiSend,
+  FiX,
+  FiXCircle,
+} from "react-icons/fi";
 import stationeryAPI from "../../api/stationery";
+import { downloadCSV, todayStamp } from "./stationeryShared";
+import { REQUEST_TONE, STATIONERY_CSS, apiError, fmtDateTime } from "./stationeryTheme";
 
+const EMPTY_FORM = { employee: "", stationery_item: "", quantity: 1, purpose: "", remarks: "" };
+
+const itemName = (r) => r.stationery_item_name || r.stationery_name || `Item #${r.stationery_item}`;
+
+// ── New request (on behalf of an employee) ───────────────────────────────────
+const RequestFormModal = ({ items, employees, onClose, onSaved }) => {
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const selected = items.find((i) => String(i.id) === String(form.stationery_item));
+  const tooMany = selected && Number(form.quantity) > Number(selected.current_stock || 0);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.employee || !form.stationery_item) {
+      setErr("Choose an employee and an item.");
+      return;
+    }
+    setSaving(true);
+    setErr(null);
+    try {
+      await stationeryAPI.addUsage({
+        ...form,
+        employee: parseInt(form.employee, 10),
+        stationery_item: parseInt(form.stationery_item, 10),
+        quantity: parseInt(form.quantity, 10) || 1,
+      });
+      onSaved();
+      onClose();
+    } catch (ex) {
+      setErr(apiError(ex, "Could not create the request."));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="sp-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="sp-modal" style={{ maxWidth: 560 }} onSubmit={submit}>
+        <div className="sp-modal-head">
+          <div>
+            <h2>New Request</h2>
+            <p>Create a stationery request on behalf of an employee.</p>
+          </div>
+          <button type="button" className="sp-icon-btn" onClick={onClose} title="Close">
+            <FiX />
+          </button>
+        </div>
+        <div className="sp-modal-body">
+          {err && (
+            <div className="sp-alert err">
+              <FiAlertTriangle />
+              <span>{err}</span>
+            </div>
+          )}
+          <div className="sp-field">
+            <label>
+              Employee <span className="req">*</span>
+            </label>
+            <select className="sp-input" value={form.employee} onChange={(e) => set("employee", e.target.value)} required>
+              <option value="">Select employee…</option>
+              {[...employees]
+                .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                .map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name} ({emp.employee_id})
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="sp-field-grid" style={{ gridTemplateColumns: "1fr 140px" }}>
+            <div className="sp-field">
+              <label>
+                Item <span className="req">*</span>
+              </label>
+              <select
+                className="sp-input"
+                value={form.stationery_item}
+                onChange={(e) => set("stationery_item", e.target.value)}
+                required
+              >
+                <option value="">Select item…</option>
+                {[...items]
+                  .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                  .map((item) => (
+                    <option key={item.id} value={item.id} disabled={Number(item.current_stock || 0) <= 0}>
+                      {item.name} — {item.current_stock ?? 0} {item.unit} in stock
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="sp-field">
+              <label>Quantity</label>
+              <input
+                className="sp-input"
+                type="number"
+                min="1"
+                value={form.quantity}
+                onChange={(e) => set("quantity", e.target.value)}
+              />
+            </div>
+          </div>
+          {tooMany && (
+            <div className="sp-hint warn" style={{ marginTop: -8, marginBottom: 12 }}>
+              Only {selected.current_stock} {selected.unit} in stock — the request will be refused.
+            </div>
+          )}
+          <div className="sp-field">
+            <label>Purpose</label>
+            <textarea
+              className="sp-input"
+              rows={2}
+              value={form.purpose}
+              onChange={(e) => set("purpose", e.target.value)}
+              placeholder="What is it for?"
+            />
+          </div>
+          <div className="sp-field" style={{ marginBottom: 0 }}>
+            <label>Remarks</label>
+            <textarea className="sp-input" rows={2} value={form.remarks} onChange={(e) => set("remarks", e.target.value)} />
+          </div>
+        </div>
+        <div className="sp-modal-foot">
+          <button type="button" className="sp-btn ghost" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="submit" className="sp-btn primary" disabled={saving}>
+            <FiSend /> {saving ? "Submitting…" : "Submit Request"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+// ── Reject with reason ───────────────────────────────────────────────────────
+const RejectModal = ({ record, onClose, onConfirm }) => {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="sp-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <form
+        className="sp-modal"
+        style={{ maxWidth: 460 }}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          await onConfirm(reason.trim());
+          setBusy(false);
+        }}
+      >
+        <div className="sp-modal-head">
+          <div>
+            <h2>Reject Request</h2>
+            <p>
+              {record.employee_name} · {itemName(record)} · {record.quantity} {record.unit || ""}
+            </p>
+          </div>
+          <button type="button" className="sp-icon-btn" onClick={onClose} title="Close">
+            <FiX />
+          </button>
+        </div>
+        <div className="sp-modal-body">
+          <div className="sp-field" style={{ marginBottom: 0 }}>
+            <label>Reason (optional)</label>
+            <textarea
+              className="sp-input"
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Saved in the request's remarks"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="sp-modal-foot">
+          <button type="button" className="sp-btn ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button type="submit" className="sp-btn danger" disabled={busy}>
+            <FiXCircle /> {busy ? "Rejecting…" : "Reject"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const STATUSES = ["pending", "approved", "issued", "rejected"];
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 const StationeryUsage = () => {
   const [usage, setUsage] = useState([]);
-  const [filteredUsage, setFilteredUsage] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
   const [items, setItems] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [notice, setNotice] = useState(null); // { ok, msg }
+  const [showForm, setShowForm] = useState(false);
+  const [rejecting, setRejecting] = useState(null);
+  const [busyId, setBusyId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedRow, setExpandedRow] = useState(null);
-  const [viewMode, setViewMode] = useState("table"); // 'table' or 'card'
 
-  const [formData, setFormData] = useState({
-    employee: "",
-    stationery_item: "",
-    quantity: 1,
-    purpose: "",
-    remarks: "",
-  });
-
-  const fetchData = async () => {
+  const fetchData = async ({ quiet = false } = {}) => {
+    if (quiet) setRefreshing(true);
+    else setLoading(true);
+    setLoadError(null);
     try {
-      setLoading(true);
       const [usageData, itemsData, employeesData] = await Promise.all([
         stationeryAPI.fetchUsage(),
         stationeryAPI.fetchItems(),
-        stationeryAPI.fetchEmployees(),
+        stationeryAPI.fetchEmployees().catch(() => []), // only needed for "New Request"
       ]);
-
-      setUsage(usageData);
-      setFilteredUsage(usageData);
-      setItems(itemsData);
-      setEmployees(employeesData);
+      setUsage(Array.isArray(usageData) ? usageData : []);
+      setItems(Array.isArray(itemsData) ? itemsData : []);
+      setEmployees(Array.isArray(employeesData) ? employeesData : []);
     } catch (error) {
       console.error("Error fetching data:", error);
+      setLoadError(apiError(error, "Could not load requests."));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -70,1566 +255,327 @@ const StationeryUsage = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    let filtered = [...usage];
+  const counts = useMemo(() => {
+    const c = { all: usage.length };
+    STATUSES.forEach((s) => {
+      c[s] = usage.filter((u) => u.status === s).length;
+    });
+    return c;
+  }, [usage]);
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((item) => item.status === statusFilter);
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (item) =>
-          item.employee?.name
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          item.stationery_item?.name
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          item.purpose?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredUsage(filtered);
+  const filteredUsage = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return usage
+      .filter((r) => statusFilter === "all" || r.status === statusFilter)
+      .filter(
+        (r) =>
+          !q ||
+          [r.employee_name, r.employee_employee_id, r.employee_department, itemName(r), r.purpose]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(q)),
+      )
+      .sort((a, b) => new Date(b.date_requested) - new Date(a.date_requested));
   }, [usage, statusFilter, searchTerm]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Run one workflow action, then reload; errors (e.g. not enough stock) are shown.
+  const runAction = async (record, fn, okMsg) => {
+    setBusyId(record.id);
+    setNotice(null);
     try {
-      await stationeryAPI.addUsage(formData);
-      setShowForm(false);
-      setFormData({
-        employee: "",
-        stationery_item: "",
-        quantity: 1,
-        purpose: "",
-        remarks: "",
-      });
-      fetchData();
+      await fn();
+      setNotice({ ok: true, msg: okMsg });
+      await fetchData({ quiet: true });
+      return true;
     } catch (error) {
-      console.error("Error adding usage request:", error);
+      setNotice({ ok: false, msg: apiError(error, "The action failed. Please try again.") });
+      return false;
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const handleApprove = async (usageId) => {
-    try {
-      await stationeryAPI.approveUsage(usageId);
-      fetchData();
-    } catch (error) {
-      console.error("Error approving request:", error);
-    }
+  const handleApprove = (r) =>
+    runAction(r, () => stationeryAPI.approveUsage(r.id), `Approved ${r.employee_name}'s request for ${itemName(r)}.`);
+  const handleIssue = (r) =>
+    runAction(r, () => stationeryAPI.issueUsage(r.id), `Issued ${r.quantity} ${r.unit || ""} ${itemName(r)} to ${r.employee_name}.`);
+  const handleReject = async (reason) => {
+    const r = rejecting;
+    const ok = await runAction(r, () => stationeryAPI.rejectUsage(r.id, reason), `Rejected ${r.employee_name}'s request.`);
+    if (ok) setRejecting(null);
   };
 
-  const handleReject = async (usageId) => {
-    try {
-      await stationeryAPI.rejectUsage(usageId);
-      fetchData();
-    } catch (error) {
-      console.error("Error rejecting request:", error);
-    }
-  };
-
-  const handleIssue = async (usageId) => {
-    try {
-      await stationeryAPI.issueUsage(usageId);
-      fetchData();
-    } catch (error) {
-      console.error("Error issuing item:", error);
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "approved":
-        return <CheckCircle size={16} />;
-      case "pending":
-        return <Clock size={16} />;
-      case "rejected":
-        return <XCircle size={16} />;
-      case "issued":
-        return <Check size={16} />;
-      default:
-        return <AlertCircle size={16} />;
-    }
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      approved: { bg: "#10B981", text: "#047857", light: "#D1FAE5" },
-      pending: { bg: "#F59E0B", text: "#B45309", light: "#FEF3C7" },
-      rejected: { bg: "#EF4444", text: "#B91C1C", light: "#FEE2E2" },
-      issued: { bg: "#3B82F6", text: "#1D4ED8", light: "#DBEAFE" },
-    };
-    return (
-      colors[status] || { bg: "#6B7280", text: "#374151", light: "#F3F4F6" }
-    );
-  };
-
-  const getStats = () => {
-    return {
-      pending: usage.filter((u) => u.status === "pending").length,
-      approved: usage.filter((u) => u.status === "approved").length,
-      issued: usage.filter((u) => u.status === "issued").length,
-      rejected: usage.filter((u) => u.status === "rejected").length,
-      total: usage.length,
-    };
-  };
+  const exportUsageCSV = () =>
+    downloadCSV(`stationery-requests-${todayStamp()}.csv`, filteredUsage, [
+      { label: "Requested", get: (r) => (r.date_requested ? new Date(r.date_requested).toLocaleString("en-GB") : "") },
+      { label: "Employee", get: (r) => r.employee_name },
+      { label: "Employee ID", get: (r) => r.employee_employee_id },
+      { label: "Department", get: (r) => r.employee_department },
+      { label: "Item", get: (r) => itemName(r) },
+      { label: "Quantity", get: (r) => r.quantity },
+      { label: "Unit", get: (r) => r.unit },
+      { label: "Purpose", get: (r) => r.purpose },
+      { label: "Remarks", get: (r) => r.remarks },
+      { label: "Status", get: (r) => r.status },
+      { label: "Issued", get: (r) => (r.date_issued ? new Date(r.date_issued).toLocaleString("en-GB") : "") },
+    ]);
 
   if (loading) {
     return (
-      <div style={{ padding: "48px", textAlign: "center" }}>
-        <div
-          style={{
-            display: "inline-block",
-            animation: "spin 1s linear infinite",
-            width: "48px",
-            height: "48px",
-            border: "3px solid rgba(59, 130, 246, 0.2)",
-            borderTopColor: "#3B82F6",
-            borderRadius: "50%",
-          }}
-        ></div>
-        <p style={{ marginTop: "16px", color: "#6B7280" }}>
-          Loading usage records...
-        </p>
+      <div className="sp-app">
+        <style>{STATIONERY_CSS}</style>
+        <div className="sp-loading">
+          <div className="sp-spinner" />
+          Loading requests…
+        </div>
       </div>
     );
   }
 
-  const stats = getStats();
+  const kpis = [
+    { key: "pending", label: "Pending approval", icon: <FiClock />, tone: "amber" },
+    { key: "approved", label: "Approved, to issue", icon: <FiCheckCircle />, tone: "blue" },
+    { key: "issued", label: "Issued", icon: <FiPackage />, tone: "green" },
+    { key: "rejected", label: "Rejected", icon: <FiXCircle />, tone: "red" },
+  ];
 
   return (
-    <div style={{ padding: "24px" }}>
-      {/* Modern Header */}
-      <div style={{ marginBottom: "32px" }}>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            marginBottom: "24px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              marginBottom: "16px",
-            }}
-          >
-            <div
-              style={{
-                padding: "14px",
-                background: "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
-                borderRadius: "16px",
-                boxShadow: "0 4px 20px rgba(139, 92, 246, 0.3)",
-              }}
-            >
-              <FileText style={{ color: "white" }} size={28} />
-            </div>
-            <div>
-              <h2
-                style={{
-                  fontSize: "24px",
-                  fontWeight: "700",
-                  color: "#111827",
-                  margin: "0 0 4px 0",
-                  letterSpacing: "-0.025em",
-                }}
-              >
-                Usage Management
-              </h2>
-              <p
-                style={{
-                  color: "#6B7280",
-                  fontSize: "14px",
-                  margin: 0,
-                }}
-              >
-                Track and manage stationery requests and distributions
-              </p>
-            </div>
-          </div>
+    <div className="sp-app">
+      <style>{STATIONERY_CSS}</style>
 
-          {/* Quick Stats */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "16px",
-              marginTop: "8px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "12px 20px",
-                background: "#F0F9FF",
-                border: "1px solid #BAE6FD",
-                borderRadius: "12px",
-                flex: "1",
-                minWidth: "180px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "10px",
-                  background: "#E0F2FE",
-                  borderRadius: "10px",
-                  color: "#0369A1",
-                }}
-              >
-                <Users size={20} />
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#0C4A6E",
-                    fontWeight: "600",
-                  }}
-                >
-                  TOTAL REQUESTS
-                </div>
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: "700",
-                    color: "#075985",
-                  }}
-                >
-                  {stats.total}
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "12px 20px",
-                background: "#FEF3C7",
-                border: "1px solid #FDE68A",
-                borderRadius: "12px",
-                flex: "1",
-                minWidth: "180px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "10px",
-                  background: "#FEF3C7",
-                  borderRadius: "10px",
-                  color: "#B45309",
-                }}
-              >
-                <Clock size={20} />
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#92400E",
-                    fontWeight: "600",
-                  }}
-                >
-                  PENDING
-                </div>
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: "700",
-                    color: "#B45309",
-                  }}
-                >
-                  {stats.pending}
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "12px 20px",
-                background: "#D1FAE5",
-                border: "1px solid #A7F3D0",
-                borderRadius: "12px",
-                flex: "1",
-                minWidth: "180px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "10px",
-                  background: "#D1FAE5",
-                  borderRadius: "10px",
-                  color: "#047857",
-                }}
-              >
-                <CheckCircle size={20} />
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#065F46",
-                    fontWeight: "600",
-                  }}
-                >
-                  APPROVED
-                </div>
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: "700",
-                    color: "#059669",
-                  }}
-                >
-                  {stats.approved}
-                </div>
-              </div>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "12px 20px",
-                background: "#DBEAFE",
-                border: "1px solid #BFDBFE",
-                borderRadius: "12px",
-                flex: "1",
-                minWidth: "180px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "10px",
-                  background: "#DBEAFE",
-                  borderRadius: "10px",
-                  color: "#1D4ED8",
-                }}
-              >
-                <Check size={20} />
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#1E40AF",
-                    fontWeight: "600",
-                  }}
-                >
-                  ISSUED
-                </div>
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: "700",
-                    color: "#2563EB",
-                  }}
-                >
-                  {stats.issued}
-                </div>
-              </div>
-            </div>
-          </div>
+      <header className="sp-header">
+        <div>
+          <div className="sp-eyebrow">Stationery</div>
+          <h1 className="sp-title">
+            Requests &amp; Usage <span className="sp-count">{usage.length}</span>
+          </h1>
+          <p className="sp-subtitle">Approve, reject and issue stationery requests.</p>
         </div>
-
-        {/* Action Bar */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "16px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "16px",
-              justifyContent: "space-between",
-            }}
-          >
-            {/* Search and Filters */}
-            <div
-              style={{
-                display: "flex",
-                flex: 1,
-                minWidth: "300px",
-                gap: "16px",
-                alignItems: "center",
-              }}
-            >
-              <div style={{ position: "relative", flex: 1 }}>
-                <Search
-                  style={{
-                    position: "absolute",
-                    left: "16px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#9CA3AF",
-                  }}
-                  size={20}
-                />
-                <input
-                  type="text"
-                  placeholder="Search by employee, item, or purpose..."
-                  style={{
-                    width: "100%",
-                    padding: "14px 16px 14px 48px",
-                    background: "white",
-                    border: "1px solid rgba(209, 213, 219, 0.8)",
-                    borderRadius: "12px",
-                    fontSize: "14px",
-                    outline: "none",
-                    transition: "all 0.2s ease",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#8B5CF6";
-                    e.target.style.boxShadow =
-                      "0 0 0 3px rgba(139, 92, 246, 0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "rgba(209, 213, 219, 0.8)";
-                    e.target.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-                  }}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "white",
-                  border: "1px solid rgba(209, 213, 219, 0.8)",
-                  borderRadius: "12px",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                  minWidth: "160px",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = "#D1D5DB")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.borderColor =
-                    "rgba(209, 213, 219, 0.8)")
-                }
-              >
-                <Filter size={16} style={{ color: "#6B7280" }} />
-                <select
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    fontSize: "14px",
-                    color: "#374151",
-                    outline: "none",
-                    width: "100%",
-                    cursor: "pointer",
-                  }}
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">📦 All Requests</option>
-                  <option value="pending">⏳ Pending</option>
-                  <option value="approved">✅ Approved</option>
-                  <option value="issued">📤 Issued</option>
-                  <option value="rejected">❌ Rejected</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                alignItems: "center",
-              }}
-            >
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={fetchData}
-                style={{
-                  padding: "10px 16px",
-                  background: "white",
-                  border: "1px solid rgba(209, 213, 219, 0.8)",
-                  borderRadius: "12px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: "#374151",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = "#D1D5DB")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.borderColor =
-                    "rgba(209, 213, 219, 0.8)")
-                }
-              >
-                <RefreshCw size={16} />
-                Refresh
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                style={{
-                  padding: "10px 16px",
-                  background: "white",
-                  border: "1px solid rgba(209, 213, 219, 0.8)",
-                  borderRadius: "12px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: "#374151",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = "#D1D5DB")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.borderColor =
-                    "rgba(209, 213, 219, 0.8)")
-                }
-              >
-                <Download size={16} />
-                Export
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowForm(true)}
-                style={{
-                  padding: "12px 24px",
-                  background:
-                    "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "12px",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  transition: "all 0.2s ease",
-                  boxShadow: "0 4px 14px rgba(139, 92, 246, 0.4)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background =
-                    "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)";
-                  e.currentTarget.style.boxShadow =
-                    "0 6px 20px rgba(139, 92, 246, 0.6)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background =
-                    "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)";
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 14px rgba(139, 92, 246, 0.4)";
-                }}
-              >
-                <Plus size={18} />
-                New Request
-              </motion.button>
-            </div>
-          </div>
+        <div className="sp-actions">
+          <button type="button" className="sp-btn ghost" onClick={() => fetchData({ quiet: true })} disabled={refreshing}>
+            <FiRefreshCw className={refreshing ? "sp-spin" : ""} /> Refresh
+          </button>
+          <button type="button" className="sp-btn ghost" onClick={exportUsageCSV} disabled={filteredUsage.length === 0}>
+            <FiDownload /> Export CSV
+          </button>
+          <button type="button" className="sp-btn primary" onClick={() => setShowForm(true)}>
+            <FiPlus /> New Request
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* New Request Form */}
-      <AnimatePresence>
-        {showForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0, 0, 0, 0.5)",
-              backdropFilter: "blur(4px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1000,
-              padding: "16px",
-            }}
-            onClick={() => setShowForm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              transition={{ type: "spring", damping: 25 }}
-              style={{
-                background: "white",
-                borderRadius: "20px",
-                width: "100%",
-                maxWidth: "600px",
-                maxHeight: "90vh",
-                overflow: "hidden",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                style={{
-                  padding: "24px",
-                  borderBottom: "1px solid #F3F4F6",
-                  background:
-                    "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <h3
-                    style={{
-                      fontSize: "20px",
-                      fontWeight: "600",
-                      color: "#111827",
-                      margin: "0 0 4px 0",
-                    }}
-                  >
-                    New Stationery Request
-                  </h3>
-                  <p
-                    style={{
-                      fontSize: "14px",
-                      color: "#6B7280",
-                      margin: 0,
-                    }}
-                  >
-                    Submit a request for stationery items
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowForm(false)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#9CA3AF",
-                    cursor: "pointer",
-                    padding: "8px",
-                    borderRadius: "8px",
-                    transition: "background 0.2s ease",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#F3F4F6")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  <XCircle size={20} />
-                </button>
-              </div>
-
-              <form
-                onSubmit={handleSubmit}
-                style={{ padding: "24px", overflowY: "auto" }}
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "20px",
-                  }}
-                >
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#374151",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      Employee *
-                    </label>
-                    <select
-                      required
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        background: "#F9FAFB",
-                        border: "1px solid #D1D5DB",
-                        borderRadius: "10px",
-                        fontSize: "14px",
-                        outline: "none",
-                        cursor: "pointer",
-                      }}
-                      value={formData.employee}
-                      onChange={(e) =>
-                        setFormData({ ...formData, employee: e.target.value })
-                      }
-                    >
-                      <option value="">Select Employee</option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.employee_id})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#374151",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      Stationery Item *
-                    </label>
-                    <select
-                      required
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        background: "#F9FAFB",
-                        border: "1px solid #D1D5DB",
-                        borderRadius: "10px",
-                        fontSize: "14px",
-                        outline: "none",
-                        cursor: "pointer",
-                      }}
-                      value={formData.stationery_item}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          stationery_item: e.target.value,
-                        })
-                      }
-                    >
-                      <option value="">Select Item</option>
-                      {items.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} (Stock: {item.current_stock} {item.unit})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#374151",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      required
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        background: "#F9FAFB",
-                        border: "1px solid #D1D5DB",
-                        borderRadius: "10px",
-                        fontSize: "14px",
-                        outline: "none",
-                      }}
-                      value={formData.quantity}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          quantity: parseInt(e.target.value) || 1,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "14px",
-                        fontWeight: "600",
-                        color: "#374151",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      Purpose *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        background: "#F9FAFB",
-                        border: "1px solid #D1D5DB",
-                        borderRadius: "10px",
-                        fontSize: "14px",
-                        outline: "none",
-                      }}
-                      placeholder="e.g., Office use, Project work, etc."
-                      value={formData.purpose}
-                      onChange={(e) =>
-                        setFormData({ ...formData, purpose: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div style={{ marginTop: "20px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      color: "#374151",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    Remarks (Optional)
-                  </label>
-                  <textarea
-                    rows="3"
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      background: "#F9FAFB",
-                      border: "1px solid #D1D5DB",
-                      borderRadius: "10px",
-                      fontSize: "14px",
-                      outline: "none",
-                      resize: "vertical",
-                    }}
-                    placeholder="Additional notes or requirements..."
-                    value={formData.remarks}
-                    onChange={(e) =>
-                      setFormData({ ...formData, remarks: e.target.value })
-                    }
-                  />
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "12px",
-                    marginTop: "32px",
-                    paddingTop: "20px",
-                    borderTop: "1px solid #F3F4F6",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    style={{
-                      padding: "12px 24px",
-                      background: "white",
-                      border: "1px solid #D1D5DB",
-                      borderRadius: "10px",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      color: "#374151",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#F9FAFB")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "white")
-                    }
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    style={{
-                      padding: "12px 32px",
-                      background:
-                        "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "10px",
-                      fontSize: "14px",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      boxShadow: "0 4px 14px rgba(139, 92, 246, 0.4)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)";
-                      e.currentTarget.style.boxShadow =
-                        "0 6px 20px rgba(139, 92, 246, 0.6)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)";
-                      e.currentTarget.style.boxShadow =
-                        "0 4px 14px rgba(139, 92, 246, 0.4)";
-                    }}
-                  >
-                    Submit Request
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Usage Table */}
-      <div
-        style={{
-          background: "white",
-          borderRadius: "16px",
-          border: "1px solid rgba(229, 231, 235, 0.5)",
-          overflow: "hidden",
-          marginBottom: "24px",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-        }}
-      >
-        <div
-          style={{
-            padding: "24px",
-            borderBottom: "1px solid #F3F4F6",
-            background: "#F9FAFB",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Package size={20} style={{ color: "#6B7280" }} />
-            <span
-              style={{ fontSize: "16px", fontWeight: "600", color: "#374151" }}
-            >
-              Usage Requests ({filteredUsage.length})
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              style={{
-                padding: "8px 16px",
-                background: "#F3F4F6",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "13px",
-                fontWeight: "500",
-                color: "#6B7280",
-                cursor: "pointer",
-              }}
-            >
-              Quick Actions
+      <div className="sp-body">
+        {loadError && (
+          <div className="sp-alert err">
+            <FiAlertTriangle />
+            <span>{loadError}</span>
+            <button type="button" className="sp-btn ghost sm" onClick={() => fetchData()}>
+              Retry
             </button>
           </div>
+        )}
+        {notice && (
+          <div className={`sp-alert ${notice.ok ? "ok" : "err"}`}>
+            {notice.ok ? <FiCheckCircle /> : <FiAlertTriangle />}
+            <span>{notice.msg}</span>
+            <button type="button" className="sp-icon-btn" onClick={() => setNotice(null)} title="Dismiss">
+              <FiX />
+            </button>
+          </div>
+        )}
+
+        <div className="sp-kpis">
+          {kpis.map((k) => (
+            <button
+              key={k.key}
+              type="button"
+              className={`sp-kpi k-${k.tone} ${statusFilter === k.key ? "active" : ""}`}
+              onClick={() => setStatusFilter(statusFilter === k.key ? "all" : k.key)}
+            >
+              <span className="sp-kpi-icon">{k.icon}</span>
+              <span>
+                <span className="sp-kpi-value">{counts[k.key]}</span>
+                <span className="sp-kpi-label">{k.label}</span>
+              </span>
+            </button>
+          ))}
         </div>
 
-        {filteredUsage.length === 0 ? (
-          <div style={{ padding: "48px", textAlign: "center" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                background: "#F3F4F6",
-                marginBottom: "24px",
-              }}
-            >
-              <Package style={{ color: "#9CA3AF" }} size={32} />
+        <section className="sp-card">
+          <div className="sp-toolbar">
+            <div className="sp-search">
+              <FiSearch />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search employee, ID, department, item or purpose"
+              />
+              {searchTerm && (
+                <button type="button" className="clear" onClick={() => setSearchTerm("")} title="Clear">
+                  <FiX />
+                </button>
+              )}
             </div>
-            <h3
-              style={{
-                fontSize: "20px",
-                fontWeight: "600",
-                color: "#111827",
-                margin: "0 0 8px 0",
-              }}
-            >
-              No usage records found
-            </h3>
-            <p
-              style={{
-                color: "#6B7280",
-                fontSize: "14px",
-                margin: "0 0 24px 0",
-              }}
-            >
-              Try adjusting your search or filter criteria.
-            </p>
+            <div className="sp-seg" aria-label="Status">
+              {["all", ...STATUSES].map((s) => (
+                <button key={s} type="button" className={statusFilter === s ? "on" : ""} onClick={() => setStatusFilter(s)}>
+                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                  <span className="n">{counts[s]}</span>
+                </button>
+              ))}
+            </div>
+            <span className="sp-spacer" />
+            <span className="sp-note">{filteredUsage.length} shown</span>
           </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#F9FAFB" }}>
-                  <th
-                    style={{
-                      padding: "16px 24px",
-                      textAlign: "left",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      color: "#6B7280",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <User size={14} />
-                      Employee
-                    </div>
-                  </th>
-                  <th
-                    style={{
-                      padding: "16px 24px",
-                      textAlign: "left",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      color: "#6B7280",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    Item & Purpose
-                  </th>
-                  <th
-                    style={{
-                      padding: "16px 24px",
-                      textAlign: "left",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      color: "#6B7280",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    Quantity
-                  </th>
-                  <th
-                    style={{
-                      padding: "16px 24px",
-                      textAlign: "left",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      color: "#6B7280",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    Date
-                  </th>
-                  <th
-                    style={{
-                      padding: "16px 24px",
-                      textAlign: "left",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      color: "#6B7280",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    Status
-                  </th>
-                  <th
-                    style={{
-                      padding: "16px 24px",
-                      textAlign: "left",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      color: "#6B7280",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsage.map((record, index) => {
-                  const statusColor = getStatusColor(record.status);
-                  return (
-                    <React.Fragment key={record.id}>
-                      <tr
-                        style={{
-                          background:
-                            expandedRow === record.id ? "#F9FAFB" : "white",
-                          borderBottom: "1px solid #F3F4F6",
-                          transition: "background 0.2s ease",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = "#F9FAFB")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.background =
-                            expandedRow === record.id ? "#F9FAFB" : "white")
-                        }
-                        onClick={() =>
-                          setExpandedRow(
-                            expandedRow === record.id ? null : record.id
-                          )
-                        }
-                      >
-                        <td style={{ padding: "20px 24px" }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "12px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: "40px",
-                                height: "40px",
-                                borderRadius: "50%",
-                                background:
-                                  "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "white",
-                                fontWeight: "600",
-                              }}
-                            >
-                              {record.employee?.name?.charAt(0) || "U"}
+
+          {filteredUsage.length === 0 ? (
+            <div className="sp-state">
+              <div className="sp-state-icon">
+                <FiClipboard />
+              </div>
+              <h3>{usage.length === 0 ? "No requests yet" : "No requests match"}</h3>
+              <p>{usage.length === 0 ? "Requests from employees will appear here." : "Try a different search or status."}</p>
+            </div>
+          ) : (
+            <div className="sp-table-wrap">
+              <table className="sp-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Item</th>
+                    <th className="num">Qty</th>
+                    <th>Purpose</th>
+                    <th>Requested</th>
+                    <th>Status</th>
+                    <th className="right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsage.map((r) => {
+                    const open = expandedRow === r.id;
+                    const busy = busyId === r.id;
+                    return (
+                      <React.Fragment key={r.id}>
+                        <tr className={`row ${open ? "open" : ""}`} onClick={() => setExpandedRow(open ? null : r.id)}>
+                          <td>
+                            <div className="sp-person">
+                              <span className="sp-avatar">{(r.employee_name || "?").trim().charAt(0).toUpperCase()}</span>
+                              <span>
+                                <span className="strong">{r.employee_name || "Unknown"}</span>
+                                <span className="sp-cell-sub">
+                                  {[r.employee_employee_id, r.employee_department].filter(Boolean).join(" · ") || "—"}
+                                </span>
+                              </span>
                             </div>
-                            <div>
-                              <div
-                                style={{
-                                  fontSize: "14px",
-                                  fontWeight: "600",
-                                  color: "#111827",
-                                  marginBottom: "2px",
-                                }}
-                              >
-                                {record.employee_name || "Unknown"}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: "12px",
-                                  color: "#6B7280",
-                                }}
-                              >
-                                {record.employee_employee_id ||
-                                  (record.employee &&
-                                    record.employee.employee_id) ||
-                                  "N/A"}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: "20px 24px" }}>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: "600",
-                                color: "#111827",
-                                marginBottom: "4px",
-                              }}
-                            >
-                              {record.stationery_item?.name ||
-                                record.stationery_item_name ||
-                                "Unknown"}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: "13px",
-                                color: "#6B7280",
-                              }}
-                            >
-                              {record.purpose}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: "20px 24px" }}>
-                          <div
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "8px 16px",
-                              background: "#F3F4F6",
-                              borderRadius: "8px",
-                              fontSize: "14px",
-                              fontWeight: "600",
-                              color: "#111827",
-                            }}
-                          >
-                            <span>{record.quantity}</span>
-                            <span
-                              style={{ color: "#6B7280", fontSize: "12px" }}
-                            >
-                              {record.stationery_item?.unit || "pcs"}
+                          </td>
+                          <td className="strong">{itemName(r)}</td>
+                          <td className="num nowrap">
+                            <span className="strong">{r.quantity}</span> <span className="muted small">{r.unit || ""}</span>
+                          </td>
+                          <td>
+                            <span className="sp-clamp muted" title={r.purpose || ""}>
+                              {r.purpose || "—"}
                             </span>
-                          </div>
-                        </td>
-                        <td style={{ padding: "20px 24px" }}>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: "14px",
-                                fontWeight: "600",
-                                color: "#111827",
-                                marginBottom: "2px",
-                              }}
-                            >
-                              {new Date(
-                                record.date_requested
-                              ).toLocaleDateString()}
+                          </td>
+                          <td className="muted nowrap">{fmtDateTime(r.date_requested)}</td>
+                          <td>
+                            <span className={`sp-pill ${REQUEST_TONE[r.status] || "gray"}`}>{r.status}</span>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div className="sp-actions-cell">
+                              {busy && <span className="sp-spinner sm" />}
+                              {r.status === "pending" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="sp-btn success sm"
+                                    disabled={busy}
+                                    onClick={() => handleApprove(r)}
+                                  >
+                                    <FiCheck /> Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="sp-icon-btn danger"
+                                    title="Reject"
+                                    disabled={busy}
+                                    onClick={() => setRejecting(r)}
+                                  >
+                                    <FiX />
+                                  </button>
+                                </>
+                              )}
+                              {r.status === "approved" && (
+                                <>
+                                  <button type="button" className="sp-btn primary sm" disabled={busy} onClick={() => handleIssue(r)}>
+                                    <FiPackage /> Issue
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="sp-icon-btn danger"
+                                    title="Reject"
+                                    disabled={busy}
+                                    onClick={() => setRejecting(r)}
+                                  >
+                                    <FiX />
+                                  </button>
+                                </>
+                              )}
                             </div>
-                            <div
-                              style={{
-                                fontSize: "12px",
-                                color: "#6B7280",
-                              }}
-                            >
-                              {new Date(
-                                record.date_requested
-                              ).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: "20px 24px" }}>
-                          <div
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "8px 16px",
-                              background: statusColor.light,
-                              color: statusColor.text,
-                              borderRadius: "20px",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                            }}
-                          >
-                            {getStatusIcon(record.status)}
-                            <span style={{ textTransform: "capitalize" }}>
-                              {record.status}
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{ padding: "20px 24px" }}>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            {record.status === "pending" && (
-                              <>
-                                <motion.button
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleApprove(record.id);
-                                  }}
-                                  style={{
-                                    padding: "8px",
-                                    background: "#D1FAE5",
-                                    border: "none",
-                                    borderRadius: "8px",
-                                    color: "#047857",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
-                                  title="Approve"
-                                >
-                                  <CheckCircle size={16} />
-                                </motion.button>
-                                <motion.button
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleReject(record.id);
-                                  }}
-                                  style={{
-                                    padding: "8px",
-                                    background: "#FEE2E2",
-                                    border: "none",
-                                    borderRadius: "8px",
-                                    color: "#B91C1C",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
-                                  title="Reject"
-                                >
-                                  <XCircle size={16} />
-                                </motion.button>
-                              </>
-                            )}
-                            {record.status === "approved" && (
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleIssue(record.id);
-                                }}
-                                style={{
-                                  padding: "8px",
-                                  background: "#DBEAFE",
-                                  border: "none",
-                                  borderRadius: "8px",
-                                  color: "#1D4ED8",
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                                title="Issue Item"
-                              >
-                                <Check size={16} />
-                              </motion.button>
-                            )}
-                            <button
-                              style={{
-                                padding: "8px",
-                                background: "#F3F4F6",
-                                border: "none",
-                                borderRadius: "8px",
-                                color: "#6B7280",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <Eye size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      <AnimatePresence>
-                        {expandedRow === record.id && (
-                          <motion.tr
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                          >
-                            <td colSpan="6" style={{ padding: "0" }}>
-                              <div
-                                style={{
-                                  padding: "20px 24px",
-                                  background: "#F9FAFB",
-                                  borderBottom: "1px solid #E5E7EB",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "1fr 1fr",
-                                    gap: "24px",
-                                  }}
-                                >
-                                  <div>
-                                    <div
-                                      style={{
-                                        fontSize: "12px",
-                                        fontWeight: "600",
-                                        color: "#6B7280",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.05em",
-                                      }}
-                                    >
-                                      Details
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                      }}
-                                    >
-                                      <div style={{ marginBottom: "4px" }}>
-                                        <strong>Item:</strong>{" "}
-                                        {record.stationery_item?.name}
-                                      </div>
-                                      <div style={{ marginBottom: "4px" }}>
-                                        <strong>Purpose:</strong>{" "}
-                                        {record.purpose}
-                                      </div>
-                                      <div>
-                                        <strong>Remarks:</strong>{" "}
-                                        {record.remarks || "None"}
-                                      </div>
-                                    </div>
+                          </td>
+                        </tr>
+                        {open && (
+                          <tr className="sp-detail">
+                            <td colSpan={7}>
+                              <div className="sp-detail-grid">
+                                <div>
+                                  <div className="k">Purpose</div>
+                                  <div className="v">{r.purpose || "—"}</div>
+                                </div>
+                                <div>
+                                  <div className="k">Remarks</div>
+                                  <div className="v">{r.remarks || "—"}</div>
+                                </div>
+                                <div>
+                                  <div className="k">Employee</div>
+                                  <div className="v">
+                                    {r.employee_name || "—"}
+                                    {r.employee_email ? `\n${r.employee_email}` : ""}
                                   </div>
-                                  <div>
-                                    <div
-                                      style={{
-                                        fontSize: "12px",
-                                        fontWeight: "600",
-                                        color: "#6B7280",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.05em",
-                                      }}
-                                    >
-                                      Employee Info
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                      }}
-                                    >
-                                      <div style={{ marginBottom: "4px" }}>
-                                        <strong>Department:</strong>{" "}
-                                        {record.employee?.department ||
-                                          "Not specified"}
-                                      </div>
-                                      <div>
-                                        <strong>Requested on:</strong>{" "}
-                                        {new Date(
-                                          record.date_requested
-                                        ).toLocaleString()}
-                                      </div>
-                                    </div>
+                                </div>
+                                <div>
+                                  <div className="k">Requested / issued</div>
+                                  <div className="v">
+                                    {fmtDateTime(r.date_requested)}
+                                    {"\n"}
+                                    {r.date_issued ? `Issued ${fmtDateTime(r.date_issued)}` : "Not issued yet"}
                                   </div>
                                 </div>
                               </div>
                             </td>
-                          </motion.tr>
+                          </tr>
                         )}
-                      </AnimatePresence>
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* Summary Footer */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{
-          padding: "24px",
-          background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
-          color: "white",
-          borderRadius: "16px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: "18px",
-              fontWeight: "600",
-              marginBottom: "4px",
-            }}
-          >
-            Usage Summary
-          </div>
-          <div
-            style={{
-              fontSize: "14px",
-              opacity: 0.8,
-            }}
-          >
-            Total requests: {stats.total} • Pending: {stats.pending} • Approved:{" "}
-            {stats.approved} • Issued: {stats.issued}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: "12px" }}>
-          <button
-            style={{
-              padding: "10px 20px",
-              background: "rgba(255, 255, 255, 0.1)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              borderRadius: "10px",
-              color: "white",
-              fontSize: "14px",
-              fontWeight: "500",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)")
-            }
-          >
-            <BarChart3 size={16} />
-            Analytics
-          </button>
-          <button
-            style={{
-              padding: "10px 20px",
-              background: "white",
-              color: "#0F172A",
-              border: "none",
-              borderRadius: "10px",
-              fontSize: "14px",
-              fontWeight: "600",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#F1F5F9")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
-          >
-            <Download size={16} />
-            Export Report
-          </button>
-        </div>
-      </motion.div>
+      {showForm && (
+        <RequestFormModal
+          items={items}
+          employees={employees}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setNotice({ ok: true, msg: "Request created." });
+            fetchData({ quiet: true });
+          }}
+        />
+      )}
+      {rejecting && <RejectModal record={rejecting} onClose={() => setRejecting(null)} onConfirm={handleReject} />}
     </div>
   );
 };

@@ -1,10 +1,57 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Sidebar from "../merchandiser/Sidebar.jsx";
+import { withSupplierFormTheme, SUPPLIER_FORM_CSS } from "./supplierFormTheme";
 import { useNavigate, useParams } from "react-router-dom";
+
+const DOCUMENT_FIELDS = [
+  ["bsci_certificate", "BSCI Certificate"],
+  ["sedex_certificate", "Sedex Certificate"],
+  ["wrap_certificate", "WRAP Certificate"],
+  ["security_audit_certificate", "Security Audit Certificate"],
+  ["oeko_tex_certificate", "OEKO-TEX Certificate"],
+  ["gots_certificate", "GOTS Certificate"],
+  ["ocs_certificate", "OCS Certificate"],
+  ["grs_certificate", "GRS Certificate"],
+  ["rcs_certificate", "RCS Certificate"],
+  ["iso_9001_certificate", "ISO 9001 Certificate"],
+  ["iso_14001_certificate", "ISO 14001 Certificate"],
+  ["trade_license_file", "Trade License File"],
+  ["factory_license_file", "Factory License File"],
+  ["fire_license_file", "Fire License File"],
+  ["membership_file", "Membership File"],
+  ["group_insurance_file", "Group Insurance File"],
+  ["boiler_license_file", "Boiler License File"],
+  ["berc_license_file", "BERC License File"],
+  ["environmental_compliance_certificate", "Environmental Compliance Certificate"],
+  ["environmental_audit_report", "Environmental Audit Report"],
+  ["compliance_certificate", "Compliance Certificate"],
+  ["grievance_policy_document", "Grievance Policy Document"],
+  ["emergency_evacuation_plan", "Emergency Evacuation Plan"],
+  ["safety_protocols_document", "Safety Protocols Document"],
+  ["health_safety_policy", "Health Safety Policy"],
+  ["risk_assessment_report", "Risk Assessment Report"],
+  ["safety_audit_report", "Safety Audit Report"],
+  ["profile_picture", "Profile Picture"],
+  ["additional_document_1", "Additional Document 1"],
+  ["additional_document_2", "Additional Document 2"],
+  ["additional_document_3", "Additional Document 3"],
+  ["additional_document_4", "Additional Document 4"],
+  ["fire_training_certificate", "Fire Training Certificate"],
+  ["fire_drill_record", "Fire Drill Record"],
+  ["fire_safety_audit_report", "Fire Safety Audit Report"],
+  ["rsc_certificate", "RSC Certificate"],
+  ["structural_safety_report", "Structural Safety Report"],
+  ["electrical_safety_report", "Electrical Safety Report"],
+  ["fire_safety_report", "Fire Safety Report"],
+  ["pc_election_document", "PC Election Document"],
+  ["pc_meeting_minutes", "PC Meeting Minutes"],
+  ["safety_committee_formation_document", "Safety Committee Formation Document"],
+  ["safety_committee_meeting_minutes", "Safety Committee Meeting Minutes"],
+];
 
 const EditSupplier = () => {
   const { id } = useParams();
@@ -53,6 +100,49 @@ const EditSupplier = () => {
     return diffDays.toString();
   };
 
+  // Handle field changes with auto-calculation for days remaining
+  const handleFieldChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Auto-calculate days remaining when validity date changes
+    if (name.includes("_validity") && !name.includes("days_remaining")) {
+      const daysField = name.replace("_validity", "_validity_days_remaining");
+      const calculatedDays = calculateDaysRemaining(value);
+      setValue(daysField, calculatedDays);
+    }
+    
+    // Handle specific cases
+    if (name === "bsci_validity") {
+      setValue("bsci_validity_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "sedex_validity") {
+      setValue("sedex_validity_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "wrap_validity") {
+      setValue("wrap_validity_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "security_audit_validity") {
+      setValue("security_audit_validity_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "oeko_tex_validity") {
+      setValue("oeko_tex_validity_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "gots_validity") {
+      setValue("gots_validity_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "iso_9001_validity") {
+      setValue("iso_9001_validity_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "trade_license_validity") {
+      setValue("trade_license_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "factory_license_validity") {
+      setValue("factory_license_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "fire_license_validity") {
+      setValue("fire_license_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "membership_validity") {
+      setValue("membership_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "group_insurance_validity") {
+      setValue("group_insurance_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "boiler_license_validity") {
+      setValue("boiler_license_days_remaining", calculateDaysRemaining(value));
+    } else if (name === "berc_license_validity") {
+      setValue("berc_days_remaining", calculateDaysRemaining(value));
+    }
+  };
+
   // Helper function to handle file selection
   const handleFileChange = (fieldName, file) => {
     if (file && file instanceof File) {
@@ -84,7 +174,7 @@ const EditSupplier = () => {
   };
 
   // Inline CSS Styles
-  const styles = {
+  const baseStyles = {
     mainContainer: {
       display: "flex",
       minHeight: "100vh",
@@ -141,7 +231,6 @@ const EditSupplier = () => {
     },
     activeTab: {
       color: "#2563eb",
-      borderBottomColor: "#2563eb",
     },
     gridContainer: {
       display: "grid",
@@ -308,7 +397,24 @@ const EditSupplier = () => {
       marginTop: "0.25rem",
       color: "#6b7280",
     },
+    checkboxGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+      gap: "0.5rem",
+      marginBottom: "1rem",
+    },
+    cardGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))",
+      gap: "1rem",
+      marginBottom: "1rem",
+    },
+    readOnlyInput: {
+      backgroundColor: "#f3f4f6",
+      cursor: "not-allowed",
+    },
   };
+  const styles = withSupplierFormTheme(baseStyles);
 
   // Fetch supplier data on component mount
   useEffect(() => {
@@ -317,6 +423,7 @@ const EditSupplier = () => {
         setLoading(true);
         const response = await axios.get(
           `http://119.148.51.38:8000/api/csr/api/supplier/${id}/`,
+          { headers: { Authorization: `Token ${localStorage.getItem("token")}` } },
         );
         const data = response.data;
 
@@ -688,10 +795,9 @@ const EditSupplier = () => {
         return;
       }
 
-      // Handle empty strings - skip them (let backend handle as null)
-      if (value === "") {
-        return;
-      }
+      // Empty strings ARE sent: that is how a cleared field gets saved
+      // (the API stores "" as blank/null). Skipping them made it impossible
+      // to remove a value.
 
       // Handle all other fields (including dates as strings and numbers)
       formData.append(key, value);
@@ -727,14 +833,14 @@ const EditSupplier = () => {
         {
           headers: {
             "Content-Type": "multipart/form-data",
+            Authorization: `Token ${localStorage.getItem("token")}`,
           },
         },
       );
 
-      toast.success("Supplier updated successfully");
-      setTimeout(() => {
-        navigate("/suppliers");
-      }, 1500);
+      // Land on this supplier's page with a confirmation banner, so the
+      // saved values are visible (a toast here vanished with the page).
+      navigate(`/suppliers/${id}`, { state: { flash: "Supplier updated successfully." } });
     } catch (error) {
       console.error("Update error:", error);
       console.error("Error response:", error.response?.data);
@@ -860,8 +966,9 @@ const EditSupplier = () => {
     </div>
   );
 
-  // Tabs for different sections - keeping only essential tabs for brevity
-  // The rest of the tabs remain the same as in the original file
+  // One case per tab. Field markup for Production, Certifications (+ licences),
+  // Compliance, Environment, Fire Safety, RSC Audit and CSR is the same as
+  // AddSupplier.jsx; files live on the Documents tab (FileInput above).
   const renderTabContent = () => {
     switch (activeTab) {
       case "basic":
@@ -927,6 +1034,9 @@ const EditSupplier = () => {
                     <option value="Knit & Lingerie">Knit & Lingerie</option>
                     <option value="Knit">Knit</option>
                     <option value="Lingerie">Lingerie</option>
+                    <option value="Socks">Socks</option>
+                    <option value="Bags & Luggage">Bags & Luggage</option>
+                    <option value="Tent">Tent</option>
                   </select>
                 </div>
                 <div style={styles.inputGroup}>
@@ -1057,118 +1167,481 @@ const EditSupplier = () => {
           </div>
         );
 
-      case "certifications":
+      case "production":
         return (
           <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Production & Manpower</h3>
+
+            <div style={styles.sectionHeader}>Manpower</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Workers (Male)</label>
+                <input
+                  type="number"
+                  {...register("manpower_workers_male")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Workers (Female)</label>
+                <input
+                  type="number"
+                  {...register("manpower_workers_female")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Staff (Male)</label>
+                <input
+                  type="number"
+                  {...register("manpower_staff_male")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Staff (Female)</label>
+                <input
+                  type="number"
+                  {...register("manpower_staff_female")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Manpower (auto-calculated)</label>
+                <input
+                  type="number"
+                  {...register("total_manpower")}
+                  style={{...styles.input, ...styles.readOnlyInput}}
+                  readOnly
+                  value={
+                    (parseInt(watch("manpower_workers_male") || 0) +
+                    parseInt(watch("manpower_workers_female") || 0) +
+                    parseInt(watch("manpower_staff_male") || 0) +
+                    parseInt(watch("manpower_staff_female") || 0))
+                  }
+                />
+              </div>
+            </div>
+
+            
+            <div style={styles.sectionHeader}>Production Details</div>
+            <div style={styles.gridContainer}>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Production Process</label>
+                <textarea
+                  {...register("production_process")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Manufacturing Items</label>
+                <textarea
+                  {...register("manufacturing_item")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Capacity per month</label>
+                <input
+                  type="text"
+                  {...register("capacity_per_month")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Business % by Market</label>
+                <input
+                  type="text"
+                  {...register("business_by_market")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Number of Sewing Lines</label>
+                <input
+                  type="number"
+                  {...register("number_of_sewing_line")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Number of Machineries</label>
+                <input
+                  type="number"
+                  {...register("total_number_of_machineries")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Existing Customers</label>
+                <textarea
+                  {...register("existing_customer")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Yearly Turnover (USD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register("yearly_turnover_usd")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Weekly Holiday</label>
+                <select {...register("weekly_holiday")} style={styles.select}>
+                  <option value="Friday">Friday</option>
+                  <option value="Saturday">Saturday</option>
+                  <option value="Sunday">Sunday</option>
+                </select>
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>BGMEA Number</label>
+                <input
+                  type="text"
+                  {...register("bgmea_number")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>RSC</label>
+                <input
+                  type="text"
+                  {...register("rsc")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>TAD Group Order Status</label>
+                <input
+                  type="text"
+                  {...register("tad_group_order_status")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case "certifications":
+        return (
+          <>
+          <div style={styles.cardContainer}>
             <h3 style={styles.cardTitle}>Certifications</h3>
-
-            {/* BSCI */}
-            <div style={styles.cardContainer}>
-              <h4 style={styles.cardTitle}>BSCI</h4>
-              <div style={styles.gridContainer}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Last Audit Date</label>
-                  <input
-                    type="date"
-                    {...register("bsci_last_audit_date")}
-                    style={styles.input}
-                  />
+            
+            <div style={styles.cardGrid}>
+              {/* BSCI */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>BSCI</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Last Audit Date</label>
+                    <input
+                      type="date"
+                      {...register("bsci_last_audit_date")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Rating</label>
+                    <input
+                      type="text"
+                      {...register("bsci_rating")}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("bsci_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("bsci_validity_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select {...register("bsci_status")} style={styles.select}>
+                      <option value="">Select Status</option>
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
                 </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Rating</label>
-                  <input
-                    type="text"
-                    {...register("bsci_rating")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Validity</label>
-                  <input
-                    type="date"
-                    {...register("bsci_validity")}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Status</label>
-                  <select {...register("bsci_status")} style={styles.select}>
-                    <option value="">Select Status</option>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                    <option value="expired">Expired</option>
-                  </select>
-                </div>
-                <FileInput fieldName="bsci_certificate" />
               </div>
-            </div>
 
-            {/* Oeko-Tex */}
-            <div style={styles.cardContainer}>
-              <h4 style={styles.cardTitle}>Oeko-Tex</h4>
-              <div style={styles.gridContainer}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Validity</label>
-                  <input
-                    type="date"
-                    {...register("oeko_tex_validity")}
-                    style={styles.input}
-                  />
+              {/* SEDEX */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>SEDEX</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Last Audit Date</label>
+                    <input
+                      type="date"
+                      {...register("sedex_last_audit_date")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Rating</label>
+                    <input
+                      type="text"
+                      {...register("sedex_rating")}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("sedex_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("sedex_validity_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select {...register("sedex_status")} style={styles.select}>
+                      <option value="">Select Status</option>
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
                 </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Status</label>
-                  <select
-                    {...register("oeko_tex_status")}
-                    style={styles.select}
-                  >
-                    <option value="">Select Status</option>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                    <option value="expired">Expired</option>
-                  </select>
-                </div>
-                <FileInput fieldName="oeko_tex_certificate" />
               </div>
-            </div>
 
-            {/* GOTS */}
-            <div style={styles.cardContainer}>
-              <h4 style={styles.cardTitle}>GOTS</h4>
-              <div style={styles.gridContainer}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Validity</label>
-                  <input
-                    type="date"
-                    {...register("gots_validity")}
-                    style={styles.input}
-                  />
+              {/* WRAP */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>WRAP</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Last Audit Date</label>
+                    <input
+                      type="date"
+                      {...register("wrap_last_audit_date")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Rating</label>
+                    <input
+                      type="text"
+                      {...register("wrap_rating")}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("wrap_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("wrap_validity_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select {...register("wrap_status")} style={styles.select}>
+                      <option value="">Select Status</option>
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
                 </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Status</label>
-                  <select {...register("gots_status")} style={styles.select}>
-                    <option value="">Select Status</option>
-                    <option value="active">Active</option>
-                    <option value="pending">Pending</option>
-                    <option value="expired">Expired</option>
-                  </select>
-                </div>
-                <FileInput fieldName="gots_certificate" />
               </div>
-            </div>
 
-            {/* Fire License */}
-            <div style={styles.cardContainer}>
-              <h4 style={styles.cardTitle}>Fire License</h4>
-              <div style={styles.gridContainer}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Validity</label>
-                  <input
-                    type="date"
-                    {...register("fire_license_validity")}
-                    style={styles.input}
-                  />
+              {/* Security Audit */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Security Audit</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Last Audit Date</label>
+                    <input
+                      type="date"
+                      {...register("security_audit_last_date")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Rating</label>
+                    <input
+                      type="text"
+                      {...register("security_audit_rating")}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("security_audit_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("security_audit_validity_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select {...register("security_audit_status")} style={styles.select}>
+                      <option value="">Select Status</option>
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
                 </div>
-                <FileInput fieldName="fire_license_file" />
+              </div>
+
+              {/* Oeko-Tex */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Oeko-Tex</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("oeko_tex_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("oeko_tex_validity_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select {...register("oeko_tex_status")} style={styles.select}>
+                      <option value="">Select Status</option>
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* GOTS */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>GOTS</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("gots_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("gots_validity_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select {...register("gots_status")} style={styles.select}>
+                      <option value="">Select Status</option>
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* ISO 9001 */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>ISO 9001</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("iso_9001_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("iso_9001_validity_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Status</label>
+                    <select {...register("iso_9001_status")} style={styles.select}>
+                      <option value="">Select Status</option>
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1176,16 +1649,735 @@ const EditSupplier = () => {
               <label style={styles.label}>Certification Remarks</label>
               <textarea
                 {...register("certification_remarks")}
-                rows={3}
                 style={styles.textarea}
               />
             </div>
           </div>
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>License Information</h3>
+            
+            <div style={styles.cardGrid}>
+              {/* Trade License */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Trade License</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("trade_license_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("trade_license_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Factory License */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Factory License</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("factory_license_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("factory_license_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Fire License */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Fire License</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("fire_license_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("fire_license_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Membership */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Membership</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("membership_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("membership_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Group Insurance */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Group Insurance</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("group_insurance_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("group_insurance_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Boiler License */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>Boiler License</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Boiler No</label>
+                    <input
+                      type="text"
+                      {...register("boiler_no")}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("boiler_license_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("boiler_license_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* BERC License */}
+              <div style={styles.cardContainer}>
+                <h4 style={styles.cardTitle}>BERC License</h4>
+                <div style={styles.gridContainer}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Validity</label>
+                    <input
+                      type="date"
+                      {...register("berc_license_validity")}
+                      onChange={handleFieldChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Days Remaining</label>
+                    <input
+                      type="number"
+                      {...register("berc_days_remaining")}
+                      style={{...styles.input, ...styles.readOnlyInput}}
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>License Remarks</label>
+              <textarea
+                {...register("license_remarks")}
+                style={styles.textarea}
+              />
+            </div>
+          </div>
+          </>
         );
 
-      // Add other tabs here following the same pattern...
-      // For brevity, I'm only showing the essential tabs.
-      // You can copy the other tabs from your original file and replace the file inputs with the FileInput component
+      case "compliance":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Compliance Information</h3>
+            
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Compliance Status</label>
+                <select {...register("compliance_status")} style={styles.select}>
+                  <option value="under_review">Under Review</option>
+                  <option value="compliant">Compliant</option>
+                  <option value="non_compliant">Non-Compliant</option>
+                  <option value="conditional">Conditional Approval</option>
+                </select>
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Compliance Remarks</label>
+                <textarea
+                  {...register("compliance_remarks")}
+                  style={styles.textarea}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Grievance Management</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("grievance_mechanism")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Grievance Mechanism Available</label>
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Grievance Resolution Procedure</label>
+                <textarea
+                  {...register("grievance_resolution_procedure")}
+                  style={styles.textarea}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Grievance Resolution Date</label>
+                <input
+                  type="date"
+                  {...register("last_grievance_resolution_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Grievance Resolution Rate (%)</label>
+                <input
+                  type="number"
+                  {...register("grievance_resolution_rate")}
+                  style={styles.input}
+                  min="0"
+                  max="100"
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Grievance Remarks</label>
+                <textarea
+                  {...register("grievance_remarks")}
+                  style={styles.textarea}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case "environment":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Environmental Information</h3>
+            
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Water Test Report DOE</label>
+                <input
+                  type="date"
+                  {...register("water_test_report_doe")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>ZDHC Water Test Report</label>
+                <input
+                  type="date"
+                  {...register("zdhc_water_test_report")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Higg FEM Self Assessment Score</label>
+                <input
+                  type="number"
+                  {...register("higg_fem_self_assessment_score")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Higg FEM Verification Assessment Score</label>
+                <input
+                  type="number"
+                  {...register("higg_fem_verification_assessment_score")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("behive_chemical_inventory")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Behive Chemical Inventory</label>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "safety":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Fire Safety</h3>
+            
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Fire Training By FSCD</label>
+                <input
+                  type="date"
+                  {...register("last_fire_training_by_fscd")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Next Fire Training Date (FSCD)</label>
+                <input
+                  type="date"
+                  {...register("fscd_next_fire_training_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Fire Drill Record By FSCD</label>
+                <input
+                  type="date"
+                  {...register("last_fire_drill_record_by_fscd")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Next Drill Date (FSCD)</label>
+                <input
+                  type="date"
+                  {...register("fscd_next_drill_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Fire Fighter/Rescue/First Aider (FSCD)</label>
+                <input
+                  type="number"
+                  {...register("total_fire_fighter_rescue_first_aider_fscd")}
+                  style={styles.input}
+                  min="0"
+                />
+              </div>
+              <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Fire Safety Remarks</label>
+                <textarea
+                  {...register("fire_safety_remarks")}
+                  style={styles.textarea}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case "rsc":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Accord RSC Information</h3>
+            
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>RSC ID</label>
+                <input
+                  type="text"
+                  {...register("rsc_id")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Progress Rate (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register("progress_rate")}
+                  style={styles.input}
+                  min="0"
+                  max="100"
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Structural Safety</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Initial Audit Date</label>
+                <input
+                  type="date"
+                  {...register("structural_initial_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Initial Findings</label>
+                <input
+                  type="number"
+                  {...register("structural_initial_findings")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Follow-up Audit Date</label>
+                <input
+                  type="date"
+                  {...register("structural_last_follow_up_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Findings</label>
+                <input
+                  type="number"
+                  {...register("structural_total_findings")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Corrected</label>
+                <input
+                  type="number"
+                  {...register("structural_total_corrected")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total In Progress</label>
+                <input
+                  type="number"
+                  {...register("structural_total_in_progress")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Pending Verification</label>
+                <input
+                  type="number"
+                  {...register("structural_total_pending_verification")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Fire Safety</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Initial Audit Date</label>
+                <input
+                  type="date"
+                  {...register("fire_initial_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Initial Findings</label>
+                <input
+                  type="number"
+                  {...register("fire_initial_findings")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Follow-up Audit Date</label>
+                <input
+                  type="date"
+                  {...register("fire_last_follow_up_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Findings</label>
+                <input
+                  type="number"
+                  {...register("fire_total_findings")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Corrected</label>
+                <input
+                  type="number"
+                  {...register("fire_total_corrected")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total In Progress</label>
+                <input
+                  type="number"
+                  {...register("fire_total_in_progress")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Pending Verification</label>
+                <input
+                  type="number"
+                  {...register("fire_total_pending_verification")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>Electrical Safety</div>
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Initial Audit Date</label>
+                <input
+                  type="date"
+                  {...register("electrical_initial_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Initial Findings</label>
+                <input
+                  type="number"
+                  {...register("electrical_initial_findings")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Last Follow-up Audit Date</label>
+                <input
+                  type="date"
+                  {...register("electrical_last_follow_up_audit_date")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Findings</label>
+                <input
+                  type="number"
+                  {...register("electrical_total_findings")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Corrected</label>
+                <input
+                  type="number"
+                  {...register("electrical_total_corrected")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total In Progress</label>
+                <input
+                  type="number"
+                  {...register("electrical_total_in_progress")}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Total Pending Verification</label>
+                <input
+                  type="number"
+                  {...register("electrical_total_pending_verification")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case "csr":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>CSR & Wages Information</h3>
+            
+            <div style={styles.sectionHeader}>Wages & Benefits</div>
+            <div style={styles.checkboxGrid}>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("minimum_wages_paid")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Minimum Wages Paid</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("earn_leave_status")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Earn leave status</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("service_benefit")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Service Benefit</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("maternity_benefit")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Maternity Benefit</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("yearly_increment")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Yearly Increment</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("festival_bonus")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Festival Bonus</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("salary_due_status")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Salary Due Status</label>
+              </div>
+            </div>
+            
+            <div style={styles.gridContainer}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Due Salary Month</label>
+                <input
+                  type="text"
+                  {...register("due_salary_month")}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+
+            <div style={styles.sectionHeader}>CSR Activities</div>
+            <div style={styles.checkboxGrid}>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("donation_local_community")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Donation to Local Community</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("tree_plantation_local_community")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Tree Plantation in Local Community</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("sanitary_napkin_status")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Sanitary Napkin Status</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("fair_shop")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Fair Shop</label>
+              </div>
+              <div style={styles.flexRow}>
+                <input
+                  type="checkbox"
+                  {...register("any_gift_provided_during_festival")}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>Any Gift Provided During Festival</label>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "documents":
+        return (
+          <div style={styles.cardContainer}>
+            <h3 style={styles.cardTitle}>Documents & Certificates</h3>
+            <p style={styles.fileStatusText}>
+              View, replace or remove the files saved for this supplier. Changes are applied when you click
+              Update Supplier.
+            </p>
+            <div style={styles.gridContainer}>
+              {DOCUMENT_FIELDS.map(([fieldName, label]) => (
+                <FileInput key={fieldName} fieldName={fieldName} registerOptions={{ label }} />
+              ))}
+            </div>
+          </div>
+        );
 
       default:
         return null;
@@ -1194,7 +2386,8 @@ const EditSupplier = () => {
 
   if (loading) {
     return (
-      <div style={styles.mainContainer}>
+      <div style={styles.mainContainer} className="sup-form">
+      <style>{SUPPLIER_FORM_CSS}</style>
         <Sidebar />
         <div style={styles.contentContainer}>
           <p style={styles.loadingText}>Loading supplier data...</p>
@@ -1204,7 +2397,9 @@ const EditSupplier = () => {
   }
 
   return (
-    <div style={styles.mainContainer}>
+    <div style={styles.mainContainer} className="sup-form">
+      <style>{SUPPLIER_FORM_CSS}</style>
+      <ToastContainer position="top-right" autoClose={3500} />
       <Sidebar />
 
       <div style={styles.contentContainer}>

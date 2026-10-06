@@ -1,501 +1,385 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-import Sidebar from "../merchandiser/Sidebar.jsx";
+// Agents list (route /agents): search, sort, paginate, CSV export, edit and
+// delete. Uses the authenticated merchandiser API helpers (token sent).
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FiMail,
-  FiPhone,
-  FiMapPin,
-  FiSearch,
-  FiTrash2,
-  FiPlus,
+  FiAlertTriangle,
+  FiCheck,
+  FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
+  FiChevronUp,
+  FiCopy,
+  FiDownload,
+  FiEdit2,
+  FiMail,
+  FiPhone,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiTrash2,
+  FiUsers,
+  FiX,
 } from "react-icons/fi";
-import {
-  FaEdit,
-  FaTrash,
-  FaFilePdf,
-  FaBarcode,
-  FaSearch,
-} from "react-icons/fa";
+import Sidebar from "./Sidebar.jsx";
+import { deleteAgent, merchandiserApi } from "../../api/merchandiser";
+import { AGENT_CSS, initialsOf } from "./agentTheme";
+
+const csvCell = (v) => {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 
 export default function AgentPage() {
-  const [agents, setAgents] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [agentsPerPage] = useState(6); // 6 agents per page
   const navigate = useNavigate();
+  const [agents, setAgents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sort, setSort] = useState({ key: "name", dir: "asc" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [deletingId, setDeletingId] = useState(null);
+  const [copied, setCopied] = useState(null);
+
+  const fetchAgents = async ({ quiet = false } = {}) => {
+    if (quiet) setRefreshing(true);
+    else setIsLoading(true);
+    setError(null);
+    try {
+      const res = await merchandiserApi.get("agent/");
+      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+      setAgents(data);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load agents. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetchAgents();
   }, []);
 
-  const fetchAgents = async () => {
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const list = agents.filter(
+      (a) =>
+        !q ||
+        [a.name, a.email, a.phone, a.address].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
+    );
+    return list.sort((a, b) => {
+      const av = String(a[sort.key] ?? "").toLowerCase();
+      const bv = String(b[sort.key] ?? "").toLowerCase();
+      return av.localeCompare(bv) * (sort.dir === "asc" ? 1 : -1);
+    });
+  }, [agents, searchTerm, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+  const first = (currentPage - 1) * perPage;
+  const pageItems = filtered.slice(first, first + perPage);
+
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
+  const handleDelete = async (agent) => {
+    if (!window.confirm(`Delete agent "${agent.name}"? This cannot be undone.`)) return;
+    setDeletingId(agent.id);
+    setNotice(null);
     try {
-      setIsLoading(true);
-      const response = await axios.get(
-        "http://119.148.51.38:8000/api/merchandiser/api/agent/"
-      );
-      setAgents(response.data);
+      await deleteAgent(agent.id);
+      setAgents((prev) => prev.filter((a) => a.id !== agent.id));
+      setNotice({ ok: true, msg: `Deleted ${agent.name}.` });
     } catch (err) {
-      console.error(err);
-      setError("Failed to load agents. Please try again later.");
+      setNotice({ ok: false, msg: err.response?.data?.detail || "Failed to delete the agent." });
     } finally {
-      setIsLoading(false);
+      setDeletingId(null);
     }
   };
 
-  const handleAddAgentClick = () => {
-    navigate("/add-agent");
-  };
-
-  const handleEditAgent = (agentId) => {
-    navigate(`/edit-agent/${agentId}`);
-  };
-
-  const handleDeleteAgent = async (agentId) => {
-    if (window.confirm("Are you sure you want to delete this agent?")) {
-      try {
-        await axios.delete(
-          `http://119.148.51.38:8000/api/merchandiser/api/agent/${agentId}/`
-        );
-        setAgents(agents.filter((agent) => agent.id !== agentId));
-      } catch (err) {
-        console.error(err);
-        setError("Failed to delete agent. Please try again.");
-      }
+  const copy = async (text, key) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1200);
+    } catch {
+      /* clipboard blocked - ignore */
     }
   };
 
-  // Filter agents based on search term
-  const filteredAgents = agents.filter(
-    (agent) =>
-      agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.phone.includes(searchTerm)
+  const exportCSV = () => {
+    const rows = [["Name", "Email", "Phone", "Address"], ...filtered.map((a) => [a.name, a.email, a.phone, a.address])];
+    const blob = new Blob(["﻿" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `agents-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const SortTh = ({ k, children }) => (
+    <th className={`sortable ${sort.key === k ? "sorted" : ""}`} onClick={() => toggleSort(k)}>
+      <span className="th">
+        {children}
+        {sort.key === k ? sort.dir === "asc" ? <FiChevronUp /> : <FiChevronDown /> : null}
+      </span>
+    </th>
   );
 
-  // Pagination logic
-  const indexOfLastAgent = currentPage * agentsPerPage;
-  const indexOfFirstAgent = indexOfLastAgent - agentsPerPage;
-  const currentAgents = filteredAgents.slice(
-    indexOfFirstAgent,
-    indexOfLastAgent
-  );
-  const totalPages = Math.ceil(filteredAgents.length / agentsPerPage);
-
-  // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  const nextPage = () =>
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const pageNumbers = () => {
+    const count = Math.min(5, totalPages);
+    let start = Math.max(1, Math.min(currentPage - 2, totalPages - count + 1));
+    return Array.from({ length: count }, (_, i) => start + i);
+  };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        backgroundColor: "#f8fafc",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      }}
-    >
-      {/* Sidebar */}
+    <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
+      <div className="ag-app">
+        <style>{AGENT_CSS}</style>
 
-      {/* Main content */}
-      <div
-        style={{
-          flex: 1,
-          padding: "2rem",
-          overflowY: "auto",
-          background: "linear-gradient(to bottom right, #f0f9ff, #e0f2fe)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1200px",
-            margin: "0 auto",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "2rem",
-              flexWrap: "wrap",
-              gap: "1rem",
-            }}
-          >
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-            >
-              <h2
-                style={{
-                  fontSize: "1.75rem",
-                  fontWeight: "700",
-                  color: "#0f172a",
-                  margin: 0,
-                }}
-              >
-                Agent Management
-              </h2>
-              <button
-                style={{
-                  padding: "0.5rem 1rem",
-                  backgroundColor: "#3b82f6",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontSize: "0.9rem",
-                  width: "fit-content",
-                  transition: "background 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
-                onClick={handleAddAgentClick}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#2563eb")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#3b82f6")
-                }
-              >
-                <FiPlus size={16} /> Create New Agent
+        <header className="ag-header">
+          <div>
+            <div className="ag-eyebrow">Partners</div>
+            <h1 className="ag-title">
+              Agents <span className="ag-count">{agents.length}</span>
+            </h1>
+            <p className="ag-subtitle">Buying agents and their contact details.</p>
+          </div>
+          <div className="ag-actions">
+            <button type="button" className="ag-btn ghost" onClick={() => fetchAgents({ quiet: true })} disabled={refreshing}>
+              <FiRefreshCw className={refreshing ? "ag-spin" : ""} /> Refresh
+            </button>
+            <button type="button" className="ag-btn ghost" onClick={exportCSV} disabled={filtered.length === 0}>
+              <FiDownload /> Export CSV
+            </button>
+            <button type="button" className="ag-btn primary" onClick={() => navigate("/add-agent")}>
+              <FiPlus /> Add Agent
+            </button>
+          </div>
+        </header>
+
+        <div className="ag-body">
+          {notice && (
+            <div className={`ag-alert ${notice.ok ? "ok" : "err"}`}>
+              {notice.ok ? <FiCheck /> : <FiAlertTriangle />}
+              <span>{notice.msg}</span>
+              <button type="button" className="ag-icon-btn" onClick={() => setNotice(null)} title="Dismiss">
+                <FiX />
               </button>
             </div>
-
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                maxWidth: "300px",
-              }}
-            >
-              <FiSearch
-                style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#94a3b8",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Search agents..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1); // Reset to first page when searching
-                }}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem 0.75rem 2.5rem",
-                  borderRadius: "8px",
-                  border: "1px solid #e2e8f0",
-                  backgroundColor: "#fff",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                  transition: "all 0.2s",
-                  outline: "none",
-                  fontSize: "0.9rem",
-                }}
-              />
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                height: "300px",
-              }}
-            >
-              <div
-                style={{
-                  width: "50px",
-                  height: "50px",
-                  border: "4px solid #e2e8f0",
-                  borderTopColor: "#3b82f6",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite",
-                }}
-              ></div>
-            </div>
-          ) : error ? (
-            <div
-              style={{
-                backgroundColor: "#fee2e2",
-                color: "#b91c1c",
-                padding: "1rem",
-                borderRadius: "8px",
-                textAlign: "center",
-              }}
-            >
-              {error}
-            </div>
-          ) : filteredAgents.length === 0 ? (
-            <div
-              style={{
-                backgroundColor: "#fff",
-                padding: "2rem",
-                borderRadius: "12px",
-                textAlign: "center",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-            >
-              {searchTerm
-                ? "No agents match your search."
-                : "No agents available."}
-            </div>
-          ) : (
-            <>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                  gap: "1.5rem",
-                }}
-              >
-                {currentAgents.map((agent) => (
-                  <div
-                    key={agent.id}
-                    style={{
-                      backgroundColor: "#fff",
-                      padding: "1.5rem",
-                      borderRadius: "12px",
-                      boxShadow:
-                        "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
-                      transition: "all 0.2s ease",
-                      borderTop: "4px solid #3b82f6",
-                      position: "relative",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => handleEditAgent(agent.id)}
-                  >
-                    {/* Action buttons */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "1rem",
-                        right: "1rem",
-                        display: "flex",
-                        gap: "0.5rem",
-                      }}
-                    >
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteAgent(agent.id);
-                        }}
-                        style={{
-                          marginRight: "5px",
-                          padding: "8px 10px",
-                          cursor: "pointer",
-                          border: "none",
-                          borderRadius: "50px",
-                          marginBottom: "5px",
-                          backgroundColor: "#d9534f",
-                          color: "white",
-                        }}
-                        title="Delete agent"
-                      >
-                        <FaTrash size={16} />
-                      </button>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        marginBottom: "1rem",
-                        paddingRight: "2rem",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "48px",
-                          height: "48px",
-                          borderRadius: "50%",
-                          backgroundColor: "#dbeafe",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          marginRight: "1rem",
-                          color: "#1d4ed8",
-                          fontSize: "1.25rem",
-                          fontWeight: "600",
-                        }}
-                      >
-                        {agent.name.charAt(0)}
-                      </div>
-                      <div>
-                        <h3
-                          style={{
-                            fontSize: "1.125rem",
-                            fontWeight: "600",
-                            color: "#1e293b",
-                            margin: 0,
-                          }}
-                        >
-                          {agent.name}
-                        </h3>
-                        <span
-                          style={{
-                            fontSize: "0.875rem",
-                            color: "#64748b",
-                          }}
-                        >
-                          Agent ID: {agent.id}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        borderTop: "1px solid #f1f5f9",
-                        paddingTop: "1rem",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          marginBottom: "0.5rem",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        <FiMail
-                          style={{
-                            color: "#64748b",
-                            marginRight: "0.5rem",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span style={{ color: "#475569" }}>{agent.email}</span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          marginBottom: "0.5rem",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        <FiPhone
-                          style={{
-                            color: "#64748b",
-                            marginRight: "0.5rem",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span style={{ color: "#475569" }}>{agent.phone}</span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        <FiMapPin
-                          style={{
-                            color: "#64748b",
-                            marginRight: "0.5rem",
-                            marginTop: "2px",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span style={{ color: "#475569" }}>
-                          {agent.address}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {filteredAgents.length > agentsPerPage && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginTop: "2rem",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <button
-                    onClick={prevPage}
-                    disabled={currentPage === 1}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      backgroundColor:
-                        currentPage === 1 ? "#e2e8f0" : "#3b82f6",
-                      color: currentPage === 1 ? "#64748b" : "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <FiChevronLeft /> Previous
-                  </button>
-
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (number) => (
-                      <button
-                        key={number}
-                        onClick={() => paginate(number)}
-                        style={{
-                          padding: "0.5rem 1rem",
-                          backgroundColor:
-                            currentPage === number ? "#3b82f6" : "#e2e8f0",
-                          color: currentPage === number ? "white" : "#334155",
-                          border: "none",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          fontWeight: currentPage === number ? "600" : "normal",
-                        }}
-                      >
-                        {number}
-                      </button>
-                    )
-                  )}
-
-                  <button
-                    onClick={nextPage}
-                    disabled={currentPage === totalPages}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      backgroundColor:
-                        currentPage === totalPages ? "#e2e8f0" : "#3b82f6",
-                      color: currentPage === totalPages ? "#64748b" : "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor:
-                        currentPage === totalPages ? "not-allowed" : "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    Next <FiChevronRight />
-                  </button>
-                </div>
-              )}
-            </>
           )}
+
+          <section className="ag-card">
+            <div className="ag-toolbar">
+              <div className="ag-search">
+                <FiSearch />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search name, email, phone or address"
+                />
+                {searchTerm && (
+                  <button type="button" className="clear" onClick={() => setSearchTerm("")} title="Clear">
+                    <FiX />
+                  </button>
+                )}
+              </div>
+              <span className="ag-spacer" />
+              <span className="ag-note">
+                {filtered.length} of {agents.length}
+              </span>
+            </div>
+
+            {isLoading ? (
+              <div className="ag-loading">
+                <div className="ag-spinner" />
+                Loading agents…
+              </div>
+            ) : error ? (
+              <div className="ag-state">
+                <div className="ag-state-icon">
+                  <FiAlertTriangle />
+                </div>
+                <h3>Couldn't load agents</h3>
+                <p>{error}</p>
+                <button type="button" className="ag-btn ghost" onClick={() => fetchAgents()}>
+                  <FiRefreshCw /> Retry
+                </button>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="ag-state">
+                <div className="ag-state-icon">
+                  <FiUsers />
+                </div>
+                <h3>{agents.length === 0 ? "No agents yet" : "No agents match"}</h3>
+                <p>{agents.length === 0 ? "Add your first buying agent." : "Try a different search."}</p>
+                {agents.length === 0 ? (
+                  <button type="button" className="ag-btn primary" onClick={() => navigate("/add-agent")}>
+                    <FiPlus /> Add Agent
+                  </button>
+                ) : (
+                  <button type="button" className="ag-btn ghost" onClick={() => setSearchTerm("")}>
+                    Clear search
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="ag-table-wrap">
+                  <table className="ag-table">
+                    <thead>
+                      <tr>
+                        <SortTh k="name">Agent</SortTh>
+                        <SortTh k="email">Email</SortTh>
+                        <SortTh k="phone">Phone</SortTh>
+                        <th>Address</th>
+                        <th className="right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((agent) => (
+                        <tr key={agent.id} onClick={() => navigate(`/edit-agent/${agent.id}`)}>
+                          <td>
+                            <div className="ag-person">
+                              <span className="ag-avatar">{initialsOf(agent.name)}</span>
+                              <span>
+                                <span className="ag-name">{agent.name}</span>
+                                <span className="ag-sub">ID {agent.id}</span>
+                              </span>
+                            </div>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {agent.email ? (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                <a className="ag-contact" href={`mailto:${agent.email}`}>
+                                  <FiMail /> {agent.email}
+                                </a>
+                                <button
+                                  type="button"
+                                  className="ag-icon-btn"
+                                  style={{ width: 24, height: 24, fontSize: 12 }}
+                                  title="Copy email"
+                                  onClick={() => copy(agent.email, `e${agent.id}`)}
+                                >
+                                  {copied === `e${agent.id}` ? <FiCheck /> : <FiCopy />}
+                                </button>
+                              </span>
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>—</span>
+                            )}
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {agent.phone ? (
+                              <a className="ag-contact" href={`tel:${agent.phone}`}>
+                                <FiPhone /> {agent.phone}
+                              </a>
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>—</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="ag-address" title={agent.address}>
+                              {agent.address || "—"}
+                            </span>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div className="ag-row-actions">
+                              <button
+                                type="button"
+                                className="ag-icon-btn"
+                                title="Edit"
+                                onClick={() => navigate(`/edit-agent/${agent.id}`)}
+                              >
+                                <FiEdit2 />
+                              </button>
+                              <button
+                                type="button"
+                                className="ag-icon-btn danger"
+                                title="Delete"
+                                disabled={deletingId === agent.id}
+                                onClick={() => handleDelete(agent)}
+                              >
+                                {deletingId === agent.id ? <span className="ag-spinner sm" /> : <FiTrash2 />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="ag-pagination">
+                  <div className="ag-page-info">
+                    Showing <strong>{first + 1}</strong>–<strong>{Math.min(first + perPage, filtered.length)}</strong> of{" "}
+                    <strong>{filtered.length}</strong>
+                    <select
+                      value={perPage}
+                      onChange={(e) => {
+                        setPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      aria-label="Rows per page"
+                    >
+                      {[10, 25, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {n} / page
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="ag-pages">
+                      <button
+                        type="button"
+                        className="ag-page"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => p - 1)}
+                        title="Previous"
+                      >
+                        <FiChevronLeft />
+                      </button>
+                      {pageNumbers().map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`ag-page ${n === currentPage ? "active" : ""}`}
+                          onClick={() => setCurrentPage(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="ag-page"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        title="Next"
+                      >
+                        <FiChevronRight />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
         </div>
       </div>
     </div>

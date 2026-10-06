@@ -83,6 +83,72 @@ const clearCache = () => {
   });
 };
 
+// ============================================================================
+// THEME (colours + shared styles)
+// ============================================================================
+const T = {
+  qty: "#2563eb", // quantity
+  qtyDark: "#1e40af",
+  val: "#0d9488", // value
+  valDark: "#0f766e",
+  cnt: "#d97706", // orders / counts
+  cntDark: "#0f766e",
+  accent: "#2563eb",
+  accentSoft: "#eff6ff",
+  text: "#0f172a",
+  text2: "#334155",
+  muted: "#64748b",
+  border: "#e3e8ef",
+  borderStrong: "#cfd7e2",
+  bg: "#f3f5f9",
+};
+
+// Segmented toggle buttons (metric / sort switches)
+const segBtn = (active) => ({
+  height: 32,
+  padding: "0 12px",
+  borderRadius: 8,
+  border: `1px solid ${active ? T.accent : T.borderStrong}`,
+  backgroundColor: active ? T.accentSoft : "white",
+  color: active ? T.qtyDark : T.muted,
+  fontSize: 12.5,
+  fontWeight: 600,
+  cursor: "pointer",
+  boxShadow: active ? "0 0 0 3px rgba(37,99,235,0.10)" : "none",
+  transition: "all 0.15s",
+});
+
+const panelStyle = {
+  backgroundColor: "white",
+  borderRadius: 14,
+  padding: "18px 20px 20px",
+  marginBottom: 18,
+  border: `1px solid ${T.border}`,
+  boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.03)",
+};
+
+const panelTitle = {
+  fontSize: 15.5,
+  fontWeight: 700,
+  color: T.text,
+  margin: 0,
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  letterSpacing: "-0.01em",
+};
+
+const iconTile = (color) => ({
+  width: 32,
+  height: 32,
+  borderRadius: 9,
+  display: "inline-grid",
+  placeItems: "center",
+  backgroundColor: `${color}14`,
+  color,
+  flexShrink: 0,
+});
+
 const safeNumber = (value, defaultValue = 0) => {
   const num = Number(value);
   return isNaN(num) ? defaultValue : num;
@@ -129,9 +195,9 @@ const MultiYearSelect = ({ selectedYears, onChange, availableYears }) => {
   };
 
   const getDisplayText = () => {
-    if (selectedYears.includes("all")) return `📅 All Years`;
-    if (selectedYears.length === 1) return `📅 ${selectedYears[0]}`;
-    return `📅 ${selectedYears.length} Years Selected`;
+    if (selectedYears.includes("all")) return `All Years`;
+    if (selectedYears.length === 1) return `${selectedYears[0]}`;
+    return `${selectedYears.length} Years Selected`;
   };
 
   const yearsList =
@@ -148,11 +214,14 @@ const MultiYearSelect = ({ selectedYears, onChange, availableYears }) => {
       <div
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          padding: "8px 12px",
-          borderRadius: "0.5rem",
-          border: "1px solid #e2e8f0",
+          height: 36,
+          padding: "0 12px",
+          borderRadius: 9,
+          border: `1px solid ${T.borderStrong}`,
           backgroundColor: "white",
-          fontSize: "0.85rem",
+          fontSize: 13,
+          color: T.text2,
+          fontWeight: 500,
           cursor: "pointer",
           display: "flex",
           justifyContent: "space-between",
@@ -239,7 +308,7 @@ const MultiYearSelect = ({ selectedYears, onChange, availableYears }) => {
               padding: "10px 12px",
               cursor: "pointer",
               backgroundColor: selectedYears.includes("all")
-                ? "#ede9fe"
+                ? "#eff6ff"
                 : "white",
               fontWeight: selectedYears.includes("all") ? 600 : 400,
               borderBottom: "1px solid #e2e8f0",
@@ -320,14 +389,14 @@ const MultiCustomerSelect = ({
 
   const getDisplayText = () => {
     if (selectedCustomers.includes("all"))
-      return `👥 All Customers (${customersList.length})`;
+      return `All Customers (${customersList.length})`;
     if (selectedCustomers.length === 1) {
       const customer = customersList.find(
         (c) => String(c.id) === String(selectedCustomers[0]),
       );
-      return `👥 ${customer?.name || selectedCustomers[0]}`;
+      return `${customer?.name || selectedCustomers[0]}`;
     }
-    return `👥 ${selectedCustomers.length} Customers Selected`;
+    return `${selectedCustomers.length} Customers Selected`;
   };
 
   const isSelected = (customerId) => {
@@ -346,11 +415,14 @@ const MultiCustomerSelect = ({
       <div
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          padding: "8px 12px",
-          borderRadius: "0.5rem",
-          border: "1px solid #e2e8f0",
+          height: 36,
+          padding: "0 12px",
+          borderRadius: 9,
+          border: `1px solid ${T.borderStrong}`,
           backgroundColor: "white",
-          fontSize: "0.85rem",
+          fontSize: 13,
+          color: T.text2,
+          fontWeight: 500,
           cursor: "pointer",
           display: "flex",
           justifyContent: "space-between",
@@ -437,7 +509,7 @@ const MultiCustomerSelect = ({
               padding: "10px 12px",
               cursor: "pointer",
               backgroundColor: selectedCustomers.includes("all")
-                ? "#ede9fe"
+                ? "#eff6ff"
                 : "white",
               fontWeight: selectedCustomers.includes("all") ? 600 : 400,
               borderBottom: "1px solid #e2e8f0",
@@ -451,9 +523,9 @@ const MultiCustomerSelect = ({
                 width: 18,
                 height: 18,
                 borderRadius: 4,
-                border: "2px solid #8b5cf6",
+                border: "2px solid #2563eb",
                 backgroundColor: selectedCustomers.includes("all")
-                  ? "#8b5cf6"
+                  ? "#2563eb"
                   : "white",
                 display: "flex",
                 alignItems: "center",
@@ -500,7 +572,7 @@ const MultiCustomerSelect = ({
                     backgroundColor:
                       isSelected(customer.id) &&
                       !selectedCustomers.includes("all")
-                        ? "#8b5cf6"
+                        ? "#2563eb"
                         : "white",
                     display: "flex",
                     alignItems: "center",
@@ -563,14 +635,14 @@ const MultiSupplierSelect = ({
 
   const getDisplayText = () => {
     if (selectedSuppliers.includes("all"))
-      return `🏭 All Suppliers (${suppliersList.length})`;
+      return `All Suppliers (${suppliersList.length})`;
     if (selectedSuppliers.length === 1) {
       const supplier = suppliersList.find(
         (s) => String(s.id) === String(selectedSuppliers[0]),
       );
-      return `🏭 ${supplier?.name || supplier?.supplier_name || selectedSuppliers[0]}`;
+      return `${supplier?.name || supplier?.supplier_name || selectedSuppliers[0]}`;
     }
-    return `🏭 ${selectedSuppliers.length} Suppliers Selected`;
+    return `${selectedSuppliers.length} Suppliers Selected`;
   };
 
   const isSelected = (supplierId) => {
@@ -591,11 +663,14 @@ const MultiSupplierSelect = ({
       <div
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          padding: "8px 12px",
-          borderRadius: "0.5rem",
-          border: "1px solid #e2e8f0",
+          height: 36,
+          padding: "0 12px",
+          borderRadius: 9,
+          border: `1px solid ${T.borderStrong}`,
           backgroundColor: "white",
-          fontSize: "0.85rem",
+          fontSize: 13,
+          color: T.text2,
+          fontWeight: 500,
           cursor: "pointer",
           display: "flex",
           justifyContent: "space-between",
@@ -682,7 +757,7 @@ const MultiSupplierSelect = ({
               padding: "10px 12px",
               cursor: "pointer",
               backgroundColor: selectedSuppliers.includes("all")
-                ? "#ede9fe"
+                ? "#eff6ff"
                 : "white",
               fontWeight: selectedSuppliers.includes("all") ? 600 : 400,
               borderBottom: "1px solid #e2e8f0",
@@ -696,9 +771,9 @@ const MultiSupplierSelect = ({
                 width: 18,
                 height: 18,
                 borderRadius: 4,
-                border: "2px solid #8b5cf6",
+                border: "2px solid #2563eb",
                 backgroundColor: selectedSuppliers.includes("all")
-                  ? "#8b5cf6"
+                  ? "#2563eb"
                   : "white",
                 display: "flex",
                 alignItems: "center",
@@ -746,7 +821,7 @@ const MultiSupplierSelect = ({
                     backgroundColor:
                       isSelected(supplier.id) &&
                       !selectedSuppliers.includes("all")
-                        ? "#8b5cf6"
+                        ? "#2563eb"
                         : "white",
                     display: "flex",
                     alignItems: "center",
@@ -772,121 +847,129 @@ const MultiSupplierSelect = ({
 // STATS CARD COMPONENT
 // ============================================================================
 const StatsCard = React.memo(
-  ({ stat, index, hoveredCard, setHoveredCard, navigate }) => (
-    <div
-      style={{
-        background: stat.gradient,
-        padding: "1.5rem",
-        borderRadius: "1rem",
-        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-        cursor: "pointer",
-        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform:
-          hoveredCard === `order-${index}`
-            ? "translateY(-5px) scale(1.02)"
-            : "translateY(0)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-      onMouseEnter={() => setHoveredCard(`order-${index}`)}
-      onMouseLeave={() => setHoveredCard(null)}
-      onClick={() => navigate(stat.link)}
-    >
+  ({ stat, index, hoveredCard, setHoveredCard, navigate }) => {
+    const hovered = hoveredCard === `order-${index}`;
+    const accent = stat.accent || T.accent;
+    return (
       <div
         style={{
-          position: "absolute",
-          top: -50,
-          right: -50,
-          width: 150,
-          height: 150,
-          borderRadius: "50%",
-          background: "rgba(255,255,255,0.1)",
-        }}
-      />
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
+          backgroundColor: "white",
+          padding: "18px 20px",
+          borderRadius: 14,
+          border: `1px solid ${hovered ? accent + "66" : T.border}`,
+          boxShadow: hovered
+            ? "0 10px 24px -8px rgba(15,23,42,0.18)"
+            : "0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.03)",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+          transform: hovered ? "translateY(-2px)" : "translateY(0)",
           position: "relative",
-          zIndex: 1,
+          overflow: "hidden",
         }}
+        onMouseEnter={() => setHoveredCard(`order-${index}`)}
+        onMouseLeave={() => setHoveredCard(null)}
+        onClick={() => navigate(stat.link)}
+        title={`Open ${stat.title}`}
       >
-        <div>
-          <p
-            style={{
-              fontSize: "0.95rem",
-              fontWeight: 500,
-              color: "rgba(255,255,255,0.9)",
-              margin: 0,
-            }}
-          >
-            {stat.title}
-          </p>
-          <p
-            style={{
-              fontSize: "2.2rem",
-              fontWeight: 700,
-              margin: "0.5rem 0 0 0",
-              color: "white",
-              lineHeight: 1,
-            }}
-          >
-            {stat.value}
-          </p>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 8,
-            }}
-          >
-            {stat.change && (
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "2px 8px",
-                  borderRadius: 20,
-                  backgroundColor: "rgba(255,255,255,0.2)",
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                {stat.changeType === "increase" ? (
-                  <FiArrowUp size={12} />
-                ) : (
-                  <FiArrowDown size={12} />
-                )}
-                {stat.change}
-              </span>
-            )}
-            <span
-              style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.8)" }}
-            >
-              {stat.description}
-            </span>
-          </div>
-        </div>
         <div
           style={{
-            padding: "1rem",
-            backgroundColor: "rgba(255,255,255,0.2)",
-            borderRadius: "1rem",
-            color: "white",
+            position: "absolute",
+            left: 0,
+            top: 16,
+            bottom: 16,
+            width: 3,
+            borderRadius: "0 3px 3px 0",
+            backgroundColor: accent,
+          }}
+        />
+        <div
+          style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backdropFilter: "blur(5px)",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 12,
           }}
         >
-          {stat.icon}
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: T.muted,
+                margin: 0,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {stat.title}
+            </p>
+            <p
+              style={{
+                fontSize: "1.9rem",
+                fontWeight: 800,
+                margin: "8px 0 0 0",
+                color: T.text,
+                lineHeight: 1,
+                letterSpacing: "-0.02em",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {stat.value}
+            </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 10,
+                minHeight: 20,
+              }}
+            >
+              {stat.change && (
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    backgroundColor: `${accent}14`,
+                    color: accent,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  {stat.changeType === "increase" ? (
+                    <FiArrowUp size={12} />
+                  ) : (
+                    <FiArrowDown size={12} />
+                  )}
+                  {stat.change}
+                </span>
+              )}
+              <span style={{ fontSize: 12, color: T.muted }}>
+                {stat.description || "View orders →"}
+              </span>
+            </div>
+          </div>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: `${accent}14`,
+              color: accent,
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+            }}
+          >
+            {stat.icon}
+          </div>
         </div>
       </div>
-    </div>
-  ),
+    );
+  },
 );
 
 // ============================================================================
@@ -895,10 +978,10 @@ const StatsCard = React.memo(
 const SkeletonCard = () => (
   <div
     style={{
-      background: "linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)",
+      background: "linear-gradient(135deg, #eef2f7 0%, #e2e8f0 100%)",
       padding: "1.5rem",
-      borderRadius: "1rem",
-      height: "140px",
+      borderRadius: 14,
+      height: "118px",
       position: "relative",
       overflow: "hidden",
       animation: "pulse 1.5s ease-in-out infinite",
@@ -958,29 +1041,29 @@ const OrderMonthlyChart = React.memo(
 
     const yearColors = {
       quantity: {
-        2020: "#a78bfa",
-        2021: "#8b5cf6",
-        2022: "#7c3aed",
-        2023: "#6d28d9",
-        2024: "#5b21b6",
-        2025: "#4c1d95",
-        2026: "#4338ca",
+        2020: "#93c5fd",
+        2021: "#60a5fa",
+        2022: "#2563eb",
+        2023: "#2563eb",
+        2024: "#1d4ed8",
+        2025: "#1e40af",
+        2026: "#1e3a8a",
       },
       value: {
-        2020: "#fca5a5",
-        2021: "#f87171",
-        2022: "#ef4444",
-        2023: "#dc2626",
-        2024: "#b91c1c",
-        2025: "#991b1b",
-        2026: "#7f1d1d",
+        2020: "#99f6e4",
+        2021: "#5eead4",
+        2022: "#2dd4bf",
+        2023: "#14b8a6",
+        2024: "#0d9488",
+        2025: "#0f766e",
+        2026: "#115e59",
       },
     };
 
     const getYearColor = (year, type) => {
       const colors =
         type === "quantity" ? yearColors.quantity : yearColors.value;
-      return colors[year] || (type === "quantity" ? "#8b5cf6" : "#ef4444");
+      return colors[year] || (type === "quantity" ? "#2563eb" : "#0d9488");
     };
 
     const buildMultiYearChartData = () => {
@@ -1087,18 +1170,18 @@ const OrderMonthlyChart = React.memo(
           >
             <p style={{ margin: 0, fontWeight: 600 }}>{d.month}</p>
             {(selectedMetric === "both" || selectedMetric === "quantity") && (
-              <p style={{ margin: "8px 0 0 0", color: "#8b5cf6" }}>
-                📦 Quantity:{" "}
+              <p style={{ margin: "8px 0 0 0", color: "#2563eb" }}>
+                Quantity:{" "}
                 {(safeNumber(d.quantity) * 1000000).toLocaleString()} units
               </p>
             )}
             {(selectedMetric === "both" || selectedMetric === "value") && (
-              <p style={{ margin: "4px 0 0 0", color: "#ef4444" }}>
-                💰 Value: ${(safeNumber(d.value) * 1000000).toLocaleString()}
+              <p style={{ margin: "4px 0 0 0", color: "#0d9488" }}>
+                Value: ${(safeNumber(d.value) * 1000000).toLocaleString()}
               </p>
             )}
             <p style={{ margin: "4px 0 0 0", color: "#64748b" }}>
-              📋 Orders: {safeNumber(d.count)}
+              Orders: {safeNumber(d.count)}
             </p>
           </div>
         );
@@ -1118,7 +1201,7 @@ const OrderMonthlyChart = React.memo(
               <XAxis dataKey="month" stroke="#64748b" tick={{ fontSize: 12 }} />
               <YAxis
                 yAxisId="left"
-                stroke="#8b5cf6"
+                stroke="#2563eb"
                 tick={{ fontSize: 11 }}
                 tickFormatter={(v) => `${safeNumber(v).toFixed(1)}M`}
                 domain={[0, domainMax]}
@@ -1127,7 +1210,7 @@ const OrderMonthlyChart = React.memo(
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  stroke="#ef4444"
+                  stroke="#0d9488"
                   tick={{ fontSize: 11 }}
                   tickFormatter={(v) => `$${safeNumber(v).toFixed(1)}M`}
                   domain={[0, domainMax]}
@@ -1141,7 +1224,7 @@ const OrderMonthlyChart = React.memo(
                   yAxisId="left"
                   dataKey="quantity"
                   name="Order Quantity"
-                  fill="#8b5cf6"
+                  fill="#2563eb"
                   radius={[4, 4, 0, 0]}
                   barSize={40}
                 >
@@ -1156,7 +1239,7 @@ const OrderMonthlyChart = React.memo(
                         <text
                           x={x + width / 2}
                           y={y - 8}
-                          fill="#6d28d9"
+                          fill="#1e40af"
                           textAnchor="middle"
                           fontSize={11}
                           fontWeight={600}
@@ -1176,9 +1259,9 @@ const OrderMonthlyChart = React.memo(
                   type="monotone"
                   dataKey="value"
                   name="Order Value"
-                  stroke="#ef4444"
+                  stroke="#0d9488"
                   strokeWidth={3}
-                  dot={{ fill: "#ef4444", r: 5 }}
+                  dot={{ fill: "#0d9488", r: 5 }}
                 >
                   <LabelList
                     dataKey="value"
@@ -1194,7 +1277,7 @@ const OrderMonthlyChart = React.memo(
                         <text
                           x={cx}
                           y={cy - 12}
-                          fill="#b91c1c"
+                          fill="#0f766e"
                           textAnchor="middle"
                           fontSize={11}
                           fontWeight={600}
@@ -1228,13 +1311,13 @@ const OrderMonthlyChart = React.memo(
             <span style={{ fontSize: 12, color: "#64748b" }}>
               Total Quantity:
             </span>{" "}
-            <strong style={{ color: "#8b5cf6" }}>
+            <strong style={{ color: "#2563eb" }}>
               {(totalQuantity * 1000000).toLocaleString()} units
             </strong>
           </div>
           <div>
             <span style={{ fontSize: 12, color: "#64748b" }}>Total Value:</span>{" "}
-            <strong style={{ color: "#ef4444" }}>
+            <strong style={{ color: "#0d9488" }}>
               ${(totalValue * 1000000).toLocaleString()}
             </strong>
           </div>
@@ -1242,7 +1325,7 @@ const OrderMonthlyChart = React.memo(
             <span style={{ fontSize: 12, color: "#64748b" }}>
               Total Orders:
             </span>{" "}
-            <strong style={{ color: "#3b82f6" }}>
+            <strong style={{ color: T.cnt }}>
               {chartData
                 .reduce((sum, item) => sum + item.count, 0)
                 .toLocaleString()}
@@ -1319,8 +1402,8 @@ const MonthlyComparison = React.memo(({ compare, selectedMetric, onCompareByChan
             onClick={() => onCompareByChange(d)}
             style={{
               padding: "3px 12px", borderRadius: 999, fontSize: 12.5, cursor: dims.length > 1 ? "pointer" : "default",
-              border: d === by ? "2px solid #8b5cf6" : "1px solid #e2e8f0",
-              background: d === by ? "#ede9fe" : "white", color: d === by ? "#6d28d9" : "#64748b", fontWeight: 600,
+              border: `1px solid ${d === by ? T.accent : T.borderStrong}`,
+              background: d === by ? T.accentSoft : "white", color: d === by ? T.qtyDark : T.muted, fontWeight: 600,
             }}
           >
             {COMPARE_DIM_LABEL[d]}
@@ -1344,7 +1427,7 @@ const MonthlyComparison = React.memo(({ compare, selectedMetric, onCompareByChan
                 <XAxis dataKey="month" stroke="#64748b" tick={{ fontSize: 12 }} />
                 <YAxis stroke="#64748b" tick={{ fontSize: 11 }}
                   tickFormatter={(v) => (metric === "quantity" ? `${safeNumber(v).toFixed(0)}M` : `$${safeNumber(v).toFixed(0)}M`)} />
-                <Tooltip content={<CompareTooltip metric={metric} />} cursor={{ fill: "rgba(139,92,246,0.06)" }} />
+                <Tooltip content={<CompareTooltip metric={metric} />} cursor={{ fill: "rgba(37,99,235,0.06)" }} />
                 <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
                 {series.map((sr, i) => (
                   <Bar key={sr.key} dataKey={`${metric === "quantity" ? "q" : "v"}_${sr.key}`} name={sr.label}
@@ -1392,7 +1475,7 @@ const MonthlyComparison = React.memo(({ compare, selectedMetric, onCompareByChan
                       {cell(sr.quantities[mi], sr.values[mi])}
                     </td>
                   ))}
-                  <td style={{ textAlign: "right", padding: "7px 10px", whiteSpace: "nowrap", background: "#faf5ff" }}>
+                  <td style={{ textAlign: "right", padding: "7px 10px", whiteSpace: "nowrap", background: "#f5f8ff" }}>
                     {cell(tq, tv)}
                     <div style={{ color: "#94a3b8" }}>{tc.toLocaleString()} orders</div>
                   </td>
@@ -1464,7 +1547,7 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
             <XAxis dataKey="year" stroke="#64748b" tick={{ fontSize: 12 }} />
             <YAxis
               yAxisId="left"
-              stroke="#3b82f6"
+              stroke="#2563eb"
               tick={{ fontSize: 11 }}
               tickFormatter={(v) => `${safeNumber(v).toFixed(1)}M`}
               domain={[0, domainMax]}
@@ -1473,7 +1556,7 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                stroke="#f59e0b"
+                stroke="#0d9488"
                 tick={{ fontSize: 11 }}
                 tickFormatter={(v) => `$${safeNumber(v).toFixed(1)}M`}
                 domain={[0, domainMax]}
@@ -1495,16 +1578,16 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
                       <p style={{ margin: 0, fontWeight: 600 }}>{d.year}</p>
                       {(selectedMetric === "both" ||
                         selectedMetric === "quantity") && (
-                        <p style={{ margin: "8px 0 0 0", color: "#3b82f6" }}>
-                          📦 Quantity:{" "}
+                        <p style={{ margin: "8px 0 0 0", color: "#2563eb" }}>
+                          Quantity:{" "}
                           {(safeNumber(d.quantity) * 1000000).toLocaleString()}{" "}
                           units
                         </p>
                       )}
                       {(selectedMetric === "both" ||
                         selectedMetric === "value") && (
-                        <p style={{ margin: "4px 0 0 0", color: "#f59e0b" }}>
-                          💰 Value: $
+                        <p style={{ margin: "4px 0 0 0", color: "#0d9488" }}>
+                          Value: $
                           {(safeNumber(d.value) * 1000000).toLocaleString()}
                         </p>
                       )}
@@ -1520,7 +1603,7 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
                 yAxisId="left"
                 dataKey="quantity"
                 name="Order Quantity"
-                fill="#3b82f6"
+                fill="#2563eb"
                 radius={[4, 4, 0, 0]}
                 barSize={60}
               >
@@ -1555,9 +1638,9 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
                 type="monotone"
                 dataKey="value"
                 name="Order Value"
-                stroke="#f59e0b"
+                stroke="#0d9488"
                 strokeWidth={3}
-                dot={{ fill: "#f59e0b", r: 6 }}
+                dot={{ fill: "#0d9488", r: 6 }}
               >
                 <LabelList
                   dataKey="value"
@@ -1570,7 +1653,7 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
                       <text
                         x={cx}
                         y={cy - 12}
-                        fill="#b45309"
+                        fill="#0f766e"
                         textAnchor="middle"
                         fontSize={11}
                         fontWeight={600}
@@ -1604,19 +1687,19 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
           <span style={{ fontSize: 12, color: "#64748b" }}>
             Total Quantity:
           </span>{" "}
-          <strong style={{ color: "#3b82f6" }}>
+          <strong style={{ color: "#2563eb" }}>
             {(totalQuantity * 1000000).toLocaleString()} units
           </strong>
         </div>
         <div>
           <span style={{ fontSize: 12, color: "#64748b" }}>Total Value:</span>{" "}
-          <strong style={{ color: "#f59e0b" }}>
+          <strong style={{ color: "#0d9488" }}>
             ${(totalValue * 1000000).toLocaleString()}
           </strong>
         </div>
         <div>
           <span style={{ fontSize: 12, color: "#64748b" }}>Years Range:</span>{" "}
-          <strong style={{ color: "#8b5cf6" }}>
+          <strong style={{ color: "#2563eb" }}>
             {years[0]} - {years[years.length - 1]}
           </strong>
         </div>
@@ -1693,7 +1776,7 @@ const CustomerChart = React.memo(
               />
               <YAxis
                 yAxisId="left"
-                stroke="#8b5cf6"
+                stroke="#2563eb"
                 tick={{ fontSize: 11 }}
                 tickFormatter={(v) =>
                   v >= 1
@@ -1706,7 +1789,7 @@ const CustomerChart = React.memo(
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  stroke="#ef4444"
+                  stroke="#0d9488"
                   tick={{ fontSize: 11 }}
                   tickFormatter={(v) =>
                     v >= 1
@@ -1734,8 +1817,8 @@ const CustomerChart = React.memo(
                         </p>
                         {(selectedMetric === "both" ||
                           selectedMetric === "quantity") && (
-                          <p style={{ margin: "8px 0 0 0", color: "#8b5cf6" }}>
-                            📦 Quantity:{" "}
+                          <p style={{ margin: "8px 0 0 0", color: "#2563eb" }}>
+                            Quantity:{" "}
                             {(
                               safeNumber(d.quantity) * 1000000
                             ).toLocaleString()}{" "}
@@ -1744,13 +1827,13 @@ const CustomerChart = React.memo(
                         )}
                         {(selectedMetric === "both" ||
                           selectedMetric === "value") && (
-                          <p style={{ margin: "4px 0 0 0", color: "#ef4444" }}>
-                            💰 Value: $
+                          <p style={{ margin: "4px 0 0 0", color: "#0d9488" }}>
+                            Value: $
                             {(safeNumber(d.value) * 1000000).toLocaleString()}
                           </p>
                         )}
                         <p style={{ margin: "4px 0 0 0", color: "#64748b" }}>
-                          📋 Orders: {safeNumber(d.count)}
+                          Orders: {safeNumber(d.count)}
                         </p>
                       </div>
                     );
@@ -1769,7 +1852,7 @@ const CustomerChart = React.memo(
                   yAxisId="left"
                   dataKey="quantity"
                   name="Order Quantity"
-                  fill="#8b5cf6"
+                  fill="#2563eb"
                   radius={[4, 4, 0, 0]}
                   barSize={45}
                 >
@@ -1784,7 +1867,7 @@ const CustomerChart = React.memo(
                         <text
                           x={x + width / 2}
                           y={y - 8}
-                          fill="#6d28d9"
+                          fill="#1e40af"
                           textAnchor="middle"
                           fontSize={10}
                           fontWeight={600}
@@ -1804,10 +1887,10 @@ const CustomerChart = React.memo(
                   type="monotone"
                   dataKey="value"
                   name="Order Value"
-                  stroke="#ef4444"
+                  stroke="#0d9488"
                   strokeWidth={3}
                   dot={{
-                    fill: "#ef4444",
+                    fill: "#0d9488",
                     r: 5,
                     strokeWidth: 2,
                     stroke: "white",
@@ -1828,7 +1911,7 @@ const CustomerChart = React.memo(
                         <text
                           x={cx}
                           y={cy - 12}
-                          fill="#b91c1c"
+                          fill="#0f766e"
                           textAnchor="middle"
                           fontSize={10}
                           fontWeight={600}
@@ -1952,16 +2035,7 @@ const GarmentCustomerComparisonChart = React.memo(
       return dataPoint;
     });
 
-    const colors = [
-      "#8b5cf6",
-      "#3b82f6",
-      "#10b981",
-      "#f59e0b",
-      "#ef4444",
-      "#ec4899",
-      "#06b6d4",
-      "#84cc16",
-    ];
+    const colors = COMPARE_COLORS;
     let maxPrice = 0;
     chartData.forEach((item) => {
       customersToShow.forEach((customer) => {
@@ -1979,10 +2053,10 @@ const GarmentCustomerComparisonChart = React.memo(
             marginBottom: 20,
             flexWrap: "wrap",
             alignItems: "center",
-            padding: "12px 16px",
+            padding: "10px 14px",
             backgroundColor: "#f8fafc",
-            borderRadius: "0.75rem",
-            border: "1px solid #e2e8f0",
+            borderRadius: 10,
+            border: `1px solid ${T.border}`,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2027,7 +2101,7 @@ const GarmentCustomerComparisonChart = React.memo(
                   height={80}
                 />
                 <YAxis
-                  stroke="#10b981"
+                  stroke={T.muted}
                   tick={{ fontSize: 11 }}
                   tickFormatter={(v) => `$${safeNumber(v).toFixed(2)}`}
                   domain={[0, domainMax]}
@@ -2035,7 +2109,7 @@ const GarmentCustomerComparisonChart = React.memo(
                     value: "Average Unit Price (USD)",
                     angle: -90,
                     position: "insideLeft",
-                    style: { fontSize: 12, fill: "#10b981", fontWeight: 500 },
+                    style: { fontSize: 12, fill: T.muted, fontWeight: 600 },
                     offset: -15,
                   }}
                 />
@@ -2916,27 +2990,41 @@ const DashboardPage = () => {
     [customerData],
   );
 
-  const refreshAllData = useCallback(() => {
+  // Reload everything from the server, keeping the current filter choices.
+  // (It used to set the chart data to null - the page reads fields of those
+  // objects, so Refresh crashed - and then reloaded unfiltered data.)
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshAllData = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
     clearCache();
+    setLoading(true);
     setDashboardData(null);
-    setOrderMonthlyData(null);
-    setYearlyData(null);
-    setCustomerData(null);
-    setGarmentData(null);
-    setAvailableYearsList([]);
-    setMasterCustomerList([]);
-    setMasterSupplierList([]);
-    fetchAvailableYears();
-    fetchDashboardStats();
-    fetchMasterCustomerList();
-    fetchMasterSupplierList();
-    fetchChartData();
+    try {
+      await Promise.all([
+        fetchAvailableYears(),
+        fetchDashboardStats(),
+        fetchMasterCustomerList(),
+        fetchMasterSupplierList(),
+        handleMonthlyFilterChange(),
+        handleYearlyFilterChange(),
+        handleCustomerFilterChange(),
+        handleGarmentFilterChange(),
+      ]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [
+    refreshing,
     fetchAvailableYears,
     fetchDashboardStats,
     fetchMasterCustomerList,
     fetchMasterSupplierList,
-    fetchChartData,
+    handleMonthlyFilterChange,
+    handleYearlyFilterChange,
+    handleCustomerFilterChange,
+    handleGarmentFilterChange,
   ]);
 
   const orderStats = useMemo(() => {
@@ -2949,9 +3037,9 @@ const DashboardPage = () => {
       {
         title: "Total Orders",
         value: safeNumber(stats.totalOrders, 0).toLocaleString(),
-        icon: <FiShoppingBag size={24} />,
+        icon: <FiShoppingBag size={20} />,
         link: "/orders",
-        gradient: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+        accent: T.qty,
         changeType: "increase",
         change: "",
         description: "",
@@ -2962,9 +3050,9 @@ const DashboardPage = () => {
           totalOrderValue > 0
             ? `$${(totalOrderValue / 1000000).toFixed(1)}M`
             : "$0",
-        icon: <FiDollarSign size={24} />,
+        icon: <FiDollarSign size={20} />,
         link: "/orders",
-        gradient: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+        accent: T.val,
         changeType: "increase",
         change: "",
         description: "",
@@ -2973,9 +3061,9 @@ const DashboardPage = () => {
         title: "Shipped Value",
         value:
           shippedValue > 0 ? `$${(shippedValue / 1000000).toFixed(1)}M` : "$0",
-        icon: <FiTruck size={24} />,
+        icon: <FiTruck size={20} />,
         link: "/orders?status=Shipped",
-        gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+        accent: "#059669",
         changeType: "increase",
         change: "",
         description: "",
@@ -2983,9 +3071,9 @@ const DashboardPage = () => {
       {
         title: "Active Orders",
         value: `${runningOrders}`,
-        icon: <FiActivity size={24} />,
+        icon: <FiActivity size={20} />,
         link: "/orders?status=Running",
-        gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+        accent: T.cnt,
         change: `${Math.round((runningOrders / (stats.totalOrders || 1)) * 100)}%`,
         changeType: "increase",
         description: "of total orders",
@@ -2998,43 +3086,42 @@ const DashboardPage = () => {
       style={{
         display: "flex",
         height: "100vh",
-        backgroundColor: "#f0f2f5",
+        backgroundColor: T.bg,
         fontFamily:
           "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       <Sidebar />
-      <div style={{ flex: 1, overflow: "auto", padding: "0 1.5rem" }}>
+      <div style={{ flex: 1, minWidth: 0, overflow: "auto", padding: "0 28px 24px" }}>
         <header
           style={{
-            backgroundColor: "#ffffff",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            borderRadius: "1rem",
-            margin: "1.5rem 0",
-            padding: "1.5rem 2rem",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            gap: 16,
+            padding: "22px 0 18px",
+            marginBottom: 18,
+            borderBottom: `1px solid ${T.border}`,
           }}
         >
           <div>
             <h1
               style={{
-                fontSize: "2rem",
-                fontWeight: 700,
+                fontSize: 24,
+                fontWeight: 800,
                 margin: 0,
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
+                color: T.text,
+                letterSpacing: "-0.02em",
               }}
             >
               ORDER Dashboard
             </h1>
             <p
               style={{
-                fontSize: "0.95rem",
-                color: "#64748b",
-                margin: "0.5rem 0 0 0",
+                fontSize: 13.5,
+                color: T.muted,
+                margin: "4px 0 0 0",
               }}
             >
               Track orders, customers, and garment performance
@@ -3043,29 +3130,43 @@ const DashboardPage = () => {
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <button
               onClick={refreshAllData}
+              disabled={refreshing}
+              title="Reload all figures from the server"
+              style={{
+                opacity: refreshing ? 0.7 : 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 10,
+                border: `1px solid ${T.borderStrong}`,
+                backgroundColor: "white",
+                color: T.text2,
+                cursor: "pointer",
+                fontSize: 13.5,
+                fontWeight: 600,
+              }}
+            >
+              <FiRefreshCw
+                size={16}
+                style={refreshing ? { animation: "spin 0.9s linear infinite" } : undefined}
+              />
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+            <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "0.5rem 1rem",
-                borderRadius: "2rem",
-                border: "1px solid #e2e8f0",
+                height: 38,
+                fontSize: 13.5,
+                color: T.text2,
                 backgroundColor: "white",
-                cursor: "pointer",
-                fontSize: "0.85rem",
-              }}
-            >
-              <FiRefreshCw size={16} /> Refresh
-            </button>
-            <div
-              style={{
-                fontSize: "1rem",
-                color: "#1e293b",
-                backgroundColor: "#f8fafc",
-                padding: "0.75rem 1.5rem",
-                borderRadius: "2rem",
+                padding: "0 16px",
+                borderRadius: 10,
                 fontWeight: 600,
-                border: "1px solid #e2e8f0",
+                border: `1px solid ${T.border}`,
               }}
             >
               {formattedDate}
@@ -3075,10 +3176,12 @@ const DashboardPage = () => {
 
         <h3
           style={{
-            marginBottom: "1rem",
-            fontSize: "1rem",
-            color: "#64748b",
-            fontWeight: 600,
+            margin: "0 0 10px",
+            fontSize: 11.5,
+            color: T.muted,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
           }}
         >
           Order Statistics
@@ -3086,9 +3189,9 @@ const DashboardPage = () => {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: "1.5rem",
-            marginBottom: "2rem",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: 14,
+            marginBottom: 20,
           }}
         >
           {loading || !dashboardData
@@ -3109,13 +3212,7 @@ const DashboardPage = () => {
 
         {/* Monthly Order Chart */}
         <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "1rem",
-            padding: "1.5rem",
-            marginBottom: "2rem",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          }}
+          style={panelStyle}
         >
           <div
             style={{
@@ -3128,17 +3225,9 @@ const DashboardPage = () => {
             }}
           >
             <h3
-              style={{
-                fontSize: "1.1rem",
-                fontWeight: 600,
-                color: "#1e293b",
-                margin: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
+              style={panelTitle}
             >
-              <FiBarChart2 color="#8b5cf6" /> Order Quantity & Value by Month
+              <span style={iconTile(T.accent)}><FiBarChart2 size={16} /></span> Order Quantity & Value by Month
             </h3>
             <div
               style={{
@@ -3170,50 +3259,19 @@ const DashboardPage = () => {
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => setSelectedMetric("both")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedMetric === "both"
-                        ? "2px solid #8b5cf6"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedMetric === "both" ? "#ede9fe" : "white",
-                    color: selectedMetric === "both" ? "#6d28d9" : "#64748b",
-                  }}
+                  style={segBtn(selectedMetric === "both")}
                 >
                   Both
                 </button>
                 <button
                   onClick={() => setSelectedMetric("quantity")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedMetric === "quantity"
-                        ? "2px solid #10b981"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedMetric === "quantity" ? "#d1fae5" : "white",
-                    color:
-                      selectedMetric === "quantity" ? "#047857" : "#64748b",
-                  }}
+                  style={segBtn(selectedMetric === "quantity")}
                 >
                   Quantity
                 </button>
                 <button
                   onClick={() => setSelectedMetric("value")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedMetric === "value"
-                        ? "2px solid #ef4444"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedMetric === "value" ? "#fee2e2" : "white",
-                    color: selectedMetric === "value" ? "#b91c1c" : "#64748b",
-                  }}
+                  style={segBtn(selectedMetric === "value")}
                 >
                   Value
                 </button>
@@ -3239,13 +3297,7 @@ const DashboardPage = () => {
 
         {/* Yearly Order Chart */}
         <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "1rem",
-            padding: "1.5rem",
-            marginBottom: "2rem",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          }}
+          style={panelStyle}
         >
           <div
             style={{
@@ -3258,17 +3310,9 @@ const DashboardPage = () => {
             }}
           >
             <h3
-              style={{
-                fontSize: "1.1rem",
-                fontWeight: 600,
-                color: "#1e293b",
-                margin: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
+              style={panelTitle}
             >
-              <FiTrendingUp color="#10b981" /> Order Quantity & Value by Year
+              <span style={iconTile(T.accent)}><FiTrendingUp size={16} /></span> Order Quantity & Value by Year
             </h3>
             <div
               style={{
@@ -3304,54 +3348,19 @@ const DashboardPage = () => {
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => setSelectedYearlyMetric("both")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedYearlyMetric === "both"
-                        ? "2px solid #10b981"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedYearlyMetric === "both" ? "#d1fae5" : "white",
-                    color:
-                      selectedYearlyMetric === "both" ? "#047857" : "#64748b",
-                  }}
+                  style={segBtn(selectedYearlyMetric === "both")}
                 >
                   Both
                 </button>
                 <button
                   onClick={() => setSelectedYearlyMetric("quantity")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedYearlyMetric === "quantity"
-                        ? "2px solid #3b82f6"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedYearlyMetric === "quantity" ? "#dbeafe" : "white",
-                    color:
-                      selectedYearlyMetric === "quantity"
-                        ? "#1e40af"
-                        : "#64748b",
-                  }}
+                  style={segBtn(selectedYearlyMetric === "quantity")}
                 >
                   Quantity
                 </button>
                 <button
                   onClick={() => setSelectedYearlyMetric("value")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedYearlyMetric === "value"
-                        ? "2px solid #f59e0b"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedYearlyMetric === "value" ? "#fed7aa" : "white",
-                    color:
-                      selectedYearlyMetric === "value" ? "#b45309" : "#64748b",
-                  }}
+                  style={segBtn(selectedYearlyMetric === "value")}
                 >
                   Value
                 </button>
@@ -3367,13 +3376,7 @@ const DashboardPage = () => {
 
         {/* Customer Performance Chart */}
         <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "1rem",
-            padding: "1.5rem",
-            marginBottom: "2rem",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          }}
+          style={panelStyle}
         >
           <div
             style={{
@@ -3386,17 +3389,9 @@ const DashboardPage = () => {
             }}
           >
             <h3
-              style={{
-                fontSize: "1.1rem",
-                fontWeight: 600,
-                color: "#1e293b",
-                margin: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
+              style={panelTitle}
             >
-              <FiUsers color="#8b5cf6" /> Customer Performance Comparison
+              <span style={iconTile(T.accent)}><FiUsers size={16} /></span> Customer Performance Comparison
             </h3>
             <div
               style={{
@@ -3414,47 +3409,19 @@ const DashboardPage = () => {
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => handleSortChange("quantity")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      sortBy === "quantity"
-                        ? "2px solid #8b5cf6"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      sortBy === "quantity" ? "#ede9fe" : "white",
-                    color: sortBy === "quantity" ? "#6d28d9" : "#64748b",
-                  }}
+                  style={segBtn(sortBy === "quantity")}
                 >
                   Sort by Quantity
                 </button>
                 <button
                   onClick={() => handleSortChange("value")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      sortBy === "value"
-                        ? "2px solid #ef4444"
-                        : "1px solid #e2e8f0",
-                    backgroundColor: sortBy === "value" ? "#fee2e2" : "white",
-                    color: sortBy === "value" ? "#b91c1c" : "#64748b",
-                  }}
+                  style={segBtn(sortBy === "value")}
                 >
                   Sort by Value
                 </button>
                 <button
                   onClick={() => handleSortChange("count")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      sortBy === "count"
-                        ? "2px solid #10b981"
-                        : "1px solid #e2e8f0",
-                    backgroundColor: sortBy === "count" ? "#d1fae5" : "white",
-                    color: sortBy === "count" ? "#047857" : "#64748b",
-                  }}
+                  style={segBtn(sortBy === "count")}
                 >
                   Sort by Orders
                 </button>
@@ -3462,64 +3429,19 @@ const DashboardPage = () => {
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => setSelectedCustomerGraphMetric("both")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedCustomerGraphMetric === "both"
-                        ? "2px solid #8b5cf6"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedCustomerGraphMetric === "both"
-                        ? "#ede9fe"
-                        : "white",
-                    color:
-                      selectedCustomerGraphMetric === "both"
-                        ? "#6d28d9"
-                        : "#64748b",
-                  }}
+                  style={segBtn(selectedCustomerGraphMetric === "both")}
                 >
                   Both
                 </button>
                 <button
                   onClick={() => setSelectedCustomerGraphMetric("quantity")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedCustomerGraphMetric === "quantity"
-                        ? "2px solid #8b5cf6"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedCustomerGraphMetric === "quantity"
-                        ? "#ede9fe"
-                        : "white",
-                    color:
-                      selectedCustomerGraphMetric === "quantity"
-                        ? "#6d28d9"
-                        : "#64748b",
-                  }}
+                  style={segBtn(selectedCustomerGraphMetric === "quantity")}
                 >
                   Quantity
                 </button>
                 <button
                   onClick={() => setSelectedCustomerGraphMetric("value")}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: "0.5rem",
-                    border:
-                      selectedCustomerGraphMetric === "value"
-                        ? "2px solid #ef4444"
-                        : "1px solid #e2e8f0",
-                    backgroundColor:
-                      selectedCustomerGraphMetric === "value"
-                        ? "#fee2e2"
-                        : "white",
-                    color:
-                      selectedCustomerGraphMetric === "value"
-                        ? "#b91c1c"
-                        : "#64748b",
-                  }}
+                  style={segBtn(selectedCustomerGraphMetric === "value")}
                 >
                   Value
                 </button>
@@ -3537,27 +3459,13 @@ const DashboardPage = () => {
 
         {/* Garment Customer Comparison Chart */}
         <div
-          style={{
-            backgroundColor: "white",
-            borderRadius: "1rem",
-            padding: "1.5rem",
-            marginBottom: "2rem",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          }}
+          style={panelStyle}
         >
           <div style={{ marginBottom: "1rem" }}>
             <h3
-              style={{
-                fontSize: "1.1rem",
-                fontWeight: 600,
-                color: "#1e293b",
-                margin: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
+              style={panelTitle}
             >
-              <FiPieChart color="#f59e0b" /> Garment Type Analysis - Customer
+              <span style={iconTile(T.accent)}><FiPieChart size={16} /></span> Garment Type Analysis - Customer
               Comparison (Unit Price)
             </h3>
             <p style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 4 }}>

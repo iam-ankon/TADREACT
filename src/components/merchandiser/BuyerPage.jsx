@@ -1,1223 +1,518 @@
-// BuyerPage.jsx - Complete version with authentication token
-import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
-import Sidebar from "../merchandiser/Sidebar.jsx";
+// BuyerPage.jsx - Buyers list (route /buyers): search, department and
+// customer filters, sorting, pagination, CSV export, view / edit / delete.
+// Search, department and page are remembered in localStorage as before.
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  FiAlertTriangle,
+  FiBriefcase,
+  FiCheck,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronUp,
+  FiDownload,
+  FiEdit2,
+  FiEye,
+  FiLayers,
+  FiMail,
+  FiPhone,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiTrash2,
+  FiUsers,
+  FiX,
+} from "react-icons/fi";
+import Sidebar from "./Sidebar.jsx";
+import { merchandiserApi } from "../../api/merchandiser";
+import { AGENT_CSS, customerName, initialsOf } from "./agentTheme";
 
-// Helper function to get auth token
-const getAuthToken = () => {
-  return localStorage.getItem('token') || sessionStorage.getItem('token');
-};
-
-// Create axios instance with auth header
-const api = axios.create({
-  baseURL: "http://119.148.51.38:8000/api/merchandiser/api/"
-});
-
-// Add token to every request
-api.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers.Authorization = `Token ${token}`;
-  }
-  return config;
-});
-
-// Helper function to get customer display name from nested object
-const getCustomerDisplayName = (customer) => {
-  if (!customer) return "-";
-  if (typeof customer === "object") {
-    if (customer.customer_name) return customer.customer_name;
-    if (customer.name) {
-      if (typeof customer.name === "object") {
-        if (customer.name.customer_name) return customer.name.customer_name;
-        if (customer.name.name) return customer.name.name;
-      }
-      if (typeof customer.name === "string") return customer.name;
-    }
-    if (customer.hrms_customer_name) return customer.hrms_customer_name;
-    if (customer.display_name) return customer.display_name;
-    return `Customer ${customer.id}`;
-  }
-  return customer.toString() || "-";
-};
-
-// Helper to get departments as array
-const getDepartmentsArray = (buyer) => {
-  if (buyer.departments_display && Array.isArray(buyer.departments_display)) {
-    return buyer.departments_display.map(d => d.name);
-  }
-  if (buyer.departments && Array.isArray(buyer.departments)) {
-    return buyer.departments;
-  }
-  return [];
-};
-
-// Helper to get WGR numbers as array
-const getWgrArray = (buyer) => {
-  if (buyer.wgr_numbers_display && Array.isArray(buyer.wgr_numbers_display)) {
-    return buyer.wgr_numbers_display.map(w => w.wgr_number);
-  }
-  if (buyer.wgr_numbers && Array.isArray(buyer.wgr_numbers)) {
-    return buyer.wgr_numbers;
-  }
-  if (buyer.wgr) return [buyer.wgr];
-  return [];
-};
-
-// Helper to get items as array
-const getItemsArray = (buyer) => {
-  if (buyer.items_display && Array.isArray(buyer.items_display)) {
-    return buyer.items_display.map(i => i.name);
-  }
-  if (buyer.items && Array.isArray(buyer.items)) {
-    return buyer.items;
-  }
-  if (buyer.item) return [buyer.item];
-  return [];
-};
-
-// Helper to get categories as array
-const getCategoriesArray = (buyer) => {
-  if (buyer.product_categories_display && Array.isArray(buyer.product_categories_display)) {
-    return buyer.product_categories_display.map(c => c.name);
-  }
-  if (buyer.product_categories && Array.isArray(buyer.product_categories)) {
-    return buyer.product_categories;
-  }
-  if (buyer.product_category) return [buyer.product_category];
-  return [];
-};
-
-// Storage keys
 const STORAGE_KEYS = {
-  SEARCH_TERM: 'buyer_search_term',
-  SELECTED_DEPARTMENT: 'buyer_selected_department',
-  SHOW_FILTERS: 'buyer_show_filters',
-  CURRENT_PAGE: 'buyer_current_page'
+  SEARCH_TERM: "buyer_search_term",
+  SELECTED_DEPARTMENT: "buyer_selected_department",
+  CURRENT_PAGE: "buyer_current_page",
 };
+
+const asList = (data) => (Array.isArray(data) ? data : data?.results || []);
+const readLS = (k, fallback) => {
+  try {
+    return localStorage.getItem(k) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+const writeLS = (k, v) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* storage blocked */
+  }
+};
+
+// Distinct values of one row field, falling back to the legacy *_display lists.
+const rowValues = (buyer, rowKey, displayKey, displayField) => {
+  const fromRows = (buyer.rows || []).map((r) => r[rowKey]).filter(Boolean);
+  const values = fromRows.length ? fromRows : (buyer[displayKey] || []).map((d) => d[displayField]).filter(Boolean);
+  return [...new Set(values)];
+};
+const departmentsOf = (b) => rowValues(b, "department", "departments_display", "name");
+const wgrsOf = (b) => rowValues(b, "wgr_number", "wgr_numbers_display", "wgr_number");
+const itemsOf = (b) => rowValues(b, "item", "items_display", "name");
+const categoriesOf = (b) => rowValues(b, "product_category", "product_categories_display", "name");
+
+const csvCell = (v) => {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const Chips = ({ values, tone, max = 2 }) =>
+  values.length === 0 ? (
+    <span style={{ color: "#94a3b8" }}>—</span>
+  ) : (
+    <div className="ag-chips">
+      {values.slice(0, max).map((v) => (
+        <span key={v} className={`ag-chip ${tone}`}>
+          {v}
+        </span>
+      ))}
+      {values.length > max && (
+        <span className="ag-chip more" title={values.slice(max).join(", ")}>
+          +{values.length - max}
+        </span>
+      )}
+    </div>
+  );
 
 export default function BuyerPage() {
   const navigate = useNavigate();
   const [buyers, setBuyers] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.SEARCH_TERM) || "";
-  });
-  const [currentPage, setCurrentPage] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_PAGE);
-    return saved ? parseInt(saved) : 1;
-  });
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [showFilters, setShowFilters] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SHOW_FILTERS);
-    return saved !== null ? saved === 'true' : true;
-  });
-  const [selectedDepartment, setSelectedDepartment] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.SELECTED_DEPARTMENT) || "all";
-  });
-  const [departmentsList, setDepartmentsList] = useState([]);
-  const [sortBy, setSortBy] = useState("name");
-  const [sortOrder, setSortOrder] = useState("asc");
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(() => readLS(STORAGE_KEYS.SEARCH_TERM, ""));
+  const [selectedDepartment, setSelectedDepartment] = useState(() => readLS(STORAGE_KEYS.SELECTED_DEPARTMENT, "all"));
+  const [selectedCustomer, setSelectedCustomer] = useState("all");
+  const [currentPage, setCurrentPage] = useState(() => parseInt(readLS(STORAGE_KEYS.CURRENT_PAGE, "1"), 10) || 1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [sort, setSort] = useState({ key: "name", dir: "asc" });
+  const [deletingId, setDeletingId] = useState(null);
 
-  // Save filters to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SEARCH_TERM, searchTerm);
-  }, [searchTerm]);
+  useEffect(() => writeLS(STORAGE_KEYS.SEARCH_TERM, searchTerm), [searchTerm]);
+  useEffect(() => writeLS(STORAGE_KEYS.SELECTED_DEPARTMENT, selectedDepartment), [selectedDepartment]);
+  useEffect(() => writeLS(STORAGE_KEYS.CURRENT_PAGE, String(currentPage)), [currentPage]);
 
+  // Back to page 1 when filters change - but not on first render, so the
+  // remembered page survives coming back from a buyer.
+  const firstRender = useRef(true);
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SELECTED_DEPARTMENT, selectedDepartment);
-  }, [selectedDepartment]);
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    setCurrentPage(1);
+  }, [searchTerm, selectedDepartment, selectedCustomer, itemsPerPage]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SHOW_FILTERS, showFilters);
-  }, [showFilters]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CURRENT_PAGE, currentPage);
-  }, [currentPage]);
+  const fetchData = async ({ quiet = false } = {}) => {
+    if (quiet) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const [buyersRes, customersRes] = await Promise.all([merchandiserApi.get("buyer/"), merchandiserApi.get("customer/")]);
+      setBuyers(asList(buyersRes.data));
+      setCustomers(asList(customersRes.data));
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Failed to load buyers. Please try again.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [buyersRes, customersRes] = await Promise.all([
-        api.get("buyer/"),
-        api.get("customer/"),
-      ]);
-      setBuyers(buyersRes.data);
-      setCustomers(customersRes.data);
-      
-      // Extract unique departments from all buyers
-      const allDepts = new Set();
-      buyersRes.data.forEach(buyer => {
-        const depts = getDepartmentsArray(buyer);
-        depts.forEach(d => allDepts.add(d));
-      });
-      setDepartmentsList(["all", ...Array.from(allDepts).sort()]);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token');
-        sessionStorage.removeItem('token');
-        window.location.href = '/login';
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const customerById = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+  const buyerCustomers = (b) => (b.customers || []).map((id) => customerById.get(id)).filter(Boolean);
 
-  const getBuyerCustomers = (buyer) => {
-    if (!buyer.customers) return [];
-    return customers.filter((customer) => buyer.customers.includes(customer.id));
-  };
+  const departmentsList = useMemo(() => {
+    const all = new Set();
+    buyers.forEach((b) => departmentsOf(b).forEach((d) => all.add(d)));
+    return [...all].sort();
+  }, [buyers]);
 
-  const handleDelete = async (buyerId, e) => {
-    e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this buyer?")) {
-      try {
-        await api.delete(`buyer/${buyerId}/`);
-        setBuyers(buyers.filter((b) => b.id !== buyerId));
-      } catch (err) {
-        console.error("Error deleting buyer:", err);
-      }
-    }
-  };
+  const linkedCustomers = useMemo(() => {
+    const ids = new Set();
+    buyers.forEach((b) => (b.customers || []).forEach((id) => ids.add(id)));
+    return customers.filter((c) => ids.has(c.id)).sort((a, b) => customerName(a).localeCompare(customerName(b)));
+  }, [buyers, customers]);
 
-  // Apply filters and sorting
-  const filteredBuyers = buyers.filter((buyer) => {
-    const departments = getDepartmentsArray(buyer);
-    const matchesSearch = !searchTerm ||
-      (buyer.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (buyer.email?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (buyer.phone?.toLowerCase() || "").includes(searchTerm.toLowerCase());
-    const matchesDept = selectedDepartment === "all" || departments.includes(selectedDepartment);
-    return matchesSearch && matchesDept;
-  });
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const list = buyers.filter((b) => {
+      if (selectedDepartment !== "all" && !departmentsOf(b).includes(selectedDepartment)) return false;
+      if (selectedCustomer !== "all" && !(b.customers || []).includes(Number(selectedCustomer))) return false;
+      if (!q) return true;
+      return [b.name, b.email, b.phone, b.remarks, ...departmentsOf(b), ...wgrsOf(b), ...itemsOf(b), ...categoriesOf(b)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    });
+    const value = (b) => {
+      if (sort.key === "customers") return (b.customers || []).length;
+      if (sort.key === "rows") return (b.rows || []).length;
+      return String(b[sort.key] || "").toLowerCase();
+    };
+    return list.sort((a, b) => {
+      const av = value(a);
+      const bv = value(b);
+      if (av === bv) return 0;
+      return (av > bv ? 1 : -1) * (sort.dir === "asc" ? 1 : -1);
+    });
+  }, [buyers, searchTerm, selectedDepartment, selectedCustomer, sort]);
 
-  // Apply sorting
-  const sortedBuyers = [...filteredBuyers].sort((a, b) => {
-    let aVal = a[sortBy] || "";
-    let bVal = b[sortBy] || "";
-    if (sortBy === "customers") {
-      aVal = getBuyerCustomers(a).length;
-      bVal = getBuyerCustomers(b).length;
-    }
-    if (typeof aVal === "string") aVal = aVal.toLowerCase();
-    if (typeof bVal === "string") bVal = bVal.toLowerCase();
-    
-    if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
-    if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  // Pagination - Reset to page 1 when filters change
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, selectedDepartment]);
+    if (!loading && currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages, loading]);
+  const first = (currentPage - 1) * itemsPerPage;
+  const pageItems = filtered.slice(first, first + itemsPerPage);
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentBuyers = sortedBuyers.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(sortedBuyers.length / itemsPerPage);
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" ? "asc" : "desc" }));
 
-  // Calculate stats
-  const stats = {
-    total: buyers.length,
-    withEmail: buyers.filter(b => b.email).length,
-    withPhone: buyers.filter(b => b.phone).length,
-    departments: departmentsList.filter(d => d !== "all").length,
-    totalRows: buyers.reduce((sum, b) => sum + (b.rows?.length || 0), 0),
-  };
-
-  const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(field);
-      setSortOrder("asc");
-    }
-  };
-
+  const hasFilters = searchTerm || selectedDepartment !== "all" || selectedCustomer !== "all";
   const clearAllFilters = () => {
     setSearchTerm("");
     setSelectedDepartment("all");
-    setCurrentPage(1);
+    setSelectedCustomer("all");
   };
 
-  const getSortIcon = (field) => {
-    if (sortBy !== field) return "↕️";
-    return sortOrder === "asc" ? "↑" : "↓";
+  const handleDelete = async (buyer) => {
+    if (!window.confirm(`Delete buyer "${buyer.name || "this buyer"}"? Its rows and customer links are removed too.`)) return;
+    setDeletingId(buyer.id);
+    setNotice(null);
+    try {
+      await merchandiserApi.delete(`buyer/${buyer.id}/`);
+      setBuyers((prev) => prev.filter((b) => b.id !== buyer.id));
+      setNotice({ ok: true, msg: `Deleted ${buyer.name || "buyer"}.` });
+    } catch (err) {
+      setNotice({ ok: false, msg: err.response?.data?.detail || "Failed to delete the buyer." });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <Sidebar />
-        <div style={styles.loadingContainer}>
-          <div style={styles.spinner}></div>
-          <p>Loading buyer data...</p>
-        </div>
-      </div>
-    );
-  }
+  const exportCSV = () => {
+    const header = ["Name", "Email", "Phone", "Customers", "Departments", "WGR numbers", "Items", "Product categories", "Remarks"];
+    const rows = filtered.map((b) => [
+      b.name,
+      b.email,
+      b.phone,
+      buyerCustomers(b).map(customerName).join("; "),
+      departmentsOf(b).join("; "),
+      wgrsOf(b).join("; "),
+      itemsOf(b).join("; "),
+      categoriesOf(b).join("; "),
+      b.remarks,
+    ]);
+    const blob = new Blob(["﻿" + [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `buyers-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const SortTh = ({ k, children }) => (
+    <th className={`sortable ${sort.key === k ? "sorted" : ""}`} onClick={() => toggleSort(k)}>
+      <span className="th">
+        {children}
+        {sort.key === k ? sort.dir === "asc" ? <FiChevronUp /> : <FiChevronDown /> : null}
+      </span>
+    </th>
+  );
+
+  const pageNumbers = () => {
+    const count = Math.min(5, totalPages);
+    const start = Math.max(1, Math.min(currentPage - 2, totalPages - count + 1));
+    return Array.from({ length: count }, (_, i) => start + i);
+  };
+
+  const stats = [
+    { label: "Buyers", value: buyers.length, icon: <FiUsers />, tone: "t-blue" },
+    { label: "Departments", value: departmentsList.length, icon: <FiLayers />, tone: "t-amber" },
+    { label: "Linked customers", value: linkedCustomers.length, icon: <FiBriefcase />, tone: "t-violet" },
+    { label: "With email", value: buyers.filter((b) => b.email).length, icon: <FiMail />, tone: "t-green" },
+  ];
 
   return (
-    <div style={styles.container}>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
-      <div style={styles.mainContent}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerContent}>
-            <div style={styles.headerLeft}>
-              <div style={styles.headerBadge}>👥</div>
-              <div>
-                <h1 style={styles.headerTitle}>Buyer Management</h1>
-                <p style={styles.headerSubtitle}>Manage all buyers and their associated customers</p>
-              </div>
-            </div>
-            <div style={styles.headerActions}>
-              <Link to="/add-buyer" style={styles.btnPrimary}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                New Buyer
-              </Link>
-            </div>
-          </div>
-        </div>
+      <div className="ag-app">
+        <style>{AGENT_CSS}</style>
 
-        {/* Stats Cards */}
-        <div style={styles.statsGrid}>
-          <div style={styles.statCard}>
-            <div style={{ ...styles.statIcon, background: "#dbeafe" }}>👥</div>
-            <div style={styles.statInfo}>
-              <span style={styles.statValue}>{stats.total}</span>
-              <span style={styles.statLabel}>Total Buyers</span>
-            </div>
+        <header className="ag-header">
+          <div>
+            <div className="ag-eyebrow">Partners</div>
+            <h1 className="ag-title">
+              Buyers <span className="ag-count">{buyers.length}</span>
+            </h1>
+            <p className="ag-subtitle">Buyers, the customers they work with, and their departments, WGR numbers and items.</p>
           </div>
-          <div style={styles.statCard}>
-            <div style={{ ...styles.statIcon, background: "#fef3c7" }}>🏢</div>
-            <div style={styles.statInfo}>
-              <span style={styles.statValue}>{stats.departments}</span>
-              <span style={styles.statLabel}>Departments</span>
-            </div>
-          </div>
-          <div style={styles.statCard}>
-            <div style={{ ...styles.statIcon, background: "#f3e8ff" }}>🔗</div>
-            <div style={styles.statInfo}>
-              <span style={styles.statValue}>{stats.withEmail}</span>
-              <span style={styles.statLabel}>With Email</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Section - Collapsible */}
-        <div style={styles.filterSection}>
-          <div style={styles.filterHeader} onClick={() => setShowFilters(!showFilters)}>
-            <div style={styles.filterHeaderLeft}>
-              <span style={styles.filterIcon}>🔍</span>
-              <h3 style={styles.filterTitle}>Filters & Search</h3>
-              {searchTerm || selectedDepartment !== "all" ? (
-                <span style={styles.activeFilterBadge}>Active Filters</span>
-              ) : (
-                <span style={styles.filterBadge}>{filteredBuyers.length} results</span>
-              )}
-            </div>
-            <button style={styles.filterToggle}>
-              {showFilters ? "▲" : "▼"}
+          <div className="ag-actions">
+            <button type="button" className="ag-btn ghost" onClick={() => fetchData({ quiet: true })} disabled={refreshing}>
+              <FiRefreshCw className={refreshing ? "ag-spin" : ""} /> Refresh
+            </button>
+            <button type="button" className="ag-btn ghost" onClick={exportCSV} disabled={filtered.length === 0}>
+              <FiDownload /> Export CSV
+            </button>
+            <button type="button" className="ag-btn primary" onClick={() => navigate("/add-buyer")}>
+              <FiPlus /> New Buyer
             </button>
           </div>
-          {showFilters && (
-            <div style={styles.filterBody}>
-              <div style={styles.filterGrid}>
-                <div style={styles.filterGroup}>
-                  <label style={styles.filterLabel}>
-                    🔎 Search Buyers
-                    <span style={styles.filterHint}>Search by name, email or phone</span>
-                  </label>
-                  <div style={styles.searchInputWrapper}>
-                    <span style={styles.searchIcon}>🔍</span>
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      style={styles.filterInput}
-                      placeholder="Type to search..."
-                    />
-                    {searchTerm && (
-                      <button 
-                        onClick={() => setSearchTerm("")}
-                        style={styles.clearSearchBtn}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div style={styles.filterGroup}>
-                  <label style={styles.filterLabel}>
-                    🏢 Department Filter
-                    <span style={styles.filterHint}>Filter by department</span>
-                  </label>
-                  <select
-                    value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
-                    style={styles.filterSelect}
-                  >
-                    {departmentsList.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept === "all" ? "📋 All Departments" : dept}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div style={styles.filterGroup}>
-                  <label style={styles.filterLabel}>
-                    📄 Items Per Page
-                    <span style={styles.filterHint}>Rows to display</span>
-                  </label>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    style={styles.filterSelect}
-                  >
-                    <option value={5}>5 per page</option>
-                    <option value={10}>10 per page</option>
-                    <option value={25}>25 per page</option>
-                    <option value={50}>50 per page</option>
-                  </select>
-                </div>
+        </header>
+
+        <div className="ag-body" style={{ maxWidth: 1600 }}>
+          {notice && (
+            <div className={`ag-alert ${notice.ok ? "ok" : "err"}`}>
+              {notice.ok ? <FiCheck /> : <FiAlertTriangle />}
+              <span>{notice.msg}</span>
+              <button type="button" className="ag-icon-btn" onClick={() => setNotice(null)} title="Dismiss">
+                <FiX />
+              </button>
+            </div>
+          )}
+
+          <div className="ag-kpis">
+            {stats.map((s) => (
+              <div key={s.label} className="ag-kpi">
+                <span className={`ag-kpi-icon ${s.tone}`}>{s.icon}</span>
+                <span>
+                  <span className="ag-kpi-value">{loading ? "–" : s.value}</span>
+                  <span className="ag-kpi-label">{s.label}</span>
+                </span>
               </div>
-              <div style={styles.searchButtons}>
-                <button
-                  onClick={clearAllFilters}
-                  style={styles.btnClear}
-                >
-                  🗑️ Clear All Filters
+            ))}
+          </div>
+
+          <section className="ag-card">
+            <div className="ag-toolbar">
+              <div className="ag-search">
+                <FiSearch />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search name, contact, department, WGR, item…"
+                />
+                {searchTerm && (
+                  <button type="button" className="clear" onClick={() => setSearchTerm("")} title="Clear">
+                    <FiX />
+                  </button>
+                )}
+              </div>
+              <select
+                className="ag-select"
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                aria-label="Department"
+              >
+                <option value="all">All departments</option>
+                {departmentsList.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="ag-select"
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                aria-label="Customer"
+              >
+                <option value="all">All customers</option>
+                {linkedCustomers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {customerName(c)}
+                  </option>
+                ))}
+              </select>
+              {hasFilters && (
+                <button type="button" className="ag-btn ghost sm" onClick={clearAllFilters}>
+                  <FiX /> Clear
+                </button>
+              )}
+              <span className="ag-spacer" />
+              <span className="ag-note">
+                {filtered.length} of {buyers.length}
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="ag-loading">
+                <div className="ag-spinner" />
+                Loading buyers…
+              </div>
+            ) : error ? (
+              <div className="ag-state">
+                <div className="ag-state-icon">
+                  <FiAlertTriangle />
+                </div>
+                <h3>Couldn't load buyers</h3>
+                <p>{error}</p>
+                <button type="button" className="ag-btn ghost" onClick={() => fetchData()}>
+                  <FiRefreshCw /> Retry
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Results Summary */}
-        <div style={styles.resultsSummary}>
-          <div style={styles.resultsLeft}>
-            <span style={styles.resultsCount}>
-              {filteredBuyers.length} buyer{filteredBuyers.length !== 1 ? 's' : ''} found
-            </span>
-            {searchTerm && (
-              <span style={styles.activeFilter}>
-                Searching: "{searchTerm}"
-                <button onClick={() => setSearchTerm("")} style={styles.removeFilter}>✕</button>
-              </span>
-            )}
-            {selectedDepartment !== "all" && (
-              <span style={styles.activeFilter}>
-                Department: {selectedDepartment}
-                <button onClick={() => setSelectedDepartment("all")} style={styles.removeFilter}>✕</button>
-              </span>
-            )}
-          </div>
-          <div style={styles.resultsRight}>
-            <span style={styles.pageInfo}>
-              Page {currentPage} of {totalPages || 1}
-            </span>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div style={styles.tableContainer}>
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th} onClick={() => handleSort("name")} className="sortable">
-                    Buyer {getSortIcon("name")}
-                  </th>
-                  <th style={styles.th} onClick={() => handleSort("email")} className="sortable">
-                    Contact {getSortIcon("email")}
-                  </th>
-                  <th style={styles.th}>Departments</th>
-                  <th style={styles.th}>WGR Numbers</th>
-                  <th style={styles.th}>Items</th>
-                  <th style={styles.th}>Categories</th>
-                  <th style={styles.th} onClick={() => handleSort("customers")} className="sortable">
-                    Customers {getSortIcon("customers")}
-                  </th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentBuyers.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" style={styles.emptyCell}>
-                      <div style={styles.emptyState}>
-                        <span style={styles.emptyIcon}>🔍</span>
-                        <h3>No buyers found</h3>
-                        <p>Try adjusting your search or filters</p>
-                        <button onClick={clearAllFilters} style={styles.clearFiltersBtn}>
-                          Clear all filters
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+            ) : filtered.length === 0 ? (
+              <div className="ag-state">
+                <div className="ag-state-icon">
+                  <FiUsers />
+                </div>
+                <h3>{buyers.length === 0 ? "No buyers yet" : "No buyers match"}</h3>
+                <p>{buyers.length === 0 ? "Add your first buyer." : "Try a different search or filter."}</p>
+                {buyers.length === 0 ? (
+                  <button type="button" className="ag-btn primary" onClick={() => navigate("/add-buyer")}>
+                    <FiPlus /> New Buyer
+                  </button>
                 ) : (
-                  currentBuyers.map((buyer) => {
-                    const buyerCustomers = getBuyerCustomers(buyer);
-                    const departments = getDepartmentsArray(buyer);
-                    const wgrNumbers = getWgrArray(buyer);
-                    const items = getItemsArray(buyer);
-                    const categories = getCategoriesArray(buyer);
-                    
-                    return (
-                      <tr
-                        key={buyer.id}
-                        style={styles.tr}
-                        onClick={() => navigate(`/buyer-details/${buyer.id}`)}
-                        className="clickable-row"
-                      >
-                        <td style={styles.td}>
-                          <div style={styles.buyerInfo}>
-                            <strong style={styles.buyerName}>{buyer.name || "-"}</strong>
-                            {buyer.remarks && (
-                              <span style={styles.remarksPreview} title={buyer.remarks}>
-                                💬
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={styles.td}>
-                          <div style={styles.contactInfo}>
-                            {buyer.email && (
-                              <div style={styles.emailText}>
-                                <span style={styles.contactIcon}>📧</span> {buyer.email}
-                              </div>
-                            )}
-                            {buyer.phone && (
-                              <div style={styles.phoneText}>
-                                <span style={styles.contactIcon}>📞</span> {buyer.phone}
-                              </div>
-                            )}
-                            {!buyer.email && !buyer.phone && "-"}
-                          </div>
-                        </td>
-                        <td style={styles.td}>
-                          {departments.length > 0 ? (
-                            <div style={styles.multiValueContainer}>
-                              {departments.slice(0, 2).map((dept, idx) => (
-                                <span key={idx} style={styles.departmentBadge}>{dept}</span>
-                              ))}
-                              {departments.length > 2 && (
-                                <span style={styles.moreBadge}>+{departments.length - 2}</span>
-                              )}
-                            </div>
-                          ) : "-"}
-                        </td>
-                        <td style={styles.td}>
-                          {wgrNumbers.length > 0 ? (
-                            <div style={styles.multiValueContainer}>
-                              {wgrNumbers.slice(0, 2).map((wgr, idx) => (
-                                <span key={idx} style={styles.wgrBadge}>{wgr}</span>
-                              ))}
-                              {wgrNumbers.length > 2 && (
-                                <span style={styles.moreBadge}>+{wgrNumbers.length - 2}</span>
-                              )}
-                            </div>
-                          ) : "-"}
-                        </td>
-                        <td style={styles.td}>
-                          {items.length > 0 ? (
-                            <div style={styles.multiValueContainer}>
-                              {items.slice(0, 2).map((item, idx) => (
-                                <span key={idx} style={styles.itemBadge}>{item}</span>
-                              ))}
-                              {items.length > 2 && (
-                                <span style={styles.moreBadge}>+{items.length - 2}</span>
-                              )}
-                            </div>
-                          ) : "-"}
-                        </td>
-                        <td style={styles.td}>
-                          {categories.length > 0 ? (
-                            <div style={styles.multiValueContainer}>
-                              {categories.slice(0, 2).map((cat, idx) => (
-                                <span key={idx} style={styles.categoryBadge}>{cat}</span>
-                              ))}
-                              {categories.length > 2 && (
-                                <span style={styles.moreBadge}>+{categories.length - 2}</span>
-                              )}
-                            </div>
-                          ) : "-"}
-                        </td>
-                        <td style={styles.td}>
-                          {buyerCustomers.length > 0 ? (
-                            <div style={styles.customersList}>
-                              {buyerCustomers.slice(0, 2).map((customer) => (
-                                <div key={customer.id} style={styles.customerName}>
-                                  {getCustomerDisplayName(customer)}
-                                </div>
-                              ))}
-                              {buyerCustomers.length > 2 && (
-                                <span style={styles.moreCustomers}>
-                                  +{buyerCustomers.length - 2} more
-                                </span>
-                              )}
-                            </div>
-                          ) : "-"}
-                        </td>
-                        <td style={styles.td} onClick={(e) => e.stopPropagation()}>
-                          <div style={styles.actionButtons}>
-                            <button
-                              onClick={() => navigate(`/edit-buyer/${buyer.id}`)}
-                              style={styles.editBtn}
-                              title="Edit Buyer"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={(e) => handleDelete(buyer.id, e)}
-                              style={styles.deleteBtn}
-                              title="Delete Buyer"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  <button type="button" className="ag-btn ghost" onClick={clearAllFilters}>
+                    Clear filters
+                  </button>
                 )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {filteredBuyers.length > 0 && (
-            <div style={styles.pagination}>
-              <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-                style={styles.paginationButton}
-              >
-                ⏮ First
-              </button>
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                style={styles.paginationButton}
-              >
-                ← Prev
-              </button>
-              <div style={styles.pageNumbers}>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      style={{
-                        ...styles.pageNumberBtn,
-                        ...(currentPage === pageNum ? styles.activePage : {})
-                      }}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
               </div>
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                style={styles.paginationButton}
-              >
-                Next →
-              </button>
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}
-                style={styles.paginationButton}
-              >
-                Last ⏭
-              </button>
-            </div>
-          )}
+            ) : (
+              <>
+                <div className="ag-table-wrap">
+                  <table className="ag-table">
+                    <thead>
+                      <tr>
+                        <SortTh k="name">Buyer</SortTh>
+                        <SortTh k="email">Contact</SortTh>
+                        <SortTh k="customers">Customers</SortTh>
+                        <th>Departments</th>
+                        <th>WGR</th>
+                        <th>Items</th>
+                        <th>Categories</th>
+                        <th className="right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((b) => (
+                        <tr key={b.id} onClick={() => navigate(`/buyer-details/${b.id}`)}>
+                          <td>
+                            <div className="ag-person">
+                              <span className="ag-avatar">{initialsOf(b.name)}</span>
+                              <span style={{ minWidth: 0 }}>
+                                <span className="ag-name">{b.name || "Unnamed buyer"}</span>
+                                {b.remarks && (
+                                  <span className="ag-sub" title={b.remarks} style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {b.remarks}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {b.email && (
+                              <a className="ag-contact" href={`mailto:${b.email}`}>
+                                <FiMail /> {b.email}
+                              </a>
+                            )}
+                            {b.phone && (
+                              <a className="ag-contact" href={`tel:${b.phone}`} style={{ display: "flex", marginTop: b.email ? 3 : 0 }}>
+                                <FiPhone /> {b.phone}
+                              </a>
+                            )}
+                            {!b.email && !b.phone && <span style={{ color: "#94a3b8" }}>—</span>}
+                          </td>
+                          <td>
+                            <Chips values={buyerCustomers(b).map(customerName)} tone="blue" />
+                          </td>
+                          <td>
+                            <Chips values={departmentsOf(b)} tone="amber" />
+                          </td>
+                          <td>
+                            <Chips values={wgrsOf(b)} tone="" max={3} />
+                          </td>
+                          <td>
+                            <Chips values={itemsOf(b)} tone="violet" />
+                          </td>
+                          <td>
+                            <Chips values={categoriesOf(b)} tone="green" />
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div className="ag-row-actions">
+                              <button type="button" className="ag-icon-btn" title="View" onClick={() => navigate(`/buyer-details/${b.id}`)}>
+                                <FiEye />
+                              </button>
+                              <button type="button" className="ag-icon-btn" title="Edit" onClick={() => navigate(`/edit-buyer/${b.id}`)}>
+                                <FiEdit2 />
+                              </button>
+                              <button
+                                type="button"
+                                className="ag-icon-btn danger"
+                                title="Delete"
+                                disabled={deletingId === b.id}
+                                onClick={() => handleDelete(b)}
+                              >
+                                {deletingId === b.id ? <span className="ag-spinner sm" /> : <FiTrash2 />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="ag-pagination">
+                  <div className="ag-page-info">
+                    Showing <strong>{first + 1}</strong>–<strong>{Math.min(first + itemsPerPage, filtered.length)}</strong> of{" "}
+                    <strong>{filtered.length}</strong>
+                    <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))} aria-label="Rows per page">
+                      {[10, 25, 50, 100].map((n) => (
+                        <option key={n} value={n}>
+                          {n} / page
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="ag-pages">
+                      <button type="button" className="ag-page" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)} title="Previous">
+                        <FiChevronLeft />
+                      </button>
+                      {pageNumbers().map((n) => (
+                        <button key={n} type="button" className={`ag-page ${n === currentPage ? "active" : ""}`} onClick={() => setCurrentPage(n)}>
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="ag-page"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        title="Next"
+                      >
+                        <FiChevronRight />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .clickable-row:hover {
-          background: #f8fafc !important;
-          cursor: pointer;
-        }
-        .sortable {
-          cursor: pointer;
-          user-select: none;
-          transition: background 0.2s;
-        }
-        .sortable:hover {
-          background: #e2e8f0 !important;
-        }
-        input:focus, select:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-        }
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#f0f2f5",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
-  mainContent: {
-    flex: 1,
-    padding: "24px 32px",
-    overflow: "auto",
-    maxHeight: "100vh",
-  },
-  loadingContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "3px solid #e2e8f0",
-    borderTopColor: "#3b82f6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  header: {
-    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-    borderRadius: "16px",
-    padding: "24px 28px",
-    marginBottom: "24px",
-  },
-  headerContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-  },
-  headerBadge: {
-    background: "rgba(255,255,255,0.15)",
-    borderRadius: "14px",
-    padding: "10px 14px",
-    fontSize: "22px",
-  },
-  headerTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "white",
-    margin: 0,
-  },
-  headerSubtitle: {
-    fontSize: "13px",
-    color: "rgba(255,255,255,0.7)",
-    margin: "4px 0 0 0",
-  },
-  headerActions: {
-    display: "flex",
-    gap: "12px",
-  },
-  btnPrimary: {
-    background: "linear-gradient(135deg, #22c55e, #16a34a)",
-    color: "white",
-    padding: "10px 24px",
-    borderRadius: "10px",
-    textDecoration: "none",
-    fontSize: "13px",
-    fontWeight: "600",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    transition: "all 0.2s",
-  },
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "16px",
-    marginBottom: "24px",
-  },
-  statCard: {
-    background: "white",
-    borderRadius: "14px",
-    padding: "18px 20px",
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-    transition: "transform 0.2s, box-shadow 0.2s",
-  },
-  statIcon: {
-    fontSize: "28px",
-    width: "52px",
-    height: "52px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "14px",
-  },
-  statInfo: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  statValue: {
-    fontSize: "26px",
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  statLabel: {
-    fontSize: "12px",
-    color: "#64748b",
-    marginTop: "2px",
-  },
-  filterSection: {
-    background: "white",
-    borderRadius: "14px",
-    marginBottom: "20px",
-    overflow: "hidden",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  filterHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "14px 20px",
-    cursor: "pointer",
-    borderBottom: "1px solid #e2e8f0",
-    transition: "background 0.2s",
-  },
-  filterHeaderLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-  filterIcon: {
-    fontSize: "16px",
-  },
-  filterTitle: {
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#0f172a",
-    margin: 0,
-  },
-  filterBadge: {
-    background: "#e2e8f0",
-    padding: "2px 10px",
-    borderRadius: "20px",
-    fontSize: "11px",
-    color: "#475569",
-    fontWeight: "500",
-  },
-  activeFilterBadge: {
-    background: "#3b82f6",
-    padding: "2px 10px",
-    borderRadius: "20px",
-    fontSize: "11px",
-    color: "white",
-    fontWeight: "500",
-  },
-  filterToggle: {
-    background: "none",
-    border: "none",
-    fontSize: "12px",
-    cursor: "pointer",
-    color: "#64748b",
-    padding: "4px 8px",
-  },
-  filterBody: {
-    padding: "20px",
-  },
-  filterGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "20px",
-    marginBottom: "20px",
-  },
-  filterGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  filterLabel: {
-    fontSize: "12px",
-    fontWeight: "600",
-    color: "#475569",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  filterHint: {
-    fontSize: "10px",
-    fontWeight: "normal",
-    color: "#94a3b8",
-    textTransform: "none",
-  },
-  searchInputWrapper: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    fontSize: "14px",
-    color: "#94a3b8",
-  },
-  filterInput: {
-    width: "100%",
-    padding: "10px 12px 10px 36px",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: "10px",
-    fontSize: "13px",
-    outline: "none",
-    transition: "all 0.2s",
-  },
-  clearSearchBtn: {
-    position: "absolute",
-    right: "12px",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    color: "#94a3b8",
-    fontSize: "14px",
-    padding: "2px 6px",
-  },
-  filterSelect: {
-    padding: "10px 12px",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: "10px",
-    fontSize: "13px",
-    background: "white",
-    cursor: "pointer",
-  },
-  searchButtons: {
-    display: "flex",
-    justifyContent: "flex-end",
-  },
-  btnClear: {
-    background: "white",
-    color: "#64748b",
-    padding: "8px 20px",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: "10px",
-    fontSize: "12px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  resultsSummary: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "16px",
-    flexWrap: "wrap",
-    gap: "12px",
-  },
-  resultsLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    flexWrap: "wrap",
-  },
-  resultsCount: {
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#475569",
-  },
-  activeFilter: {
-    fontSize: "12px",
-    background: "#f1f5f9",
-    padding: "4px 8px 4px 12px",
-    borderRadius: "20px",
-    color: "#475569",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-  },
-  removeFilter: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    color: "#94a3b8",
-    fontSize: "12px",
-    padding: "0 4px",
-  },
-  resultsRight: {
-    display: "flex",
-    alignItems: "center",
-  },
-  pageInfo: {
-    fontSize: "12px",
-    color: "#64748b",
-  },
-  tableContainer: {
-    background: "white",
-    borderRadius: "14px",
-    overflow: "hidden",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    minWidth: "1200px",
-    fontSize: "13px",
-  },
-  th: {
-    padding: "14px 14px",
-    textAlign: "left",
-    fontSize: "12px",
-    fontWeight: "600",
-    color: "#475569",
-    background: "#f8fafc",
-    borderBottom: "1px solid #e2e8f0",
-    position: "sticky",
-    top: 0,
-  },
-  tr: {
-    borderBottom: "1px solid #f1f5f9",
-    transition: "background 0.2s",
-  },
-  td: {
-    padding: "12px 14px",
-    fontSize: "13px",
-    color: "#334155",
-    verticalAlign: "middle",
-  },
-  buyerInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  buyerName: {
-    fontSize: "14px",
-    color: "#0f172a",
-  },
-  remarksPreview: {
-    fontSize: "12px",
-    cursor: "help",
-  },
-  contactInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  contactIcon: {
-    fontSize: "11px",
-    marginRight: "4px",
-  },
-  emailText: {
-    fontSize: "12px",
-    color: "#2563eb",
-    display: "flex",
-    alignItems: "center",
-  },
-  phoneText: {
-    fontSize: "11px",
-    color: "#64748b",
-    display: "flex",
-    alignItems: "center",
-  },
-  multiValueContainer: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "4px",
-    alignItems: "center",
-  },
-  departmentBadge: {
-    display: "inline-block",
-    padding: "2px 8px",
-    background: "#dbeafe",
-    color: "#1e40af",
-    borderRadius: "12px",
-    fontSize: "11px",
-    fontWeight: "500",
-  },
-  wgrBadge: {
-    display: "inline-block",
-    padding: "2px 8px",
-    background: "#fef3c7",
-    color: "#92400e",
-    borderRadius: "12px",
-    fontSize: "11px",
-    fontWeight: "500",
-  },
-  itemBadge: {
-    display: "inline-block",
-    padding: "2px 8px",
-    background: "#dcfce7",
-    color: "#166534",
-    borderRadius: "12px",
-    fontSize: "11px",
-    fontWeight: "500",
-  },
-  categoryBadge: {
-    display: "inline-block",
-    padding: "2px 8px",
-    background: "#f3e8ff",
-    color: "#6b21a5",
-    borderRadius: "12px",
-    fontSize: "11px",
-    fontWeight: "500",
-  },
-  moreBadge: {
-    display: "inline-block",
-    padding: "2px 6px",
-    background: "#f1f5f9",
-    color: "#475569",
-    borderRadius: "10px",
-    fontSize: "10px",
-    fontWeight: "500",
-  },
-  customersList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  customerName: {
-    fontSize: "12px",
-    color: "#0f172a",
-  },
-  moreCustomers: {
-    fontSize: "11px",
-    color: "#64748b",
-    fontStyle: "italic",
-  },
-  actionButtons: {
-    display: "flex",
-    gap: "6px",
-  },
-  editBtn: {
-    background: "white",
-    border: "1px solid #e2e8f0",
-    padding: "6px 10px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "13px",
-    transition: "all 0.2s",
-  },
-  deleteBtn: {
-    background: "#fee2e2",
-    border: "1px solid #fecaca",
-    padding: "6px 10px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "13px",
-    color: "#dc2626",
-    transition: "all 0.2s",
-  },
-  emptyCell: {
-    padding: "60px",
-    textAlign: "center",
-  },
-  emptyState: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "12px",
-  },
-  emptyIcon: {
-    fontSize: "48px",
-  },
-  clearFiltersBtn: {
-    marginTop: "8px",
-    padding: "8px 20px",
-    background: "#3b82f6",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "13px",
-  },
-  pagination: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "8px",
-    padding: "16px 20px",
-    borderTop: "1px solid #e2e8f0",
-    flexWrap: "wrap",
-  },
-  paginationButton: {
-    padding: "6px 14px",
-    background: "white",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "12px",
-    fontWeight: "500",
-    transition: "all 0.2s",
-  },
-  pageNumbers: {
-    display: "flex",
-    gap: "4px",
-  },
-  pageNumberBtn: {
-    padding: "6px 12px",
-    background: "white",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "12px",
-    transition: "all 0.2s",
-  },
-  activePage: {
-    background: "#3b82f6",
-    color: "white",
-    borderColor: "#3b82f6",
-  },
-};

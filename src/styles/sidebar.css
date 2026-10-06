@@ -1,0 +1,536 @@
+/* Sidebars for the whole system: the main app menu (hr/Sidebar.jsx) and
+   the department sidebars (components/common/DeptSidebar.jsx, used by HR,
+   Merchandising, Finance and Canada). One look everywhere. */
+
+.tad-sb-wrap {
+  --sb-bg: #ffffff;
+  --sb-border: #e6eaf0;
+  --sb-text: #334155;
+  --sb-muted: #64748b;
+  --sb-faint: #94a3b8;
+  --sb-hover: #f1f5f9;
+  --sb-active-bg: #eef4ff;
+  --sb-active: #1d4ed8;
+  --sb-accent: #2563eb;
+  --sb-w: 264px;
+  --sb-w-collapsed: 80px;
+
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  flex-shrink: 0;
+  /* above the sticky page headers (z-index 20-30), so the collapse button on the
+     sidebar edge is never covered */
+  z-index: 40;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+
+.tad-sb {
+  width: var(--sb-w);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sb-bg);
+  border-right: 1px solid var(--sb-border);
+  box-shadow: 1px 0 0 rgba(15, 23, 42, 0.02), 6px 0 24px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tad-sb.collapsed {
+  width: var(--sb-w-collapsed);
+}
+
+/* ---------- Header ---------- */
+.tad-sb-header {
+  position: relative;
+  flex-shrink: 0;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* The main menu's floating button sits in the screen's top-left corner
+     (hr/Sidebar.jsx .tad-menu-btn), so the header keeps that corner free. */
+  padding: 0 16px 0 64px;
+  border-bottom: 1px solid var(--sb-border);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(37, 99, 235, 0.08) 0%, transparent 55%),
+    var(--sb-bg);
+}
+
+.tad-sb.collapsed .tad-sb-header {
+  padding: 0;
+  justify-content: center;
+}
+
+.tad-sb-mark {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 17px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
+.tad-sb.collapsed .tad-sb-mark {
+  /* collapsed: the floating main-menu button fills this corner */
+  display: none;
+}
+
+.tad-sb-brand {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.tad-sb-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tad-sb-subtitle {
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--sb-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Navigation ---------- */
+.tad-sb-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 12px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.tad-sb-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tad-sb-nav::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.tad-sb-section + .tad-sb-section {
+  margin-top: 14px;
+}
+
+.tad-sb-section-label {
+  padding: 6px 12px 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sb-faint);
+  white-space: nowrap;
+}
+
+.tad-sb.collapsed .tad-sb-section-label {
+  height: 1px;
+  padding: 0;
+  margin: 6px 14px;
+  background: var(--sb-border);
+  font-size: 0;
+}
+
+.tad-sb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tad-sb-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--sb-text);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tad-sb-link:hover {
+  background: var(--sb-hover);
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.tad-sb-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+.tad-sb-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  flex-shrink: 0;
+  font-size: 18px;
+  color: var(--sb-muted);
+  transition: color 0.15s;
+}
+
+.tad-sb-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tad-sb-link:hover .tad-sb-icon {
+  color: var(--sb-text);
+}
+
+.tad-sb-link.active {
+  background: var(--sb-active-bg);
+  color: var(--sb-active);
+  font-weight: 600;
+}
+
+.tad-sb-link.active .tad-sb-icon {
+  color: var(--sb-accent);
+}
+
+.tad-sb-link.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sb-accent);
+}
+
+.tad-sb.collapsed .tad-sb-link {
+  justify-content: center;
+  padding: 0;
+}
+
+.tad-sb-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tad-sb.collapsed .tad-sb-badge {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+}
+
+/* highlighted entry (Password Vault) */
+.tad-sb-link.highlight {
+  color: #047857;
+  background: #ecfdf5;
+  box-shadow: inset 0 0 0 1px #a7f3d0;
+  font-weight: 600;
+}
+
+.tad-sb-link.highlight .tad-sb-icon {
+  color: #059669;
+}
+
+.tad-sb-link.highlight:hover {
+  background: #d1fae5;
+}
+
+.tad-sb-link.highlight.active::before {
+  background: #059669;
+}
+
+/* ---------- Footer / user card ---------- */
+.tad-sb-footer {
+  flex-shrink: 0;
+  padding: 12px;
+  border-top: 1px solid var(--sb-border);
+  background: #fbfcfe;
+}
+
+.tad-sb-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tad-sb.collapsed .tad-sb-user {
+  justify-content: center;
+}
+
+.tad-sb-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tad-sb-user-text {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.25;
+}
+
+.tad-sb-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tad-sb-user-role {
+  font-size: 11.5px;
+  color: var(--sb-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tad-sb-icon-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--sb-muted);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tad-sb-icon-btn:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ---------- Collapse button (on the edge, below the header text) ---------- */
+.tad-sb-toggle {
+  position: absolute;
+  top: 58px;
+  right: -14px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--sb-border);
+  background: #fff;
+  color: var(--sb-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  transition: color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.tad-sb-toggle:hover {
+  color: var(--sb-accent);
+  border-color: #bfdbfe;
+  transform: scale(1.06);
+}
+
+/* ============ Main app menu (fixed drawer, hr/Sidebar.jsx) ============ */
+.tad-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 280px;
+  height: 100vh;
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s;
+}
+
+.tad-drawer.open {
+  transform: translateX(0);
+  box-shadow: 12px 0 40px rgba(15, 23, 42, 0.18);
+}
+
+.tad-drawer .tad-sb {
+  width: 280px;
+}
+
+.tad-drawer .tad-sb-header {
+  height: 76px;
+  padding: 0 16px;
+}
+
+.tad-drawer-logo {
+  width: 56px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  object-fit: contain;
+  padding: 5px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
+.tad-drawer-logo-fallback {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tad-drawer-profile {
+  flex-shrink: 0;
+  margin: 12px 12px 0;
+  padding: 12px;
+  border: 1px solid var(--sb-border);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.tad-drawer-meta {
+  margin-top: 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--sb-muted);
+}
+
+.tad-drawer-meta strong {
+  color: var(--sb-text);
+  font-weight: 600;
+}
+
+.tad-drawer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.tad-logout-btn {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fff;
+  color: #dc2626;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tad-logout-btn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+/* Floating button that opens/closes the main menu (always in the top-left
+   corner; department sidebars keep that corner free). */
+.tad-menu-btn {
+  position: fixed;
+  top: 16px;
+  left: 12px;
+  z-index: 2000;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  cursor: pointer;
+  transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s, box-shadow 0.15s;
+}
+
+.tad-menu-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
+}
+
+.tad-menu-btn.open {
+  left: 292px;
+}
+
+@media (max-width: 768px) {
+  .tad-drawer,
+  .tad-drawer .tad-sb {
+    width: 100%;
+  }
+
+  .tad-menu-btn.open {
+    left: calc(100% - 56px);
+  }
+
+  .tad-sb-wrap .tad-sb:not(.collapsed) {
+    width: 220px;
+  }
+}
+
+@media print {
+  .tad-sb-wrap,
+  .tad-drawer,
+  .tad-menu-btn {
+    display: none !important;
+  }
+}

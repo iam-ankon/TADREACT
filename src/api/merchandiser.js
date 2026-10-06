@@ -784,6 +784,23 @@ export const getTNAByOrder = (orderId) =>
 export const syncTNAFromOrder = (orderId) =>
   merchandiserApi.post(`tna/sync-from-order/${orderId}/`);
 
+// Submitted Lab/QC reports of an order (summary) and one report's PDF.
+export const getOrderLabReports = (orderId) =>
+  merchandiserApi.get(`orders/${orderId}/lab-reports/`);
+export const downloadOrderLabReportPdf = async (orderId, reportId, filename) => {
+  const response = await merchandiserApi.get(`orders/${orderId}/lab-reports/${reportId}/pdf/`, {
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename || `lab-report-${reportId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
 /* -------------------------------------------------------------------------- */
 /*  6.  ORDER CHART APIs                                                      */
 /* -------------------------------------------------------------------------- */
@@ -2811,3 +2828,35 @@ export const syncCapacitySnapshot = (filters = {}) =>
     to_month: filters.to_month,
     supplier: filters.supplier || undefined,
   });
+
+/* -------------------------------------------------------------------------- */
+/*  PRODUCTION PLANNING (merchandiser/production_planning.py)                 */
+/* -------------------------------------------------------------------------- */
+
+export const getProductionPlans = (params = {}) =>
+  merchandiserApi.get("production-plans/", { params });
+export const updateProductionPlan = (id, data) =>
+  merchandiserApi.patch(`production-plans/${id}/`, data);
+export const deleteProductionPlan = (id) =>
+  merchandiserApi.delete(`production-plans/${id}/`);
+export const bulkCreateProductionPlans = (data) =>
+  merchandiserApi.post("production-plans/bulk-create/", data);
+export const copyProductionPlanStage = (data) =>
+  merchandiserApi.post("production-plans/copy-stage/", data);
+export const getProductionPlanOrderOptions = (params = {}) =>
+  merchandiserApi.get("production-plans/order-options/", { params });
+export const getProductionPlanCompare = (params = {}) =>
+  merchandiserApi.get("production-plans/compare/", { params });
+export const getProductionPlanSuppliers = () =>
+  merchandiserApi.get("production-plans/suppliers/");
+
+export const getProductionLines = (params = {}) =>
+  merchandiserApi.get("production-lines/", { params });
+export const getProductionLineAvailability = (params = {}) =>
+  merchandiserApi.get("production-lines/availability/", { params });
+export const createProductionLine = (data) =>
+  merchandiserApi.post("production-lines/", data);
+export const updateProductionLine = (id, data) =>
+  merchandiserApi.patch(`production-lines/${id}/`, data);
+export const deleteProductionLine = (id) =>
+  merchandiserApi.delete(`production-lines/${id}/`);

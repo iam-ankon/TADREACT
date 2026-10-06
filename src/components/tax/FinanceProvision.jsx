@@ -1,11 +1,15 @@
-// FinanceProvision.jsx - CACHE REMOVED VERSION
+// FinanceProvision.jsx - yearly tax (TDS) provision per employee.
+//
+// One CalculatedTax row per employee holds the tax INPUTS (source other,
+// bonus, investment, RPF, source-tax minimum, gender) and the latest result.
+// This screen edits Source Other and Bonus; the other inputs are edited on
+// the employee's Tax Calculator page and are always sent back unchanged.
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaFileAlt,
   FaSync,
-  FaSearch,
   FaDownload,
   FaEdit,
   FaSave,
@@ -15,43 +19,125 @@ import {
   FaDatabase,
   FaCheckCircle,
   FaTimesCircle,
-  FaSpinner,
-  FaServer,
   FaFileInvoice,
+  FaTimes,
+  FaUsers,
+  FaMoneyBillWave,
 } from "react-icons/fa";
 
+import { financeAPI, setupCrossTabSync, broadcastUpdate } from "../../api/finance";
 import {
-  financeAPI,
-  setupCrossTabSync,
-  broadcastUpdate,
-} from "../../api/finance";
+  FinanceShell,
+  Card,
+  Kpi,
+  Badge,
+  Alert,
+  LoadingState,
+  EmptyState,
+  SearchInput,
+  formatMoney,
+} from "./finance/FinanceUI";
+
+const INPUT_KEYS = ["actual_investment", "rpf_monthly", "source_tax_minimum", "gender"];
+
+const toGender = (value) => {
+  const g = String(value || "").toLowerCase();
+  if (g === "f" || g === "female") return "Female";
+  return "Male";
+};
+
+// CSV cell: quote when it contains a comma, quote or line break.
+const csvCell = (value) => {
+  const text = value === null || value === undefined ? "" : String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
 
 const FinanceProvision = () => {
   const [employees, setEmployees] = useState([]);
   const [taxResults, setTaxResults] = useState({});
   const [sourceOther, setSourceOther] = useState({});
   const [bonusOverride, setBonusOverride] = useState({});
+  // Other stored inputs per employee (investment, RPF, source-tax minimum,
+  // gender) so every recalculation uses them. Empty until the server sends them.
+  const [savedInputs, setSavedInputs] = useState({});
+  const [inputsAvailable, setInputsAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("All");
   const [editingSourceId, setEditingSourceId] = useState(null);
   const [editingBonusId, setEditingBonusId] = useState(null);
-  const [editingSalaryId, setEditingSalaryId] = useState(null);
   const [editSourceValue, setEditSourceValue] = useState("");
   const [editBonusValue, setEditBonusValue] = useState("");
-  const [editSalaryValue, setEditSalaryValue] = useState("");
   const [calculating, setCalculating] = useState(false);
   const [lastCalculated, setLastCalculated] = useState(null);
   const [errorLog, setErrorLog] = useState([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [notice, setNotice] = useState(null);
 
   const navigate = useNavigate();
   const calculationInProgress = useRef(false);
   const isInitialMount = useRef(true);
 
-  // Calculate missing taxes - NO CACHE
+  const genderFor = useCallback(
+    (emp, inputs = savedInputs) => {
+      const stored = inputs[emp.employee_id]?.gender;
+      return stored ? toGender(stored) : toGender(emp.gender);
+    },
+    [savedInputs],
+  );
+
+  // Request body for /calculate/ with every stored input of the employee.
+  const buildCalcRequest = (emp, overrides, inputs = savedInputs) => {
+    const empId = emp.employee_id;
+    const stored = inputs[empId] || {};
+    return {
+      employee_id: empId,
+      gender: genderFor(emp, inputs),
+      salary: emp.salary || 0,
+      source_other: sourceOther[empId] || 0,
+      bonus: bonusOverride[empId] || 0,
+      actual_investment: stored.actual_investment || 0,
+      rpf_monthly: stored.rpf_monthly || 0,
+      source_tax_minimum:
+        stored.source_tax_minimum === undefined ? null : stored.source_tax_minimum,
+      ...overrides,
+    };
+  };
+
+  // Split a get-calculated-taxes response into the pieces this screen keeps.
+  const readSavedResults = (savedResults) => {
+    const databaseResults = {};
+    const newSourceOther = {};
+    const newBonusOverride = {};
+    const newInputs = {};
+    let hasInputs = false;
+
+    Object.keys(savedResults).forEach((empId) => {
+      const savedData = savedResults[empId];
+      if (savedData.source_other !== undefined) {
+        newSourceOther[empId] = savedData.source_other || 0;
+      }
+      if (savedData.bonus !== undefined) {
+        newBonusOverride[empId] = savedData.bonus || 0;
+      }
+      if (savedData.actual_investment !== undefined) hasInputs = true;
+      newInputs[empId] = {};
+      INPUT_KEYS.forEach((key) => {
+        if (savedData[key] !== undefined) newInputs[empId][key] = savedData[key];
+      });
+      if (savedData.calculation_data) {
+        databaseResults[empId] = savedData.calculation_data;
+      }
+    });
+
+    return { databaseResults, newSourceOther, newBonusOverride, newInputs, hasInputs };
+  };
+
+  // Calculate employees that have no saved result yet (new rows only: an
+  // automatic "system" save never changes the inputs of an existing row).
   const calculateMissingTaxes = useCallback(
-    async (employeeList, employeeIds, sourceData, bonusData) => {
+    async (employeeList, employeeIds, sourceData, bonusData, inputs = {}, label) => {
       if (calculationInProgress.current || !employeeIds.length) return;
 
       calculationInProgress.current = true;
@@ -59,80 +145,70 @@ const FinanceProvision = () => {
       setProgress(0);
 
       try {
-        console.log(`🧮 Calculating for ${employeeIds.length} employees...`);
-
-        const newResults = { ...taxResults };
+        const newResults = {};
         const newErrors = [];
         let successCount = 0;
-
         const batchSize = 5;
 
-        for (
-          let batchIndex = 0;
-          batchIndex < employeeIds.length;
-          batchIndex += batchSize
-        ) {
-          const batchIds = employeeIds.slice(
-            batchIndex,
-            batchIndex + batchSize,
-          );
+        for (let batchIndex = 0; batchIndex < employeeIds.length; batchIndex += batchSize) {
+          const batchIds = employeeIds.slice(batchIndex, batchIndex + batchSize);
 
-          const batchPromises = batchIds.map(async (empId) => {
-            const emp = employeeList.find((e) => e.employee_id === empId);
-            if (!emp) return null;
+          const batchResults = await Promise.all(
+            batchIds.map(async (empId) => {
+              const emp = employeeList.find((e) => e.employee_id === empId);
+              if (!emp) return null;
+              const stored = inputs[empId] || {};
 
-            try {
-              const response = await financeAPI.tax.calculate({
-                employee_id: empId,
-                gender: emp.gender === "M" ? "Male" : "Female",
-                salary: emp.salary || 0,
-                source_other: sourceData[empId] || 0,
-                bonus: bonusData[empId] || 0,
-              });
+              try {
+                const response = await financeAPI.tax.calculate({
+                  employee_id: empId,
+                  gender: stored.gender ? toGender(stored.gender) : toGender(emp.gender),
+                  salary: emp.salary || 0,
+                  source_other: sourceData[empId] || 0,
+                  bonus: bonusData[empId] || 0,
+                  actual_investment: stored.actual_investment || 0,
+                  rpf_monthly: stored.rpf_monthly || 0,
+                  source_tax_minimum:
+                    stored.source_tax_minimum === undefined ? null : stored.source_tax_minimum,
+                });
 
-              if (response.data) {
-                // Save to backend database only (no localStorage cache)
-                try {
-                  await financeAPI.tax.saveCalculatedTax({
-                    employee_id: empId,
-                    calculation_data: response.data,
-                    source_other: sourceData[empId] || 0,
-                    bonus: bonusData[empId] || 0,
-                    calculated_by: "system",
-                  });
-                } catch (saveError) {
-                  console.warn(
-                    `Could not save to database for ${empId}:`,
-                    saveError,
-                  );
+                if (response.data) {
+                  try {
+                    await financeAPI.tax.saveCalculatedTax({
+                      employee_id: empId,
+                      calculation_data: response.data,
+                      source_other: sourceData[empId] || 0,
+                      bonus: bonusData[empId] || 0,
+                      calculated_by: "system",
+                    });
+                  } catch (saveError) {
+                    console.warn(`Could not save to database for ${empId}:`, saveError);
+                  }
+                  return { empId, data: response.data };
                 }
-
-                return { empId, data: response.data };
+              } catch (err) {
+                return {
+                  empId,
+                  error: err.response?.data?.error || err.message,
+                };
               }
-            } catch (err) {
-              console.error(`Failed to calculate for ${empId}:`, err);
-              return { empId, error: err.message };
-            }
-            return null;
-          });
-
-          const batchResults = await Promise.all(batchPromises);
+              return null;
+            }),
+          );
 
           batchResults.forEach((result) => {
-            if (result) {
-              if (result.data) {
-                newResults[result.empId] = result.data;
-                successCount++;
-              } else if (result.error) {
-                newErrors.push({ empId: result.empId, error: result.error });
-              }
+            if (!result) return;
+            if (result.data) {
+              newResults[result.empId] = result.data;
+              successCount++;
+            } else if (result.error) {
+              newErrors.push({ empId: result.empId, error: result.error });
             }
           });
 
-          const currentProgress = Math.round(
-            ((batchIndex + batchSize) / employeeIds.length) * 100,
+          setProgress(
+            Math.min(Math.round(((batchIndex + batchSize) / employeeIds.length) * 100), 100),
           );
-          setProgress(Math.min(currentProgress, 100));
           setTaxResults((prev) => ({ ...prev, ...newResults }));
 
           if (batchIndex + batchSize < employeeIds.length) {
@@ -142,139 +218,83 @@ const FinanceProvision = () => {
 
         setTaxResults((prev) => ({ ...prev, ...newResults }));
         setLastCalculated(
-          `Calculated ${successCount} employees (${new Date().toLocaleTimeString()})`,
+          `${label || "Calculated"} ${successCount} employee${successCount === 1 ? "" : "s"} · ${new Date().toLocaleTimeString()}`,
         );
         setErrorLog((prev) => [...prev, ...newErrors]);
-
-        console.log(
-          `✅ Calculation completed: ${successCount} success, ${newErrors.length} errors`,
-        );
       } catch (error) {
         console.error("Calculation failed:", error);
-        setErrorLog((prev) => [
-          ...prev,
-          { type: "calculation", message: error.message },
-        ]);
+        setErrorLog((prev) => [...prev, { type: "calculation", message: error.message }]);
       } finally {
         calculationInProgress.current = false;
         setCalculating(false);
         setTimeout(() => setProgress(0), 1000);
       }
     },
-    [taxResults],
+    [],
   );
 
   // Load data from backend only - NO CACHE
   const loadData = useCallback(async () => {
-    if (calculationInProgress.current) {
-      console.log("⏸️ Load already in progress, skipping");
-      return;
-    }
+    if (calculationInProgress.current) return;
 
     try {
       setLoading(true);
-      console.log("📊 Loading finance data from backend...");
 
-      // Get current month/year
       const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
 
-      // 1. Load employees with salary data for current month/year
-      const response = await financeAPI.employee.getAll(
-        currentMonth,
-        currentYear,
-      );
+      // 1. Employees with salary data for the current month
+      const response = await financeAPI.employee.getAll(currentMonth, currentYear);
       const employeeData = response.data;
-
       setEmployees(employeeData);
       const employeeIds = employeeData.map((emp) => emp.employee_id);
-      console.log(`✅ Loaded ${employeeData.length} employees`);
 
-      // 2. Load source other and bonus from database
-      console.log("💾 Loading source_other and bonus from database...");
+      // 2. Saved inputs and results
       try {
         const savedResponse = await financeAPI.tax.getCalculatedTaxes({
           employee_ids: employeeIds,
         });
 
         if (savedResponse.data.success && savedResponse.data.results) {
-          const savedResults = savedResponse.data.results;
-          const databaseResults = {};
-          const newSourceOther = {};
-          const newBonusOverride = {};
-
-          Object.keys(savedResults).forEach((empId) => {
-            const savedData = savedResults[empId];
-
-            if (savedData.source_other !== undefined) {
-              newSourceOther[empId] = savedData.source_other || 0;
-            }
-            if (savedData.bonus !== undefined) {
-              newBonusOverride[empId] = savedData.bonus || 0;
-            }
-
-            if (savedData.calculation_data) {
-              databaseResults[empId] = savedData.calculation_data;
-            }
-          });
-
-          console.log(
-            `💾 Loaded ${Object.keys(databaseResults).length} calculations from database`,
-          );
+          const { databaseResults, newSourceOther, newBonusOverride, newInputs, hasInputs } =
+            readSavedResults(savedResponse.data.results);
 
           setSourceOther(newSourceOther);
           setBonusOverride(newBonusOverride);
+          setSavedInputs(newInputs);
+          setInputsAvailable(hasInputs);
           setTaxResults(databaseResults);
 
-          // Also store in localStorage for UI state persistence (not cache)
+          // Keep a copy for UI state persistence (not a cache)
           financeAPI.storage.setSourceTaxOther(newSourceOther);
           financeAPI.storage.setBonusOverride(newBonusOverride);
 
-          setLastCalculated(
-            `Loaded from database (${new Date().toLocaleTimeString()})`,
-          );
+          setLastCalculated(`Loaded from database · ${new Date().toLocaleTimeString()}`);
 
-          // Find employees without calculations
-          const missingEmployeeIds = employeeIds.filter(
-            (id) => !databaseResults[id],
-          );
-
+          const missingEmployeeIds = employeeIds.filter((id) => !databaseResults[id]);
           if (missingEmployeeIds.length > 0 && !calculationInProgress.current) {
-            console.log(
-              `🔄 Calculating ${missingEmployeeIds.length} missing employees...`,
-            );
             calculateMissingTaxes(
               employeeData,
               missingEmployeeIds,
               newSourceOther,
               newBonusOverride,
+              newInputs,
             );
           }
-
           return;
         }
       } catch (dbError) {
         console.error("Failed to load from database:", dbError);
-        setErrorLog((prev) => [
-          ...prev,
-          { type: "load", message: dbError.message },
-        ]);
+        setErrorLog((prev) => [...prev, { type: "load", message: dbError.message }]);
 
-        // Fallback to localStorage for UI state only
+        // Fallback to the last values this browser saw
         const localSourceData = financeAPI.storage.getSourceTaxOther();
         const localBonusData = financeAPI.storage.getBonusOverride();
-
         setSourceOther(localSourceData);
         setBonusOverride(localBonusData);
 
-        // Calculate all employees
         if (employeeIds.length > 0 && !calculationInProgress.current) {
-          calculateMissingTaxes(
-            employeeData,
-            employeeIds,
-            localSourceData,
-            localBonusData,
-          );
+          calculateMissingTaxes(employeeData, employeeIds, localSourceData, localBonusData);
         }
       }
     } catch (err) {
@@ -285,189 +305,101 @@ const FinanceProvision = () => {
     }
   }, [calculateMissingTaxes]);
 
-  // Handle salary edit
-  const handleEditSalary = (emp) => {
-    setEditingSalaryId(emp.employee_id);
-    setEditSalaryValue(emp.salary?.toString() || "0");
-  };
-
-  const handleSaveSalary = async (employeeId) => {
-    const newSalary = parseFloat(editSalaryValue) || 0;
-
-    const updatedEmployees = employees.map((emp) =>
-      emp.employee_id === employeeId ? { ...emp, salary: newSalary } : emp,
-    );
-    setEmployees(updatedEmployees);
-    setEditingSalaryId(null);
-
-    try {
-      setCalculating(true);
-
-      const employee = updatedEmployees.find(
-        (e) => e.employee_id === employeeId,
-      );
-
-      const response = await financeAPI.tax.calculate({
-        employee_id: employeeId,
-        gender: employee.gender === "M" ? "Male" : "Female",
-        salary: newSalary,
-        source_other: sourceOther[employeeId] || 0,
-        bonus: bonusOverride[employeeId] || 0,
-      });
-
-      if (response.data) {
-        await financeAPI.tax.saveCalculatedTax({
-          employee_id: employeeId,
-          calculation_data: response.data,
-          source_other: sourceOther[employeeId] || 0,
-          bonus: bonusOverride[employeeId] || 0,
-          calculated_by: "user",
-        });
-
-        setTaxResults((prev) => ({
-          ...prev,
-          [employeeId]: response.data,
-        }));
-
-        setLastCalculated(
-          `Updated salary for employee ${employeeId} (${new Date().toLocaleTimeString()})`,
-        );
-
-        console.log("✅ Salary updated and tax recalculated");
-      }
-    } catch (err) {
-      console.error("Failed to update salary:", err);
-      setErrorLog((prev) => [
-        ...prev,
-        { empId: employeeId, error: err.message },
-      ]);
-    } finally {
-      setCalculating(false);
-    }
-  };
-
   const handleEditSource = (emp) => {
+    setEditingBonusId(null);
     setEditingSourceId(emp.employee_id);
     setEditSourceValue(sourceOther[emp.employee_id]?.toString() || "0");
   };
 
   const handleEditBonus = (emp) => {
+    setEditingSourceId(null);
     setEditingBonusId(emp.employee_id);
     setEditBonusValue(bonusOverride[emp.employee_id]?.toString() || "0");
   };
 
-  const handleSaveSource = async (employeeId) => {
-    const val = parseFloat(editSourceValue) || 0;
+  // Save one edited input (source_other or bonus), recalculate with all the
+  // employee's other stored inputs, and store the new result.
+  const saveInput = async (employeeId, field, val) => {
+    const employee = employees.find((e) => e.employee_id === employeeId);
+    if (!employee) return;
 
-    const updatedSourceOther = { ...sourceOther, [employeeId]: val };
-    setSourceOther(updatedSourceOther);
-    setEditingSourceId(null);
+    // The recalculation needs the employee's investment, RPF and source-tax
+    // minimum; without them the saved tax would be wrong.
+    if (!inputsAvailable && savedInputs[employeeId]) {
+      setNotice({
+        tone: "warning",
+        text: "Saving is paused until the server update is live (it must send each employee's investment, RPF and source-tax minimum). Nothing was changed.",
+      });
+      loadData();
+      return;
+    }
 
-    financeAPI.storage.setSourceTaxOther(updatedSourceOther);
-    broadcastUpdate("sourceTaxOther", updatedSourceOther);
+    const nextSource = field === "source_other" ? val : sourceOther[employeeId] || 0;
+    const nextBonus = field === "bonus" ? val : bonusOverride[employeeId] || 0;
 
     try {
-      const employee = employees.find((e) => e.employee_id === employeeId);
-      if (employee) {
-        setCalculating(true);
+      setCalculating(true);
+      const response = await financeAPI.tax.calculate(
+        buildCalcRequest(employee, { source_other: nextSource, bonus: nextBonus }),
+      );
 
-        const response = await financeAPI.tax.calculate({
+      if (response.data) {
+        await financeAPI.tax.saveCalculatedTax({
           employee_id: employeeId,
-          gender: employee.gender === "M" ? "Male" : "Female",
-          salary: employee.salary || 0,
-          source_other: val,
-          bonus: bonusOverride[employeeId] || 0,
+          calculation_data: response.data,
+          source_other: nextSource,
+          bonus: nextBonus,
+          calculated_by: "user",
         });
 
-        if (response.data) {
-          await financeAPI.tax.saveCalculatedTax({
-            employee_id: employeeId,
-            calculation_data: response.data,
-            source_other: val,
-            bonus: bonusOverride[employeeId] || 0,
-            calculated_by: "user",
-          });
-
-          setTaxResults((prev) => ({
-            ...prev,
-            [employeeId]: response.data,
-          }));
-
-          setLastCalculated(
-            `Updated for employee ${employeeId} (${new Date().toLocaleTimeString()})`,
-          );
-        }
+        setTaxResults((prev) => ({ ...prev, [employeeId]: response.data }));
+        setLastCalculated(
+          `Updated ${employee.name || employeeId} · ${new Date().toLocaleTimeString()}`,
+        );
       }
     } catch (err) {
-      console.error("Failed to save source other:", err);
+      console.error(`Failed to save ${field}:`, err);
       setErrorLog((prev) => [
         ...prev,
-        { empId: employeeId, error: err.message },
+        { empId: employeeId, error: err.response?.data?.error || err.message },
       ]);
+      setNotice({
+        tone: "danger",
+        text: `Could not save for ${employee.name || employeeId}. Please try again.`,
+      });
     } finally {
       setCalculating(false);
     }
   };
 
+  const handleSaveSource = async (employeeId) => {
+    const val = parseFloat(editSourceValue) || 0;
+    const updatedSourceOther = { ...sourceOther, [employeeId]: val };
+    setSourceOther(updatedSourceOther);
+    setEditingSourceId(null);
+    broadcastUpdate("sourceTaxOther", updatedSourceOther);
+    await saveInput(employeeId, "source_other", val);
+  };
+
   const handleSaveBonus = async (employeeId) => {
     const val = parseFloat(editBonusValue) || 0;
-
     const updatedBonusOverride = { ...bonusOverride, [employeeId]: val };
     setBonusOverride(updatedBonusOverride);
     setEditingBonusId(null);
-
-    financeAPI.storage.setBonusOverride(updatedBonusOverride);
     broadcastUpdate("bonusOverride", updatedBonusOverride);
+    await saveInput(employeeId, "bonus", val);
+  };
 
-    try {
-      const employee = employees.find((e) => e.employee_id === employeeId);
-      if (employee) {
-        setCalculating(true);
-
-        const response = await financeAPI.tax.calculate({
-          employee_id: employeeId,
-          gender: employee.gender === "M" ? "Male" : "Female",
-          salary: employee.salary || 0,
-          source_other: sourceOther[employeeId] || 0,
-          bonus: val,
-        });
-
-        if (response.data) {
-          await financeAPI.tax.saveCalculatedTax({
-            employee_id: employeeId,
-            calculation_data: response.data,
-            source_other: sourceOther[employeeId] || 0,
-            bonus: val,
-            calculated_by: "user",
-          });
-
-          setTaxResults((prev) => ({
-            ...prev,
-            [employeeId]: response.data,
-          }));
-
-          setLastCalculated(
-            `Updated for employee ${employeeId} (${new Date().toLocaleTimeString()})`,
-          );
-        }
-      }
-    } catch (err) {
-      console.error("Failed to save bonus:", err);
-      setErrorLog((prev) => [
-        ...prev,
-        { empId: employeeId, error: err.message },
-      ]);
-    } finally {
-      setCalculating(false);
-    }
+  const handleEditKey = (e, save, cancel) => {
+    if (e.key === "Enter") save();
+    if (e.key === "Escape") cancel();
   };
 
   // Export data to CSV
   const handleExport = () => {
     const exportData = Object.keys(taxResults).map((empId) => {
       const emp = employees.find((e) => e.employee_id === empId);
-      const result = taxResults[empId];
-      const calc = result?.tax_calculation || {};
+      const calc = taxResults[empId]?.tax_calculation || {};
       return {
         "Employee ID": empId,
         Name: emp?.name || "",
@@ -484,24 +416,19 @@ const FinanceProvision = () => {
     });
 
     if (exportData.length === 0) {
-      alert("No data to export. Please calculate taxes first.");
+      setNotice({ tone: "warning", text: "No data to export. Please calculate taxes first." });
       return;
     }
 
-    const csvContent = [
-      Object.keys(exportData[0]),
-      ...exportData.map((row) => Object.values(row)),
-    ]
-      .map((row) => row.join(","))
+    const csvContent = [Object.keys(exportData[0]), ...exportData.map((row) => Object.values(row))]
+      .map((row) => row.map(csvCell).join(","))
       .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tax_calculations_${
-      new Date().toISOString().split("T")[0]
-    }.csv`;
+    a.download = `tax_calculations_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -509,71 +436,62 @@ const FinanceProvision = () => {
   const handleSyncData = async () => {
     try {
       setCalculating(true);
-      const employeeIds = employees.map((emp) => emp.employee_id);
-
       const savedResponse = await financeAPI.tax.getCalculatedTaxes({
-        employee_ids: employeeIds,
+        employee_ids: employees.map((emp) => emp.employee_id),
       });
 
       if (savedResponse.data.success && savedResponse.data.results) {
-        const savedResults = savedResponse.data.results;
-        const databaseResults = {};
-        const newSourceOther = {};
-        const newBonusOverride = {};
-
-        Object.keys(savedResults).forEach((empId) => {
-          const savedData = savedResults[empId];
-
-          if (savedData.source_other !== undefined) {
-            newSourceOther[empId] = savedData.source_other || 0;
-          }
-          if (savedData.bonus !== undefined) {
-            newBonusOverride[empId] = savedData.bonus || 0;
-          }
-
-          if (savedData.calculation_data) {
-            databaseResults[empId] = savedData.calculation_data;
-          }
-        });
+        const { databaseResults, newSourceOther, newBonusOverride, newInputs, hasInputs } =
+          readSavedResults(savedResponse.data.results);
 
         setSourceOther(newSourceOther);
         setBonusOverride(newBonusOverride);
+        setSavedInputs(newInputs);
+        setInputsAvailable(hasInputs);
         setTaxResults(databaseResults);
-        setLastCalculated(
-          `Synced from database (${new Date().toLocaleTimeString()})`,
-        );
-
-        alert(
-          `Synced ${Object.keys(databaseResults).length} calculations from database!`,
-        );
+        setLastCalculated(`Synced from database · ${new Date().toLocaleTimeString()}`);
+        setNotice({
+          tone: "success",
+          text: `Synced ${Object.keys(databaseResults).length} calculations from the database.`,
+        });
       }
     } catch (error) {
       console.error("Sync failed:", error);
-      alert("Failed to sync from database. Please try again.");
+      setNotice({ tone: "danger", text: "Failed to sync from the database. Please try again." });
     } finally {
       setCalculating(false);
     }
   };
 
+  // Recalculate every employee from the inputs stored in the database. It
+  // refreshes the results only: the stored inputs are never deleted or
+  // changed. (It used to delete every row first, which lost investment,
+  // RPF and source-tax minimum for everyone.)
   const handleRefreshCalculations = async () => {
+    if (!inputsAvailable) {
+      setNotice({
+        tone: "warning",
+        text:
+          "Recalculate All needs the latest server update (it reads each employee's investment, RPF and source-tax minimum). Nothing was changed.",
+      });
+      return;
+    }
     if (
-      window.confirm(
-        "Clear all tax calculations and recalculate for all employees?",
+      !window.confirm(
+        `Recalculate tax for all ${employees.length} employees from their saved inputs?\n\nSaved inputs (source other, bonus, investment, RPF, source-tax minimum) are kept.`,
       )
     ) {
-      try {
-        await financeAPI.tax.clearCalculatedTaxes({
-          employee_id: null,
-        });
-      } catch (err) {
-        console.warn("Could not clear backend:", err);
-      }
-
-      setTaxResults({});
-
-      const employeeIds = employees.map((emp) => emp.employee_id);
-      calculateMissingTaxes(employees, employeeIds, sourceOther, bonusOverride);
+      return;
     }
+    const employeeIds = employees.map((emp) => emp.employee_id);
+    await calculateMissingTaxes(
+      employees,
+      employeeIds,
+      sourceOther,
+      bonusOverride,
+      savedInputs,
+      "Recalculated",
+    );
   };
 
   // Initial load
@@ -584,275 +502,284 @@ const FinanceProvision = () => {
     }
   }, [loadData]);
 
-  // Cross-tab sync
+  // Reload when another browser tab changes the inputs. Events from this tab
+  // (our own saves) carry an event object and are ignored: the screen is
+  // already up to date.
   useEffect(() => {
     let mounted = true;
     let lastUpdateTime = 0;
-    const UPDATE_COOLDOWN = 2000;
 
     const handleDataUpdate = (event) => {
-      if (!mounted) return;
-
+      if (!mounted || event) return;
       const now = Date.now();
-      if (now - lastUpdateTime < UPDATE_COOLDOWN) {
-        console.log("🔄 Update throttled, skipping");
-        return;
-      }
-
+      if (now - lastUpdateTime < 2000) return;
       lastUpdateTime = now;
-
-      if (
-        event &&
-        event.detail &&
-        (event.detail.type === "sourceTaxOther" ||
-          event.detail.type === "bonusOverride")
-      ) {
-        console.log("🔄 Cross-tab update detected, refreshing data");
-
-        setTimeout(() => {
-          if (mounted) {
-            loadData();
-          }
-        }, 500);
-      }
+      setTimeout(() => mounted && loadData(), 500);
     };
 
     const cleanup = setupCrossTabSync(handleDataUpdate);
-
     return () => {
       mounted = false;
       cleanup();
     };
   }, [loadData]);
 
-  // Filter employees
-  const filtered = employees.filter(
-    (emp) =>
-      emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.employee_id?.toString().includes(searchQuery),
+  const companies = useMemo(
+    () => [...new Set(employees.map((e) => e.company_name).filter(Boolean))].sort(),
+    [employees],
   );
 
-  const handleNavigate = (empId) => {
-    navigate(`/tax-calculator/${empId}`);
-  };
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return employees.filter(
+      (emp) =>
+        (companyFilter === "All" || emp.company_name === companyFilter) &&
+        (!q ||
+          emp.name?.toLowerCase().includes(q) ||
+          emp.employee_id?.toString().toLowerCase().includes(q)),
+    );
+  }, [employees, searchQuery, companyFilter]);
 
-  // Calculate totals
-  const totals = React.useMemo(
-    () => ({
-      netTaxPayable: Object.values(taxResults).reduce((sum, result) => {
-        return sum + (result?.tax_calculation?.net_tax_payable || 0);
-      }, 0),
-      monthlyTDS: Object.values(taxResults).reduce((sum, result) => {
-        return sum + (result?.tax_calculation?.monthly_tds || 0);
-      }, 0),
-      employeesWithTax: Object.values(taxResults).filter(
-        (result) => result?.tax_calculation?.should_deduct_tax,
-      ).length,
-    }),
-    [taxResults],
+  const totals = useMemo(() => {
+    const rows = filtered.map((emp) => taxResults[emp.employee_id]?.tax_calculation || {});
+    return {
+      netTaxPayable: rows.reduce((sum, c) => sum + (c.net_tax_payable || 0), 0),
+      monthlyTDS: rows.reduce((sum, c) => sum + (c.monthly_tds || 0), 0),
+      employeesWithTax: rows.filter((c) => c.should_deduct_tax).length,
+      calculated: rows.filter((c) => c.net_tax_payable !== undefined).length,
+    };
+  }, [filtered, taxResults]);
+
+  const pageActions = (
+    <>
+      <button onClick={() => navigate("/salary-format")} className="fin-btn">
+        <FaFileAlt /> Salary Sheet
+      </button>
+      <button onClick={() => navigate("/salary-certificate-generator")} className="fin-btn">
+        <FaFileInvoice /> Certificates
+      </button>
+      <button className="fin-btn" onClick={handleSyncData} disabled={calculating}>
+        <FaDatabase /> Sync DB
+      </button>
+      <button
+        className="fin-btn"
+        onClick={handleExport}
+        disabled={Object.keys(taxResults).length === 0}
+      >
+        <FaDownload /> Export CSV
+      </button>
+      <button
+        className="fin-btn fin-btn--primary"
+        onClick={handleRefreshCalculations}
+        disabled={calculating || employees.length === 0}
+        title="Recalculate every employee from the saved inputs"
+      >
+        <FaSync className={calculating ? "fin-spin" : ""} /> Recalculate All
+      </button>
+    </>
   );
 
-  // Loading state
-  if (loading && isInitialMount.current) {
+  if (loading && employees.length === 0) {
     return (
-      <div className="loading-screen">
-        <div className="loading-content">
-          <FaSpinner
-            className="spinning"
-            style={{ fontSize: "3rem", color: "#7c3aed" }}
-          />
-          <h2>Loading Finance Dashboard...</h2>
-          <p>Fetching employee data and tax calculations</p>
-        </div>
-        <style jsx>{`
-          .loading-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          }
-          .loading-content {
-            text-align: center;
-            color: white;
-          }
-          .spinning {
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}</style>
-      </div>
+      <FinanceShell>
+        <LoadingState
+          page
+          title="Loading tax provision…"
+          text="Fetching employees and saved tax calculations"
+        />
+      </FinanceShell>
     );
   }
 
+  const renderEditable = (emp, kind) => {
+    const isSource = kind === "source";
+    const editingId = isSource ? editingSourceId : editingBonusId;
+    const value = isSource ? sourceOther[emp.employee_id] : bonusOverride[emp.employee_id];
+
+    if (editingId === emp.employee_id) {
+      const save = () =>
+        isSource ? handleSaveSource(emp.employee_id) : handleSaveBonus(emp.employee_id);
+      const cancel = () => (isSource ? setEditingSourceId(null) : setEditingBonusId(null));
+      return (
+        <div className="fin-editable" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="number"
+            autoFocus
+            value={isSource ? editSourceValue : editBonusValue}
+            onChange={(e) =>
+              isSource ? setEditSourceValue(e.target.value) : setEditBonusValue(e.target.value)
+            }
+            onKeyDown={(e) => handleEditKey(e, save, cancel)}
+            onFocus={(e) => e.target.select()}
+            className="fin-cell-input fin-cell-input--wide"
+            placeholder="0"
+          />
+          <button
+            type="button"
+            className="fin-edit-btn fin-edit-btn--save"
+            title="Save (Enter)"
+            onClick={save}
+          >
+            <FaSave />
+          </button>
+          <button type="button" className="fin-edit-btn" title="Cancel (Esc)" onClick={cancel}>
+            <FaTimes />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="fin-editable">
+        <span>{formatMoney(value || 0)}</span>
+        <button
+          type="button"
+          className="fin-edit-btn"
+          title={isSource ? "Edit source tax other" : "Edit yearly bonus"}
+          onClick={(e) => {
+            e.stopPropagation();
+            isSource ? handleEditSource(emp) : handleEditBonus(emp);
+          }}
+        >
+          <FaEdit />
+        </button>
+      </div>
+    );
+  };
+
   return (
-    <div className="center-screen">
-      <div className="dashboard">
-        <div className="card">
-          {/* Header Section */}
-          <div className="header">
-            <div className="header-left">
-              <h1>Finance Provision Dashboard</h1>
-              <div className="sub-header">
-                <div className="last-calculated">
-                  <FaHistory /> {lastCalculated || "Not calculated yet"}
-                </div>
-              </div>
-            </div>
-            <div className="header-right">
-              <div className="actions">
-                <button
-                  onClick={() => navigate("/salary-format")}
-                  className="btn format"
-                >
-                  <FaFileAlt /> Salary Sheet
-                </button>
-                <button
-                  onClick={() => navigate("/salary-certificate-generator")}
-                  className="btn certificate"
-                >
-                  <FaFileInvoice /> Generate Certificate
-                </button>
-                <button
-                  className="btn sync"
-                  onClick={handleSyncData}
-                  disabled={calculating}
-                >
-                  <FaSync /> Sync DB
-                </button>
-                <button
-                  className="btn export"
-                  onClick={handleExport}
-                  disabled={Object.keys(taxResults).length === 0}
-                >
-                  <FaDownload /> Export CSV
-                </button>
-                <button
-                  className="btn refresh"
-                  onClick={handleRefreshCalculations}
-                  disabled={calculating}
-                >
-                  <FaSync /> Recalculate All
-                </button>
-              </div>
-            </div>
-          </div>
+    <FinanceShell
+      title="Tax Provision"
+      icon={<FaCalculator />}
+      subtitle={
+        <>
+          <FaHistory style={{ marginRight: 6, verticalAlign: "-1px" }} />
+          {lastCalculated || "Not calculated yet"}
+        </>
+      }
+      actions={pageActions}
+    >
+      <div className="fin-stack">
+        {notice && (
+          <Alert
+            tone={notice.tone}
+            action={
+              <button className="fin-btn fin-btn--ghost fin-btn--sm" onClick={() => setNotice(null)}>
+                <FaTimes />
+              </button>
+            }
+          >
+            {notice.text}
+          </Alert>
+        )}
 
-          {/* Progress Bar */}
-          {calculating && (
-            <div className="progress-section">
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <div className="progress-text">
-                {progress > 0
-                  ? `Calculating: ${progress}%`
-                  : "Updating data..."}
-              </div>
+        {calculating && (
+          <Card>
+            <div className="fin-row" style={{ marginBottom: 8 }}>
+              <span className="fin-spinner fin-spinner--sm" />
+              <strong>{progress > 0 ? `Calculating… ${progress}%` : "Updating data…"}</strong>
             </div>
-          )}
+            <div className={`fin-progress ${progress > 0 ? "" : "fin-progress--indeterminate"}`}>
+              <div className="fin-progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+          </Card>
+        )}
 
-          {/* Totals Summary */}
-          <div className="totals-summary">
-            <div className="total-item">
-              <div className="total-label">Total Net Tax Payable</div>
-              <div className="total-value">
-                {financeAPI.utils.formatCurrency(totals.netTaxPayable)}
-              </div>
-            </div>
-            <div className="total-item">
-              <div className="total-label">Total Monthly TDS</div>
-              <div className="total-value">
-                {financeAPI.utils.formatCurrency(totals.monthlyTDS)}
-              </div>
-            </div>
-            <div className="total-item">
-              <div className="total-label">Employees with Tax</div>
-              <div className="total-value">
-                {totals.employeesWithTax} / {filtered.length}
-              </div>
-            </div>
-            <div className="total-item">
-              <div className="total-label">Errors</div>
-              <div
-                className="total-value error-count"
-                onClick={() => setShowErrors(!showErrors)}
-              >
-                {errorLog.length} {showErrors ? "▲" : "▼"}
-              </div>
-            </div>
-          </div>
+        <div className="fin-kpis">
+          <Kpi
+            tone="primary"
+            icon={<FaMoneyBillWave />}
+            label="Net tax payable (year)"
+            value={formatMoney(totals.netTaxPayable)}
+            hint={`${totals.calculated} of ${filtered.length} calculated`}
+          />
+          <Kpi
+            tone="success"
+            icon={<FaCalculator />}
+            label="Monthly TDS"
+            value={formatMoney(totals.monthlyTDS)}
+            hint="Sum of monthly deductions"
+          />
+          <Kpi
+            tone="info"
+            icon={<FaUsers />}
+            label="Employees with tax"
+            value={`${totals.employeesWithTax} / ${filtered.length}`}
+            hint="Salary above the AIT threshold"
+          />
+          <Kpi
+            tone={errorLog.length ? "danger" : undefined}
+            icon={<FaExclamationTriangle />}
+            label="Errors"
+            value={errorLog.length}
+            hint={errorLog.length ? (showErrors ? "Click to hide" : "Click to view") : "No errors"}
+            onClick={errorLog.length ? () => setShowErrors(!showErrors) : undefined}
+          />
+        </div>
 
-          {/* Error Log */}
-          {showErrors && errorLog.length > 0 && (
-            <div className="error-log">
-              <div className="error-log-header">
-                <FaExclamationTriangle /> Calculation Errors ({errorLog.length})
-                <button
-                  className="clear-errors"
-                  onClick={() => setErrorLog([])}
-                >
-                  Clear
-                </button>
-              </div>
-              {errorLog.slice(0, 5).map((error, idx) => (
-                <div key={idx} className="error-item">
-                  <span className="error-emp">{error.empId || "System"}:</span>
-                  <span className="error-msg">
-                    {error.message || error.error}
-                  </span>
-                </div>
+        {showErrors && errorLog.length > 0 && (
+          <Alert
+            tone="danger"
+            title={`Calculation errors (${errorLog.length})`}
+            action={
+              <button className="fin-btn fin-btn--sm" onClick={() => setErrorLog([])}>
+                Clear
+              </button>
+            }
+          >
+            <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+              {errorLog.slice(0, 8).map((error, idx) => (
+                <li key={idx}>
+                  <strong>{error.empId || "System"}:</strong> {error.message || error.error}
+                </li>
               ))}
-              {errorLog.length > 5 && (
-                <div className="error-more">
-                  ... and {errorLog.length - 5} more errors
-                </div>
-              )}
-            </div>
-          )}
+            </ul>
+            {errorLog.length > 8 && <div>… and {errorLog.length - 8} more</div>}
+          </Alert>
+        )}
 
-          {/* Search and Controls */}
-          <div className="controls-section">
-            <div className="search-container">
-              <FaSearch className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search by name or ID..."
+        <Card
+          flush
+          title="Employees"
+          subtitle="Click a row to open the employee's full tax calculation. Edit Source Other and Bonus inline."
+          actions={
+            <>
+              <SearchInput
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="search-input"
+                onChange={setSearchQuery}
+                placeholder="Search by name or ID…"
               />
-              <div className="result-count">
-                {filtered.length} employees found
-              </div>
-            </div>
-          </div>
-
-          {/* Main Table */}
-          <div className="table-container">
-            <table className="data-table">
+              <select
+                className="fin-select"
+                value={companyFilter}
+                onChange={(e) => setCompanyFilter(e.target.value)}
+                aria-label="Company"
+              >
+                <option value="All">All companies</option>
+                {companies.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <Badge>{filtered.length} employees</Badge>
+            </>
+          }
+        >
+          <div className="fin-table-wrap">
+            <table className="fin-table">
               <thead>
                 <tr>
                   <th>ID</th>
                   <th>Name</th>
                   <th>Company</th>
-                  <th>Salary</th>
-                  <th>Source Other</th>
-                  <th>Bonus</th>
-                  <th>Net Tax Payable</th>
-                  <th>Monthly TDS</th>
-                  <th>Deduct?</th>
-                  <th>Status</th>
+                  <th className="num">Salary</th>
+                  <th className="num">Source Other</th>
+                  <th className="num">Bonus (Yearly)</th>
+                  <th className="num">Net Tax Payable</th>
+                  <th className="num">Monthly TDS</th>
+                  <th className="center">Deduct?</th>
+                  <th className="center">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -866,154 +793,54 @@ const FinanceProvision = () => {
                   return (
                     <tr
                       key={emp.employee_id}
-                      className={`data-row ${isError ? "row-error" : ""}`}
-                      onClick={() => handleNavigate(emp.employee_id)}
+                      className={`fin-row-clickable ${isError ? "fin-row-error" : ""}`}
+                      onClick={() => navigate(`/tax-calculator/${emp.employee_id}`)}
                     >
-                      <td className="id-cell">{emp.employee_id}</td>
-                      <td className="name-cell">{emp.name}</td>
-                      <td className="company-cell">{emp.company_name}</td>
-
-                      {/* Salary Cell - NO EDIT BUTTON */}
-                      <td className="salary-cell">
-                        <div className="display-value">
-                          {financeAPI.utils.formatCurrency(emp.salary || 0)}
-                        </div>
-                      </td>
-
-                      {/* Source Other Cell - Keep Edit */}
-                      <td className="source-cell">
-                        {editingSourceId === emp.employee_id ? (
-                          <div
-                            className="edit-input"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="number"
-                              value={editSourceValue}
-                              onChange={(e) =>
-                                setEditSourceValue(e.target.value)
-                              }
-                              className="edit-input-field"
-                              placeholder="0"
-                            />
-                            <FaSave
-                              className="save-icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSaveSource(emp.employee_id);
-                              }}
-                            />
-                          </div>
+                      <td className="fin-col-id">{emp.employee_id}</td>
+                      <td className="fin-col-name">{emp.name}</td>
+                      <td className="muted">{emp.company_name}</td>
+                      <td className="num strong">{formatMoney(emp.salary || 0)}</td>
+                      <td className="num">{renderEditable(emp, "source")}</td>
+                      <td className="num">{renderEditable(emp, "bonus")}</td>
+                      <td className="num">
+                        {calc.net_tax_payable !== undefined && calc.net_tax_payable !== null ? (
+                          formatMoney(calc.net_tax_payable)
                         ) : (
-                          <div className="display-value">
-                            {financeAPI.utils.formatCurrency(
-                              sourceOther[emp.employee_id] || 0,
-                            )}
-                            <FaEdit
-                              className="edit-icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditSource(emp);
-                              }}
-                            />
-                          </div>
+                          <span className="muted">—</span>
                         )}
                       </td>
-
-                      {/* Bonus Cell - Keep Edit */}
-                      <td className="bonus-cell">
-                        {editingBonusId === emp.employee_id ? (
-                          <div
-                            className="edit-input"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="number"
-                              value={editBonusValue}
-                              onChange={(e) =>
-                                setEditBonusValue(e.target.value)
-                              }
-                              className="edit-input-field"
-                              placeholder="0"
-                            />
-                            <FaSave
-                              className="save-icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSaveBonus(emp.employee_id);
-                              }}
-                            />
-                          </div>
+                      <td className="num strong">
+                        {calc.monthly_tds !== undefined && calc.monthly_tds !== null ? (
+                          formatMoney(calc.monthly_tds)
                         ) : (
-                          <div className="display-value">
-                            {financeAPI.utils.formatCurrency(
-                              bonusOverride[emp.employee_id] || 0,
-                            )}
-                            <FaEdit
-                              className="edit-icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditBonus(emp);
-                              }}
-                            />
-                          </div>
+                          <span className="muted">—</span>
                         )}
                       </td>
-
-                      {/* Tax Cells */}
-                      <td className="tax-cell">
-                        {calc.net_tax_payable !== undefined &&
-                        calc.net_tax_payable !== null ? (
-                          financeAPI.utils.formatCurrency(calc.net_tax_payable)
-                        ) : (
-                          <span className="loading-text">-</span>
-                        )}
-                      </td>
-
-                      <td className="tds-cell">
-                        {calc.monthly_tds !== undefined &&
-                        calc.monthly_tds !== null ? (
-                          financeAPI.utils.formatCurrency(calc.monthly_tds)
-                        ) : (
-                          <span className="loading-text">-</span>
-                        )}
-                      </td>
-
-                      <td className="deduct-cell">
+                      <td className="center">
                         {shouldDeduct !== undefined ? (
-                          <span
-                            className={`deduct-badge ${
-                              shouldDeduct ? "deduct-yes" : "deduct-no"
-                            }`}
-                          >
-                            {shouldDeduct ? (
-                              <FaCheckCircle />
-                            ) : (
-                              <FaTimesCircle />
-                            )}
+                          <Badge tone={shouldDeduct ? "success" : undefined}>
+                            {shouldDeduct ? <FaCheckCircle /> : <FaTimesCircle />}
                             {shouldDeduct ? "Yes" : "No"}
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="loading-text">-</span>
+                          <span className="muted">—</span>
                         )}
                       </td>
-
-                      {/* Status Cell */}
-                      <td className="status-cell">
+                      <td className="center">
                         {isError ? (
-                          <span className="status-error">
+                          <Badge tone="danger">
                             <FaExclamationTriangle /> Failed
-                          </span>
-                        ) : calc.net_tax_payable ? (
-                          <span className="status-success">
+                          </Badge>
+                        ) : hasCalculation ? (
+                          <Badge tone="primary">
                             <FaCheckCircle /> Ready
-                          </span>
+                          </Badge>
                         ) : calculating ? (
-                          <span className="status-pending">
-                            <FaSpinner className="spinning" /> Calculating
-                          </span>
+                          <Badge tone="warning">
+                            <span className="fin-spinner fin-spinner--sm" /> Calculating
+                          </Badge>
                         ) : (
-                          <span className="status-pending">Pending</span>
+                          <Badge>Pending</Badge>
                         )}
                       </td>
                     </tr>
@@ -1023,594 +850,29 @@ const FinanceProvision = () => {
             </table>
 
             {filtered.length === 0 && (
-              <div className="empty-state">
-                <div className="empty-icon">📊</div>
-                <div className="empty-text">No employees found</div>
-                {searchQuery && (
-                  <button
-                    className="btn clear-search"
-                    onClick={() => setSearchQuery("")}
-                  >
-                    Clear Search
-                  </button>
-                )}
-              </div>
+              <EmptyState
+                title="No employees found"
+                action={
+                  (searchQuery || companyFilter !== "All") && (
+                    <button
+                      className="fin-btn fin-btn--sm"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setCompanyFilter("All");
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  )
+                }
+              >
+                Try a different name, ID or company.
+              </EmptyState>
             )}
           </div>
-        </div>
+        </Card>
       </div>
-
-      <style jsx>{`
-        .center-screen {
-          display: flex;
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          justify-content: center;
-          align-items: flex-start;
-          padding: 1rem;
-          font-family:
-            "Inter",
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-        }
-
-        .dashboard {
-          width: 100%;
-          max-width: 95%;
-          background: white;
-          border-radius: 20px;
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
-          overflow: hidden;
-          margin-top: 1rem;
-        }
-
-        .card {
-          padding: 1rem;
-        }
-
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 2rem;
-          flex-wrap: wrap;
-          gap: 1.5rem;
-        }
-
-        .header-left {
-          flex: 1;
-          min-width: 300px;
-        }
-
-        .header h1 {
-          font-size: 2.2rem;
-          color: #1e3a8a;
-          font-weight: 800;
-          margin-bottom: 0.5rem;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .sub-header {
-          display: flex;
-          gap: 1.5rem;
-          flex-wrap: wrap;
-        }
-
-        .last-calculated {
-          font-size: 0.95rem;
-          color: #6b7280;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: #f3f4f6;
-          padding: 0.5rem 1rem;
-          border-radius: 8px;
-        }
-
-        .header-right {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          align-items: flex-end;
-        }
-
-        .actions {
-          display: flex;
-          gap: 0.8rem;
-          flex-wrap: wrap;
-        }
-
-        .btn {
-          padding: 0.8rem 1.5rem;
-          border: none;
-          border-radius: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          transition: all 0.3s ease;
-          white-space: nowrap;
-          font-size: 0.9rem;
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-        }
-
-        .format {
-          background: #8b5cf6;
-          color: white;
-        }
-        .sync {
-          background: #3b82f6;
-          color: white;
-        }
-        .export {
-          background: #10b981;
-          color: white;
-        }
-        .refresh {
-          background: #ef4444;
-          color: white;
-        }
-
-        .progress-section {
-          margin: 1.5rem 0;
-        }
-
-        .progress-bar {
-          height: 10px;
-          background: #e5e7eb;
-          border-radius: 5px;
-          overflow: hidden;
-          margin-bottom: 0.5rem;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #7c3aed, #8b5cf6);
-          width: 0;
-          transition: width 0.3s ease;
-          border-radius: 5px;
-        }
-
-        .progress-text {
-          font-size: 0.9rem;
-          color: #6b7280;
-          text-align: center;
-        }
-
-        .totals-summary {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          margin: 2rem 0;
-          padding: 1.5rem;
-          background: #f8fafc;
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .total-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 1rem;
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .total-label {
-          font-size: 0.85rem;
-          color: #64748b;
-          margin-bottom: 0.5rem;
-          text-align: center;
-        }
-
-        .total-value {
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: #1e293b;
-        }
-
-        .error-count {
-          color: #dc2626;
-          cursor: pointer;
-          text-decoration: underline;
-        }
-
-        .error-log {
-          margin: 1.5rem 0;
-          padding: 1rem;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          border-radius: 8px;
-        }
-
-        .error-log-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-          color: #dc2626;
-          font-weight: 600;
-        }
-
-        .error-item {
-          padding: 0.5rem;
-          border-bottom: 1px solid #fecaca;
-          font-size: 0.9rem;
-        }
-
-        .error-emp {
-          font-weight: 600;
-          color: #7c2d12;
-          margin-right: 0.5rem;
-        }
-
-        .error-msg {
-          color: #991b1b;
-        }
-
-        .error-more {
-          text-align: center;
-          color: #dc2626;
-          margin-top: 0.5rem;
-          font-size: 0.85rem;
-        }
-
-        .controls-section {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin: 2rem 0;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .search-container {
-          position: relative;
-          flex: 1;
-          min-width: 300px;
-          display: flex;
-          align-items: center;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 1rem;
-          color: #9ca3af;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 1rem 1rem 1rem 3rem;
-          border: 2px solid #e5e7eb;
-          border-radius: 12px;
-          font-size: 1rem;
-          transition: border-color 0.3s;
-        }
-
-        .search-input:focus {
-          outline: none;
-          border-color: #7c3aed;
-        }
-
-        .result-count {
-          position: absolute;
-          right: 1rem;
-          font-size: 0.85rem;
-          color: #6b7280;
-          background: white;
-          padding: 0.2rem 0.5rem;
-          border-radius: 4px;
-        }
-
-        .table-container {
-          overflow-x: auto;
-          border-radius: 12px;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-          margin: 2rem 0;
-          border: 1px solid #e5e7eb;
-          max-height: 600px;
-          overflow-y: auto;
-        }
-
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 1200px;
-        }
-
-        .data-table th {
-          background: #5b7fdb;
-          color: white;
-          padding: 1.2rem 1rem;
-          text-align: center;
-          font-weight: 600;
-          font-size: 0.95rem;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-
-        .data-table td {
-          padding: 1rem;
-          text-align: center;
-          border-bottom: 1px solid #f1f5f9;
-          font-size: 0.95rem;
-        }
-
-        .data-row {
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .data-row:hover {
-          background: #f8faff;
-        }
-
-        .row-error {
-          background: #fef2f2;
-        }
-
-        .row-error:hover {
-          background: #fee2e2;
-        }
-
-        .id-cell {
-          font-family: "Monaco", "Courier New", monospace;
-          font-weight: 600;
-          color: #1e293b;
-        }
-
-        .name-cell {
-          font-weight: 600;
-          color: #1e293b;
-          text-align: left;
-          min-width: 150px;
-        }
-
-        .salary-cell {
-          font-weight: 600;
-          color: #059669;
-          min-width: 120px;
-        }
-
-        .source-cell,
-        .bonus-cell {
-          min-width: 120px;
-        }
-
-        .display-value {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.8rem;
-        }
-
-        .edit-input {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-        }
-
-        .edit-input-field {
-          width: 100px;
-          padding: 0.5rem;
-          border: 2px solid #7c3aed;
-          border-radius: 6px;
-          font-size: 0.9rem;
-          text-align: center;
-        }
-
-        .edit-icon,
-        .save-icon {
-          color: #7c3aed;
-          cursor: pointer;
-          font-size: 1rem;
-          transition: color 0.2s;
-        }
-
-        .edit-icon:hover,
-        .save-icon:hover {
-          color: #5b21b6;
-        }
-
-        .tax-cell,
-        .tds-cell {
-          font-weight: 700;
-          color: #dc2626;
-          min-width: 120px;
-        }
-
-        .deduct-cell {
-          min-width: 100px;
-        }
-
-        .deduct-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.4rem 0.8rem;
-          border-radius: 20px;
-          font-weight: 600;
-          font-size: 0.85rem;
-        }
-
-        .deduct-yes {
-          background: #d1fae5;
-          color: #059669;
-        }
-
-        .deduct-no {
-          background: #f3f4f6;
-          color: #6b7280;
-        }
-
-        .status-cell {
-          min-width: 120px;
-        }
-
-        .status-success {
-          color: #059669;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          justify-content: center;
-        }
-
-        .status-error {
-          color: #dc2626;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          justify-content: center;
-        }
-
-        .status-pending {
-          color: #f59e0b;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          justify-content: center;
-        }
-
-        .spinning {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        .loading-text {
-          color: #9ca3af;
-          font-style: italic;
-          font-size: 0.9rem;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 4rem 2rem;
-          color: #6b7280;
-        }
-
-        .empty-icon {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-          opacity: 0.5;
-        }
-
-        .empty-text {
-          font-size: 1.2rem;
-          margin-bottom: 1rem;
-        }
-
-        .clear-search {
-          background: #6b7280;
-          color: white;
-          margin-top: 1rem;
-        }
-
-        .clear-errors {
-          background: none;
-          border: none;
-          color: #dc2626;
-          cursor: pointer;
-          font-size: 0.85rem;
-          text-decoration: underline;
-        }
-
-        @media (max-width: 1200px) {
-          .header {
-            flex-direction: column;
-            text-align: center;
-          }
-
-          .header-right {
-            align-items: center;
-            width: 100%;
-          }
-
-          .controls-section {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .search-container {
-            width: 100%;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .card {
-            padding: 1rem;
-          }
-
-          .header h1 {
-            font-size: 1.8rem;
-          }
-
-          .totals-summary {
-            grid-template-columns: 1fr;
-          }
-
-          .actions {
-            justify-content: center;
-          }
-
-          .btn {
-            padding: 0.6rem 1rem;
-            font-size: 0.85rem;
-          }
-
-          .data-table th,
-          .data-table td {
-            padding: 0.8rem 0.5rem;
-            font-size: 0.85rem;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .sub-header {
-            flex-direction: column;
-            gap: 0.5rem;
-          }
-
-          .actions {
-            flex-direction: column;
-            width: 100%;
-          }
-
-          .btn {
-            width: 100%;
-            justify-content: center;
-          }
-        }
-      `}</style>
-    </div>
+    </FinanceShell>
   );
 };
 

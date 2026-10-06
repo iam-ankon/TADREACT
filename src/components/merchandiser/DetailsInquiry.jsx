@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import baseAxios from "axios";
 import { useParams, Link } from "react-router-dom";
 import Sidebar from "../merchandiser/Sidebar.jsx";
+
+// Every request from this page carries the login token (the inquiry APIs
+// require it).
+const axios = baseAxios.create();
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Token ${token}`;
+  return config;
+});
 
 const DetailsInquiry = () => {
   const { id } = useParams();

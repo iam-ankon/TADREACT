@@ -1,6 +1,7 @@
 // Live paid/unpaid split for a leave request, from the backend leave policy
-// (TADDJANGO/hrms/leave_policy.py). Casual/Sick days beyond the balance are
-// unpaid: one day's basic salary is deducted per unpaid day.
+// (TADDJANGO/hrms/leave_policy.py). Casual and Sick share one pool: a request
+// uses its own balance, then the other type's; only days beyond BOTH are
+// unpaid (one day's basic salary deducted per unpaid day).
 import React, { useEffect, useState } from "react";
 import { getLeavePolicy, previewLeave } from "../../api/employeeApi";
 
@@ -87,11 +88,25 @@ const LeaveSplitPreview = ({
     );
   }
 
+  const borrowed = preview.borrowed_days || 0;
+  const ownPaid = preview.own_paid_days ?? (preview.paid_days || 0) - borrowed;
+  const borrowedFrom = preview.borrowed_from_label || "other leave";
+
   if (!preview.unpaid_days) {
     return (
       <div style={box("#f0fdf4", "#bbf7d0", "#166534")}>
-        All {preview.days} day(s) are covered by the{" "}
-        {atApproval ? `current balance (${preview.balance} day(s))` : "leave balance"}
+        All {preview.days} day(s) are paid
+        {borrowed > 0 ? (
+          <>
+            : <strong>{ownPaid}</strong> from this balance and <strong>{borrowed}</strong> from
+            your {borrowedFrom} balance (this one is used up)
+          </>
+        ) : (
+          <>
+            {" "}from the{" "}
+            {atApproval ? `current balance (${preview.balance} day(s))` : "leave balance"}
+          </>
+        )}
         {preview.reserved_by_pending > 0 &&
           ` (${preview.reserved_by_pending} day(s) already held by pending requests)`}
         .
@@ -105,14 +120,19 @@ const LeaveSplitPreview = ({
         ⚠️ {preview.unpaid_days} of {preview.days} day(s) will be unpaid
       </div>
       <div>
-        Paid from balance: <strong>{preview.paid_days}</strong> day(s) · Unpaid:{" "}
-        <strong>{preview.unpaid_days}</strong> day(s)
+        Paid from this balance: <strong>{ownPaid}</strong> day(s)
+        {borrowed > 0 && (
+          <>
+            {" "}· From {borrowedFrom}: <strong>{borrowed}</strong> day(s)
+          </>
+        )}
+        {" "}· Unpaid: <strong>{preview.unpaid_days}</strong> day(s)
         {preview.reserved_by_pending > 0 &&
           ` · ${preview.reserved_by_pending} day(s) of the balance are already held by pending requests`}
       </div>
       <div style={{ marginTop: 4 }}>
-        {atApproval ? "If approved, one" : "One"} day's basic salary will be
-        deducted from salary for each unpaid day.
+        Casual and Sick leave are both used up. {atApproval ? "If approved, one" : "One"} day's
+        basic salary will be deducted from salary for each unpaid day.
       </div>
     </div>
   );
@@ -121,7 +141,7 @@ const LeaveSplitPreview = ({
 // Confirmation text before submitting a request with unpaid days (null = nothing to confirm).
 export const unpaidConfirmText = (preview) =>
   preview?.allowed && preview.unpaid_days > 0
-    ? `${preview.unpaid_days} of ${preview.days} day(s) exceed the leave balance and will be UNPAID.\n\n` +
+    ? `Casual and Sick leave are both used up: ${preview.unpaid_days} of ${preview.days} day(s) will be UNPAID.\n\n` +
       `One day's basic salary will be deducted for each unpaid day.\n\nSubmit anyway?`
     : null;
 

@@ -1,6 +1,43 @@
 // SupplierDetailsCSR.jsx - Complete Version with Path Cleaning
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import {
+  FiActivity,
+  FiAlertTriangle,
+  FiArrowLeft,
+  FiAward,
+  FiBell,
+  FiCalendar,
+  FiCheck,
+  FiCheckCircle,
+  FiClipboard,
+  FiCopy,
+  FiDownload,
+  FiDroplet,
+  FiEdit2,
+  FiExternalLink,
+  FiFileText,
+  FiFolder,
+  FiImage,
+  FiInbox,
+  FiLink,
+  FiMail,
+  FiMapPin,
+  FiMessageSquare,
+  FiPaperclip,
+  FiPhone,
+  FiRefreshCw,
+  FiSave,
+  FiSearch,
+  FiSettings,
+  FiShield,
+  FiSun,
+  FiUsers,
+  FiVolume2,
+  FiX,
+  FiZap,
+} from "react-icons/fi";
+import { FaBalanceScale, FaFireExtinguisher, FaHandshake, FaIndustry, FaLeaf, FaDoorOpen, FaFire, FaBuilding } from "react-icons/fa";
 import { getSupplierById, exportSupplierToExcel } from "../../api/supplierApi";
 
 // Professional color palette
@@ -27,6 +64,69 @@ const colors = {
   textPrimary: "#111827",
   textSecondary: "#6b7280",
   textMuted: "#9ca3b3",
+};
+
+// The page's data (tabs, cards, expiry items) still names icons with emoji;
+// they are drawn as line icons here so the page matches the rest of TAD.
+const EMOJI_ICONS = {
+  "📊": FiActivity,
+  "🏢": FaBuilding,
+  "🔗": FiLink,
+  "📜": FiAward,
+  "📋": FiClipboard,
+  "✅": FiCheckCircle,
+  "🚨": FiBell,
+  "🌱": FaLeaf,
+  "🔍": FiSearch,
+  "🛡️": FiShield,
+  "🛡": FiShield,
+  "📎": FiPaperclip,
+  "📞": FiPhone,
+  "🏭": FaIndustry,
+  "👥": FiUsers,
+  "⚙️": FiSettings,
+  "⚙": FiSettings,
+  "💬": FiMessageSquare,
+  "⚖️": FaBalanceScale,
+  "⚖": FaBalanceScale,
+  "🤝": FaHandshake,
+  "🔥": FaFire,
+  "📄": FiFileText,
+  "⚠️": FiAlertTriangle,
+  "⚠": FiAlertTriangle,
+  "🧯": FaFireExtinguisher,
+  "💡": FiSun,
+  "💧": FiDroplet,
+  "📢": FiVolume2,
+  "🚪": FaDoorOpen,
+  "📝": FiEdit2,
+  "📂": FiFolder,
+  "📁": FiFolder,
+  "🚒": FiZap,
+  "🏗️": FaBuilding,
+  "🏗": FaBuilding,
+  "🖼️": FiImage,
+  "🖼": FiImage,
+  "📭": FiInbox,
+  "📅": FiCalendar,
+  "📍": FiMapPin,
+  "✉️": FiMail,
+  "✉": FiMail,
+};
+
+// Placeholder for the image preview when the file can't be loaded.
+const getFallbackImageDataUrl = () =>
+  "data:image/svg+xml;charset=utf-8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320">' +
+      '<rect width="480" height="320" rx="16" fill="#f1f5f9"/>' +
+      '<text x="240" y="168" font-family="Segoe UI, Arial" font-size="18" fill="#64748b" text-anchor="middle">Image not available</text>' +
+      "</svg>",
+  );
+
+const EmojiIcon = ({ e }) => {
+  const Icon = EMOJI_ICONS[e];
+  return Icon ? <Icon aria-hidden="true" /> : e || null;
 };
 
 // ==================== FIXED: extractCleanPath Helper ====================
@@ -164,12 +264,17 @@ const getStatusColor = (status) => {
 };
 
 const getDaysRemainingColor = (days) => {
-  if (!days && days !== 0) return { bg: colors.gray, color: "white" };
-  if (days <= 0) return { bg: colors.danger, color: "white" };
-  if (days <= 30) return { bg: colors.danger, color: "white" };
-  if (days <= 60) return { bg: colors.warning, color: "white" };
-  if (days <= 90) return { bg: colors.warning, color: "white" };
-  return { bg: colors.success, color: "white" };
+  if (!days && days !== 0) return { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" };
+  if (days <= 30) return { bg: "#fef2f2", color: "#b91c1c", border: "#fecaca" };
+  if (days <= 90) return { bg: "#fffbeb", color: "#b45309", border: "#fde68a" };
+  return { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" };
+};
+
+const daysLabel = (days) => {
+  if (days === null || days === undefined) return "No date";
+  if (days < 0) return `Expired ${Math.abs(days)}d ago`;
+  if (days === 0) return "Expires today";
+  return `${days} days left`;
 };
 
 const getBooleanDisplay = (value) => {
@@ -195,7 +300,9 @@ const InfoCard = ({ title, icon, children, colSpan = 1 }) => (
     }}
   >
     <div style={styles.cardHeader}>
-      <span style={styles.cardIcon}>{icon}</span>
+      <span style={styles.cardIcon}>
+        <EmojiIcon e={icon} />
+      </span>
       <h3 style={styles.cardTitle}>{title}</h3>
     </div>
     <div style={styles.cardBody}>{children}</div>
@@ -232,7 +339,7 @@ const InfoRow = ({
             style={styles.copyButton}
             title="Copy to clipboard"
           >
-            {copiedField === fieldName ? "✅" : "📋"}
+            {copiedField === fieldName ? <FiCheck /> : <FiCopy />}
           </button>
         )}
       </div>
@@ -258,16 +365,18 @@ const StatusBadge = ({ status, size = "medium" }) => {
 };
 
 const DaysRemainingBadge = ({ days }) => {
-  const { bg, color } = getDaysRemainingColor(days);
+  const { bg, color, border } = getDaysRemainingColor(days);
   return (
     <span
       style={{
         ...styles.daysBadge,
         backgroundColor: bg,
         color,
+        border: `1px solid ${border}`,
       }}
     >
-      {days} days {days <= 30 && "⚠️"}
+      {days !== null && days !== undefined && days <= 30 && <FiAlertTriangle aria-hidden="true" />}
+      {daysLabel(days)}
     </span>
   );
 };
@@ -277,7 +386,7 @@ const DocumentGrid = ({ documents }) => {
   if (!documents || documents.length === 0) {
     return (
       <div style={styles.noDocuments}>
-        <span style={styles.noDocsIcon}>📂</span>
+        <span style={styles.noDocsIcon}><EmojiIcon e="📂" /></span>
         <p>No documents uploaded</p>
       </div>
     );
@@ -294,7 +403,9 @@ const DocumentGrid = ({ documents }) => {
     <div style={styles.documentGrid}>
       {documents.map((doc, index) => (
         <div key={index} style={styles.documentCard}>
-          <span style={styles.docIcon}>📄</span>
+          <span style={styles.docIcon}>
+            <FiFileText />
+          </span>
           <div style={styles.docInfo}>
             <div style={styles.docName}>
               {doc.name || `Document ${index + 1}`}
@@ -305,7 +416,7 @@ const DocumentGrid = ({ documents }) => {
                 onClick={(e) => handleViewDocument(e, doc.url)}
                 style={styles.docLink}
               >
-                View Document →
+                View document <FiExternalLink aria-hidden="true" />
               </a>
             )}
           </div>
@@ -317,9 +428,8 @@ const DocumentGrid = ({ documents }) => {
 
 // Image Gallery Component
 const ImageGallery = ({ images, title }) => {
-  if (!images || images.length === 0) return null;
-
   const [failedImages, setFailedImages] = useState({});
+  if (!images || images.length === 0) return null;
 
   const handleImageError = (index) => {
     setFailedImages((prev) => ({ ...prev, [index]: true }));
@@ -433,7 +543,9 @@ const MultiFileSection = ({ title, icon, files, emptyMessage = "No files uploade
   return (
     <div style={styles.multiFileSection}>
       <div style={styles.multiFileHeader}>
-        <span style={styles.multiFileIcon}>{icon}</span>
+        <span style={styles.multiFileIcon}>
+          <EmojiIcon e={icon} />
+        </span>
         <h4 style={styles.multiFileTitle}>{title}</h4>
         <span style={styles.multiFileCount}>({files.length} files)</span>
       </div>
@@ -448,7 +560,7 @@ const MultiFileSection = ({ title, icon, files, emptyMessage = "No files uploade
           return (
             <div key={index} style={styles.multiFileItem}>
               <span style={styles.multiFileItemIcon}>
-                {isImage ? '🖼️' : '📄'}
+                {isImage ? <FiImage /> : <FiFileText />}
               </span>
               <span style={styles.multiFileItemName}>{fileName}</span>
               <a
@@ -1610,7 +1722,7 @@ const SupplierDetailsCSR = () => {
     return (
       <div style={styles.errorContainer}>
         <div style={styles.errorContent}>
-          <span style={styles.errorIcon}>⚠️</span>
+          <span style={styles.errorIcon}><EmojiIcon e="⚠️" /></span>
           <h2 style={styles.errorTitle}>Supplier Not Found</h2>
           <p style={styles.errorMessage}>
             {error || "The supplier does not exist."}
@@ -1629,6 +1741,10 @@ const SupplierDetailsCSR = () => {
   }
 
   const expiringItems = getExpiringItems();
+  // Same rule as the Send Notifications modal: expired or at a reminder day.
+  const attentionItems = expiringItems.filter(
+    (item) => item.days_remaining <= 0 || NOTIFICATION_DAYS.includes(item.days_remaining),
+  );
   const notificationItems = expiringItems.filter((item) =>
     NOTIFICATION_DAYS.includes(item.days_remaining),
   );
@@ -1646,7 +1762,7 @@ const SupplierDetailsCSR = () => {
     if (!suppliersList || suppliersList.length === 0) {
       return (
         <div style={styles.emptySupplyState}>
-          <span style={styles.emptySupplyIcon}>📭</span>
+          <span style={styles.emptySupplyIcon}><EmojiIcon e="📭" /></span>
           <p>No {title.toLowerCase()} associated</p>
         </div>
       );
@@ -1657,7 +1773,9 @@ const SupplierDetailsCSR = () => {
         {suppliersList.map((item, index) => (
           <div key={item.id || index} style={styles.chainSupplyCard}>
             <div style={styles.chainSupplyHeader}>
-              <span style={styles.chainSupplyIcon}>{icon}</span>
+              <span style={styles.chainSupplyIcon}>
+                <EmojiIcon e={icon} />
+              </span>
               <div style={styles.chainSupplyName}>
                 {item.name || `Supplier ${index + 1}`}
               </div>
@@ -1691,7 +1809,8 @@ const SupplierDetailsCSR = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="csr-sd">
+      <style>{SUPPLIER_DETAILS_CSS}</style>
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.breadcrumb}>
@@ -1709,24 +1828,23 @@ const SupplierDetailsCSR = () => {
         </div>
 
         <div style={styles.headerActions}>
-          <button onClick={() => navigate(-1)} style={styles.backButton}>
-            ← Back
+          <button onClick={() => navigate(-1)} style={styles.backButton} className="sd-btn">
+            <FiArrowLeft /> Back
           </button>
-          <button
-            onClick={() => navigate(`/edit-supplier/${id}`)}
-            style={styles.editButton}
-          >
-            ✏️ Edit
+          <button onClick={fetchSupplierDetails} style={styles.refreshButton} className="sd-btn" title="Reload">
+            <FiRefreshCw /> Refresh
           </button>
           <button
             onClick={handleExportToExcel}
             style={styles.excelButton}
+            className="sd-btn"
             title="Export to Excel"
           >
-            📊 Export Excel
+            <FiDownload /> Export Excel
           </button>
           <button
             onClick={() => setShowNotificationModal(true)}
+            className="sd-btn"
             style={{
               ...styles.notifyButton,
               ...(notificationCount > 0 ? styles.notifyButtonActive : {}),
@@ -1740,14 +1858,17 @@ const SupplierDetailsCSR = () => {
                   : "No items at notification days"
             }
           >
-            📧 Send Notifications
+            <FiMail /> Send Notifications
             {notificationCount > 0 && (
               <span style={styles.notifyBadge}>{notificationCount}</span>
             )}
           </button>
-
-          <button onClick={fetchSupplierDetails} style={styles.refreshButton}>
-            🔄 Refresh
+          <button
+            onClick={() => navigate(`/edit-supplier/${id}`)}
+            style={styles.editButton}
+            className="sd-btn sd-btn-primary"
+          >
+            <FiEdit2 /> Edit
           </button>
         </div>
       </div>
@@ -1779,23 +1900,23 @@ const SupplierDetailsCSR = () => {
           <div style={styles.profileInfo}>
             <h1 style={styles.supplierName}>
               {supplier.supplier_name || "Unnamed Supplier"}
-              <span style={styles.supplierId}>
-                ID: {supplier.supplier_id || "N/A"}
-              </span>
+              {supplier.supplier_id && (
+                <span style={styles.supplierId}>ID {supplier.supplier_id}</span>
+              )}
             </h1>
             <div style={styles.profileMeta}>
               <span style={styles.metaItem}>
-                <span style={styles.metaIcon}>📁</span>
+                <span style={styles.metaIcon}><EmojiIcon e="📁" /></span>
                 {supplier.supplier_category || "Category N/A"}
               </span>
               <span style={styles.metaDot}>•</span>
               <span style={styles.metaItem}>
-                <span style={styles.metaIcon}>📅</span>
+                <span style={styles.metaIcon}><EmojiIcon e="📅" /></span>
                 Est. {supplier.year_of_establishment || "N/A"}
               </span>
               <span style={styles.metaDot}>•</span>
               <span style={styles.metaItem}>
-                <span style={styles.metaIcon}>📍</span>
+                <span style={styles.metaIcon}><EmojiIcon e="📍" /></span>
                 {supplier.location || "Location N/A"}
               </span>
             </div>
@@ -1805,7 +1926,7 @@ const SupplierDetailsCSR = () => {
                   style={styles.contactItem}
                   onClick={() => copyToClipboard(supplier.email, "email")}
                 >
-                  <span style={styles.contactIcon}>✉️</span>
+                  <span style={styles.contactIcon}><EmojiIcon e="✉️" /></span>
                   {supplier.email}
                   {copiedField === "email" && (
                     <span style={styles.copiedTip}>Copied!</span>
@@ -1817,7 +1938,7 @@ const SupplierDetailsCSR = () => {
                   style={styles.contactItem}
                   onClick={() => copyToClipboard(supplier.phone, "phone")}
                 >
-                  <span style={styles.contactIcon}>📞</span>
+                  <span style={styles.contactIcon}><EmojiIcon e="📞" /></span>
                   {supplier.phone}
                   {copiedField === "phone" && (
                     <span style={styles.copiedTip}>Copied!</span>
@@ -1848,32 +1969,32 @@ const SupplierDetailsCSR = () => {
         </div>
       </div>
 
-      {/* Expiry Summary Cards */}
-      {expiringItems.filter((item) =>
-        NOTIFICATION_DAYS.includes(item.days_remaining),
-      ).length > 0 && (
+      {/* Expiry Summary Cards - same items the notification modal offers */}
+      {attentionItems.length > 0 && (
         <div style={styles.expirySection}>
           <div style={styles.sectionTitle}>
-            <span style={styles.titleIcon}>⚠️</span>
+            <span style={styles.titleIcon}>
+              <FiAlertTriangle />
+            </span>
             <h2 style={styles.sectionTitleText}>
-              Items Requiring Attention (
-              {
-                expiringItems.filter((item) =>
-                  NOTIFICATION_DAYS.includes(item.days_remaining),
-                ).length
-              }
-              )
+              Items Requiring Attention
+              <span className="sd-count">{attentionItems.length}</span>
             </h2>
+            <span style={styles.sectionHint}>
+              Expired, or at a reminder milestone ({NOTIFICATION_DAYS.join(", ")} days)
+            </span>
           </div>
           <div style={styles.expiryGrid}>
-            {expiringItems
-              .filter((item) => item.days_remaining <= 0)
-              .slice(0, 5)
-              .map((item, idx) => (
-                <div key={idx} style={styles.expiryCard}>
+            {attentionItems.slice(0, 6).map((item) => {
+              const tone = getDaysRemainingColor(item.days_remaining);
+              return (
+                <div
+                  key={item.id}
+                  style={{ ...styles.expiryCard, borderLeft: `3px solid ${tone.color}` }}
+                >
                   <div style={styles.expiryHeader}>
-                    <span style={styles.expiryIcon}>
-                      {item.icon || (item.type === "cert" ? "📜" : "📋")}
+                    <span style={{ ...styles.expiryIcon, color: tone.color, background: tone.bg }}>
+                      <EmojiIcon e={item.icon || (item.category === "certification" ? "📜" : "📋")} />
                     </span>
                     <span style={styles.expiryName}>{item.name}</span>
                   </div>
@@ -1881,21 +2002,22 @@ const SupplierDetailsCSR = () => {
                     <DaysRemainingBadge days={item.days_remaining} />
                     {item.expiry_date && (
                       <span style={styles.expiryDate}>
-                        {formatDate(item.expiry_date)}
+                        <FiCalendar aria-hidden="true" /> {formatDate(item.expiry_date)}
                       </span>
                     )}
                   </div>
                 </div>
-              ))}
-            {expiringItems.filter((item) =>
-              NOTIFICATION_DAYS.includes(item.days_remaining),
-            ).length > 5 && (
-              <div style={styles.moreCard}>
-                +
-                {expiringItems.filter((item) =>
-                  NOTIFICATION_DAYS.includes(item.days_remaining),
-                ).length - 5}{" "}
-                more items
+              );
+            })}
+            {attentionItems.length > 6 && (
+              <div
+                style={styles.moreCard}
+                title={attentionItems
+                  .slice(6)
+                  .map((i) => `${i.name} (${daysLabel(i.days_remaining)})`)
+                  .join("\n")}
+              >
+                +{attentionItems.length - 6} more items
               </div>
             )}
           </div>
@@ -1927,7 +2049,9 @@ const SupplierDetailsCSR = () => {
                 ...(activeTab === tab.id ? styles.activeTab : {}),
               }}
             >
-              <span style={styles.tabIcon}>{tab.icon}</span>
+              <span style={styles.tabIcon}>
+                <EmojiIcon e={tab.icon} />
+              </span>
               {tab.label}
             </button>
           ))}
@@ -1938,9 +2062,9 @@ const SupplierDetailsCSR = () => {
       <div style={styles.tabContent}>
         {/* Overview Tab */}
         {activeTab === "overview" && (
-          <div style={styles.overview}>
+          <div style={styles.overview} className="sd-grid">
             <InfoCard title="Basic Information" icon="🏢" colSpan={2}>
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.basic
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -1978,10 +2102,10 @@ const SupplierDetailsCSR = () => {
             <InfoCard title="Building & Manpower" icon="🏭" colSpan={2}>
               <div style={styles.sectionGroup}>
                 <div style={styles.groupHeader}>
-                  <span style={styles.groupIcon}>🏗️</span>
+                  <span style={styles.groupIcon}><EmojiIcon e="🏗️" /></span>
                   <h4 style={styles.groupHeaderText}>Building Details</h4>
                 </div>
-                <div style={styles.twoColumn}>
+                <div style={styles.twoColumn} className="sd-two">
                   {groupedData.building
                     .filter((item) => item.value)
                     .map((item, idx) => (
@@ -1995,10 +2119,10 @@ const SupplierDetailsCSR = () => {
               </div>
               <div style={styles.sectionGroup}>
                 <div style={styles.groupHeader}>
-                  <span style={styles.groupIcon}>👥</span>
+                  <span style={styles.groupIcon}><EmojiIcon e="👥" /></span>
                   <h4 style={styles.groupHeaderText}>Manpower Details</h4>
                 </div>
-                <div style={styles.twoColumn}>
+                <div style={styles.twoColumn} className="sd-two">
                   {groupedData.manpower
                     .filter((item) => item.value)
                     .map((item, idx) => (
@@ -2026,9 +2150,9 @@ const SupplierDetailsCSR = () => {
 
         {/* Details Tab */}
         {activeTab === "details" && (
-          <div style={styles.details}>
+          <div style={styles.details} className="sd-grid">
             <InfoCard title="General Information" icon="🏢">
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.basic
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2046,7 +2170,7 @@ const SupplierDetailsCSR = () => {
             </InfoCard>
 
             <InfoCard title="Contact Details" icon="📞">
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.contacts
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2064,7 +2188,7 @@ const SupplierDetailsCSR = () => {
             </InfoCard>
 
             <InfoCard title="Building Details" icon="🏭">
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.building
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2074,7 +2198,7 @@ const SupplierDetailsCSR = () => {
             </InfoCard>
 
             <InfoCard title="Manpower Details" icon="👥">
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.manpower
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2084,7 +2208,7 @@ const SupplierDetailsCSR = () => {
             </InfoCard>
 
             <InfoCard title="Production Details" icon="⚙️" colSpan={2}>
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.production
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2097,7 +2221,7 @@ const SupplierDetailsCSR = () => {
 
         {/* Supply Chain Tab */}
         {activeTab === "supplyChain" && (
-          <div style={styles.supplyChainGrid}>
+          <div style={styles.supplyChainGrid} className="sd-grid">
             <InfoCard title="Tier 2 Factories" icon="🏭">
               <div style={styles.verticalList}>
                 <div style={styles.supplyChainDescription}>
@@ -2138,7 +2262,7 @@ const SupplierDetailsCSR = () => {
                 cert.validity && (
                   <div key={idx} style={styles.certCard}>
                     <div style={styles.certHeader}>
-                      <span style={styles.certIcon}>📜</span>
+                      <span style={styles.certIcon}><EmojiIcon e="📜" /></span>
                       <h3 style={styles.certName}>{cert.name}</h3>
                       {cert.status && (
                         <StatusBadge status={cert.status} size="small" />
@@ -2193,7 +2317,7 @@ const SupplierDetailsCSR = () => {
                 license.validity && (
                   <div key={idx} style={styles.licenseCard}>
                     <div style={styles.licenseHeader}>
-                      <span style={styles.licenseIcon}>📋</span>
+                      <span style={styles.licenseIcon}><EmojiIcon e="📋" /></span>
                       <h3 style={styles.licenseName}>{license.name}</h3>
                     </div>
                     <div style={styles.licenseBody}>
@@ -2231,7 +2355,7 @@ const SupplierDetailsCSR = () => {
 
         {/* Compliance Tab */}
         {activeTab === "compliance" && (
-          <div style={styles.complianceGrid}>
+          <div style={styles.complianceGrid} className="sd-grid">
             <InfoCard title="Compliance Status" icon="✅">
               <div style={styles.verticalList}>
                 {groupedData.compliance.map((item, idx) =>
@@ -2274,7 +2398,7 @@ const SupplierDetailsCSR = () => {
             </InfoCard>
 
             <InfoCard title="CSR Activities" icon="🤝">
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.csr
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2287,9 +2411,9 @@ const SupplierDetailsCSR = () => {
 
         {/* Safety Tab */}
         {activeTab === "safety" && (
-          <div style={styles.safetyGrid}>
+          <div style={styles.safetyGrid} className="sd-grid">
             <InfoCard title="Fire Safety" icon="🔥" colSpan={2}>
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.fireSafety
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2302,9 +2426,9 @@ const SupplierDetailsCSR = () => {
 
         {/* Environment Tab */}
         {activeTab === "environment" && (
-          <div style={styles.environmentGrid}>
+          <div style={styles.environmentGrid} className="sd-grid">
             <InfoCard title="Environmental Data" icon="🌱" colSpan={2}>
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.environmental
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2317,9 +2441,9 @@ const SupplierDetailsCSR = () => {
 
         {/* RSC Audit Tab */}
         {activeTab === "rsc" && (
-          <div style={styles.environmentGrid}>
+          <div style={styles.environmentGrid} className="sd-grid">
             <InfoCard title="RSC Audit" icon="🔍" colSpan={2}>
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.rsc
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2332,9 +2456,9 @@ const SupplierDetailsCSR = () => {
 
         {/* OSH Committee Tab */}
         {activeTab === "osh" && (
-          <div style={styles.oshGrid}>
+          <div style={styles.oshGrid} className="sd-grid">
             <InfoCard title="OHS Committee Information" icon="🛡️" colSpan={2}>
-              <div style={styles.twoColumn}>
+              <div style={styles.twoColumn} className="sd-two">
                 {groupedData.osh
                   .filter((item) => item.value)
                   .map((item, idx) => (
@@ -2360,7 +2484,7 @@ const SupplierDetailsCSR = () => {
 
         {/* Checklist Tab */}
         {activeTab === "checklist" && (
-          <div style={styles.checklistGrid}>
+          <div style={styles.checklistGrid} className="sd-grid">
             {/* Zero Tolerance Section */}
             <InfoCard title="Zero Tolerance Policy" icon="⚠️" colSpan={2}>
               {groupedData.zeroTolerance
@@ -2559,7 +2683,7 @@ const SupplierDetailsCSR = () => {
                 if (!hasAnyDocs) {
                   return (
                     <div style={styles.noDocuments}>
-                      <span style={styles.noDocsIcon}>📂</span>
+                      <span style={styles.noDocsIcon}><EmojiIcon e="📂" /></span>
                       <p>No additional documents uploaded</p>
                     </div>
                   );
@@ -2637,7 +2761,7 @@ const SupplierDetailsCSR = () => {
                 }}
                 style={styles.modalClose}
               >
-                ✕
+                <FiX />
               </button>
             </div>
 
@@ -2731,8 +2855,8 @@ const SupplierDetailsCSR = () => {
                         if (categoryItems.length === 0) return null;
 
                         const categoryNames = {
-                          certification: "📜 Certifications",
-                          license: "📋 Licenses",
+                          certification: "Certifications",
+                          license: "Licenses",
                         };
 
                         return (
@@ -2756,7 +2880,7 @@ const SupplierDetailsCSR = () => {
                                 <div style={styles.checkboxContent}>
                                   <div style={styles.itemHeader}>
                                     <span style={styles.itemIcon}>
-                                      {item.icon}
+                                      <EmojiIcon e={item.icon} />
                                     </span>
                                     <span style={styles.certName}>
                                       {item.name}
@@ -2844,16 +2968,16 @@ const SupplierDetailsCSR = () => {
       {/* Action Buttons */}
       <div style={styles.footer}>
         <button onClick={() => navigate(-1)} style={styles.footerButton}>
-          ← Back to List
+          <FiArrowLeft /> Back to List
         </button>
         <button
           onClick={() => navigate(`/edit-supplier/${id}`)}
           style={styles.footerButtonPrimary}
         >
-          ✏️ Edit Supplier
+          <FiEdit2 /> Edit Supplier
         </button>
         <button onClick={fetchSupplierDetails} style={styles.footerButton}>
-          🔄 Refresh
+          <FiRefreshCw /> Refresh
         </button>
       </div>
 
@@ -2871,7 +2995,7 @@ const SupplierDetailsCSR = () => {
               style={styles.previewModalClose}
               onClick={() => setShowImagePreview(false)}
             >
-              ✕
+              <FiX />
             </button>
             <div style={styles.previewImageContainer}>
               <img
@@ -2885,7 +3009,7 @@ const SupplierDetailsCSR = () => {
             </div>
             <div style={styles.previewActions}>
               <a href={previewImageUrl} download style={styles.downloadButton}>
-                💾 Download
+                <FiSave /> Download
               </a>
               <a
                 href={previewImageUrl}
@@ -2893,7 +3017,7 @@ const SupplierDetailsCSR = () => {
                 rel="noopener noreferrer"
                 style={styles.openNewTabButton}
               >
-                🔗 Open in New Tab
+                <FiExternalLink /> Open in New Tab
               </a>
             </div>
           </div>
@@ -2905,7 +3029,7 @@ const SupplierDetailsCSR = () => {
 
 
 // Styles
-const styles = {
+const baseStyles = {
   container: {
     padding: "2rem 3rem",
     backgroundColor: "#f8fafc",
@@ -4084,6 +4208,296 @@ const styles = {
     transition: "all 0.2s",
   },
 };
+
+// ---------------------------------------------------------------------------
+// Visual theme (2026-10-01): same tokens as the CSR dashboard, Supplier List
+// and department sidebar. Only look-and-feel keys are overridden here; any
+// key not listed keeps its base style above.
+const T = {
+  bg: "#f3f5f9",
+  surface: "#ffffff",
+  soft: "#f8fafc",
+  border: "#e6eaf0",
+  borderStrong: "#d5dbe4",
+  text: "#0f172a",
+  text2: "#334155",
+  muted: "#64748b",
+  faint: "#94a3b8",
+  primary: "#2563eb",
+  primaryDark: "#1d4ed8",
+  primarySoft: "#eef4ff",
+};
+
+const btnBase = {
+  height: "38px",
+  padding: "0 14px",
+  borderRadius: "10px",
+  fontSize: "13.5px",
+  fontWeight: 600,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: "background .15s, border-color .15s, color .15s",
+};
+const btnGhost = { ...btnBase, backgroundColor: T.surface, color: T.text2, border: `1px solid ${T.borderStrong}` };
+const btnPrimary = { ...btnBase, backgroundColor: T.primary, color: "#fff", border: `1px solid ${T.primary}`, boxShadow: "0 1px 2px rgba(37,99,235,.25)" };
+const iconTile = {
+  width: "30px",
+  height: "30px",
+  borderRadius: "9px",
+  display: "inline-grid",
+  placeItems: "center",
+  fontSize: "15px",
+  color: T.primaryDark,
+  background: T.primarySoft,
+  flexShrink: 0,
+};
+const card = {
+  backgroundColor: T.surface,
+  border: `1px solid ${T.border}`,
+  borderRadius: "14px",
+  boxShadow: "0 1px 2px rgba(15,23,42,.04)",
+};
+
+const THEME = {
+  container: {
+    padding: "0 28px 32px",
+    backgroundColor: T.bg,
+    color: T.text,
+    fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif",
+  },
+  header: {
+    position: "sticky",
+    top: 0,
+    zIndex: 20,
+    margin: "0 -28px 22px",
+    padding: "14px 28px",
+    backgroundColor: "rgba(255,255,255,0.94)",
+    backdropFilter: "blur(8px)",
+    borderBottom: `1px solid ${T.border}`,
+  },
+  breadcrumb: { fontSize: "13px", color: T.muted, gap: "8px" },
+  breadcrumbLink: { color: T.muted, fontWeight: 500 },
+  separator: { color: T.faint },
+  breadcrumbCurrent: { color: T.text, fontWeight: 600 },
+  headerActions: { gap: "8px" },
+  backButton: btnGhost,
+  refreshButton: btnGhost,
+  excelButton: btnGhost,
+  notifyButton: btnGhost,
+  notifyButtonActive: { backgroundColor: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" },
+  notifyBadge: {
+    position: "static",
+    width: "auto",
+    minWidth: "20px",
+    height: "20px",
+    padding: "0 6px",
+    borderRadius: "999px",
+    backgroundColor: "#dc2626",
+    fontSize: "11px",
+    fontWeight: 700,
+  },
+  editButton: btnPrimary,
+
+  profileCard: { ...card, borderRadius: "16px", padding: "24px", marginBottom: "18px", gap: "24px", alignItems: "center" },
+  profileLeft: { gap: "20px", minWidth: "280px" },
+  avatar: {
+    width: "84px",
+    height: "84px",
+    borderRadius: "20px",
+    background: "linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)",
+    fontSize: "32px",
+    fontWeight: 700,
+    boxShadow: "0 6px 16px rgba(37,99,235,.25)",
+  },
+  avatarImage: { borderRadius: "20px" },
+  supplierName: { fontSize: "24px", letterSpacing: "-0.02em", margin: "0 0 8px 0", gap: "10px", color: T.text },
+  supplierId: {
+    fontSize: "12px",
+    fontWeight: 600,
+    color: T.muted,
+    background: T.soft,
+    border: `1px solid ${T.border}`,
+    borderRadius: "999px",
+    padding: "2px 10px",
+  },
+  profileMeta: { gap: "10px", marginBottom: "12px" },
+  metaItem: { fontSize: "13px", color: T.text2, gap: "6px" },
+  metaIcon: { fontSize: "14px", color: T.faint, display: "inline-flex" },
+  metaDot: { color: T.borderStrong },
+  contactInfo: { gap: "8px" },
+  contactItem: {
+    fontSize: "13px",
+    color: T.text2,
+    padding: "5px 12px",
+    backgroundColor: T.soft,
+    border: `1px solid ${T.border}`,
+    borderRadius: "999px",
+    gap: "6px",
+  },
+  contactIcon: { fontSize: "14px", color: T.muted, display: "inline-flex" },
+  copiedTip: { backgroundColor: "#15803d", borderRadius: "6px", fontWeight: 600 },
+  profileRight: { gap: "10px" },
+  certLabel: { fontSize: "12.5px", color: T.muted },
+  certValue: { fontSize: "12.5px", padding: "4px 12px", borderRadius: "999px" },
+
+  expirySection: { ...card, padding: "18px 20px", marginBottom: "18px" },
+  sectionTitle: { gap: "10px", marginBottom: "14px", flexWrap: "wrap" },
+  sectionTitleText: { fontSize: "16px", fontWeight: 700, color: T.text, display: "flex", alignItems: "center", gap: "8px" },
+  sectionHint: { fontSize: "12.5px", color: T.faint, marginLeft: "auto" },
+  titleIcon: { ...iconTile, color: "#b45309", background: "#fffbeb" },
+  expiryGrid: { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "12px" },
+  expiryCard: { backgroundColor: T.surface, borderRadius: "12px", padding: "12px 14px", border: `1px solid ${T.border}` },
+  expiryHeader: { gap: "10px", marginBottom: "10px" },
+  expiryIcon: { ...iconTile, width: "28px", height: "28px", fontSize: "14px" },
+  expiryName: { fontSize: "13.5px", fontWeight: 600, color: T.text, lineHeight: 1.3 },
+  expiryBody: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" },
+  expiryDate: { fontSize: "12px", color: T.muted, display: "inline-flex", alignItems: "center", gap: "4px" },
+  moreCard: { backgroundColor: T.soft, borderRadius: "12px", color: T.muted, fontWeight: 600, border: `1px dashed ${T.borderStrong}`, cursor: "help" },
+
+  tabsContainer: {
+    ...card,
+    borderRadius: "14px 14px 0 0",
+    borderBottom: `1px solid ${T.border}`,
+    boxShadow: "none",
+    position: "sticky",
+    top: "67px",
+    zIndex: 15,
+  },
+  tabs: { padding: "0 8px", gap: "2px" },
+  tab: { padding: "14px 12px", fontSize: "13.5px", color: T.muted, gap: "7px", borderBottom: "2px solid transparent" },
+  activeTab: { color: T.primaryDark, fontWeight: 700, borderBottom: `2px solid ${T.primary}` },
+  tabIcon: { fontSize: "15px", display: "inline-flex" },
+  tabContent: {
+    ...card,
+    borderTop: "none",
+    borderRadius: "0 0 14px 14px",
+    padding: "22px",
+  },
+  overview: { gap: "16px" },
+  details: { gap: "16px" },
+  supplyChainGrid: { gap: "16px" },
+  complianceGrid: { gap: "16px" },
+  safetyGrid: { gap: "16px" },
+  environmentGrid: { gap: "16px" },
+  oshGrid: { gap: "16px" },
+  checklistGrid: { gap: "16px" },
+  documentsTab: { gap: "16px" },
+
+  infoCard: { backgroundColor: T.surface, borderRadius: "12px", border: `1px solid ${T.border}` },
+  cardHeader: { padding: "12px 16px", backgroundColor: T.surface, borderBottom: `1px solid ${T.border}`, gap: "10px" },
+  cardIcon: iconTile,
+  cardTitle: { fontSize: "14.5px", fontWeight: 700, color: T.text },
+  cardBody: { padding: "8px 16px 14px" },
+  infoRow: { padding: "9px 0", borderBottom: `1px solid #eef1f5`, alignItems: "baseline" },
+  infoLabel: { fontSize: "13px", color: T.muted, fontWeight: 500, minWidth: "130px" },
+  infoValue: { fontSize: "13.5px", color: T.text, fontWeight: 600, textAlign: "right" },
+  copyButton: { color: T.faint, display: "inline-flex", padding: "4px", borderRadius: "6px" },
+  statusBadge: { letterSpacing: "0.04em", fontSize: "12px" },
+  daysBadge: { display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 9px", borderRadius: "999px", fontSize: "12px", fontWeight: 600 },
+  twoColumn: { gap: "0 28px" },
+  sectionGroup: { marginBottom: "14px", marginTop: "6px" },
+  groupHeader: { gap: "8px", marginBottom: "4px", paddingTop: "4px" },
+  groupHeaderText: { fontSize: "12px", fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" },
+  groupIcon: { fontSize: "14px", color: T.faint, display: "inline-flex" },
+
+  certificationsGrid: { gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "16px" },
+  certCard: { backgroundColor: T.surface, borderRadius: "12px", border: `1px solid ${T.border}` },
+  certHeader: { padding: "12px 14px", backgroundColor: T.surface, borderBottom: `1px solid ${T.border}`, gap: "10px" },
+  certIcon: iconTile,
+  certName: { fontSize: "14px", fontWeight: 700, color: T.text },
+  certBody: { padding: "6px 14px 12px" },
+  certRow: { padding: "8px 0", borderBottom: `1px solid #eef1f5`, fontSize: "13px" },
+  licenseCard: { backgroundColor: T.surface, borderRadius: "12px", border: `1px solid ${T.border}` },
+  licenseHeader: { padding: "12px 14px", backgroundColor: T.surface, borderBottom: `1px solid ${T.border}`, gap: "10px" },
+  licenseIcon: iconTile,
+  licenseName: { fontSize: "14px", fontWeight: 700, color: T.text },
+  licenseBody: { padding: "6px 14px 12px" },
+  licenseRow: { padding: "8px 0", borderBottom: `1px solid #eef1f5` },
+  licenseLabel: { fontSize: "12.5px", color: T.muted },
+  licenseValue: { fontSize: "13px", fontWeight: 600, color: T.text },
+
+  documentGrid: { gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: "12px" },
+  documentCard: { backgroundColor: T.surface, borderRadius: "12px", border: `1px solid ${T.border}`, padding: "12px 14px", gap: "12px" },
+  docIcon: { ...iconTile, width: "36px", height: "36px", fontSize: "17px" },
+  docName: { fontSize: "13.5px", fontWeight: 600, color: T.text },
+  docLink: { fontSize: "12.5px", fontWeight: 600, color: T.primary, display: "inline-flex", alignItems: "center", gap: "4px" },
+  noDocuments: { padding: "36px 16px", color: T.muted, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" },
+  noDocsIcon: { ...iconTile, width: "48px", height: "48px", fontSize: "22px", color: T.faint, background: T.soft, border: `1px solid ${T.border}`, borderRadius: "14px" },
+  remarks: { fontSize: "13.5px", color: T.text2, lineHeight: 1.65 },
+
+  chainSupplyCard: { borderRadius: "12px", border: `1px solid ${T.border}`, padding: "12px 14px" },
+  chainSupplyIcon: iconTile,
+  emptySupplyState: { backgroundColor: T.soft, border: `1px dashed ${T.borderStrong}`, borderRadius: "12px", color: T.muted, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" },
+  emptySupplyIcon: { fontSize: "22px", color: T.faint, display: "inline-flex" },
+  supplyChainDescription: { fontSize: "12.5px", color: T.muted, borderBottom: `1px solid #eef1f5` },
+
+  galleryTitle: { fontSize: "13px", fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" },
+  galleryImageContainer: { borderRadius: "12px", border: `1px solid ${T.border}` },
+  imageGrid: { gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "12px" },
+
+  multiFileSection: { backgroundColor: T.soft, borderRadius: "12px", border: `1px solid ${T.border}`, padding: "14px" },
+  multiFileIcon: iconTile,
+  multiFileItem: { borderRadius: "10px", border: `1px solid ${T.border}`, padding: "8px 12px" },
+  multiFileItemIcon: { color: T.muted, display: "inline-flex", fontSize: "15px" },
+  multiFileItemLink: { fontSize: "12.5px", fontWeight: 600, color: T.primaryDark, backgroundColor: T.primarySoft, borderRadius: "8px", padding: "4px 10px" },
+
+  modal: { borderRadius: "16px", boxShadow: "0 24px 64px rgba(15,23,42,.28)" },
+  modalHeader: { padding: "16px 20px" },
+  modalTitle: { fontSize: "17px", color: T.text },
+  modalClose: { display: "inline-grid", placeItems: "center" },
+  modalFooter: { padding: "14px 20px", gap: "10px", backgroundColor: T.soft, borderRadius: "0 0 16px 16px" },
+  modalPrimaryButton: { ...btnPrimary },
+  modalSecondaryButton: { ...btnGhost },
+  categorySectionTitle: { fontSize: "12px", fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" },
+  checkboxLabel: { backgroundColor: T.surface, borderRadius: "12px", border: `1px solid ${T.border}`, padding: "12px 14px" },
+  itemIcon: { ...iconTile, width: "26px", height: "26px", fontSize: "13px" },
+
+  loadingContainer: { minHeight: "60vh" },
+  errorContainer: { minHeight: "60vh" },
+  errorIcon: { fontSize: "36px", color: "#b91c1c", display: "inline-flex" },
+  retryButton: btnPrimary,
+  findingsRow: { backgroundColor: T.soft, border: `1px solid ${T.border}`, borderRadius: "8px" },
+
+  previewModalClose: { fontSize: "18px" },
+  downloadButton: { ...btnPrimary, textDecoration: "none" },
+  openNewTabButton: { ...btnGhost, textDecoration: "none" },
+  footer: { marginTop: "22px", paddingTop: "18px", borderTop: `1px solid ${T.border}`, gap: "10px" },
+  footerButton: btnGhost,
+  footerButtonPrimary: btnPrimary,
+};
+
+const styles = Object.fromEntries(
+  [...new Set([...Object.keys(baseStyles), ...Object.keys(THEME)])].map((key) => [
+    key,
+    { ...(baseStyles[key] || {}), ...(THEME[key] || {}) },
+  ]),
+);
+
+// Hover/focus states and responsive grids (inline styles can't do these).
+const SUPPLIER_DETAILS_CSS = `
+.csr-sd .sd-btn:hover:not(:disabled) { background-color: #f8fafc !important; border-color: #c4ccd8 !important; }
+.csr-sd .sd-btn.sd-btn-primary:hover { background-color: #1d4ed8 !important; border-color: #1d4ed8 !important; }
+.csr-sd .sd-btn:disabled { opacity: .55; cursor: not-allowed; }
+.csr-sd button:focus-visible, .csr-sd a:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.csr-sd a[href]:hover { text-decoration: none; }
+.csr-sd .sd-count {
+  font-size: 12px; font-weight: 700; color: #b45309; background: #fffbeb;
+  border: 1px solid #fde68a; border-radius: 999px; padding: 1px 9px;
+}
+.csr-sd [style*="overflow-x: auto"]::-webkit-scrollbar { height: 6px; }
+.csr-sd [style*="overflow-x: auto"]::-webkit-scrollbar-thumb { background: #d5dbe4; border-radius: 6px; }
+@media (max-width: 1280px) {
+  .csr-sd .sd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 900px) {
+  .csr-sd { padding: 0 14px 24px !important; }
+  .csr-sd .sd-grid, .csr-sd .sd-two { grid-template-columns: minmax(0, 1fr) !important; }
+  .csr-sd .sd-grid > * { grid-column: auto !important; }
+}
+`;
 
 // Add CSS animations
 const styleSheetEl = document.createElement("style");

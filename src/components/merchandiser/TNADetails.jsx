@@ -1,866 +1,328 @@
-// TNADetails.jsx - Without status fields
-import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import axios from "axios";
-import Sidebar from "../merchandiser/Sidebar.jsx";
+// src/components/merchandiser/TNADetails.jsx
+//
+// One TNA plan: order info, the four approval stages (click to approve /
+// undo - drives the progress %), and the full timeline of planned dates
+// with what's done, late, passed or next. Errors show inline (the old page
+// used alert(), which froze the tab when a TNA didn't exist).
 
-const getAuthToken = () => {
-  return localStorage.getItem('token') || sessionStorage.getItem('token');
-};
-
-const api = axios.create({
-  baseURL: "http://119.148.51.38:8000/api/merchandiser/api/"
-});
-
-api.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers.Authorization = `Token ${token}`;
-  }
-  return config;
-});
-
-// Order matches the model's TNA.PROGRESS_WEIGHTS (must sum to 100).
-const PROGRESS_STAGES = [
-  { field: "lab_dip_status", label: "Lab Dip", weight: 10, color: "#8b5cf6" },
-  { field: "fabric_status", label: "Fabric", weight: 40, color: "#3b82f6" },
-  { field: "fit_sample_status", label: "Fit Sample", weight: 20, color: "#f59e0b" },
-  { field: "pp_sample_status", label: "PP Sample", weight: 30, color: "#10b981" },
-];
+import React, { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  FiAlertTriangle, FiArrowLeft, FiCheck, FiCheckCircle, FiEdit2, FiExternalLink, FiRefreshCw, FiTrash2, FiX,
+} from "react-icons/fi";
+import Sidebar from "./Sidebar.jsx";
+import {
+  ConfirmDialog, GROUP_LABEL, ProgressBar, STAGES, TNA_CSS, apiError, daysFromToday, fmtDate, milestonePlan, relDays,
+  shipStatus, tnaApi,
+} from "./tnaShared";
 
 export default function TNADetails() {
-  const navigate = useNavigate();
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [tna, setTna] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updatingStage, setUpdatingStage] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState(null);
+  const [flash, setFlash] = useState(location.state?.flash || null);
+  const [updating, setUpdating] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetchTNA();
+    let alive = true;
+    setLoading(true);
+    setNotFound(false);
+    tnaApi
+      .get(`tna/${id}/`)
+      .then((res) => alive && setTna({
+        ...res.data,
+        order_no: res.data.order_no || res.data.order_number,
+        supplier_name: res.data.supplier_name || (res.data.supplier || "").replace(" (None)", ""),
+      }))
+      .catch((err) => {
+        if (!alive) return;
+        if (err.response?.status === 404) setNotFound(true);
+        else setError(apiError(err, "Couldn't load this TNA."));
+      })
+      .finally(() => alive && setLoading(false));
+    if (location.state?.flash) navigate(location.pathname, { replace: true, state: null });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const fetchTNA = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (!flash) return undefined;
+    const t = setTimeout(() => setFlash(null), 6000);
+    return () => clearTimeout(t);
+  }, [flash]);
+
+  const toggleStage = async (stage) => {
+    const next = tna[stage.field] === "approved" ? "pending" : "approved";
+    setUpdating(stage.field);
+    setError(null);
+    const before = tna;
+    setTna({ ...tna, [stage.field]: next }); // optimistic
     try {
-      const response = await api.get(`tna/${id}/`);
-      setTna(response.data);
+      const res = await tnaApi.patch(`tna/${id}/`, { [stage.field]: next });
+      setTna(res.data);
     } catch (err) {
-      console.error("Error fetching TNA:", err);
-      alert("Failed to load TNA details");
+      setTna(before);
+      setError(apiError(err, `Couldn't update ${stage.label}.`));
     } finally {
-      setLoading(false);
+      setUpdating(null);
     }
   };
 
-  const toggleStage = async (field, currentStatus) => {
-    const nextStatus = currentStatus === "approved" ? "pending" : "approved";
-    setUpdatingStage(field);
-    // Optimistic update so the bar responds immediately.
-    setTna((prev) => (prev ? { ...prev, [field]: nextStatus } : prev));
+  const syncFromOrder = async () => {
+    setSyncing(true);
+    setError(null);
     try {
-      const response = await api.patch(`tna/${id}/`, { [field]: nextStatus });
-      setTna(response.data);
+      const res = await tnaApi.post(`tna/sync-from-order/${tna.order}/`);
+      setTna(res.data);
+      setFlash("Order details refreshed and the plan recalculated.");
     } catch (err) {
-      console.error("Error updating stage status:", err);
-      alert("Failed to update status. Please try again.");
-      // Roll back on failure.
-      setTna((prev) => (prev ? { ...prev, [field]: currentStatus } : prev));
+      setError(apiError(err, "Couldn't refresh from the order."));
     } finally {
-      setUpdatingStage(null);
+      setSyncing(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete this TNA record?")) {
-      try {
-        await api.delete(`tna/${id}/`);
-        navigate("/orders/tna");
-      } catch (err) {
-        console.error("Error deleting TNA:", err);
-        alert("Failed to delete TNA");
-      }
+  const doDelete = async () => {
+    setBusy(true);
+    try {
+      await tnaApi.delete(`tna/${id}/`);
+      navigate("/orders/tna", { state: { flash: `TNA for ${tna.order_no} deleted.` } });
+    } catch (err) {
+      setError(apiError(err, "Couldn't delete the TNA."));
+      setConfirmDelete(false);
+      setBusy(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
-
-  const getDaysToShipment = () => {
-    if (!tna?.shipment_date) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const shipment = new Date(tna.shipment_date);
-    const diffTime = shipment - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+  const shell = (content) => (
+    <div className="tna-shell">
+      <style>{TNA_CSS}</style>
+      <Sidebar />
+      <div className="tna-app">{content}</div>
+    </div>
+  );
 
   if (loading) {
-    return (
-      <div style={styles.container}>
-        <Sidebar />
-        <div style={styles.loadingContainer}>
-          <div style={styles.spinner}></div>
-          <p>Loading TNA details...</p>
-        </div>
-      </div>
+    return shell(
+      <div className="tna-body">
+        <span className="tna-skel" style={{ height: 90 }} />
+        <span className="tna-skel" style={{ height: 160 }} />
+        <span className="tna-skel" style={{ height: 320 }} />
+      </div>,
     );
   }
 
-  if (!tna) {
-    return (
-      <div style={styles.container}>
-        <Sidebar />
-        <div style={styles.errorContainer}>
-          <h2>TNA record not found</h2>
-          <Link to="/orders/tna">← Back to Dashboard</Link>
+  if (notFound || !tna) {
+    return shell(
+      <div className="tna-body">
+        <div className="tna-card tna-empty">
+          <FiAlertTriangle />
+          <b>{notFound ? "This TNA doesn't exist or you don't have access to it." : error || "Couldn't load this TNA."}</b>
+          <Link className="tna-link" to="/orders/tna">Back to Time & Action</Link>
         </div>
-      </div>
+      </div>,
     );
   }
 
-  const daysToShipment = getDaysToShipment();
-  const isOverdue = daysToShipment !== null && daysToShipment < 0;
+  const plan = milestonePlan(tna);
+  const nextKey = plan.find((m) => m.state === "upcoming")?.key;
+  const ship = shipStatus(tna.shipment_date);
+  const shipDays = daysFromToday(tna.shipment_date);
+  // count stages, not dates (PP Sample has two dates: yardage + sample)
+  const lateCount = new Set(plan.filter((m) => m.state === "overdue").map((m) => m.stage)).size;
 
-  const getDaysDisplay = () => {
-    if (daysToShipment === null) return { text: '-', color: '#64748b' };
-    if (daysToShipment < 0) return { text: `${Math.abs(daysToShipment)} days overdue`, color: '#dc2626' };
-    if (daysToShipment === 0) return { text: 'Today', color: '#f59e0b' };
-    if (daysToShipment === 1) return { text: '1 day remaining', color: '#10b981' };
-    return { text: `${daysToShipment} days remaining`, color: daysToShipment < 15 ? '#f59e0b' : '#10b981' };
-  };
-
-  const daysInfo = getDaysDisplay();
-
-  return (
-    <div style={styles.container}>
-      <Sidebar />
-      <div style={styles.mainContent}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerContent}>
-            <div style={styles.headerLeft}>
-              <div style={styles.headerBadge}>📅</div>
-              <div>
-                <h1 style={styles.headerTitle}>
-                  TNA Details: { tna.order_style ? tna.order_style : tna.order_number }
-                </h1>
-                <p style={styles.headerSubtitle}>
-                  Complete timeline and production schedule information
-                </p>
-              </div>
-            </div>
-            <div style={styles.headerActions}>
-              <Link to="/orders/tna" style={styles.btnSecondary}>← Back</Link>
-              <Link to={`/edit-tna/${tna.id}`} style={styles.btnEdit}>✏️ Edit</Link>
-              <button onClick={handleDelete} style={styles.btnDelete}>🗑️ Delete</button>
-            </div>
+  return shell(
+    <>
+      <header className="tna-header">
+        <div>
+          <div className="tna-crumbs">
+            <Link to="/orders/tna">Time & Action</Link> <span>/</span> <span>{tna.order_no}</span>
           </div>
+          <h1 className="tna-title">
+            {tna.order_no || `TNA-${tna.id}`}
+            <span className={`tna-chip ${ship.cls}`}>{ship.label}</span>
+            {tna.fabric_type && <span className={`tna-chip ${tna.fabric_type === "imported" ? "violet" : "grey"}`}>{tna.fabric_type === "imported" ? "Imported fabric" : "Local fabric"}</span>}
+          </h1>
+          <p className="tna-subtitle">
+            {[tna.customer_name, tna.supplier_name, tna.item].filter(Boolean).join(" · ") || "Time & Action plan"}
+          </p>
         </div>
+        <div className="tna-actions">
+          <button type="button" className="tna-btn ghost" onClick={() => navigate("/orders/tna")}><FiArrowLeft /> Back</button>
+          {tna.order && (
+            <button type="button" className="tna-btn ghost" onClick={syncFromOrder} disabled={syncing} title="Pull the latest order details (shipment date, qty, supplier…) and recalculate">
+              <FiRefreshCw /> {syncing ? "Refreshing…" : "Refresh from order"}
+            </button>
+          )}
+          <button type="button" className="tna-btn danger-ghost" onClick={() => setConfirmDelete(true)}><FiTrash2 /> Delete</button>
+          <button type="button" className="tna-btn primary" onClick={() => navigate(`/edit-tna/${tna.id}`)}><FiEdit2 /> Edit</button>
+        </div>
+      </header>
 
-        {/* Days to Shipment Card */}
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryContent}>
-            <div style={styles.summaryIcon}>📊</div>
-            <div style={styles.summaryInfo}>
-              <span style={styles.summaryLabel}>Days to Shipment</span>
-              <span style={{ ...styles.summaryValue, color: daysInfo.color }}>
-                {daysInfo.text}
-              </span>
-              <span style={styles.summaryHint}>Shipment Date - Today</span>
-            </div>
+      <div className="tna-body">
+        {flash && (
+          <div className="tna-alert ok" role="status">
+            <FiCheckCircle /><span>{flash}</span>
+            <button type="button" className="x" onClick={() => setFlash(null)} aria-label="Dismiss"><FiX /></button>
           </div>
-        </div>
+        )}
+        {error && (
+          <div className="tna-alert err">
+            <FiAlertTriangle /><span>{error}</span>
+            <button type="button" className="x" onClick={() => setError(null)} aria-label="Dismiss"><FiX /></button>
+          </div>
+        )}
 
-        {/* T&A Progress Bar */}
-        <div style={styles.section}>
-          <div style={styles.sectionHeader}>
-            <span style={styles.sectionIcon}>📈</span>
-            <h2 style={styles.sectionTitle}>T&A Progress</h2>
-            <span style={styles.sectionHint}>
-              Lab Dip 10% · Fabric 40% · Fit Sample 20% · PP Sample 30%
+        <div className="tna-kpis">
+          <div className="tna-card tna-kpi">
+            <span className="tna-kpi-label">Shipment</span>
+            <span className="tna-kpi-value" style={{ fontSize: 22 }}>{fmtDate(tna.shipment_date)}</span>
+            <span className="tna-kpi-foot" style={shipDays !== null && shipDays < 0 ? { color: "#b91c1c", fontWeight: 600 } : undefined}>
+              {shipDays === null ? "No shipment date" : shipDays < 0 ? `${-shipDays} days past — not marked shipped` : `${relDays(shipDays)}`}
             </span>
           </div>
-          <div style={styles.progressWrap}>
-            <div style={styles.progressBarTrack}>
-              {PROGRESS_STAGES.map((stage) => {
-                const approved = tna[stage.field] === "approved";
-                return (
-                  <div
-                    key={stage.field}
-                    title={`${stage.label} - ${stage.weight}%${approved ? " (Approved)" : " (Pending)"}`}
-                    style={{
-                      ...styles.progressBarSegment,
-                      width: `${stage.weight}%`,
-                      backgroundColor: approved ? stage.color : "#e2e8f0",
-                    }}
-                  />
-                );
-              })}
-            </div>
-            <div style={styles.progressTotalRow}>
-              <span style={styles.progressTotalLabel}>Overall Progress</span>
-              <span style={styles.progressTotalValue}>
-                {tna.progress_percentage ?? 0}%
-              </span>
-            </div>
+          <div className="tna-card tna-kpi">
+            <span className="tna-kpi-label">Approval progress</span>
+            <span className="tna-kpi-value">{tna.progress_percentage}%</span>
+            <ProgressBar tna={tna} showLabel={false} />
+          </div>
+          <div className="tna-card tna-kpi">
+            <span className="tna-kpi-label">Next milestone</span>
+            <span className="tna-kpi-value" style={{ fontSize: 20 }}>{tna.next_milestone?.label || "—"}</span>
+            <span className="tna-kpi-foot">{tna.next_milestone ? `${fmtDate(tna.next_milestone.date)} · ${relDays(tna.next_milestone.days)}` : "Nothing upcoming"}</span>
+          </div>
+          <div className="tna-card tna-kpi">
+            <span className="tna-kpi-label">Late approvals</span>
+            <span className="tna-kpi-value" style={{ color: lateCount ? "#b91c1c" : undefined }}>{lateCount}</span>
+            <span className="tna-kpi-foot">{lateCount ? "Past planned date, still pending" : "None"}</span>
+          </div>
+        </div>
 
-            <div style={styles.progressStagesGrid}>
-              {PROGRESS_STAGES.map((stage) => {
-                const approved = tna[stage.field] === "approved";
+        <section className="tna-card">
+          <div className="tna-card-head">
+            <div>
+              <h2 className="tna-card-title">Approvals</h2>
+              <p className="tna-card-sub">Mark a stage approved once it's actually approved — progress is Lab Dip 10% · Fabric 40% · Fit 20% · PP Sample 30%.</p>
+            </div>
+          </div>
+          <div className="tna-card-body">
+            <div className="tna-stages">
+              {STAGES.map((s) => {
+                const approved = tna[s.field] === "approved";
+                const due = tna[s.dateField];
+                const d = daysFromToday(due);
+                const late = !approved && d !== null && d < 0;
                 return (
-                  <div key={stage.field} style={styles.progressStageCard}>
-                    <div style={styles.progressStageHeader}>
-                      <span
-                        style={{ ...styles.progressStageDot, backgroundColor: stage.color }}
-                      />
-                      <span style={styles.progressStageLabel}>{stage.label}</span>
-                      <span style={styles.progressStageWeight}>{stage.weight}%</span>
+                  <div key={s.field} className={`tna-stage ${approved ? "done" : late ? "late" : ""}`}>
+                    <div className="tna-stage-top">
+                      <span className="tna-stage-name">{s.label}</span>
+                      <span className="tna-stage-weight">{s.weight}%</span>
+                    </div>
+                    <div className="tna-stage-meta">
+                      {due ? <>Planned {fmtDate(due)} · <span style={late ? { color: "#b91c1c", fontWeight: 600 } : undefined}>{relDays(d)}</span></> : "No planned date"}
                     </div>
                     <button
-                      onClick={() => toggleStage(stage.field, tna[stage.field])}
-                      disabled={updatingStage === stage.field}
-                      style={{
-                        ...styles.progressStageBtn,
-                        ...(approved ? styles.progressStageBtnApproved : {}),
-                      }}
+                      type="button"
+                      className={`tna-btn sm ${approved ? "ghost" : "primary"}`}
+                      onClick={() => toggleStage(s)}
+                      disabled={updating === s.field}
                     >
-                      {updatingStage === stage.field
-                        ? "Saving..."
-                        : approved
-                        ? "✓ Approved"
-                        : "Mark Approved"}
+                      {approved ? <><FiCheck /> Approved · undo</> : updating === s.field ? "Saving…" : "Mark approved"}
                     </button>
                   </div>
                 );
               })}
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Two Column Layout */}
-        <div style={styles.twoColumnGrid}>
-          {/* Basic Information */}
-          <div style={styles.infoCard}>
-            <div style={styles.cardHeader}>
-              <span style={styles.cardIcon}>📋</span>
-              <h3 style={styles.cardTitle}>Basic Order Information</h3>
-            </div>
-            <div style={styles.infoList}>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Order Number:</span>
-                <span style={styles.infoValue}>
-                  {tna.order_style ? tna.order_style : tna.order_number || "-"}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Supplier:</span>
-                <span style={styles.infoValue}>{tna.supplier || "-"}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Gender:</span>
-                <span style={styles.infoValue}>{tna.gender || "-"}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Item:</span>
-                <span style={styles.infoValue}>{tna.item || "-"}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>WGR:</span>
-                <span style={styles.infoValue}>{tna.wgr || "-"}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Fabrication:</span>
-                <span style={styles.infoValue}>{tna.fabrication || "-"}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Size Range:</span>
-                <span style={styles.infoValue}>{tna.size_range || "-"}</span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Total Quantity:</span>
-                <span style={styles.infoValue}>{tna.total_qty?.toLocaleString() || "-"}</span>
+        <div className="tna-grid-3">
+          <section className="tna-card">
+            <div className="tna-card-head">
+              <div>
+                <h2 className="tna-card-title">Timeline</h2>
+                <p className="tna-card-sub">Planned dates, calculated from order booking, shipment date and fabric type.</p>
               </div>
             </div>
-          </div>
-
-          {/* Fabric Information */}
-          <div style={styles.infoCard}>
-            <div style={styles.cardHeader}>
-              <span style={styles.cardIcon}>🧵</span>
-              <h3 style={styles.cardTitle}>Fabric Information</h3>
-            </div>
-            <div style={styles.infoList}>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Fabric Type:</span>
-                <span style={{
-                  ...styles.fabricTypeBadge,
-                  backgroundColor: tna.fabric_type === 'imported' ? '#8b5cf6' : '#f59e0b'
-                }}>
-                  {tna.fabric_type === 'imported' ? '🌍 Imported' : '🏠 Local'}
-                </span>
-              </div>
-              <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Fabric Supplier:</span>
-                <span style={styles.infoValue}>{tna.fabric_supplier || "-"}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Input Dates Section */}
-        <div style={styles.section}>
-          <div style={styles.sectionHeader}>
-            <span style={styles.sectionIcon}>📝</span>
-            <h2 style={styles.sectionTitle}>Input Dates</h2>
-            <span style={styles.sectionHint}>Base dates for calculations</span>
-          </div>
-          <div style={styles.datesGrid}>
-            <div style={styles.dateCard}>
-              <label style={styles.dateLabel}>Shipment Date</label>
-              <div style={styles.dateValue}>{formatDate(tna.shipment_date)}</div>
-            </div>
-            <div style={styles.dateCard}>
-              <label style={styles.dateLabel}>Order Booking Date</label>
-              <div style={styles.dateValue}>{formatDate(tna.order_booking_date)}</div>
-              <div style={styles.formulaHint}>→ Calculates: Lab Dip, Fit Sample</div>
-            </div>
-            <div style={styles.dateCard}>
-              <label style={styles.dateLabel}>Fabric Booking Date</label>
-              <div style={styles.dateValue}>{formatDate(tna.fabric_booking_date)}</div>
-              <div style={styles.formulaHint}>→ Calculates: Fabric LC, Bulk Fabric Approve Date{tna.fabric_type !== 'imported' ? ', PPS' : ''}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Auto-Calculated Dates Section */}
-        <div style={styles.section}>
-          <div style={styles.sectionHeader}>
-            <span style={styles.sectionIcon}>⚡</span>
-            <h2 style={styles.sectionTitle}>Auto-Calculated Dates</h2>
-            <span style={styles.sectionHint}>Generated automatically</span>
-          </div>
-          <div style={styles.calculatedColumns}>
-            <div style={styles.calculatedColumn}>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Bulk Fabric Approve Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.bulk_fabric_approve_date)}</div>
-                <div style={styles.formulaHint}>= Fabric Booking Date + 30 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Fabric ETD</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.fabric_etd)}</div>
-                <div style={styles.formulaHint}>= Bulk Fabric Approve Date + 35 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Fabric ETA</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.fabric_eta)}</div>
-                <div style={styles.formulaHint}>= Fabric ETD + 15 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Fabric Inhouse Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.fabric_inhouse_date)}</div>
-                <div style={styles.formulaHint}>= Fabric ETA + 10 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Production Start Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.production_start_date)}</div>
-                <div style={styles.formulaHint}>= Fabric Inhouse + 10 days</div>
-              </div>
-              {tna.fabric_type === 'imported' && (
-                <div style={styles.calculatedCard}>
-                  <label style={styles.calculatedLabel}>PP Sample Yardage (China)</label>
-                  <div style={styles.calculatedValue}>{formatDate(tna.pp_sample_yardage_china_date)}</div>
-                  <div style={styles.formulaHint}>= Fabric ETD - 7 days</div>
-                </div>
+            <div className="tna-card-body">
+              {plan.length === 0 ? (
+                <div className="tna-empty" style={{ padding: 20 }}>No dates yet — set order booking, shipment date and fabric type.</div>
+              ) : (
+                <ul className="tna-timeline">
+                  {plan.map((m) => (
+                    <li key={m.key} className={`${m.state} ${m.key === nextKey ? "next" : ""}`}>
+                      <span className="tna-dot">{m.state === "done" ? "✓" : ""}</span>
+                      <div>
+                        <div className="tna-tl-label">
+                          {m.label}{" "}
+                          {m.state === "done" && <span className="tna-chip green" style={{ marginLeft: 6 }}>Approved</span>}
+                          {m.state === "overdue" && <span className="tna-chip red" style={{ marginLeft: 6 }}>Approval late</span>}
+                          {m.key === nextKey && <span className="tna-chip blue" style={{ marginLeft: 6 }}>Next</span>}
+                        </div>
+                        <div className="tna-tl-rule">{GROUP_LABEL[m.group]}{m.rule ? ` · ${m.rule}` : ""}</div>
+                      </div>
+                      <div className="tna-tl-date">
+                        <b>{fmtDate(m.date)}</b>
+                        <span>{relDays(m.days)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
+          </section>
 
-            <div style={styles.calculatedColumn}>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Lab Dip Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.lab_dip_date)}</div>
-                <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Fit Sample Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.fit_sample_date)}</div>
-                <div style={styles.formulaHint}>= Order Booking Date + 15 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>PS Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.ps_date)}</div>
-                <div style={styles.formulaHint}>= Production Start + 10 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>PPS Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.pps_date)}</div>
-                <div style={styles.formulaHint}>
-                  {tna.fabric_type === 'imported'
-                    ? '= PP Sample Yardage (China) + 12 days'
-                    : '= Fabric Booking Date + 20 days'}
-                </div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Test Samples Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.test_samples_date)}</div>
-                <div style={styles.formulaHint}>= Production Start - 10 days</div>
-              </div>
-              <div style={styles.calculatedCard}>
-                <label style={styles.calculatedLabel}>Fabric LC Date</label>
-                <div style={styles.calculatedValue}>{formatDate(tna.fabric_lc_date)}</div>
-                <div style={styles.formulaHint}>= Fabric Booking Date + 10 days</div>
+          <section className="tna-card" style={{ alignSelf: "start" }}>
+            <div className="tna-card-head">
+              <div>
+                <h2 className="tna-card-title">Order details</h2>
+                <p className="tna-card-sub">Snapshot taken from the order — use “Refresh from order” after the order changes.</p>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Remarks Section */}
-        {tna.remarks && (
-          <div style={styles.remarksCard}>
-            <div style={styles.cardHeader}>
-              <span style={styles.cardIcon}>📝</span>
-              <h3 style={styles.cardTitle}>Remarks</h3>
+            <div className="tna-card-body">
+              <dl className="tna-dl">
+                <div><dt>Order NO</dt><dd>{tna.order_no || "—"}</dd></div>
+                <div><dt>PO</dt><dd>{tna.po_no || "—"}</dd></div>
+                <div><dt>Customer</dt><dd>{tna.customer_name || "—"}</dd></div>
+                <div><dt>Supplier</dt><dd>{tna.supplier_name || "—"}</dd></div>
+                <div><dt>Item</dt><dd>{tna.item || "—"}</dd></div>
+                <div><dt>Gender</dt><dd>{tna.gender || "—"}</dd></div>
+                <div><dt>Total qty</dt><dd>{tna.total_qty ? Number(tna.total_qty).toLocaleString("en-US") : "—"}</dd></div>
+                <div><dt>Size range</dt><dd>{tna.size_range || "—"}</dd></div>
+                <div><dt>WGR</dt><dd>{tna.wgr || "—"}</dd></div>
+                <div><dt>Fabric supplier</dt><dd>{tna.fabric_supplier || "—"}</dd></div>
+                <div style={{ gridColumn: "1 / -1" }}><dt>Fabrication</dt><dd>{tna.fabrication || "—"}</dd></div>
+                <div style={{ gridColumn: "1 / -1" }}><dt>Remarks</dt><dd style={{ whiteSpace: "pre-wrap" }}>{tna.remarks || "—"}</dd></div>
+              </dl>
+              {tna.order && (
+                <Link to={`/orders/${tna.order}`} className="tna-btn ghost sm" style={{ marginTop: 16 }}>
+                  <FiExternalLink /> Open order
+                </Link>
+              )}
             </div>
-            <p style={styles.remarksText}>{tna.remarks}</p>
-          </div>
-        )}
-
-        {/* Metadata */}
-        <div style={styles.metadataCard}>
-          <div style={styles.metadataRow}>
-            <span style={styles.metadataLabel}>Created:</span>
-            <span style={styles.metadataValue}>{formatDate(tna.created_at)}</span>
-          </div>
-          <div style={styles.metadataRow}>
-            <span style={styles.metadataLabel}>Last Updated:</span>
-            <span style={styles.metadataValue}>{formatDate(tna.updated_at)}</span>
-          </div>
+          </section>
         </div>
       </div>
 
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 4px;
-        }
-      `}</style>
-    </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this TNA?"
+        message={<>The Time & Action plan for <b>{tna.order_no}</b> will be removed. The order itself is not affected.</>}
+        confirmLabel="Delete TNA"
+        danger
+        busy={busy}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    </>,
   );
 }
-
-const styles = {
-  container: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#f0f2f5",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
-  mainContent: {
-    flex: 1,
-    padding: "24px 32px",
-    overflow: "auto",
-    maxHeight: "100vh",
-  },
-  loadingContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-  },
-  errorContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "3px solid #e2e8f0",
-    borderTopColor: "#3b82f6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  header: {
-    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-    borderRadius: "16px",
-    padding: "24px 28px",
-    marginBottom: "24px",
-  },
-  headerContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-  },
-  headerBadge: {
-    background: "rgba(255,255,255,0.15)",
-    borderRadius: "14px",
-    padding: "10px 14px",
-    fontSize: "22px",
-  },
-  headerTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "white",
-    margin: 0,
-  },
-  headerSubtitle: {
-    fontSize: "13px",
-    color: "rgba(255,255,255,0.7)",
-    margin: "4px 0 0 0",
-  },
-  headerActions: {
-    display: "flex",
-    gap: "12px",
-  },
-  btnSecondary: {
-    background: "rgba(255,255,255,0.15)",
-    color: "white",
-    padding: "10px 20px",
-    borderRadius: "10px",
-    textDecoration: "none",
-    fontSize: "13px",
-    fontWeight: "500",
-  },
-  btnEdit: {
-    background: "#f59e0b",
-    color: "white",
-    padding: "10px 20px",
-    borderRadius: "10px",
-    textDecoration: "none",
-    fontSize: "13px",
-    fontWeight: "500",
-  },
-  btnDelete: {
-    background: "#ef4444",
-    color: "white",
-    padding: "10px 20px",
-    borderRadius: "10px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: "500",
-  },
-  summaryCard: {
-    background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)",
-    borderRadius: "16px",
-    padding: "24px",
-    marginBottom: "24px",
-  },
-  summaryContent: {
-    display: "flex",
-    alignItems: "center",
-    gap: "20px",
-  },
-  summaryIcon: {
-    fontSize: "48px",
-  },
-  summaryInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  summaryLabel: {
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.7)",
-  },
-  summaryValue: {
-    fontSize: "36px",
-    fontWeight: "700",
-    color: "white",
-  },
-  summaryHint: {
-    fontSize: "12px",
-    color: "rgba(255,255,255,0.5)",
-  },
-  twoColumnGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "24px",
-    marginBottom: "24px",
-  },
-  infoCard: {
-    background: "white",
-    borderRadius: "16px",
-    overflow: "hidden",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "16px 20px",
-    background: "#f8fafc",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  cardIcon: {
-    fontSize: "18px",
-  },
-  cardTitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#0f172a",
-    margin: 0,
-  },
-  infoList: {
-    padding: "16px 20px",
-  },
-  infoRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "10px 0",
-    borderBottom: "1px solid #f1f5f9",
-  },
-  infoLabel: {
-    fontSize: "13px",
-    color: "#64748b",
-  },
-  infoValue: {
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#1f2937",
-  },
-  fabricTypeBadge: {
-    display: "inline-block",
-    padding: "4px 12px",
-    borderRadius: "20px",
-    fontSize: "12px",
-    fontWeight: "500",
-    color: "white",
-  },
-  section: {
-    background: "white",
-    borderRadius: "16px",
-    marginBottom: "24px",
-    overflow: "hidden",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "16px 24px",
-    background: "#f8fafc",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  sectionIcon: {
-    fontSize: "20px",
-  },
-  sectionTitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#0f172a",
-    margin: 0,
-  },
-  sectionHint: {
-    fontSize: "11px",
-    color: "#94a3b8",
-    marginLeft: "auto",
-  },
-  datesGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "20px",
-    padding: "24px",
-  },
-  dateCard: {
-    padding: "16px",
-    background: "#f8fafc",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-  },
-  dateLabel: {
-    fontSize: "11px",
-    fontWeight: "600",
-    color: "#64748b",
-    textTransform: "uppercase",
-    display: "block",
-    marginBottom: "8px",
-  },
-  dateValue: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  calculatedColumns: {
-    display: "flex",
-    gap: "16px",
-    padding: "24px",
-    flexWrap: "wrap",
-  },
-  calculatedColumn: {
-    flex: "1 1 280px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-  },
-  calculatedCard: {
-    padding: "16px",
-    background: "#f8fafc",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-  },
-  calculatedLabel: {
-    fontSize: "11px",
-    fontWeight: "600",
-    color: "#64748b",
-    textTransform: "uppercase",
-    display: "block",
-    marginBottom: "8px",
-  },
-  calculatedValue: {
-    fontSize: "15px",
-    fontWeight: "600",
-    color: "#0f172a",
-    marginBottom: "6px",
-  },
-  formulaHint: {
-    fontSize: "10px",
-    color: "#8b5cf6",
-  },
-  progressWrap: {
-    padding: "24px",
-  },
-  progressBarTrack: {
-    display: "flex",
-    width: "100%",
-    height: "18px",
-    borderRadius: "999px",
-    overflow: "hidden",
-    background: "#e2e8f0",
-    border: "1px solid #e2e8f0",
-  },
-  progressBarSegment: {
-    height: "100%",
-    transition: "background-color 0.2s ease",
-  },
-  progressTotalRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    marginTop: "12px",
-  },
-  progressTotalLabel: {
-    fontSize: "13px",
-    color: "#64748b",
-    fontWeight: "500",
-  },
-  progressTotalValue: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  progressStagesGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "16px",
-    marginTop: "20px",
-  },
-  progressStageCard: {
-    padding: "14px",
-    background: "#f8fafc",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-  progressStageHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  progressStageDot: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    flexShrink: 0,
-  },
-  progressStageLabel: {
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "#0f172a",
-    flex: 1,
-  },
-  progressStageWeight: {
-    fontSize: "11px",
-    fontWeight: "600",
-    color: "#94a3b8",
-  },
-  progressStageBtn: {
-    padding: "8px 10px",
-    borderRadius: "8px",
-    border: "1px solid #cbd5e1",
-    background: "white",
-    color: "#334155",
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  progressStageBtnApproved: {
-    background: "#d1fae5",
-    border: "1px solid #10b981",
-    color: "#059669",
-  },
-  remarksCard: {
-    background: "white",
-    borderRadius: "16px",
-    marginBottom: "24px",
-    overflow: "hidden",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  remarksText: {
-    padding: "16px 20px",
-    fontSize: "14px",
-    color: "#475569",
-    lineHeight: "1.6",
-    margin: 0,
-  },
-  metadataCard: {
-    background: "#f8fafc",
-    borderRadius: "16px",
-    padding: "16px 20px",
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "24px",
-  },
-  metadataRow: {
-    display: "flex",
-    gap: "12px",
-    fontSize: "12px",
-  },
-  metadataLabel: {
-    color: "#64748b",
-  },
-  metadataValue: {
-    color: "#1f2937",
-    fontWeight: "500",
-  },
-};

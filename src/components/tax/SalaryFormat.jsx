@@ -1,37 +1,41 @@
-// src/pages/finance/SalaryFormat.jsx - COMPLETE FIXED VERSION
+// SalaryFormat.jsx - this month's salary sheet for every company.
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaArrowLeft,
-  FaSearch,
   FaSave,
-  FaFileExport,
   FaBuilding,
   FaUsers,
   FaCheckCircle,
-  FaCalendarAlt,
-  FaFileDownload,
-  FaFileExcel,
+  FaGift,
+  FaHistory,
+  FaFileInvoiceDollar,
+  FaMoneyBillWave,
   FaCalculator,
+  FaUniversity,
   FaSync,
-  FaSpinner,
+  FaEye,
+  FaEyeSlash,
 } from "react-icons/fa";
 
-// FIXED: Import the complete finance API
 import { financeAPI } from "../../api/finance";
+import {
+  FinanceShell,
+  Card,
+  Kpi,
+  Badge,
+  Alert,
+  LoadingState,
+  EmptyState,
+  SearchInput,
+  CompanyChips,
+  Stat,
+  formatMoney,
+  parseFlexibleDate,
+  MONTH_NAMES,
+} from "./finance/FinanceUI";
 
-const parseDate = (dateStr) => {
-  if (!dateStr) return null;
-  const [day, month, year] = dateStr.split("/").map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const formatNumber = (num) => {
-  if (num === null || num === undefined || isNaN(num)) return "৳0";
-  const abs = Math.abs(num);
-  const formatted = abs.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return num < 0 ? `-৳${formatted}` : `৳${formatted}`;
-};
+const formatNumber = formatMoney;
+const AIT_THRESHOLD = 43000;
 
 const calculateOTPay = (monthlySalary, otMinutes, totalDaysInMonth) => {
   if (!monthlySalary || !otMinutes || otMinutes <= 0) return 0;
@@ -40,7 +44,6 @@ const calculateOTPay = (monthlySalary, otMinutes, totalDaysInMonth) => {
   const basicSalary = monthlySalary * 0.6;
 
   // Input is in minutes where 60 = 60 minutes (1 hour)
-  // Convert minutes to hours for calculation
   const otHours = otMinutes / 60;
 
   // OT Pay = (Basic Salary ÷ daysInMonth ÷ 10) × Monthly OT Hours
@@ -51,20 +54,22 @@ const calculateOTPay = (monthlySalary, otMinutes, totalDaysInMonth) => {
   return Number(otPay.toFixed(2));
 };
 
+const APPROVAL_STEPS = [
+  { key: "hr_prepared", label: "HR" },
+  { key: "finance_checked", label: "Finance" },
+  { key: "director_checked", label: "Director" },
+  { key: "proprietor_approved", label: "MD" },
+];
+
 const SalaryFormat = () => {
-  // MOVE THESE TO THE TOP - before any functions that use them
   const today = new Date();
   const selectedMonth = today.getMonth() + 1;
   const selectedYear = today.getFullYear();
   const totalDaysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-  const BASE_MONTH = new Date(selectedYear, selectedMonth, 0).getDate();
 
-  // Now declare all your state variables
   const [employees, setEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [taxResults, setTaxResults] = useState({});
-  const [sourceOther, setSourceOther] = useState({});
-  const [bonusOverride, setBonusOverride] = useState({});
   const [loading, setLoading] = useState(true);
   const [openCompanies, setOpenCompanies] = useState({});
   const [manualData, setManualData] = useState({});
@@ -75,38 +80,15 @@ const SalaryFormat = () => {
   const [showSummary, setShowSummary] = useState(true);
   const [loadingAit, setLoadingAit] = useState({});
   const [calculatingTaxes, setCalculatingTaxes] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState(null);
   const navigate = useNavigate();
   const [companyApprovalStatus, setCompanyApprovalStatus] = useState({});
-
-  // Add the new state for save lock
   const [isDataSavedForMonth, setIsDataSavedForMonth] = useState(false);
-
-  // BACKEND-BASED APPROVAL STATUS
-  const [approvalStatus, setApprovalStatus] = useState({
-    hr_prepared: false,
-    finance_checked: false,
-    director_checked: false,
-    proprietor_approved: false,
-  });
-  const [loadingStatus, setLoadingStatus] = useState(true);
   const [currentUser, setCurrentUser] = useState("");
 
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
+  const monthLabel = `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`;
 
-  // FIXED: Use useMemo for grouped data
   const grouped = useMemo(() => {
     return filteredEmployees.reduce((acc, emp) => {
       const comp = emp.company_name ?? "Unknown";
@@ -118,99 +100,67 @@ const SalaryFormat = () => {
 
   const checkBackendDataExists = async () => {
     try {
-      console.log(
-        `🔍 Checking backend for salary records: ${monthNames[selectedMonth - 1]} ${selectedYear}`,
-      );
-
-      // Call backend API to check if records exist
       const response = await financeAPI.salary.checkSalaryRecordsExists(
         selectedMonth,
         selectedYear,
       );
-
-      if (response.data && response.data.exists) {
-        console.log(
-          `✅ Found ${response.data.count} salary records in backend`,
-        );
-        setIsDataSavedForMonth(true);
-      } else {
-        console.log(`❌ No salary records found in backend for this month`);
-        setIsDataSavedForMonth(false);
-      }
+      setIsDataSavedForMonth(!!(response.data && response.data.exists));
     } catch (error) {
       console.error("Error checking backend for salary records:", error);
-      // Fallback to false on error
       setIsDataSavedForMonth(false);
     }
   };
 
-  // Replace the old localStorage check with backend check
   useEffect(() => {
-    const checkDataExists = async () => {
-      if (!loading && filteredEmployees.length > 0) {
-        await checkBackendDataExists();
-      }
-    };
+    if (!loading && employees.length > 0) {
+      checkBackendDataExists();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, selectedMonth, selectedYear, employees.length]);
 
-    checkDataExists();
-  }, [loading, selectedMonth, selectedYear, filteredEmployees.length]);
-
-  // FIXED: Load initial data immediately
+  // Load initial data immediately
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         setLoading(true);
-        console.log("📊 Loading initial data for Salary Format...");
 
         // 1. Load employees
         const res = await financeAPI.employee.getAll();
         const filtered = res.data.filter((e) => e.salary && e.employee_id);
         setEmployees(filtered);
         setFilteredEmployees(filtered);
-
         const employeeIds = filtered.map((emp) => emp.employee_id);
-        console.log(`✅ Loaded ${filtered.length} employees`);
 
-        // 2. Load source other and bonus from backend
-        const { sourceTaxOther, bonusOverride: bonusData } =
-          await financeAPI.storage.smartSyncData(employeeIds);
-        setSourceOther(sourceTaxOther);
-        setBonusOverride(bonusData);
-
-        // 3. Load this month's manual entries (advance, days worked, ...).
+        // 2. This month's manual entries (advance, days worked, ...).
         // Nothing typed in this browser yet but the month was already saved?
         // Start from the saved salary records so a re-save keeps them.
-        let savedManual = financeAPI.storage.getSalaryManualData(
-          selectedYear,
-          selectedMonth,
-        );
+        let savedManual = financeAPI.storage.getSalaryManualData(selectedYear, selectedMonth);
         if (!savedManual) {
           savedManual = await loadManualFromSavedRecords();
           if (Object.keys(savedManual).length > 0) {
-            financeAPI.storage.setSalaryManualData(
-              savedManual,
-              selectedYear,
-              selectedMonth,
-            );
+            financeAPI.storage.setSalaryManualData(savedManual, selectedYear, selectedMonth);
           }
         }
         setManualData(savedManual || {});
 
-        // 4. CRITICAL: Load tax results IMMEDIATELY (like other screens do)
-        // Set initial loading states
+        // 3. Tax results
+        const loadingMap = {};
         employeeIds.forEach((empId) => {
-          setLoadingAit((prev) => ({ ...prev, [empId]: true }));
+          loadingMap[empId] = true;
         });
+        setLoadingAit(loadingMap);
 
         await loadTaxResultsImmediately(employeeIds, filtered);
       } catch (error) {
         console.error("Failed to load initial data:", error);
+        setNotice({ tone: "danger", text: "Failed to load employees. Please refresh the page." });
       } finally {
         setLoading(false);
       }
     };
 
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
@@ -231,23 +181,18 @@ const SalaryFormat = () => {
   useEffect(() => {
     const autoSync = async () => {
       if (employees.length > 0 && Object.keys(taxResults).length === 0) {
-        console.log("🔄 Auto-syncing tax data...");
         await handleSyncData();
       }
     };
-
-    // Wait 2 seconds then auto-sync
     const timer = setTimeout(autoSync, 2000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employees.length, taxResults]);
 
   // Manual entries rebuilt from an already-saved month ({} if not saved yet).
   const loadManualFromSavedRecords = async () => {
     try {
-      const res = await financeAPI.salaryRecords.getMonthlyDetails(
-        selectedYear,
-        selectedMonth,
-      );
+      const res = await financeAPI.salaryRecords.getMonthlyDetails(selectedYear, selectedMonth);
       const manual = {};
       (res.data?.companies || []).forEach((company) =>
         (company.records || []).forEach((r) => {
@@ -270,47 +215,30 @@ const SalaryFormat = () => {
     }
   };
 
-  // Add this function after the useEffect
   const loadTaxResultsImmediately = async (employeeIds, employeeList) => {
-    console.log("🚀 Loading tax results immediately...");
-
     const databaseIds = new Set();
     try {
-      // First check localStorage cache (fastest)
-      const cachedResults = financeAPI.storage.getTaxResultsByEmployee(
-        selectedYear,
-        selectedMonth,
-      );
+      // This browser's copy first (fastest)
+      const cachedResults = financeAPI.storage.getTaxResultsByEmployee(selectedYear, selectedMonth);
       const initialResults = {};
-
-      // Use cached results if available
       Object.keys(cachedResults).forEach((empId) => {
         if (cachedResults[empId] && cachedResults[empId].data) {
           initialResults[empId] = cachedResults[empId].data;
         }
       });
-
-      console.log(
-        `📁 Found ${Object.keys(initialResults).length} cached results`,
-      );
-
-      // Set tax results immediately from cache
       if (Object.keys(initialResults).length > 0) {
         setTaxResults(initialResults);
       }
 
-      // Also check database in foreground for critical data
+      // Then the saved results from the database
       try {
         const savedResponse = await financeAPI.tax.getCalculatedTaxes({
           employee_ids: employeeIds,
-          month: selectedMonth,
-          year: selectedYear,
         });
 
         if (savedResponse.data.success && savedResponse.data.results) {
           const databaseResults = {};
           const savedResults = savedResponse.data.results;
-
           Object.keys(savedResults).forEach((empId) => {
             if (savedResults[empId]?.calculation_data) {
               databaseResults[empId] = savedResults[empId].calculation_data;
@@ -319,19 +247,7 @@ const SalaryFormat = () => {
           });
 
           if (Object.keys(databaseResults).length > 0) {
-            console.log(
-              `💾 Found ${
-                Object.keys(databaseResults).length
-              } tax calculations in database`,
-            );
-
-            // Update with database results
-            setTaxResults((prev) => ({
-              ...prev,
-              ...databaseResults,
-            }));
-
-            // Save to cache
+            setTaxResults((prev) => ({ ...prev, ...databaseResults }));
             Object.keys(databaseResults).forEach((empId) => {
               financeAPI.storage.setTaxResultsByEmployee(
                 empId,
@@ -346,65 +262,41 @@ const SalaryFormat = () => {
         console.warn("Database check failed:", dbError);
       }
 
-      // Calculate missing ones immediately (not in background)
-      const missingIds = employeeIds.filter(
-        (id) => !initialResults[id] && !taxResults[id] && !databaseIds.has(id),
-      );
-      if (missingIds.length > 0) {
-        console.log(
-          `🧮 Calculating taxes for ${missingIds.length} employees immediately...`,
-        );
+      // Calculate missing ones immediately (not saved - see below)
+      const missingIds = employeeIds.filter((id) => !initialResults[id] && !databaseIds.has(id));
+      const doneMap = {};
+      employeeIds.forEach((empId) => {
+        if (!missingIds.includes(empId)) doneMap[empId] = false;
+      });
+      setLoadingAit((prev) => ({ ...prev, ...doneMap }));
 
-        // Get source and bonus data
+      if (missingIds.length > 0) {
         const { sourceTaxOther, bonusOverride: bonusData } =
           await financeAPI.storage.smartSyncData();
-
-        // Start calculation immediately
-        calculateMissingTaxes(
-          employeeList,
-          missingIds,
-          sourceTaxOther,
-          bonusData,
-        );
-      } else {
-        // Clear all loading states if no calculations needed
-        employeeIds.forEach((empId) => {
-          setLoadingAit((prev) => ({ ...prev, [empId]: false }));
-        });
+        calculateMissingTaxes(employeeList, missingIds, sourceTaxOther, bonusData);
       }
     } catch (error) {
       console.error("Error loading tax results:", error);
-      // Clear loading states on error
+      const doneMap = {};
       employeeIds.forEach((empId) => {
-        setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+        doneMap[empId] = false;
       });
+      setLoadingAit((prev) => ({ ...prev, ...doneMap }));
     }
   };
 
   const calculateMissingTaxes = useCallback(
-    async (
-      employeeList,
-      employeeIds,
-      sourceData,
-      bonusData,
-      investmentData = {},
-      rpfData = {},
-    ) => {
+    async (employeeList, employeeIds, sourceData, bonusData, investmentData = {}, rpfData = {}) => {
       if (!employeeIds.length) return;
-
-      console.log(
-        `🧮 Calculating taxes for ${employeeIds.length} employees...`,
-      );
       setCalculatingTaxes(true);
 
-      const newResults = { ...taxResults };
-
-      // Set loading states for each employee
+      const startMap = {};
       employeeIds.forEach((empId) => {
-        setLoadingAit((prev) => ({ ...prev, [empId]: true }));
+        startMap[empId] = true;
       });
+      setLoadingAit((prev) => ({ ...prev, ...startMap }));
 
-      const batchSize = 10; // Increased batch size for faster calculation
+      const batchSize = 10;
 
       for (let i = 0; i < employeeIds.length; i += batchSize) {
         const batchIds = employeeIds.slice(i, i + batchSize);
@@ -422,7 +314,7 @@ const SalaryFormat = () => {
             try {
               let taxData;
 
-              if (monthlySalary <= 43000) {
+              if (monthlySalary <= AIT_THRESHOLD) {
                 // No tax deduction
                 taxData = {
                   tax_calculation: {
@@ -438,38 +330,25 @@ const SalaryFormat = () => {
                   },
                 };
               } else {
-                // Calculate tax
                 const response = await financeAPI.tax.calculate({
                   employee_id: empId,
-                  gender: emp.gender === "M" ? "Male" : "Female",
+                  gender: emp.gender === "F" ? "Female" : "Male",
                   source_other: sourceData[empId] || 0,
                   bonus: bonusData[empId] || 0,
                   actual_investment: investmentData[empId] || 0,
                   rpf_monthly: rpfData[empId] || 0,
                   monthly_salary: monthlySalary,
                 });
-
                 taxData = response.data;
               }
 
-              // Update state immediately
-              newResults[empId] = taxData;
               setTaxResults((prev) => ({ ...prev, [empId]: taxData }));
-
-              // Clear loading state
               setLoadingAit((prev) => ({ ...prev, [empId]: false }));
-
-              // Save to cache immediately
-              financeAPI.storage.setTaxResultsByEmployee(
-                empId,
-                taxData,
-                selectedYear,
-                selectedMonth,
-              );
+              financeAPI.storage.setTaxResultsByEmployee(empId, taxData, selectedYear, selectedMonth);
 
               // Not saved to the database: CalculatedTax holds one row per
               // employee with the Finance Provision inputs (source other,
-              // bonus, investment, RPF) and this save would reset them to 0.
+              // bonus, investment, RPF) and this save would reset them.
               // Finance Provision is the only screen that writes tax rows.
             } catch (err) {
               console.error(`Failed to calculate for ${empId}:`, err);
@@ -478,36 +357,26 @@ const SalaryFormat = () => {
           }),
         );
 
-        // Small delay between batches to prevent overwhelming the server
         if (i + batchSize < employeeIds.length) {
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
 
       setCalculatingTaxes(false);
-      console.log(`✅ Tax calculation completed`);
     },
-    [taxResults, selectedMonth, selectedYear],
+    [selectedMonth, selectedYear],
   );
 
-  // FIXED: Load approval status from backend
+  // Approval status of one company for THIS month (read-only here; the
+  // approval buttons are on Salary Records).
   const loadApprovalStatus = useCallback(
     async (companyName = "All Companies") => {
       try {
-        setLoadingStatus(true);
-        console.log(
-          `📡 Loading approval status for company: ${companyName}...`,
-        );
-
-        const response =
-          await financeAPI.approval.getApprovalStatus(companyName);
-
-        console.log(
-          `✅ Approval status loaded for ${companyName}:`,
-          response.data,
-        );
-
-        // Update company-specific approval status
+        const response = await financeAPI.approval.getApprovalStatus({
+          company_name: companyName,
+          month: selectedMonth,
+          year: selectedYear,
+        });
         setCompanyApprovalStatus((prev) => ({
           ...prev,
           [companyName]: {
@@ -517,126 +386,75 @@ const SalaryFormat = () => {
             proprietor_approved: response.data.proprietor_approved || false,
           },
         }));
-
-        // Also update global approval status for backward compatibility
-        setApprovalStatus({
-          hr_prepared: response.data.hr_prepared || false,
-          finance_checked: response.data.finance_checked || false,
-          director_checked: response.data.director_checked || false,
-          proprietor_approved: response.data.proprietor_approved || false,
-        });
       } catch (error) {
-        console.error(
-          `❌ Failed to load approval status for ${companyName}:`,
-          error,
-        );
-      } finally {
-        setLoadingStatus(false);
+        console.error(`Failed to load approval status for ${companyName}:`, error);
       }
     },
-    [],
+    [selectedMonth, selectedYear],
   );
 
   // USER DETECTION
   useEffect(() => {
-    const detectUser = () => {
-      try {
-        let detectedUser = "";
-
-        // Method 1: Check for individual username key
-        const username = localStorage.getItem("username");
-        if (username) {
-          detectedUser = username.toLowerCase().trim();
-        } else {
-          // Method 2: Check for userData object
-          const userData = localStorage.getItem("userData");
-          if (userData) {
-            try {
-              const parsedData = JSON.parse(userData);
-              detectedUser = (parsedData.username || parsedData.user_name || "")
-                .toLowerCase()
-                .trim();
-            } catch (e) {
-              console.error("Error parsing userData:", e);
-            }
-          }
+    let detectedUser = "";
+    try {
+      const username = localStorage.getItem("username");
+      if (username) {
+        detectedUser = username.toLowerCase().trim();
+      } else {
+        const userData = localStorage.getItem("userData");
+        if (userData) {
+          const parsedData = JSON.parse(userData);
+          detectedUser = (parsedData.username || parsedData.user_name || "").toLowerCase().trim();
         }
-
-        if (!detectedUser) {
-          const possibleKeys = [
-            "user",
-            "user_name",
-            "employee_name",
-            "name",
-            "email",
-          ];
-          for (let key of possibleKeys) {
-            const value = localStorage.getItem(key);
-            if (value && typeof value === "string" && value.length > 0) {
-              detectedUser = value.toLowerCase().trim();
-              break;
-            }
-          }
-        }
-
-        setCurrentUser(detectedUser);
-        console.log("🎯 CURRENT USER:", detectedUser);
-      } catch (error) {
-        console.error("❌ ERROR detecting user:", error);
-        setCurrentUser("");
       }
-    };
-
-    detectUser();
+      if (!detectedUser) {
+        for (const key of ["user", "user_name", "employee_name", "name", "email"]) {
+          const value = localStorage.getItem(key);
+          if (value) {
+            detectedUser = value.toLowerCase().trim();
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error detecting user:", error);
+    }
+    setCurrentUser(detectedUser);
   }, []);
 
-  // FIXED: Filter employees based on search
+  // Filter employees based on search
   useEffect(() => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) {
       setFilteredEmployees(employees);
     } else {
-      const filtered = employees.filter(
-        (emp) =>
-          emp.name?.toLowerCase().includes(term) ||
-          emp.employee_id?.toLowerCase().includes(term),
+      setFilteredEmployees(
+        employees.filter(
+          (emp) =>
+            emp.name?.toLowerCase().includes(term) ||
+            emp.employee_id?.toLowerCase().includes(term),
+        ),
       );
-      setFilteredEmployees(filtered);
     }
   }, [searchTerm, employees]);
 
-  // FIXED: Load approval status for all companies
+  // Load approval status for all companies
   useEffect(() => {
     if (currentUser && employees.length > 0) {
-      console.log("🔄 Loading approval status for all companies...");
-      const uniqueCompanies = [
-        ...new Set(employees.map((emp) => emp.company_name ?? "Unknown")),
-      ];
-      uniqueCompanies.forEach((companyName) => {
-        loadApprovalStatus(companyName);
-      });
-      loadApprovalStatus("All Companies");
+      const uniqueCompanies = [...new Set(employees.map((emp) => emp.company_name ?? "Unknown"))];
+      uniqueCompanies.forEach((companyName) => loadApprovalStatus(companyName));
     }
   }, [currentUser, employees.length, loadApprovalStatus]);
 
-  // FIXED: Get AIT value with proper deduction logic (similar to FinanceProvision)
+  // AIT for one employee: 0 at or below the threshold, otherwise the
+  // backend's deduction.
   const getAitValue = useCallback(
     (empId, monthlySalary) => {
-      const loadingState = loadingAit[empId] || false;
-
-      if (loadingState) {
+      if (loadingAit[empId]) {
         return { ait: 0, calculatedAit: 0, shouldDeduct: false, loading: true };
       }
 
       const result = taxResults[empId];
-
-      // DEBUG: Log what we have
-      console.log(`🔍 getAitValue for ${empId}:`, {
-        hasResult: !!result,
-        result: result,
-        monthlySalary: monthlySalary,
-      });
-
       if (!result) {
         return {
           ait: 0,
@@ -647,10 +465,8 @@ const SalaryFormat = () => {
         };
       }
 
-      // Extract tax calculation data
       const taxCalc = result.tax_calculation || {};
 
-      // Get calculated TDS value - check multiple possible field names
       let calculatedAit = 0;
       if (taxCalc.monthly_tds !== undefined) {
         calculatedAit = parseFloat(taxCalc.monthly_tds) || 0;
@@ -660,38 +476,16 @@ const SalaryFormat = () => {
         calculatedAit = parseFloat(taxCalc.net_tax_payable) || 0;
       }
 
-      // CRITICAL FIX: Check if tax should be deducted
       let shouldDeduct = false;
-
-      // Rule 1: If salary <= 43,000, no tax deduction
-      if (monthlySalary <= 43000) {
+      if (monthlySalary <= AIT_THRESHOLD) {
         shouldDeduct = false;
-      }
-      // Rule 2: Use the flag from backend if available
-      else if (taxCalc.should_deduct_tax !== undefined) {
+      } else if (taxCalc.should_deduct_tax !== undefined) {
         shouldDeduct = taxCalc.should_deduct_tax === true;
-      }
-      // Rule 3: If calculated tax > 0 and salary > 43,000, deduct
-      else if (calculatedAit > 0) {
+      } else if (calculatedAit > 0) {
         shouldDeduct = true;
       }
 
-      // Set actual deduction amount
-      let ait = 0;
-      if (shouldDeduct) {
-        // Use actual_deduction if available, otherwise use calculatedAit
-        ait = parseFloat(taxCalc.actual_deduction) || calculatedAit || 0;
-      } else {
-        ait = 0;
-      }
-
-      console.log(`📊 AIT calculation for ${empId}:`, {
-        salary: monthlySalary,
-        calculatedAit: calculatedAit,
-        shouldDeduct: shouldDeduct,
-        actualAit: ait,
-        taxCalcData: taxCalc,
-      });
+      const ait = shouldDeduct ? parseFloat(taxCalc.actual_deduction) || calculatedAit || 0 : 0;
 
       return {
         ait,
@@ -702,10 +496,8 @@ const SalaryFormat = () => {
           taxCalc.deduction_reason ||
           (shouldDeduct
             ? `Salary above 43,000 (${formatNumber(monthlySalary)})`
-            : monthlySalary <= 43000
-              ? `Salary at or below 43,000 threshold (${formatNumber(
-                  monthlySalary,
-                )})`
+            : monthlySalary <= AIT_THRESHOLD
+              ? `Salary at or below 43,000 threshold (${formatNumber(monthlySalary)})`
               : "No tax calculated"),
       };
     },
@@ -714,289 +506,59 @@ const SalaryFormat = () => {
 
   const handleSyncData = async () => {
     try {
-      console.log("🔄 Syncing data...");
       setCalculatingTaxes(true);
-
-      // Show loading states
-      filteredEmployees.forEach((emp) => {
-        setLoadingAit((prev) => ({ ...prev, [emp.employee_id]: true }));
+      const startMap = {};
+      employees.forEach((emp) => {
+        startMap[emp.employee_id] = true;
       });
+      setLoadingAit((prev) => ({ ...prev, ...startMap }));
 
       const employeeIds = employees.map((emp) => emp.employee_id);
-
-      // Get fresh from database
       const savedResponse = await financeAPI.tax.getCalculatedTaxes({
         employee_ids: employeeIds,
-        month: selectedMonth,
-        year: selectedYear,
       });
 
       if (savedResponse.data.success && savedResponse.data.results) {
         const databaseResults = {};
         const savedResults = savedResponse.data.results;
-
         Object.keys(savedResults).forEach((empId) => {
           if (savedResults[empId]?.calculation_data) {
             databaseResults[empId] = savedResults[empId].calculation_data;
           }
         });
-
         setTaxResults(databaseResults);
 
-        // Clear loading states for employees with data
-        Object.keys(databaseResults).forEach((empId) => {
-          setLoadingAit((prev) => ({ ...prev, [empId]: false }));
+        const doneMap = {};
+        employeeIds.forEach((empId) => {
+          doneMap[empId] = false;
         });
-      } else {
-        alert("⚠️ No data found. Calculating taxes...");
+        setLoadingAit((prev) => ({ ...prev, ...doneMap }));
 
-        // If no data, calculate taxes
+        // Employees without a saved result are calculated for display.
+        const missing = employeeIds.filter((id) => !databaseResults[id]);
+        if (missing.length > 0) {
+          const { sourceTaxOther, bonusOverride: bonusData } =
+            await financeAPI.storage.smartSyncData();
+          await calculateMissingTaxes(employees, missing, sourceTaxOther, bonusData);
+        }
+      } else {
         const { sourceTaxOther, bonusOverride: bonusData } =
           await financeAPI.storage.smartSyncData();
-
-        await calculateMissingTaxes(
-          filteredEmployees,
-          employeeIds,
-          sourceTaxOther,
-          bonusData,
-        );
+        await calculateMissingTaxes(employees, employeeIds, sourceTaxOther, bonusData);
       }
     } catch (error) {
-      console.error("❌ Sync failed:", error);
-      alert("❌ Sync failed. Check console.");
+      console.error("Sync failed:", error);
+      setNotice({ tone: "danger", text: "Tax sync failed. Please try again." });
     } finally {
       setCalculatingTaxes(false);
     }
-  };
-
-  // Update your saveData function
-  const saveData = async () => {
-    const savedMonthKey = `salary_saved_${selectedYear}_${selectedMonth}`;
-
-    // Check if already saved
-    if (isDataSavedForMonth) {
-      const confirmResave = window.confirm(
-        `Salary data for ${monthNames[selectedMonth - 1]} ${selectedYear} has already been saved. Do you want to save again?`,
-      );
-
-      if (!confirmResave) {
-        return;
-      }
-    }
-
-    const payload = filteredEmployees
-      .map((emp, idx) => {
-        const empId = emp.employee_id?.trim();
-        if (!empId) return null;
-
-        const {
-          monthlySalary, salaryCash, basicFull, houseRentFull, medicalFull,
-          conveyanceFull, grossFull, ait, daysWorked, absentDays,
-          absentDeduction, advance, cashPayment, addition, totalDeduction,
-          netPayBank, totalPayable,
-        } = computeSalary(emp);
-        const otHours = Number(getManual(empId, "otHours")) || 0;
-        const otPay = calculateOTPay(monthlySalary, otHours, totalDaysInMonth);
-        const remarks = getManual(empId, "remarks", "") || "";
-
-        // ------------------- FIXED: SIMPLIFIED DOJ FORMATTING -------------------
-        let dojStr = emp.joining_date || null;
-
-        if (dojStr) {
-          dojStr = dojStr.trim();
-
-          // Try to parse the date
-          const parseDate = (dateStr) => {
-            if (!dateStr) return null;
-
-            // Try common separators
-            const parts = dateStr.split(/[\/\-]/);
-            if (parts.length === 3) {
-              let day, month, year;
-
-              // If first part is 4 digits, assume YYYY-MM-DD
-              if (parts[0].length === 4) {
-                year = parseInt(parts[0]);
-                month = parseInt(parts[1]);
-                day = parseInt(parts[2]);
-              } else {
-                // Assume DD/MM/YYYY or similar
-                day = parseInt(parts[0]);
-                month = parseInt(parts[1]);
-                year = parseInt(parts[2]);
-
-                // If year is 2 digits, add 2000
-                if (year < 100) year += 2000;
-              }
-
-              // Validate and format as YYYY-MM-DD
-              if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-                return `${year}-${String(month).padStart(2, "0")}-${String(
-                  day,
-                ).padStart(2, "0")}`;
-              }
-            }
-            return null;
-          };
-
-          const parsed = parseDate(dojStr);
-          if (parsed) {
-            dojStr = parsed;
-          } else {
-            // If parsing fails, send null
-            console.warn(
-              `Could not parse DOJ for ${emp.employee_id}: ${emp.joining_date}`,
-            );
-            dojStr = null;
-          }
-        }
-        // ------------------- END OF FIX -------------------
-
-        return {
-          sl: idx + 1,
-          name: emp.name?.trim() || "Unknown",
-          employee_id: empId,
-          designation: emp.designation?.trim() || "",
-          doj: dojStr, // Send the formatted string
-          basic: basicFull,
-          house_rent: houseRentFull,
-          medical: medicalFull,
-          conveyance: conveyanceFull,
-          gross_salary: grossFull,
-          total_days: totalDaysInMonth,
-          days_worked: daysWorked,
-          absent_days: absentDays,
-          absent_ded: absentDeduction,
-          advance: advance,
-          ait: ait, // This will be 0 for salary <= 41K
-          total_ded: totalDeduction,
-          ot_hours: otHours,
-          ot_pay: otPay,
-          addition: addition,
-          cash_payment: cashPayment,
-          cash_salary: salaryCash,
-          net_pay_bank: netPayBank,
-          total_payable: totalPayable,
-          remarks:
-            unpaidLeaveRemark(empId) && !remarks.includes("Unpaid leave")
-              ? [unpaidLeaveRemark(empId), remarks].filter(Boolean).join("; ")
-              : remarks,
-          bank_account: emp.bank_account?.trim() || "",
-          branch_name: emp.branch_name?.trim() || "",
-          company_name: emp.company_name || "Unknown",
-        };
-      })
-      .filter(Boolean);
-
-    console.log("Saving payroll data with DOJ:", payload);
-
-    // Debug: Show DOJ values
-    payload.forEach((item, index) => {
-      console.log(`Row ${index + 1}: ${item.employee_id} - DOJ: ${item.doj}`);
-    });
-
-    try {
-      const res = await financeAPI.salary.saveSalary(payload);
-      const saved = res.data.saved || 0;
-      const errors = res.data.errors || [];
-
-      if (saved > 0) {
-        // Immediately check backend to confirm save
-        await checkBackendDataExists();
-      }
-
-      if (errors.length > 0) {
-        console.warn("Save errors:", errors);
-        alert(
-          `Warning: Saved ${saved}, but ${errors.length} failed. Check console.`,
-        );
-      } else {
-        alert(
-          `✅ Success: All ${saved} rows saved for ${monthNames[selectedMonth - 1]} ${selectedYear}!`,
-        );
-      }
-    } catch (e) {
-      // Re-enable button if save failed
-      localStorage.removeItem(savedMonthKey);
-      setIsDataSavedForMonth(false);
-      console.error("Save failed:", e.response?.data || e);
-      alert("❌ Save failed – check console");
-    }
-  };
-
-  // Add reset function
-  const resetMonthSave = () => {
-    // This now just triggers a re-check of backend
-    checkBackendDataExists();
-    alert(
-      `✅ Re-checked backend for ${monthNames[selectedMonth - 1]} ${selectedYear}`,
-    );
-  };
-
-  const toggleCompany = (comp) => {
-    setOpenCompanies((prev) => {
-      const newState = { ...prev, [comp]: !prev[comp] };
-      const isAnyCompanyOpen = Object.values(newState).some((v) => v);
-      setShowSummary(!isAnyCompanyOpen);
-      return newState;
-    });
-  };
-
-  const showAllCompanies = () => {
-    const allOpen = {};
-    Object.keys(grouped).forEach((comp) => {
-      allOpen[comp] = true;
-    });
-    setOpenCompanies(allOpen);
-    setShowSummary(false);
-  };
-
-  const hideAllCompanies = () => {
-    setOpenCompanies({});
-    setShowSummary(true);
-  };
-
-  const updateManual = (empId, field, value) => {
-    const parsed = field === "remarks" ? value : parseFloat(value) || 0;
-
-    const newData = {
-      ...manualData,
-      [empId]: {
-        ...manualData[empId],
-        [field]: parsed,
-      },
-    };
-
-    // If OT Hours is updated, automatically calculate and update addition
-    if (field === "otHours" && employees.length > 0) {
-      const emp = employees.find((e) => e.employee_id === empId);
-      if (emp) {
-        const monthlySalary = Number(emp.salary) || 0;
-        const otPay = calculateOTPay(monthlySalary, parsed, totalDaysInMonth);
-
-        // Get existing addition value (if any)
-        const existingAddition = newData[empId]?.addition || 0;
-        const existingOtPay = newData[empId]?.otPay || 0;
-
-        // Update addition: remove old OT pay and add new OT pay
-        newData[empId] = {
-          ...newData[empId],
-          addition: existingAddition - existingOtPay + otPay,
-          otPay: otPay, // Store OT pay separately for future updates
-        };
-      }
-    }
-
-    setManualData(newData);
-    financeAPI.storage.setSalaryManualData(newData, selectedYear, selectedMonth);
   };
 
   const getManual = (empId, field, defaultVal = 0) => {
     return manualData[empId]?.[field] ?? defaultVal;
   };
 
-  const getUnpaidLeaveDays = (empId) =>
-    unpaidLeave[(empId || "").trim()]?.unpaid_days || 0;
+  const getUnpaidLeaveDays = (empId) => unpaidLeave[(empId || "").trim()]?.unpaid_days || 0;
 
   const unpaidLeaveRemark = (empId) => {
     const days = getUnpaidLeaveDays(empId);
@@ -1027,1999 +589,742 @@ const SalaryFormat = () => {
     const addition = Number(getManual(empId, "addition")) || 0; // includes OT pay
     const advance = Number(getManual(empId, "advance")) || 0;
 
-    const doj = parseDate(emp.joining_date);
+    // New joiner this month: default days worked = from the joining date.
+    const doj = parseFlexibleDate(emp.joining_date);
     const isNewJoiner =
-      doj &&
-      doj.getMonth() + 1 === selectedMonth &&
-      doj.getFullYear() === selectedYear;
-    const defaultDays = isNewJoiner
-      ? totalDaysInMonth - (doj?.getDate() ?? 0) + 1
-      : totalDaysInMonth;
+      doj && doj.getMonth() + 1 === selectedMonth && doj.getFullYear() === selectedYear;
+    const defaultDays = isNewJoiner ? totalDaysInMonth - doj.getDate() + 1 : totalDaysInMonth;
     const daysWorked = daysWorkedManual > 0 ? daysWorkedManual : defaultDays;
     const unpaidLeaveDays = getUnpaidLeaveDays(empId);
-    const absentDays =
-      Math.max(0, totalDaysInMonth - daysWorked) + unpaidLeaveDays;
+    const absentDays = Math.max(0, totalDaysInMonth - daysWorked) + unpaidLeaveDays;
 
     const dailyBasic = round2(basicFull / 30);
     const absentDeduction = round2(dailyBasic * absentDays);
     const totalDeduction = round2(ait + advance + absentDeduction);
     const netPayBank = round2(
-      (monthlySalary / totalDaysInMonth) * daysWorked -
-        cashPayment -
-        totalDeduction +
-        addition,
+      (monthlySalary / totalDaysInMonth) * daysWorked - cashPayment - totalDeduction + addition,
     );
     const totalPayable = round2(netPayBank + cashPayment + ait + salaryCash);
 
     return {
-      empId, monthlySalary, salaryCash,
-      basicFull, houseRentFull, medicalFull, conveyanceFull, grossFull,
-      ait, calculatedAit: aitInfo.calculatedAit || 0,
-      shouldDeduct: aitInfo.shouldDeduct, aitLoading: aitInfo.loading,
-      daysWorkedManual, defaultDays, daysWorked, unpaidLeaveDays, absentDays,
-      absentDeduction, advance, cashPayment, addition, totalDeduction,
-      netPayBank, totalPayable,
+      empId,
+      monthlySalary,
+      salaryCash,
+      basicFull,
+      houseRentFull,
+      medicalFull,
+      conveyanceFull,
+      grossFull,
+      ait,
+      calculatedAit: aitInfo.calculatedAit || 0,
+      shouldDeduct: aitInfo.shouldDeduct,
+      aitLoading: aitInfo.loading,
+      daysWorkedManual,
+      defaultDays,
+      isNewJoiner,
+      daysWorked,
+      unpaidLeaveDays,
+      absentDays,
+      absentDeduction,
+      advance,
+      cashPayment,
+      addition,
+      totalDeduction,
+      netPayBank,
+      totalPayable,
     };
   };
 
-  // FIXED: UPDATED APPROVAL FOOTER
-  const renderApprovalFooter = (companyName) => {
-    const companyStatus = companyApprovalStatus[companyName] || approvalStatus;
+  // Save the sheet. Always ALL employees - a search filter only changes what
+  // is shown, never what is saved (it used to save just the matching rows,
+  // after which the month was locked with everyone else missing).
+  const saveData = async () => {
+    if (isDataSavedForMonth) {
+      const confirmResave = window.confirm(
+        `Salary data for ${monthLabel} has already been saved. Do you want to save again?`,
+      );
+      if (!confirmResave) return;
+    }
+
+    const stillCalculating = employees.some((emp) => loadingAit[emp.employee_id]);
+    if (
+      stillCalculating &&
+      !window.confirm("Some AIT values are still being calculated. Save anyway?")
+    ) {
+      return;
+    }
+
+    const payload = employees
+      .map((emp, idx) => {
+        const empId = emp.employee_id?.trim();
+        if (!empId) return null;
+
+        const {
+          monthlySalary,
+          salaryCash,
+          basicFull,
+          houseRentFull,
+          medicalFull,
+          conveyanceFull,
+          grossFull,
+          ait,
+          daysWorked,
+          absentDays,
+          absentDeduction,
+          advance,
+          cashPayment,
+          addition,
+          totalDeduction,
+          netPayBank,
+          totalPayable,
+        } = computeSalary(emp);
+        const otHours = Number(getManual(empId, "otHours")) || 0;
+        const otPay = calculateOTPay(monthlySalary, otHours, totalDaysInMonth);
+        const remarks = getManual(empId, "remarks", "") || "";
+
+        // DOJ as YYYY-MM-DD (null if it cannot be read)
+        const dojDate = parseFlexibleDate(emp.joining_date);
+        const dojStr = dojDate
+          ? `${dojDate.getFullYear()}-${String(dojDate.getMonth() + 1).padStart(2, "0")}-${String(
+              dojDate.getDate(),
+            ).padStart(2, "0")}`
+          : null;
+
+        return {
+          sl: idx + 1,
+          name: emp.name?.trim() || "Unknown",
+          employee_id: empId,
+          designation: emp.designation?.trim() || "",
+          doj: dojStr,
+          basic: basicFull,
+          house_rent: houseRentFull,
+          medical: medicalFull,
+          conveyance: conveyanceFull,
+          gross_salary: grossFull,
+          total_days: totalDaysInMonth,
+          days_worked: daysWorked,
+          absent_days: absentDays,
+          absent_ded: absentDeduction,
+          advance: advance,
+          ait: ait,
+          total_ded: totalDeduction,
+          ot_hours: otHours,
+          ot_pay: otPay,
+          addition: addition,
+          cash_payment: cashPayment,
+          cash_salary: salaryCash,
+          net_pay_bank: netPayBank,
+          total_payable: totalPayable,
+          remarks:
+            unpaidLeaveRemark(empId) && !remarks.includes("Unpaid leave")
+              ? [unpaidLeaveRemark(empId), remarks].filter(Boolean).join("; ")
+              : remarks,
+          bank_account: emp.bank_account?.trim() || "",
+          branch_name: emp.branch_name?.trim() || "",
+          company_name: emp.company_name || "Unknown",
+        };
+      })
+      .filter(Boolean);
+
+    setSaving(true);
+    try {
+      const res = await financeAPI.salary.saveSalary(payload);
+      const saved = res.data.saved || 0;
+      const errors = res.data.errors || [];
+
+      if (saved > 0) await checkBackendDataExists();
+
+      if (errors.length > 0) {
+        console.warn("Save errors:", errors);
+        setNotice({
+          tone: "warning",
+          text: `Saved ${saved} rows, but ${errors.length} failed. Check the browser console for details.`,
+        });
+      } else {
+        setNotice({ tone: "success", text: `All ${saved} rows saved for ${monthLabel}.` });
+      }
+    } catch (e) {
+      setIsDataSavedForMonth(false);
+      console.error("Save failed:", e.response?.data || e);
+      setNotice({ tone: "danger", text: "Save failed. Nothing was saved — please try again." });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // FIXED: Show loading state
-  if (loading || loadingStatus) {
+  const toggleCompany = (comp) => {
+    setOpenCompanies((prev) => {
+      const newState = { ...prev, [comp]: !prev[comp] };
+      setShowSummary(!Object.values(newState).some((v) => v));
+      return newState;
+    });
+  };
+
+  const showAllCompanies = () => {
+    const allOpen = {};
+    Object.keys(grouped).forEach((comp) => {
+      allOpen[comp] = true;
+    });
+    setOpenCompanies(allOpen);
+    setShowSummary(false);
+  };
+
+  const hideAllCompanies = () => {
+    setOpenCompanies({});
+    setShowSummary(true);
+  };
+
+  const updateManual = (empId, field, value) => {
+    const parsed = field === "remarks" ? value : parseFloat(value) || 0;
+
+    const newData = {
+      ...manualData,
+      [empId]: {
+        ...manualData[empId],
+        [field]: parsed,
+      },
+    };
+
+    // OT minutes changed: replace the old OT pay inside Addition with the new one
+    if (field === "otHours" && employees.length > 0) {
+      const emp = employees.find((e) => e.employee_id === empId);
+      if (emp) {
+        const monthlySalary = Number(emp.salary) || 0;
+        const otPay = calculateOTPay(monthlySalary, parsed, totalDaysInMonth);
+        const existingAddition = newData[empId]?.addition || 0;
+        const existingOtPay = newData[empId]?.otPay || 0;
+        newData[empId] = {
+          ...newData[empId],
+          addition: existingAddition - existingOtPay + otPay,
+          otPay: otPay,
+        };
+      }
+    }
+
+    setManualData(newData);
+    financeAPI.storage.setSalaryManualData(newData, selectedYear, selectedMonth);
+  };
+
+  // Totals over a list of employees, all from computeSalary().
+  const sumUp = (list) =>
+    list.reduce(
+      (acc, e) => {
+        const c = computeSalary(e);
+        acc.gross += c.monthlySalary;
+        acc.ait += c.ait;
+        acc.calculatedAit += c.calculatedAit;
+        acc.absentDed += c.absentDeduction;
+        acc.advance += c.advance;
+        acc.cash += c.cashPayment;
+        acc.cashSalary += c.salaryCash;
+        acc.addition += c.addition;
+        acc.netBank += c.netPayBank;
+        acc.totalPay += c.totalPayable;
+        acc.totalDed += c.totalDeduction;
+        if (c.monthlySalary > AIT_THRESHOLD) acc.aboveThreshold += 1;
+        return acc;
+      },
+      {
+        gross: 0,
+        ait: 0,
+        calculatedAit: 0,
+        absentDed: 0,
+        advance: 0,
+        cash: 0,
+        cashSalary: 0,
+        addition: 0,
+        netBank: 0,
+        totalPay: 0,
+        totalDed: 0,
+        aboveThreshold: 0,
+      },
+    );
+
+  if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-content">
-          <FaSpinner
-            className="spinning"
-            style={{ fontSize: "3rem", color: "#7c3aed" }}
-          />
-          <h2>Loading Finance Dashboard...</h2>
-          <p>Fetching employee data and tax calculations</p>
-        </div>
-        <style jsx>{`
-          .loading-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          }
-          .loading-content {
-            text-align: center;
-            color: white;
-          }
-          .spinning {
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}</style>
-      </div>
+      <FinanceShell>
+        <LoadingState page title="Loading salary sheet…" text="Fetching employees and tax calculations" />
+      </FinanceShell>
     );
   }
 
+  const grand = sumUp(filteredEmployees);
+  const companyNames = Object.keys(grouped);
+
+  const approvalBadges = (comp) => {
+    const status = companyApprovalStatus[comp];
+    if (!status) return null;
+    return (
+      <span className="fin-row" style={{ gap: 4 }}>
+        {APPROVAL_STEPS.map((step) => (
+          <Badge
+            key={step.key}
+            tone={status[step.key] ? "success" : undefined}
+            title={status[step.key] ? `${step.label} done` : `${step.label} pending`}
+          >
+            {status[step.key] && <FaCheckCircle />}
+            {step.label}
+          </Badge>
+        ))}
+      </span>
+    );
+  };
+
   return (
-    <div className="salary-format-container">
-      <div className="dashboard">
-        <div className="card">
-          {/* HEADER SECTION */}
-          <div className="header-section">
-            <div className="header-main">
-              <div className="title-section">
-                <h1 className="main-title">
-                  <FaUsers className="title-icon" />
-                  Salary Format
-                </h1>
-                <div className="date-badge">
-                  {monthNames[selectedMonth - 1]} {selectedYear}
-                </div>
-              </div>
-
-              <div className="controls-section">
-                <div className="search-wrapper">
-                  <FaSearch className="search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Search employees by name or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="search-input"
-                  />
-                </div>
-
-                <div className="action-buttons">
-                  <button
-                    onClick={() => navigate("/finance-provision")}
-                    className="btn btn-back"
-                  >
-                    <FaArrowLeft /> Back
-                  </button>
-
-                  <button
-                    className="btn btn-save"
-                    onClick={saveData}
-                    disabled={isDataSavedForMonth}
-                    style={{
-                      opacity: isDataSavedForMonth ? 0.6 : 1,
-                      cursor: isDataSavedForMonth ? "not-allowed" : "pointer",
-                      position: "relative",
-                    }}
-                    title={
-                      isDataSavedForMonth
-                        ? `Data already saved for ${monthNames[selectedMonth - 1]} ${selectedYear}`
-                        : "Save salary data"
-                    }
-                  >
-                    <FaSave />
-                    {isDataSavedForMonth ? "✓ Saved" : "Save Data"}
-                  </button>
-                  
-                  <button
-                    onClick={() => navigate("/bonus-format")}
-                    className="btn btn-records"
-                  >
-                    <FaCalendarAlt /> Bonus & Records
-                  </button>
-
-                  <button
-                    onClick={() => navigate("/salary-records")}
-                    className="btn btn-records"
-                  >
-                    <FaCalendarAlt /> View Records
-                  </button>
-
-                  <button
-                    onClick={showAllCompanies}
-                    className="btn btn-show-all"
-                  >
-                    <FaBuilding /> Show All
-                  </button>
-
-                  <button
-                    onClick={hideAllCompanies}
-                    className="btn btn-hide-all"
-                  >
-                    <FaBuilding /> Hide All
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* TAX STATUS SUMMARY */}
-          <div className="tax-status-summary">
-            <div className="status-item">
-              <span className="status-label">Total Employees:</span>
-              <span className="status-value">{filteredEmployees.length}</span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">Salary {">"} 43K:</span>
-              <span className="status-value">
-                {
-                  filteredEmployees.filter((e) => Number(e.salary || 0) > 43000)
-                    .length
-                }
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">Tax Calculated:</span>
-              <span className="status-value">
-                {Object.keys(taxResults).length}
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">Tax Deducted:</span>
-              <span className="status-value">
-                {formatNumber(
-                  filteredEmployees.reduce((sum, e) => {
-                    const { ait } = getAitValue(
-                      e.employee_id,
-                      Number(e.salary || 0),
-                    );
-                    return sum + ait;
-                  }, 0),
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* TAX CALCULATION STATUS */}
-          {calculatingTaxes && (
-            <div className="tax-calculation-status">
-              <div className="spinner-small"></div>
-              <span>Calculating taxes... Please wait</span>
-            </div>
+    <FinanceShell
+      title="Salary Sheet"
+      icon={<FaFileInvoiceDollar />}
+      meta={
+        <>
+          <Badge tone="primary" className="fin-badge--lg">
+            {monthLabel}
+          </Badge>
+          {isDataSavedForMonth && (
+            <Badge tone="success" className="fin-badge--lg">
+              <FaCheckCircle /> Saved
+            </Badge>
           )}
+        </>
+      }
+      subtitle="Enter days worked, advance, OT and cash payments, then save the month. Everything below is saved exactly as shown."
+      actions={
+        <>
+          <button className="fin-btn" onClick={handleSyncData} disabled={calculatingTaxes}>
+            <FaSync className={calculatingTaxes ? "fin-spin" : ""} /> Sync Tax
+          </button>
+          <button onClick={() => navigate("/bonus-format")} className="fin-btn">
+            <FaGift /> Bonus Sheet
+          </button>
+          <button onClick={() => navigate("/salary-records")} className="fin-btn">
+            <FaHistory /> View Records
+          </button>
+          <button
+            className="fin-btn fin-btn--primary"
+            onClick={saveData}
+            disabled={isDataSavedForMonth || saving}
+            title={
+              isDataSavedForMonth
+                ? `Data already saved for ${monthLabel}. Edit it on Salary Records.`
+                : "Save salary data for all employees"
+            }
+          >
+            {isDataSavedForMonth ? <FaCheckCircle /> : <FaSave />}
+            {saving ? "Saving…" : isDataSavedForMonth ? "Saved" : "Save Data"}
+          </button>
+        </>
+      }
+    >
+      <div className="fin-stack">
+        {notice && (
+          <Alert
+            tone={notice.tone}
+            action={
+              <button className="fin-btn fin-btn--ghost fin-btn--sm" onClick={() => setNotice(null)}>
+                ×
+              </button>
+            }
+          >
+            {notice.text}
+          </Alert>
+        )}
 
-          {/* COMPANY QUICK ACCESS */}
-          <div className="company-quick-access">
-            <div className="section-label">
-              <FaBuilding className="section-icon" />
-              Companies ({Object.keys(grouped).length})
-            </div>
-            <div className="company-buttons-grid">
-              {Object.keys(grouped).map((comp) => (
-                <div key={comp} className="company-card">
-                  <button
-                    className={`company-toggle-btn ${
-                      openCompanies[comp] ? "active" : ""
-                    }`}
-                    onClick={() => toggleCompany(comp)}
-                  >
-                    <span className="company-name">{comp}</span>
-                    <span className="employee-count">
-                      {grouped[comp].length} employees
-                    </span>
-                    <span className="toggle-indicator">
-                      {openCompanies[comp] ? "▲" : "▼"}
-                    </span>
-                  </button>
+        {calculatingTaxes && (
+          <Alert tone="info">
+            <span className="fin-row">
+              <span className="fin-spinner fin-spinner--sm" /> Calculating taxes… please wait before
+              saving.
+            </span>
+          </Alert>
+        )}
+
+        <div className="fin-kpis">
+          <Kpi
+            tone="primary"
+            icon={<FaUsers />}
+            label="Employees"
+            value={filteredEmployees.length}
+            hint={`${grand.aboveThreshold} with salary above 43K`}
+          />
+          <Kpi
+            icon={<FaMoneyBillWave />}
+            label="Gross salary"
+            value={formatNumber(grand.gross)}
+            hint={`${companyNames.length} companies`}
+          />
+          <Kpi
+            tone="warning"
+            icon={<FaCalculator />}
+            label="AIT deducted"
+            value={formatNumber(grand.ait)}
+            hint={`Tax calculated for ${Object.keys(taxResults).length}`}
+          />
+          <Kpi
+            tone="success"
+            icon={<FaUniversity />}
+            label="Net pay (bank)"
+            value={formatNumber(grand.netBank)}
+            hint={`Total payable ${formatNumber(grand.totalPay)}`}
+          />
+        </div>
+
+        <Card
+          title={
+            <>
+              <FaBuilding /> Companies
+            </>
+          }
+          subtitle="Open a company to view and edit its sheet."
+          actions={
+            <>
+              <SearchInput
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Search employees by name or ID…"
+              />
+              <button onClick={showAllCompanies} className="fin-btn fin-btn--sm">
+                <FaEye /> Show all
+              </button>
+              <button onClick={hideAllCompanies} className="fin-btn fin-btn--sm">
+                <FaEyeSlash /> Hide all
+              </button>
+            </>
+          }
+        >
+          {companyNames.length ? (
+            <CompanyChips
+              companies={companyNames.map((name) => ({ name, count: grouped[name].length }))}
+              open={openCompanies}
+              onToggle={toggleCompany}
+            />
+          ) : (
+            <EmptyState title="No employees match your search" />
+          )}
+        </Card>
+
+        {companyNames.map((comp) => {
+          const emps = grouped[comp];
+          if (!openCompanies[comp]) return null;
+          const totals = sumUp(emps);
+
+          return (
+            <Card
+              key={comp}
+              flush
+              title={
+                <>
+                  {comp}
+                  {approvalBadges(comp)}
+                </>
+              }
+              subtitle={`Salary sheet for ${monthLabel} · ${emps.length} employees`}
+              actions={
+                <button className="fin-btn fin-btn--sm fin-btn--ghost" onClick={() => toggleCompany(comp)}>
+                  Close
+                </button>
+              }
+              footer={
+                <div className="fin-stats">
+                  <Stat label="Employees" value={emps.length} />
+                  <Stat label="Salary > 43K" value={totals.aboveThreshold} />
+                  <Stat label="Salary ≤ 43K" value={emps.length - totals.aboveThreshold} />
+                  <Stat label="Calculated tax" value={formatNumber(totals.calculatedAit)} />
+                  <Stat label="Deducted tax" value={formatNumber(totals.ait)} />
+                  <Stat label="Net pay (bank)" value={formatNumber(totals.netBank)} highlight />
+                  <Stat label="Total payable" value={formatNumber(totals.totalPay)} highlight />
                 </div>
-              ))}
-            </div>
-          </div>
+              }
+            >
+              <div className="fin-table-wrap">
+                <table className="fin-table">
+                  <thead>
+                    <tr>
+                      <th className="fin-sticky" style={{ left: 0, minWidth: 48 }}>SL</th>
+                      <th className="fin-sticky fin-sticky-edge" style={{ left: 48 }}>Name</th>
+                      <th>ID</th>
+                      <th>Designation</th>
+                      <th>DOJ</th>
+                      <th className="num">Basic</th>
+                      <th className="num">House Rent</th>
+                      <th className="num">Medical</th>
+                      <th className="num">Conveyance</th>
+                      <th className="num">Gross Salary</th>
+                      <th className="num">Total Days</th>
+                      <th className="num">Days Worked</th>
+                      <th className="num">Absent Days</th>
+                      <th className="num">Absent Ded.</th>
+                      <th className="num">Advance</th>
+                      <th className="num">AIT</th>
+                      <th className="num">Total Ded.</th>
+                      <th className="num">OT Min</th>
+                      <th className="num">OT Pay</th>
+                      <th className="num">Addition</th>
+                      <th className="num">Cash Payment</th>
+                      <th className="num">Cash Salary</th>
+                      <th className="num">Net Pay (Bank)</th>
+                      <th className="num">Total Payable</th>
+                      <th>Bank Account</th>
+                      <th>Branch Code</th>
+                      <th>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {emps.map((emp, idx) => {
+                      const empId = emp.employee_id;
+                      const c = computeSalary(emp);
+                      const remarks = getManual(empId, "remarks", "");
 
-          {/* COMPANY SECTIONS */}
-          {Object.keys(grouped).map((comp) => {
-            const emps = grouped[comp];
-            if (!openCompanies[comp]) return null;
-
-            return (
-              <div key={comp} className="company-section">
-                <div className="company-header">
-                  <div className="company-title">
-                    <h2>{comp}</h2>
-                    <h3>
-                      Salary Sheet for {monthNames[selectedMonth - 1]}{" "}
-                      {selectedYear}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="table-scroll-container">
-                  <div className="table-wrapper">
-                    <table className="salary-table">
-                      <thead>
-                        <tr>
-                          <th>SL</th>
-                          <th>Name</th>
-                          <th>ID</th>
-                          <th>Designation</th>
-                          <th>DOJ</th>
-                          <th>Basic</th>
-                          <th>House Rent</th>
-                          <th>Medical</th>
-                          <th>Conveyance</th>
-                          <th>Gross Salary</th>
-                          <th>Total Days</th>
-                          <th>Days Worked</th>
-                          <th>Absent Days</th>
-                          <th>Absent Ded.</th>
-                          <th>Advance</th>
-                          <th>AIT</th>
-                          <th>Total Ded.</th>
-                          <th>OT Min</th>
-                          <th>OT Pay</th>
-                          <th>Addition</th>
-                          <th>Cash Payment</th>
-                          <th>Cash Salary</th>
-                          <th>Net Pay (Bank)</th>
-                          <th>Total Payable</th>
-                          <th>Bank Account</th>
-                          <th>Branch Code</th>
-                          <th>Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {emps.map((emp, idx) => {
-                          const empId = emp.employee_id;
-                          const {
-                            monthlySalary, salaryCash, totalDeduction,
-                            basicFull, houseRentFull, medicalFull,
-                            conveyanceFull, grossFull, ait, calculatedAit,
-                            shouldDeduct, aitLoading: loading,
-                            daysWorkedManual, defaultDays, unpaidLeaveDays,
-                            absentDays, absentDeduction, advance, cashPayment,
-                            addition, netPayBank, totalPayable,
-                          } = computeSalary(emp);
-                          const remarks = getManual(empId, "remarks", "");
-
-                          return (
-                            <tr key={empId} className="data-row">
-                              <td className="sl-number">{idx + 1}</td>
-                              <td className="emp-name">{emp.name}</td>
-                              <td className="emp-id">{empId}</td>
-                              <td className="emp-designation">
-                                {emp.designation}
-                              </td>
-                              <td className="emp-doj">{emp.joining_date}</td>
-                              <td className="salary-amount">
-                                {formatNumber(basicFull)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(houseRentFull)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(medicalFull)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(conveyanceFull)}
-                              </td>
-                              <td className="gross-salary">
-                                {formatNumber(grossFull)}
-                              </td>
-                              <td className="days-count">{totalDaysInMonth}</td>
-
-                              <td>
-                                <input
-                                  type="number"
-                                  value={
-                                    daysWorkedManual > 0 ? daysWorkedManual : ""
-                                  }
-                                  placeholder={defaultDays}
-                                  onChange={(e) =>
-                                    updateManual(
-                                      empId,
-                                      "daysWorked",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input days-input"
-                                  min="0"
-                                  max={totalDaysInMonth}
-                                />
-                              </td>
-
-                              <td
-                                className="absent-days"
-                                title={
-                                  unpaidLeaveDays
-                                    ? `Includes ${unpaidLeaveDays} unpaid leave day(s) — one day's basic each`
-                                    : undefined
-                                }
-                              >
-                                {absentDays}
-                                {unpaidLeaveDays > 0 && (
-                                  <div
-                                    style={{ fontSize: 10, color: "#b91c1c" }}
-                                  >
-                                    incl. {unpaidLeaveDays} unpaid leave
-                                  </div>
+                      return (
+                        <tr key={empId}>
+                          <td className="fin-sticky muted" style={{ left: 0, minWidth: 48 }}>
+                            {idx + 1}
+                          </td>
+                          <td className="fin-sticky fin-sticky-edge fin-col-name" style={{ left: 48 }}>
+                            {emp.name}
+                          </td>
+                          <td className="fin-col-id">{empId}</td>
+                          <td className="muted">{emp.designation}</td>
+                          <td className="muted">
+                            {emp.joining_date}
+                            {c.isNewJoiner && (
+                              <div className="fin-cell-note fin-cell-note--success">New joiner</div>
+                            )}
+                          </td>
+                          <td className="num">{formatNumber(c.basicFull)}</td>
+                          <td className="num">{formatNumber(c.houseRentFull)}</td>
+                          <td className="num">{formatNumber(c.medicalFull)}</td>
+                          <td className="num">{formatNumber(c.conveyanceFull)}</td>
+                          <td className="num strong">{formatNumber(c.grossFull)}</td>
+                          <td className="num muted">{totalDaysInMonth}</td>
+                          <td className="num">
+                            <input
+                              type="number"
+                              value={c.daysWorkedManual > 0 ? c.daysWorkedManual : ""}
+                              placeholder={c.defaultDays}
+                              onChange={(e) => updateManual(empId, "daysWorked", e.target.value)}
+                              className="fin-cell-input fin-cell-input--sm"
+                              min="0"
+                              max={totalDaysInMonth}
+                              aria-label={`Days worked, ${emp.name}`}
+                            />
+                          </td>
+                          <td
+                            className="num"
+                            title={
+                              c.unpaidLeaveDays
+                                ? `Includes ${c.unpaidLeaveDays} unpaid leave day(s) — one day's basic each`
+                                : undefined
+                            }
+                          >
+                            <div className="fin-cell-stack">
+                              <span>{c.absentDays}</span>
+                              {c.unpaidLeaveDays > 0 && (
+                                <span className="fin-cell-note fin-cell-note--danger">
+                                  incl. {c.unpaidLeaveDays} unpaid leave
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className={`num ${c.absentDeduction ? "text-neg" : "muted"}`}>
+                            {formatNumber(c.absentDeduction)}
+                          </td>
+                          <td className="num">
+                            <input
+                              type="number"
+                              value={c.advance !== 0 ? c.advance : ""}
+                              placeholder="0"
+                              onChange={(e) => updateManual(empId, "advance", e.target.value)}
+                              className="fin-cell-input"
+                              aria-label={`Advance, ${emp.name}`}
+                            />
+                          </td>
+                          <td className="num" title={getAitValue(empId, c.monthlySalary).deductionReason}>
+                            {c.aitLoading ? (
+                              <span className="fin-row" style={{ justifyContent: "flex-end" }}>
+                                <span className="fin-spinner fin-spinner--sm" />
+                                <span className="fin-cell-note">Calculating…</span>
+                              </span>
+                            ) : (
+                              <div className="fin-cell-stack">
+                                <span className={c.ait ? "strong" : "muted"}>{formatNumber(c.ait)}</span>
+                                {c.calculatedAit > 0 && !c.shouldDeduct && (
+                                  <span className="fin-cell-note">
+                                    Calc {formatNumber(c.calculatedAit)} · not deducted
+                                  </span>
                                 )}
-                              </td>
-                              <td className="deduction-amount">
-                                {formatNumber(absentDeduction)}
-                              </td>
-
-                              <td>
-                                <input
-                                  type="number"
-                                  value={advance !== 0 ? advance : ""}
-                                  placeholder="0"
-                                  onChange={(e) =>
-                                    updateManual(
-                                      empId,
-                                      "advance",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input advance-input"
-                                />
-                              </td>
-
-                              <td
-                                className={`tax-amount ${
-                                  loading ? "loading" : ""
-                                } ${
-                                  calculatedAit > 0 && !shouldDeduct
-                                    ? "calculated-no-deduct"
-                                    : shouldDeduct
-                                      ? "tax-deducted"
-                                      : ""
-                                }`}
-                              >
-                                {loading ? (
-                                  <div className="loading-spinner-small">
-                                    <div className="spinner-tiny"></div>
-                                    <span className="loading-text">
-                                      Calculating...
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="tax-breakdown">
-                                    <div className="tax-amount-main">
-                                      {formatNumber(ait)}
-                                    </div>
-                                    {calculatedAit > 0 && !shouldDeduct && (
-                                      <div
-                                        className="tax-note"
-                                        title={`Calculated: ${formatNumber(
-                                          calculatedAit,
-                                        )} (Not deducted - Salary ≤ 43,000)`}
-                                      >
-                                        (Calc: {formatNumber(calculatedAit)})
-                                      </div>
-                                    )}
-                                    {shouldDeduct && calculatedAit > 0 && (
-                                      <div
-                                        className="tax-note"
-                                        title="Tax deducted (Salary > 43,000)"
-                                      >
-                                        ✓ Deducted
-                                      </div>
-                                    )}
-                                    {!calculatedAit &&
-                                      !shouldDeduct &&
-                                      monthlySalary > 0 && (
-                                        <div
-                                          className="tax-note"
-                                          title="No tax calculation available"
-                                        >
-                                          No tax
-                                        </div>
-                                      )}
-                                  </div>
+                                {c.shouldDeduct && c.calculatedAit > 0 && (
+                                  <span className="fin-cell-note fin-cell-note--success">Deducted</span>
                                 )}
-                              </td>
-                              <td className="deduction-amount total-deduction">
-                                {formatNumber(totalDeduction)}
-                              </td>
-
-                              <td className="ot-hours">
-                                <input
-                                  type="number"
-                                  value={getManual(empId, "otHours") || ""}
-                                  placeholder="Minutes"
-                                  onChange={(e) =>
-                                    updateManual(
-                                      empId,
-                                      "otHours",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input ot-input"
-                                  min="0"
-                                  step="1"
-                                  title="Enter OT in minutes (60 = 1 hour, 120 = 2 hours)"
-                                />
-                              </td>
-                              <td className="ot-pay">
-                                {formatNumber(
-                                  calculateOTPay(
-                                    monthlySalary,
-                                    getManual(empId, "otHours") || 0,
-                                    totalDaysInMonth,
-                                  ),
-                                )}
-                              </td>
-
-                              <td>
-                                <input
-                                  type="number"
-                                  value={addition !== 0 ? addition : ""}
-                                  placeholder="0"
-                                  onChange={(e) =>
-                                    updateManual(
-                                      empId,
-                                      "addition",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input addition-input"
-                                />
-                              </td>
-
-                              <td>
-                                <input
-                                  type="number"
-                                  value={cashPayment !== 0 ? cashPayment : ""}
-                                  placeholder="0"
-                                  onChange={(e) =>
-                                    updateManual(
-                                      empId,
-                                      "cashPayment",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input cash-input"
-                                />
-                              </td>
-                              <td className="total-payable">
-                                {formatNumber(salaryCash + cashPayment)}
-                              </td>
-
-                              <td
-                                className={`net-pay ${
-                                  netPayBank < 0 ? "negative" : "positive"
-                                }`}
-                              >
-                                {formatNumber(netPayBank)}
-                              </td>
-                              <td className="total-payable">
-                                {formatNumber(totalPayable)}
-                              </td>
-
-                              <td className="bank-account">
-                                {emp.bank_account || "N/A"}
-                              </td>
-                              <td className="branch-code">
-                                {emp.branch_name || "N/A"}
-                              </td>
-                              <td>
-                                <input
-                                  type="text"
-                                  value={remarks}
-                                  placeholder={
-                                    unpaidLeaveRemark(empId) || "Remarks"
-                                  }
-                                  onChange={(e) =>
-                                    updateManual(
-                                      empId,
-                                      "remarks",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input remarks-input"
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* TAX SUMMARY SECTION */}
-                <div className="tax-summary-note">
-                  <h4>📊 Tax Deduction Summary for {comp}</h4>
-                  <div className="summary-stats">
-                    <div className="summary-stat">
-                      <span className="stat-label">Total Employees:</span>
-                      <span className="stat-value">{emps.length}</span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">
-                        Tax-Deductible Employees (Salary &gt; 43K):
-                      </span>
-                      <span className="stat-value">
-                        {
-                          emps.filter((e) => Number(e.salary || 0) > 43000)
-                            .length
-                        }
-                      </span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">
-                        Tax-Exempt Employees (Salary ≤ 43K):
-                      </span>
-                      <span className="stat-value">
-                        {
-                          emps.filter((e) => Number(e.salary || 0) <= 43000)
-                            .length
-                        }
-                      </span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">Total Calculated Tax:</span>
-                      <span className="stat-value">
-                        {formatNumber(
-                          emps.reduce((sum, e) => {
-                            const result = taxResults[e.employee_id] || {};
-                            const taxCalc = result.tax_calculation || {};
-                            return (
-                              sum +
-                              (taxCalc.calculated_tds ||
-                                taxCalc.monthly_tds ||
-                                0)
-                            );
-                          }, 0),
-                        )}
-                      </span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">Total Deducted Tax:</span>
-                      <span className="stat-value">
-                        {formatNumber(
-                          emps.reduce((sum, e) => {
-                            const result = taxResults[e.employee_id] || {};
-                            const taxCalc = result.tax_calculation || {};
-                            return sum + (taxCalc.actual_deduction || 0);
-                          }, 0),
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* APPROVAL FOOTER */}
-                {renderApprovalFooter(comp)}
-              </div>
-            );
-          })}
-
-          {/* SUMMARY SECTION - Only show when no companies are open */}
-          {showSummary && filteredEmployees.length > 0 && (
-            <div className="summary-section">
-              <div className="summary-header">
-                <h2>
-                  <FaUsers className="section-icon" />
-                  Summary Overview
-                </h2>
-                {/* <div className="summary-actions">
-                  <button
-                    onClick={exportAllCompanies}
-                    className="btn btn-export-all"
-                  >
-                    <FaFileExport /> Export All
-                  </button>
-                </div> */}
-              </div>
-
-              <div className="summary-stats">
-                <div className="stat-card">
-                  <div className="stat-number">
-                    {Object.keys(grouped).length}
-                  </div>
-                  <div className="stat-label">Companies</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">{filteredEmployees.length}</div>
-                  <div className="stat-label">Total Employees</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">
-                    {formatNumber(
-                      filteredEmployees.reduce(
-                        (s, e) => s + (Number(e.salary) || 0),
-                        0,
-                      ),
-                    )}
-                  </div>
-                  <div className="stat-label">Total Gross Salary</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-number">
-                    {formatNumber(
-                      filteredEmployees.reduce((s, e) => {
-                        const result = taxResults[e.employee_id] || {};
-                        const taxCalc = result.tax_calculation || {};
-                        return s + (taxCalc.actual_deduction || 0);
-                      }, 0),
-                    )}
-                  </div>
-                  <div className="stat-label">Total Deducted AIT</div>
-                </div>
-              </div>
-
-              <div className="table-scroll-container">
-                <div className="table-wrapper">
-                  <table className="salary-table summary-table">
-                    <thead>
-                      <tr>
-                        <th>SL</th>
-                        <th>Company</th>
-                        <th>Employees</th>
-                        <th>Gross Salary</th>
-                        <th>AIT (Deducted)</th>
-                        <th>Net Pay (Bank)</th>
-                        <th>Total Payable</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.keys(grouped).map((comp, i) => {
-                        const emps = grouped[comp];
-                        const summary = emps.reduce(
-                          (acc, e) => {
-                            const c = computeSalary(e);
-                            const salary = c.monthlySalary;
-                            const ait = c.ait;
-                            const calculatedAit = c.calculatedAit;
-                            const absentDed = c.absentDeduction;
-                            const advance = c.advance;
-                            const cash = c.cashPayment;
-                            const addition = c.addition;
-                            const netBank = c.netPayBank;
-                            const totalPay = c.totalPayable;
-
-                            return {
-                              gross: acc.gross + salary,
-                              ait: acc.ait + ait,
-                              calculatedAit: acc.calculatedAit + calculatedAit,
-                              absentDed: acc.absentDed + absentDed,
-                              advance: acc.advance + advance,
-                              cash: acc.cash + cash,
-                              addition: acc.addition + addition,
-                              netBank: acc.netBank + netBank,
-                              totalPay: acc.totalPay + totalPay,
-                            };
-                          },
-                          {
-                            gross: 0,
-                            ait: 0,
-                            calculatedAit: 0,
-                            absentDed: 0,
-                            advance: 0,
-                            cash: 0,
-                            addition: 0,
-                            netBank: 0,
-                            totalPay: 0,
-                          },
-                        );
-
-                        return (
-                          <tr key={i} className="data-row summary-row">
-                            <td className="sl-number">{i + 1}</td>
-                            <td className="company-name">{comp}</td>
-                            <td className="employee-count">{emps.length}</td>
-                            <td className="gross-salary">
-                              {formatNumber(summary.gross)}
-                            </td>
-                            <td className="tax-amount">
-                              <div className="tax-breakdown">
-                                <div className="tax-amount-main">
-                                  {formatNumber(summary.ait)}
-                                </div>
-                                {summary.calculatedAit > summary.ait && (
-                                  <div className="tax-note">
-                                    (Calc: {formatNumber(summary.calculatedAit)}
-                                    )
-                                  </div>
+                                {!c.calculatedAit && !c.shouldDeduct && c.monthlySalary > 0 && (
+                                  <span className="fin-cell-note">No tax</span>
                                 )}
                               </div>
-                            </td>
-                            <td
-                              className={`net-pay ${
-                                summary.netBank < 0 ? "negative" : "positive"
-                              }`}
-                            >
-                              {formatNumber(summary.netBank)}
-                            </td>
-                            <td className="total-payable">
-                              {formatNumber(summary.totalPay)}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                            )}
+                          </td>
+                          <td className="num text-neg">{formatNumber(c.totalDeduction)}</td>
+                          <td className="num">
+                            <input
+                              type="number"
+                              value={getManual(empId, "otHours") || ""}
+                              placeholder="Min"
+                              onChange={(e) => updateManual(empId, "otHours", e.target.value)}
+                              className="fin-cell-input fin-cell-input--sm"
+                              min="0"
+                              step="1"
+                              title="Enter OT in minutes (60 = 1 hour, 120 = 2 hours)"
+                              aria-label={`OT minutes, ${emp.name}`}
+                            />
+                          </td>
+                          <td className="num">
+                            {formatNumber(
+                              calculateOTPay(c.monthlySalary, getManual(empId, "otHours") || 0, totalDaysInMonth),
+                            )}
+                          </td>
+                          <td className="num">
+                            <input
+                              type="number"
+                              value={c.addition !== 0 ? c.addition : ""}
+                              placeholder="0"
+                              onChange={(e) => updateManual(empId, "addition", e.target.value)}
+                              className="fin-cell-input"
+                              title="Includes OT pay"
+                              aria-label={`Addition, ${emp.name}`}
+                            />
+                          </td>
+                          <td className="num">
+                            <input
+                              type="number"
+                              value={c.cashPayment !== 0 ? c.cashPayment : ""}
+                              placeholder="0"
+                              onChange={(e) => updateManual(empId, "cashPayment", e.target.value)}
+                              className="fin-cell-input"
+                              aria-label={`Cash payment, ${emp.name}`}
+                            />
+                          </td>
+                          <td className="num">{formatNumber(c.salaryCash)}</td>
+                          <td className={`num strong ${c.netPayBank < 0 ? "text-neg" : "text-pos"}`}>
+                            {formatNumber(c.netPayBank)}
+                          </td>
+                          <td className="num strong">{formatNumber(c.totalPayable)}</td>
+                          <td className="fin-col-id">{emp.bank_account || "N/A"}</td>
+                          <td className="muted">{emp.branch_name || "N/A"}</td>
+                          <td>
+                            <input
+                              type="text"
+                              value={remarks}
+                              placeholder={unpaidLeaveRemark(empId) || "Remarks"}
+                              onChange={(e) => updateManual(empId, "remarks", e.target.value)}
+                              className="fin-cell-input fin-cell-input--text"
+                              aria-label={`Remarks, ${emp.name}`}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td className="fin-sticky" style={{ left: 0, minWidth: 48 }} />
+                      <td className="fin-sticky fin-sticky-edge" style={{ left: 48 }}>
+                        Total ({emps.length})
+                      </td>
+                      <td colSpan={7} />
+                      <td className="num">{formatNumber(totals.gross)}</td>
+                      <td colSpan={3} />
+                      <td className="num">{formatNumber(totals.absentDed)}</td>
+                      <td className="num">{formatNumber(totals.advance)}</td>
+                      <td className="num">{formatNumber(totals.ait)}</td>
+                      <td className="num">{formatNumber(totals.totalDed)}</td>
+                      <td colSpan={2} />
+                      <td className="num">{formatNumber(totals.addition)}</td>
+                      <td className="num">{formatNumber(totals.cash)}</td>
+                      <td className="num">{formatNumber(totals.cashSalary)}</td>
+                      <td className="num">{formatNumber(totals.netBank)}</td>
+                      <td className="num">{formatNumber(totals.totalPay)}</td>
+                      <td colSpan={3} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          );
+        })}
 
-                      {/* GRAND TOTAL ROW - PROPERLY ALIGNED */}
-                      <tr className="grand-total">
-                        <td colSpan="2" className="grand-total-label">
-                          Grand Total
-                        </td>
-                        <td className="grand-total-count">
-                          {filteredEmployees.length}
-                        </td>
-                        <td className="grand-total-gross">
-                          {formatNumber(
-                            filteredEmployees.reduce(
-                              (s, e) => s + (Number(e.salary) || 0),
-                              0,
-                            ),
-                          )}
-                        </td>
-                        <td className="grand-total-tax">
-                          <div className="tax-breakdown">
-                            <div className="tax-amount-main">
-                              {formatNumber(
-                                filteredEmployees.reduce((s, e) => {
-                                  const result =
-                                    taxResults[e.employee_id] || {};
-                                  const taxCalc = result.tax_calculation || {};
-                                  const shouldDeduct =
-                                    taxCalc.should_deduct_tax || false;
-                                  const ait = shouldDeduct
-                                    ? taxCalc.monthly_tds || 0
-                                    : 0;
-                                  return s + ait;
-                                }, 0),
-                              )}
-                            </div>
-                            <div className="tax-note">
-                              (Calc:{" "}
-                              {formatNumber(
-                                filteredEmployees.reduce((s, e) => {
-                                  const result =
-                                    taxResults[e.employee_id] || {};
-                                  const taxCalc = result.tax_calculation || {};
-                                  return s + (taxCalc.monthly_tds || 0);
-                                }, 0),
-                              )}
-                              )
-                            </div>
+        {showSummary && filteredEmployees.length > 0 && (
+          <Card
+            flush
+            title={
+              <>
+                <FaUsers /> Summary by company
+              </>
+            }
+            subtitle={`All companies · ${monthLabel}`}
+          >
+            <div className="fin-table-wrap fin-table-wrap--auto">
+              <table className="fin-table">
+                <thead>
+                  <tr>
+                    <th>SL</th>
+                    <th>Company</th>
+                    <th className="num">Employees</th>
+                    <th className="num">Gross Salary</th>
+                    <th className="num">AIT (Deducted)</th>
+                    <th className="num">Net Pay (Bank)</th>
+                    <th className="num">Total Payable</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {companyNames.map((comp, i) => {
+                    const summary = sumUp(grouped[comp]);
+                    return (
+                      <tr
+                        key={comp}
+                        className="fin-row-clickable"
+                        onClick={() => toggleCompany(comp)}
+                        title="Open this company's sheet"
+                      >
+                        <td className="muted">{i + 1}</td>
+                        <td className="fin-col-name">{comp}</td>
+                        <td className="num">{grouped[comp].length}</td>
+                        <td className="num">{formatNumber(summary.gross)}</td>
+                        <td className="num">
+                          <div className="fin-cell-stack">
+                            <span>{formatNumber(summary.ait)}</span>
+                            {summary.calculatedAit > summary.ait && (
+                              <span className="fin-cell-note">Calc {formatNumber(summary.calculatedAit)}</span>
+                            )}
                           </div>
                         </td>
-                        <td
-                          className={`grand-total-net ${
-                            filteredEmployees.reduce((s, e) => s + computeSalary(e).netPayBank, 0) < 0
-                              ? "negative"
-                              : "positive"
-                          }`}
-                        >
-                          {formatNumber(
-                            filteredEmployees.reduce((s, e) => s + computeSalary(e).netPayBank, 0),
-                          )}
+                        <td className={`num strong ${summary.netBank < 0 ? "text-neg" : ""}`}>
+                          {formatNumber(summary.netBank)}
                         </td>
-                        <td className="grand-total-payable">
-                          {formatNumber(
-                            filteredEmployees.reduce((s, e) => s + computeSalary(e).totalPayable, 0),
-                          )}
-                        </td>
+                        <td className="num strong">{formatNumber(summary.totalPay)}</td>
                       </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={2}>Grand Total</td>
+                    <td className="num">{filteredEmployees.length}</td>
+                    <td className="num">{formatNumber(grand.gross)}</td>
+                    <td className="num">
+                      <div className="fin-cell-stack">
+                        <span>{formatNumber(grand.ait)}</span>
+                        <span className="fin-cell-note">Calc {formatNumber(grand.calculatedAit)}</span>
+                      </div>
+                    </td>
+                    <td className={`num ${grand.netBank < 0 ? "text-neg" : ""}`}>
+                      {formatNumber(grand.netBank)}
+                    </td>
+                    <td className="num">{formatNumber(grand.totalPay)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-          )}
-        </div>
+          </Card>
+        )}
       </div>
-
-      <style>{`
-        .salary-format-container {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 1rem;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-
-        .dashboard {
-          width: 100%;
-          max-width: 100%;
-          margin: 0 auto;
-          padding: 1rem;
-        }
-
-        .card {
-          background: white;
-          border-radius: 20px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-          overflow: hidden;
-          backdrop-filter: blur(10px);
-          
-        }
-
-        /* IMPROVED HEADER SECTION */
-        .header-section {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 2.5rem;
-          color: white;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .header-main {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 2rem;
-          flex-wrap: wrap;
-        }
-
-        .title-section {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .main-title {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          font-size: 2.5rem;
-          font-weight: 700;
-          margin: 0;
-          color: white;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .title-icon {
-          font-size: 2.2rem;
-          opacity: 0.9;
-          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-        }
-
-        .date-badge {
-          background: rgba(255, 255, 255, 0.2);
-          padding: 0.75rem 1.5rem;
-          border-radius: 15px;
-          font-size: 1.1rem;
-          font-weight: 600;
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          align-self: flex-start;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .controls-section {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          min-width: 320px;
-        }
-
-        .search-wrapper {
-          position: relative;
-          width: 100%;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 1rem 1rem 1rem 3.5rem;
-          border: none;
-          border-radius: 15px;
-          background: rgba(255, 255, 255, 0.95);
-          font-size: 1rem;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-          border: 2px solid transparent;
-        }
-
-        .search-input:focus {
-          outline: none;
-          background: white;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-          transform: translateY(-2px);
-          border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 1.2rem;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #8b5cf6;
-          font-size: 1.2rem;
-        }
-
-        .action-buttons {
-          display: flex;
-          gap: 0.8rem;
-          flex-wrap: wrap;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          padding: 1rem 1.8rem;
-          border: none;
-          border-radius: 15px;
-          font-weight: 600;
-          font-size: 0.95rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          text-decoration: none;
-          white-space: nowrap;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-          border: 2px solid transparent;
-        }
-
-        .btn:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-back {
-          background: rgba(255, 255, 255, 0.15);
-          color: white;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-back:hover {
-          background: rgba(255, 255, 255, 0.25);
-        }
-
-        .btn-save {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-        }
-
-        .btn-save:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        }
-
-        .btn-sync {
-          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-          color: white;
-        }
-
-        .btn-sync:hover {
-          background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-        }
-
-        .btn-recalculate {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
-        }
-
-        .btn-recalculate:hover {
-          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-        }
-
-        .btn-export-all,
-        .btn-export-section {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
-        }
-
-        .btn-export-all:hover,
-        .btn-export-section:hover {
-          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-        }
-
-        .btn-show-all,
-        .btn-hide-all {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-        }
-
-        .btn-show-all:hover,
-        .btn-hide-all:hover {
-          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-        }
-
-        /* TAX STATUS SUMMARY */
-        .tax-status-summary {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1rem;
-          padding: 1rem 2.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-          flex-wrap: wrap;
-        }
-
-        .status-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 0.5rem 1rem;
-          background: white;
-          border-radius: 8px;
-          border: 1px solid #e5e7eb;
-          min-width: 120px;
-        }
-
-        .status-label {
-          font-size: 0.8rem;
-          color: #6b7280;
-          font-weight: 600;
-          margin-bottom: 0.25rem;
-        }
-
-        .status-value {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-
-        /* COMPANY QUICK ACCESS */
-        .company-quick-access {
-          padding: 2.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .section-label {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: #374151;
-          margin-bottom: 2rem;
-        }
-
-        .section-icon {
-          color: #8b5cf6;
-          font-size: 1.4rem;
-        }
-
-        .company-buttons-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1.2rem;
-        }
-
-        .company-card {
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-        }
-
-        .company-toggle-btn {
-          flex: 1;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.2rem 1.8rem;
-          background: white;
-          border: 2px solid #e2e8f0;
-          border-radius: 15px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          text-align: left;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-        }
-
-        .company-toggle-btn:hover {
-          border-color: #8b5cf6;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
-        }
-
-        .company-toggle-btn.active {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-          border-color: #8b5cf6;
-          box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
-        }
-
-        .company-name {
-          font-weight: 600;
-          font-size: 1.1rem;
-        }
-
-        .employee-count {
-          font-size: 0.9rem;
-          opacity: 0.9;
-        }
-
-        .toggle-indicator {
-          font-weight: bold;
-          margin-left: 0.5rem;
-          font-size: 1.1rem;
-        }
-
-        .btn-export-company {
-          padding: 1rem;
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-export-company:hover {
-          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(217, 119, 6, 0.3);
-        }
-
-        /* COMPANY SECTIONS */
-        .company-section {
-          padding: 2.5rem;
-          border-bottom: 1px solid #e2e8f0;
-          background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-        }
-
-        .company-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 2.5rem;
-          gap: 1.5rem;
-          flex-wrap: wrap;
-        }
-
-        .company-title {
-          flex: 1;
-        }
-
-        .company-title h2 {
-          margin: 0 0 0.8rem 0;
-          color: #1f2937;
-          font-size: 2rem;
-          font-weight: 700;
-          background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .company-title h3 {
-          margin: 0;
-          color: #6b7280;
-          font-size: 1.2rem;
-          font-weight: 500;
-        }
-
-        .company-action-buttons {
-          display: flex;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .btn-generate-excel {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          padding: 1rem 1.8rem;
-          border: none;
-          border-radius: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-generate-excel:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-          transform: translateY(-3px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-generate-excel:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        /* FIXED TABLE STYLING */
-        .table-scroll-container {
-          overflow-x: auto;
-          border: 1px solid #e5e7eb;
-          border-radius: 15px;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-          margin-bottom: 2.5rem;
-          max-height: 70vh;
-          position: relative;
-          background: white;
-        }
-
-        .table-wrapper {
-          min-width: 2400px;
-          position: relative;
-        }
-
-        .salary-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.9rem;
-          position: relative;
-        }
-
-        .salary-table thead {
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-
-        .salary-table thead tr {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-        }
-
-        .salary-table th {
-          padding: 1.2rem 0.8rem;
-          text-align: center;
-          font-weight: 600;
-          border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-          white-space: nowrap;
-          position: sticky;
-          top: 0;
-          background: inherit;
-          font-size: 0.85rem;
-        }
-
-        .data-row td {
-          padding: 1rem 0.8rem;
-          border-bottom: 1px solid #f3f4f6;
-          text-align: center;
-          transition: all 0.2s ease;
-        }
-
-        .data-row:hover {
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          transform: scale(1.01);
-        }
-
-        .data-row:nth-child(even) {
-          background: #fafafa;
-        }
-
-        .data-row:nth-child(even):hover {
-          background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-        }
-
-        .editable-input {
-          width: 85px;
-          padding: 0.6rem;
-          border: 2px solid #e5e7eb;
-          border-radius: 10px;
-          font-size: 0.85rem;
-          text-align: center;
-          transition: all 0.2s ease;
-          background: white;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-        }
-
-        .editable-input:focus {
-          outline: none;
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-          transform: scale(1.05);
-        }
-
-        .days-input {
-          border-color: #f59e0b;
-          background: #fffbeb;
-        }
-        .advance-input {
-          border-color: #ef4444;
-          background: #fef2f2;
-        }
-        .addition-input {
-          border-color: #10b981;
-          background: #ecfdf5;
-        }
-        .cash-input {
-          border-color: #3b82f6;
-          background: #eff6ff;
-        }
-        .remarks-input {
-          border-color: #8b5cf6;
-          background: #faf5ff;
-          width: 130px;
-        }
-
-        /* LOADING SPINNER FOR AIT CELLS */
-        .loading-spinner-small {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 5px;
-        }
-
-        .spinner-tiny {
-          width: 16px;
-          height: 16px;
-          border: 2px solid #8b5cf6;
-          border-top: 2px solid transparent;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        .loading-text {
-          font-size: 0.7rem;
-          color: #6b7280;
-        }
-
-        .tax-amount.loading {
-          background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%) !important;
-          border: 2px solid #d1d5db !important;
-          color: #6b7280 !important;
-          min-height: 60px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        /* TAX BREAKDOWN STYLES */
-        .tax-breakdown {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-        }
-
-        .tax-amount-main {
-          font-weight: 700;
-          font-size: 1rem;
-        }
-
-        .tax-note {
-          font-size: 0.7rem;
-          color: #6b7280;
-          background: #f9fafb;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-weight: 500;
-          cursor: help;
-          border: 1px solid #e5e7eb;
-          max-width: 100px;
-          text-overflow: ellipsis;
-          overflow: hidden;
-          white-space: nowrap;
-        }
-
-        .calculated-no-deduct .tax-note {
-          background: #fef3c7;
-          border-color: #f59e0b;
-          color: #92400e;
-        }
-
-        .tax-deducted .tax-note {
-          background: #fee2e2;
-          border-color: #fca5a5;
-          color: #dc2626;
-        }
-
-        .tax-amount.calculated-no-deduct {
-          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
-          border: 2px solid #f59e0b !important;
-          color: #92400e !important;
-        }
-
-        .tax-amount.tax-deducted {
-          background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%) !important;
-          border: 2px solid #ef4444 !important;
-          color: #b91c1c !important;
-        }
-
-        .tax-amount.loading {
-          background: #f3f4f6 !important;
-          border: 2px solid #d1d5db !important;
-          color: #6b7280 !important;
-        }
-
-        /* BEAUTIFUL COLOR CODING */
-        .sl-number {
-          color: #7c3aed;
-          font-weight: 700;
-          background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
-          padding: 0.5rem;
-          border-radius: 10px;
-          border: 2px solid #ddd6fe;
-        }
-        .emp-name {
-          color: #1e40af;
-          font-weight: 700;
-          background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
-          padding: 0.5rem 0.8rem;
-          border-radius: 10px;
-        }
-        .emp-id {
-          color: #dc2626;
-          font-weight: 700;
-          background: linear-gradient(135deg, #fecaca 0%, #fee2e2 100%);
-          padding: 0.5rem 0.8rem;
-          border-radius: 10px;
-          border: 2px solid #fca5a5;
-        }
-        .emp-designation {
-          color: #059669;
-          font-weight: 600;
-          background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
-          padding: 0.5rem 0.8rem;
-          border-radius: 10px;
-        }
-        .emp-doj {
-          color: #7c2d12;
-          background: #fef3c7;
-          padding: 0.5rem;
-          border-radius: 8px;
-          font-weight: 500;
-        }
-        .salary-amount {
-          color: #1e3a8a;
-          font-weight: 600;
-          background: #f0f9ff;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .gross-salary {
-          color: #1e3a8a;
-          font-weight: 800;
-          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #93c5fd;
-        }
-        .days-count {
-          color: #7c2d12;
-          font-weight: 600;
-          background: #fed7aa;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .absent-days {
-          color: #dc2626;
-          font-weight: 600;
-          background: #fecaca;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .deduction-amount {
-          color: #dc2626;
-          font-weight: 600;
-          background: #fee2e2;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .total-deduction {
-          color: #b91c1c;
-          font-weight: 700;
-          background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #f87171;
-        }
-        .tax-amount {
-          color: #c2410c;
-          font-weight: 600;
-          background: #ffedd5;
-          padding: 0.5rem;
-          border-radius: 8px;
-          border: 2px solid #fdba74;
-        }
-        .net-pay.positive {
-          color: #059669;
-          font-weight: 800;
-          background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #34d399;
-        }
-        .net-pay.negative {
-          color: #dc2626;
-          font-weight: 800;
-          background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #f87171;
-        }
-        .total-payable {
-          color: #1e3a8a;
-          font-weight: 800;
-          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #a5b4fc;
-        }
-        .ot-hours {
-          color: #64748b;
-          background: #f1f5f9;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-
-        /* TAX SUMMARY SECTION */
-        .tax-summary-note {
-          margin-top: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .tax-summary-note h4 {
-          margin-top: 0;
-          color: #1e293b;
-          margin-bottom: 1rem;
-          font-size: 1.2rem;
-        }
-
-        /* APPROVAL BUTTONS STYLES */
-        .approval-btn {
-          padding: 1rem 1.5rem;
-          border: 2px solid #e2e8f0;
-          border-radius: 10px;
-          background: white;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-weight: 600;
-          min-width: 200px;
-          justify-content: center;
-        }
-
-        .approval-btn.enabled {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          border-color: #059669;
-          cursor: pointer;
-        }
-
-        .approval-btn.enabled:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
-        }
-
-        .approval-btn.disabled {
-          background: #f3f4f6;
-          color: #9ca3af;
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .status-badge {
-          background: white;
-          color: #10b981;
-          border-radius: 50%;
-          width: 20px;
-          height: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 12px;
-        }
-
-        .footer {
-          display: flex;
-          justify-content: space-between;
-          padding: 2rem 0;
-          color: #64748b;
-          font-size: 0.95rem;
-          border-top: 2px solid #e2e8f0;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        /* SUMMARY SECTION */
-        .summary-section {
-          padding: 2.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        }
-
-        .summary-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 2.5rem;
-          flex-wrap: wrap;
-          gap: 1.5rem;
-        }
-
-        .summary-header h2 {
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-          margin: 0;
-          color: #1f2937;
-          font-size: 2rem;
-          font-weight: 700;
-          background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .summary-actions {
-          display: flex;
-          gap: 1rem;
-        }
-
-        /* SUMMARY STATS CARDS */
-        .summary-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 1.5rem;
-          margin-bottom: 2.5rem;
-        }
-
-        .stat-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          padding: 2rem;
-          border-radius: 20px;
-          text-align: center;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-          border: 2px solid #e2e8f0;
-          transition: all 0.3s ease;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .stat-card::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-        }
-
-        .stat-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 15px 40px rgba(139, 92, 246, 0.15);
-          border-color: #8b5cf6;
-        }
-
-        .stat-number {
-          font-size: 2.5rem;
-          font-weight: 800;
-          color: #8b5cf6;
-          margin-bottom: 0.8rem;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-label {
-          font-size: 1rem;
-          color: #6b7280;
-          font-weight: 600;
-        }
-
-        /* SUMMARY TABLE */
-        .summary-table {
-          min-width: 1200px;
-        }
-
-        .summary-row {
-          background: linear-gradient(
-            135deg,
-            #f8fafc 0%,
-            #f1f5f9 100%
-          ) !important;
-        }
-
-        .summary-row:hover {
-          background: linear-gradient(
-            135deg,
-            #e0e7ff 0%,
-            #c7d2fe 100%
-          ) !important;
-          transform: scale(1.01);
-        }
-
-        .company-name {
-          font-weight: 700;
-          color: #1e40af;
-          background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
-          padding: 0.8rem;
-          border-radius: 10px;
-        }
-
-        .employee-count {
-          font-weight: 700;
-          color: #7c3aed;
-          text-align: center;
-          background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
-          padding: 0.8rem;
-          border-radius: 10px;
-        }
-
-        /* GRAND TOTAL STYLES - PROPERLY ALIGNED */
-        .grand-total {
-          background: linear-gradient(
-            135deg,
-            #8b5cf6 0%,
-            #7c3aed 100%
-          ) !important;
-          color: white !important;
-          font-weight: 800;
-        }
-
-        .grand-total td {
-          color: white !important;
-          border-bottom: none !important;
-          font-size: 1.1rem;
-          text-align: center;
-          padding: 1.2rem 0.8rem;
-        }
-
-        .grand-total-label {
-          font-size: 1.3rem !important;
-          text-align: left !important;
-          padding-left: 1.5rem !important;
-          background: transparent !important;
-        }
-
-        .grand-total-count,
-        .grand-total-gross,
-        .grand-total-tax,
-        .grand-total-deduction,
-        .grand-total-advance,
-        .grand-total-cash,
-        .grand-total-addition,
-        .grand-total-net,
-        .grand-total-payable {
-          text-align: center !important;
-          font-weight: 800;
-          background: transparent !important;
-          border: none !important;
-        }
-
-        /* LOADER STYLES */
-        .center-screen {
-          display: flex;
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          justify-content: center;
-          align-items: center;
-          padding: 1rem;
-        }
-
-        .fullscreen-loader {
-          text-align: center;
-        }
-
-        .spinner {
-          width: 80px;
-          height: 80px;
-          border: 8px solid rgba(255, 255, 255, 0.3);
-          border-top: 8px solid #8b5cf6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 1.5rem;
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        /* TAX CALCULATION STATUS */
-        .tax-calculation-status {
-          padding: 1rem 2.5rem;
-          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-          border-bottom: 1px solid #fde68a;
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          color: #92400e;
-          font-weight: 600;
-        }
-
-        .spinner-small {
-          width: 20px;
-          height: 20px;
-          border: 2px solid #f59e0b;
-          border-top: 2px solid transparent;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        /* RESPONSIVE DESIGN */
-        @media (max-width: 768px) {
-          .salary-format-container {
-            padding: 0.5rem;
-          }
-
-          .header-main {
-            flex-direction: column;
-          }
-
-          .controls-section {
-            width: 100%;
-          }
-
-          .action-buttons {
-            justify-content: space-between;
-          }
-
-          .btn {
-            flex: 1;
-            justify-content: center;
-            min-width: 120px;
-          }
-
-          .company-buttons-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .company-header {
-            flex-direction: column;
-          }
-
-          .company-action-buttons {
-            width: 100%;
-            justify-content: center;
-          }
-
-          .btn-generate-excel,
-          .btn-export-section {
-            flex: 1;
-            justify-content: center;
-          }
-
-          .footer {
-            flex-direction: column;
-            text-align: center;
-          }
-
-          .table-scroll-container {
-            border-radius: 12px;
-          }
-
-          .salary-table th {
-            padding: 1rem 0.5rem;
-            font-size: 0.75rem;
-          }
-
-          .data-row td {
-            padding: 0.8rem 0.5rem;
-            font-size: 0.75rem;
-          }
-
-          .editable-input {
-            width: 65px;
-            padding: 0.5rem;
-          }
-
-          .summary-stats {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .stat-card {
-            padding: 1.5rem;
-          }
-
-          .stat-number {
-            font-size: 2rem;
-          }
-
-          .approval-btn {
-            min-width: 100%;
-          }
-
-          .tax-status-summary {
-            padding: 1rem;
-          }
-
-          .status-item {
-            min-width: 90px;
-            padding: 0.5rem;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .header-section {
-            padding: 1.5rem 1rem;
-          }
-
-          .main-title {
-            font-size: 2rem;
-          }
-
-          .company-section {
-            padding: 1.5rem;
-          }
-
-          .action-buttons {
-            flex-direction: column;
-          }
-
-          .btn {
-            width: 100%;
-          }
-
-          .company-action-buttons {
-            flex-direction: column;
-          }
-
-          .btn-generate-excel,
-          .btn-export-section {
-            width: 100%;
-          }
-
-          .summary-stats {
-            grid-template-columns: 1fr;
-          }
-
-          .footer {
-            flex-direction: column;
-          }
-
-          .tax-status-summary {
-            flex-direction: column;
-          }
-
-          .status-item {
-            width: 100%;
-          }
-        }
-      `}</style>
-    </div>
+    </FinanceShell>
   );
 };
 

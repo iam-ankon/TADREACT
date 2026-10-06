@@ -192,23 +192,28 @@ export const taxAPI = {
   // Calculate tax (individual)
   calculate: (data) => apiClient.post("/calculate/", data),
 
-  // Save calculated tax to backend
-  saveCalculatedTax: (data) =>
-    apiClient.post("/save-calculated-tax/", {
+  // Save calculated tax to backend. Only the inputs the caller passes are
+  // sent: the backend keeps its stored value for any input left out, so a
+  // screen that edits one input can never reset the others to 0.
+  saveCalculatedTax: (data) => {
+    const payload = {
       employee_id: data.employee_id,
       calculation_data: data.calculation_data,
-      source_other: data.source_other || 0,
-      bonus: data.bonus || 0,
-      actual_investment: data.actual_investment || 0,
-      rpf_monthly: data.rpf_monthly || 0,
-      // IMPORTANT: null/undefined means "no manual override -- use the
-      // gender default (25,000/50,000)". Don't coerce that to 0.
-      source_tax_minimum:
-        data.source_tax_minimum === undefined || data.source_tax_minimum === null || data.source_tax_minimum === ""
-          ? null
-          : data.source_tax_minimum,
       calculated_by: data.calculated_by || "system",
-    }),
+    };
+    ["source_other", "bonus", "actual_investment", "rpf_monthly"].forEach((field) => {
+      if (data[field] !== undefined) payload[field] = Number(data[field]) || 0;
+    });
+    // null means "no manual override -- use the gender default"; don't
+    // coerce that to 0. Left out (undefined) means "keep what is stored".
+    if (data.source_tax_minimum !== undefined) {
+      payload.source_tax_minimum =
+        data.source_tax_minimum === null || data.source_tax_minimum === ""
+          ? null
+          : data.source_tax_minimum;
+    }
+    return apiClient.post("/save-calculated-tax/", payload);
+  },
 
   // Get saved taxes from backend
   getCalculatedTaxes: (data) =>
@@ -481,6 +486,13 @@ export const salaryRecordsAPI = {
     });
   },
 
+  // ZIP of Excel salary certificates for the chosen employees / types.
+  generateSalaryCertificates: (data) =>
+    apiClient.post("/generate-salary-certificates-excel/", data, {
+      responseType: "blob",
+      timeout: 300000,
+    }),
+
   generateAllPaySlipsExcel: (data) => {
     // Ensure we only send plain data, no DOM elements
     const cleanData = {
@@ -669,10 +681,13 @@ export const bonusAPI = {
 
   saveBonus: (data) => apiClient.post("/save-bonus/", data),
 
-  checkBonusExists: (month, year, companyName = "") => {
+  checkBonusExists: (month, year, companyName = "", bonusType = "") => {
     const params = { month, year };
     if (companyName && companyName !== "All Companies") {
       params.company_name = companyName;
+    }
+    if (bonusType) {
+      params.bonus_type = bonusType;
     }
     return apiClient.get("/check-bonus-exists/", { params });
   },
@@ -894,7 +909,8 @@ export const financeAPI = {
         return { results: {}, errors: [] };
       }
 
-      const response = await taxAPI.batchCalculate({ employees: batchData });
+      // batchCalculate wraps the list in { employees } itself.
+      const response = await taxAPI.batchCalculate(batchData);
 
       if (response.data.success) {
         const employeeIds = batchData.map((emp) => emp.employee_id);

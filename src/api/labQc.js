@@ -13,6 +13,7 @@
 
 import axios from "axios";
 import { getBackendURL } from "./merchandiser.js";
+import { MERCH_FULL_MENU_USERS } from "../utils/routeAccess";
 
 /* -------------------------------------------------------------------------- */
 /*  1. BASE URL + AXIOS INSTANCE                                              */
@@ -73,19 +74,33 @@ export const getStoredPermissions = () => {
   }
 };
 
+// Users given the whole Merchandising menu are Lab admins too (server:
+// lab_qc/permissions.is_lab_admin). Checked by username as well so it works
+// with permissions saved by a login from before the flag existed.
+const isMerchFullMenuUser = () => {
+  try {
+    return MERCH_FULL_MENU_USERS.includes(localStorage.getItem("username") || "");
+  } catch {
+    return false;
+  }
+};
+
 // Lab admin = anyone with full_access (existing admins, is_staff/is_superuser).
-export const isLabAdmin = () => getStoredPermissions().full_access === true;
+export const isLabAdmin = () => {
+  const p = getStoredPermissions();
+  return p.full_access === true || p.lab_admin === true || isMerchFullMenuUser();
+};
 
 // Any user allowed into the Lab/QC module at all (officer or admin).
 export const hasLabQcAccess = () => {
   const p = getStoredPermissions();
-  return p.lab_qc === true || p.full_access === true;
+  return p.lab_qc === true || isLabAdmin();
 };
 
 // A restricted Lab/QC officer (not an admin) - sees only her own reports/orders.
 export const isLabQcOfficerOnly = () => {
   const p = getStoredPermissions();
-  return p.lab_qc === true && p.full_access !== true;
+  return p.lab_qc === true && !isLabAdmin();
 };
 
 /* -------------------------------------------------------------------------- */

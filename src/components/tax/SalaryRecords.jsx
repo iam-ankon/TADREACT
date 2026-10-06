@@ -1,416 +1,344 @@
-// src/pages/finance/SalaryRecords.jsx - WITH EDITABLE FIELDS
+// SalaryRecords.jsx - saved salary sheets per month, with corrections,
+// Excel / pay-slip downloads and the monthly approval workflow.
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaArrowLeft,
-  FaSearch,
+  FaSave,
   FaFileExport,
-  FaCalendarAlt,
   FaBuilding,
   FaUsers,
   FaExclamationTriangle,
-  FaSave,
-  FaColumns,
   FaSync,
   FaFileExcel,
-  FaEdit,
   FaFileAlt,
   FaChartLine,
-  FaSpinner,
+  FaHistory,
+  FaFileInvoiceDollar,
+  FaMoneyBillWave,
+  FaCalculator,
+  FaUniversity,
+  FaCheck,
+  FaEye,
+  FaEyeSlash,
+  FaUndo,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-// Import API services
 import { financeAPI } from "../../api/finance";
+import {
+  FinanceShell,
+  Card,
+  Kpi,
+  Badge,
+  Alert,
+  LoadingState,
+  EmptyState,
+  SearchInput,
+  CompanyChips,
+  Stat,
+  Field,
+  formatMoney,
+  downloadBlob,
+  MONTH_NAMES,
+} from "./finance/FinanceUI";
+
+const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 // Helper function to safely convert to number
 const toNumber = (value, defaultValue = 0) => {
-  if (value === null || value === undefined || value === "")
-    return defaultValue;
+  if (value === null || value === undefined || value === "") return defaultValue;
   if (typeof value === "string" && value.trim() === "") return defaultValue;
   const num = Number(value);
   return isNaN(num) ? defaultValue : num;
 };
 
-const formatNumber = (num) => {
-  const safeNum = toNumber(num);
-  const abs = Math.abs(safeNum);
-  const formatted = abs.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return safeNum < 0 ? `-৳${formatted}` : `৳${formatted}`;
-};
+const formatNumber = (num) => formatMoney(toNumber(num));
+const round2 = (n) => Number((Number(n) || 0).toFixed(2));
 
-const calculateOTPay = (
-  monthlySalary,
-  otMinutes,
-  totalDaysInMonth,
-  workDayHours = 10,
-) => {
-  if (!monthlySalary || !otMinutes || otMinutes <= 0) return 0;
-
-  // Basic salary is 60% of gross salary
-  const basicSalary = monthlySalary;
-
-  // Input is in minutes where 60 = 60 minutes (1 hour)
-  // Convert minutes to hours for calculation
+// Same rule as the salary sheet: OT pay = basic (60% of gross) ÷ days in
+// month ÷ work-day hours × OT hours. OT is entered in minutes.
+const calculateOTPay = (monthlySalary, otMinutes, totalDaysInMonth, workDayHours = 10) => {
+  if (!monthlySalary || !otMinutes || otMinutes <= 0 || !totalDaysInMonth) return 0;
+  const basicSalary = monthlySalary * 0.6;
   const otHours = otMinutes / 60;
-
-  // OT Pay = (Basic Salary ÷ daysInMonth ÷ workDayHours) × Monthly OT Hours
-  const dailyBasicSalary = basicSalary / totalDaysInMonth;
-  const hourlyRate = dailyBasicSalary / workDayHours; // Now configurable: 8 or 10 hours
-  const otPay = hourlyRate * otHours;
-
-  return Number(otPay.toFixed(2));
+  const hourlyRate = basicSalary / totalDaysInMonth / workDayHours;
+  return Number((hourlyRate * otHours).toFixed(2));
 };
 
-const parseDate = (dateStr) => {
-  if (!dateStr) return null;
+const EDITABLE_FIELDS = ["days_worked", "advance", "ot_hours", "addition", "cash_payment", "remarks"];
 
-  // Try common formats
-  const parts = dateStr.split(/[/\-]/);
-  if (parts.length === 3) {
-    let day, month, year;
-
-    // If first part is 4 digits, assume YYYY-MM-DD
-    if (parts[0].length === 4) {
-      year = parseInt(parts[0]);
-      month = parseInt(parts[1]) - 1;
-      day = parseInt(parts[2]);
-    } else {
-      // Assume DD/MM/YYYY or similar
-      day = parseInt(parts[0]);
-      month = parseInt(parts[1]) - 1;
-      year = parseInt(parts[2]);
-
-      // If year is 2 digits, add 2000
-      if (year < 100) year += 2000;
-    }
-
-    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-      return new Date(year, month, day);
-    }
-  }
-
-  console.warn(`Could not parse date: ${dateStr}`);
-  return null;
-};
+// Who may press each approval step (usernames, lower case).
+const APPROVAL_STEPS = [
+  {
+    key: "hr_prepared",
+    title: "Prepared by HR",
+    users: ["lisa"],
+    who: "Lisa",
+  },
+  {
+    key: "finance_checked",
+    title: "Checked by Finance & Accounts",
+    users: ["zohaer"],
+    who: "Zohaer",
+    after: "hr_prepared",
+  },
+  {
+    key: "director_checked",
+    title: "Checked by Director",
+    users: ["samad"],
+    who: "Samad",
+    after: "finance_checked",
+  },
+  {
+    key: "proprietor_approved",
+    title: "Approved by Proprietor / MD",
+    users: ["ashikur1", "proprietor", "md"],
+    who: "the Proprietor / MD",
+    after: "director_checked",
+  },
+];
 
 const SalaryRecords = () => {
   const [salaryRecords, setSalaryRecords] = useState([]);
-  const [filteredRecords, setFilteredRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [openCompanies, setOpenCompanies] = useState({});
-  const [editableData, setEditableData] = useState({}); // Store edited values
+  // Only the fields the user changed, per employee.
+  const [editableData, setEditableData] = useState({});
   const [error, setError] = useState(null);
-  const [showAllColumns, setShowAllColumns] = useState(false);
   const [generatingExcel, setGeneratingExcel] = useState({});
-  const [workDayHours, setWorkDayHours] = useState({}); // Store work day hours per company
+  const [workDayHours, setWorkDayHours] = useState({});
   const [generatingPaySlip, setGeneratingPaySlip] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState(null);
   const navigate = useNavigate();
 
-  // Approval status states
   const [companyApprovalStatus, setCompanyApprovalStatus] = useState({});
   const [currentUser, setCurrentUser] = useState("");
+  const [approving, setApproving] = useState({});
 
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
+  const monthLabel = `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`;
+  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
 
-  const years = Array.from(
-    { length: 10 },
-    (_, i) => new Date().getFullYear() - i,
+  const filteredRecords = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return salaryRecords;
+    return salaryRecords.filter(
+      (record) =>
+        record.name?.toLowerCase().includes(term) ||
+        record.employee_id?.toLowerCase().includes(term) ||
+        record.company_name?.toLowerCase().includes(term) ||
+        record.designation?.toLowerCase().includes(term),
+    );
+  }, [searchTerm, salaryRecords]);
+
+  const grouped = useMemo(
+    () =>
+      filteredRecords.reduce((acc, record) => {
+        const companyName = record.company_name || "Unknown Company";
+        if (!acc[companyName]) acc[companyName] = [];
+        acc[companyName].push(record);
+        return acc;
+      }, {}),
+    [filteredRecords],
   );
 
-  // Enhanced grouping with company mapping
-  const grouped = useMemo(() => {
-    const groups = filteredRecords.reduce((acc, record) => {
-      const companyName = record.company_name || "Unknown Company";
-      if (!acc[companyName]) acc[companyName] = [];
-      acc[companyName].push(record);
-      return acc;
-    }, {});
+  const companyNamesAll = useMemo(
+    () => [...new Set(salaryRecords.map((r) => r.company_name || "Unknown Company"))],
+    [salaryRecords],
+  );
 
-    return groups;
-  }, [filteredRecords]);
-
-  // USER DETECTION
   useEffect(() => {
-    const detectUser = () => {
-      try {
-        let detectedUser = "";
-        const username = localStorage.getItem("username");
-        if (username) {
-          detectedUser = username.toLowerCase().trim();
-        }
-        setCurrentUser(detectedUser);
-        console.log("🎯 CURRENT USER:", detectedUser);
-      } catch (error) {
-        console.error("❌ ERROR detecting user:", error);
-        setCurrentUser("");
-      }
-    };
-
-    detectUser();
+    const username = localStorage.getItem("username");
+    setCurrentUser(username ? username.toLowerCase().trim() : "");
   }, []);
 
-  // Fetch salary records for selected month/year
   const fetchSalaryRecords = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log(
-        `🔄 Fetching salary records for ${selectedMonth}/${selectedYear}...`,
-      );
-
-      // Call the API
       const response = await financeAPI.salaryRecords.getAllRecords({
         year: selectedYear,
         month: selectedMonth,
       });
 
-      console.log("📊 API Response:", response);
-
       let records = [];
-
-      // Handle response structure
       if (response.data) {
-        // New API structure
         if (response.data.success !== undefined) {
           if (response.data.success) {
             records = response.data.data || [];
           } else {
             setError(response.data.error || "Failed to load salary records");
           }
-        }
-        // Direct array response
-        else if (Array.isArray(response.data)) {
+        } else if (Array.isArray(response.data)) {
           records = response.data;
-        }
-        // Other possible structures
-        else {
+        } else {
           records =
-            response.data.records ||
-            response.data.salary_records ||
-            response.data.results ||
-            [];
+            response.data.records || response.data.salary_records || response.data.results || [];
         }
       }
 
-      console.log(`✅ Loaded ${records.length} records from database`);
-
-      // Initialize editable data with actual values from backend
-      const initialEditableData = {};
-      records.forEach((record) => {
-        if (record.employee_id) {
-          initialEditableData[record.employee_id] = {
-            days_worked: record.days_worked || "",
-            advance: record.advance || "",
-            ot_hours: record.ot_hours || "",
-            addition: record.addition || "",
-            cash_payment: record.cash_payment || "",
-            remarks: record.remarks || "",
-          };
-        }
-      });
-
-      // Initialize work day hours for each company (default to 10)
       const initialWorkDayHours = {};
       records.forEach((record) => {
         const companyName = record.company_name || "Unknown Company";
-        if (!initialWorkDayHours[companyName]) {
-          initialWorkDayHours[companyName] = 10; // Default to 10 hours
-        }
+        if (!initialWorkDayHours[companyName]) initialWorkDayHours[companyName] = 10;
       });
 
-      setEditableData(initialEditableData);
+      setEditableData({});
       setWorkDayHours(initialWorkDayHours);
       setSalaryRecords(records);
-      setFilteredRecords(records);
-    } catch (error) {
-      console.error("❌ Failed to fetch salary records:", error);
-
-      // Show detailed error
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        setError(
-          `Server error ${error.response.status}: ${JSON.stringify(error.response.data)}`,
-        );
-      } else if (error.request) {
-        setError(
-          "No response from server. Please check your internet connection.",
-        );
+    } catch (err) {
+      console.error("Failed to fetch salary records:", err);
+      if (err.response) {
+        setError(`Server error ${err.response.status}: ${JSON.stringify(err.response.data)}`);
+      } else if (err.request) {
+        setError("No response from server. Please check your internet connection.");
       } else {
-        setError("Request error: " + error.message);
+        setError("Request error: " + err.message);
       }
-
       setSalaryRecords([]);
-      setFilteredRecords([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Update editable field with OT auto-calculation
-  const updateEditableField = (employeeId, field, value) => {
+  const recordKey = (record) => record.id ?? `${record.employee_id}|${record.company_name}`;
+
+  const isEdited = (record) => {
+    const edits = editableData[recordKey(record)];
+    return !!edits && Object.keys(edits).length > 0;
+  };
+
+  const editedCount = useMemo(
+    () => Object.values(editableData).filter((e) => e && Object.keys(e).length > 0).length,
+    [editableData],
+  );
+
+  // The value shown in an input: the user's edit, else the saved value.
+  const getEditableValue = (record, field) => {
+    const edits = editableData[recordKey(record)];
+    if (edits && edits[field] !== undefined) return edits[field];
+    const saved = record[field];
+    if (field === "remarks") return saved || "";
+    return toNumber(saved) ? toNumber(saved) : "";
+  };
+
+  const updateEditableField = (record, field, value) => {
+    const key = recordKey(record);
     setEditableData((prev) => {
-      const newData = {
-        ...prev,
-        [employeeId]: {
-          ...prev[employeeId],
-          [field]: value,
-        },
-      };
+      const next = { ...(prev[key] || {}), [field]: value };
 
-      // If OT Hours is updated, automatically calculate and update addition
-      if (field === "ot_hours" && salaryRecords.length > 0) {
-        const record = salaryRecords.find((r) => r.employee_id === employeeId);
-        if (record) {
-          const grossSalary = toNumber(record.gross_salary);
-          const totalDays = toNumber(record.total_days) || 31;
-
-          // Get work day hours for this company
-          const companyName = record.company_name || "Unknown Company";
-          const workDayHoursValue = workDayHours[companyName] || 10;
-
-          const otPay = calculateOTPay(
-            grossSalary,
-            toNumber(value),
-            totalDays,
-            workDayHoursValue,
-          );
-
-          // Get existing addition value (if any)
-          const existingAddition = 0;
-
-          // Update addition with OT pay
-          newData[employeeId] = {
-            ...newData[employeeId],
-            addition: (toNumber(existingAddition) + otPay).toFixed(2),
-          };
-        }
+      // OT minutes changed: swap the old OT pay inside Addition for the new one.
+      if (field === "ot_hours") {
+        const companyName = record.company_name || "Unknown Company";
+        const hours = workDayHours[companyName] || 10;
+        const gross = toNumber(record.gross_salary);
+        const totalDays = toNumber(record.total_days) || 31;
+        const oldOtPay =
+          prev[key]?.ot_pay !== undefined ? toNumber(prev[key].ot_pay) : toNumber(record.ot_pay);
+        const baseAddition =
+          prev[key]?.addition !== undefined ? toNumber(prev[key].addition) : toNumber(record.addition);
+        const otPay = calculateOTPay(gross, toNumber(value), totalDays, hours);
+        next.ot_pay = otPay;
+        next.addition = round2(baseAddition - oldOtPay + otPay);
       }
 
-      return newData;
+      return { ...prev, [key]: next };
     });
   };
 
-  // Get editable value (returns the edited value or original from record)
-  const getEditableValue = (record, field) => {
-    const employeeId = record.employee_id;
-    if (
-      editableData[employeeId] &&
-      editableData[employeeId][field] !== undefined
-    ) {
-      return editableData[employeeId][field];
-    }
-    return record[field] || "";
+  const discardRow = (record) => {
+    setEditableData((prev) => {
+      const next = { ...prev };
+      delete next[recordKey(record)];
+      return next;
+    });
   };
 
-  // Calculate derived values based on edited data
+  // Figures for one record. Unchanged rows show exactly what was saved.
+  // Edited rows are recalculated with the salary sheet's formula, keeping
+  // the unpaid-leave days that were part of the saved absent days.
   const calculateDerivedValues = (record) => {
-    const employeeId = record.employee_id;
-    const editable = editableData[employeeId] || {};
+    const edits = editableData[recordKey(record)] || {};
+    const saved = {
+      daysWorked: toNumber(record.days_worked),
+      absentDays: toNumber(record.absent_days),
+      absentDeduction: toNumber(record.absent_ded),
+      advance: toNumber(record.advance),
+      ait: toNumber(record.ait),
+      totalDeduction: toNumber(record.total_ded),
+      otHours: toNumber(record.ot_hours),
+      otPay: toNumber(record.ot_pay),
+      addition: toNumber(record.addition),
+      cashPayment: toNumber(record.cash_payment),
+      netPayBank: toNumber(record.net_pay_bank),
+      totalPayable: toNumber(record.total_payable),
+    };
+    const base = {
+      grossSalary: toNumber(record.gross_salary),
+      basic: toNumber(record.basic),
+      houseRent: toNumber(record.house_rent),
+      medical: toNumber(record.medical),
+      conveyance: toNumber(record.conveyance),
+      cashSalary: toNumber(record.cash_salary),
+      totalDays: toNumber(record.total_days) || 31,
+    };
 
-    // Use edited values or fall back to record values
-    const daysWorked = toNumber(editable.days_worked || record.days_worked);
-    const advance = toNumber(editable.advance || record.advance);
-    const otHours = toNumber(editable.ot_hours || record.ot_hours);
-    const addition = toNumber(editable.addition || record.addition);
-    const cashPayment = toNumber(editable.cash_payment || record.cash_payment);
-
-    // Use actual values from record for calculations
-    const grossSalary = toNumber(record.gross_salary);
-    const totalDays = toNumber(record.total_days) || 31;
-    const ait = toNumber(record.ait);
-    const basic = toNumber(record.basic);
-    const houseRent = toNumber(record.house_rent);
-    const medical = toNumber(record.medical);
-    const conveyance = toNumber(record.conveyance);
-    const cashSalary = toNumber(record.cash_salary);
-
-    // Get work day hours for this company
-    const companyName = record.company_name || "Unknown Company";
-    const workDayHoursValue = workDayHours[companyName] || 10;
-
-    // Calculate OT Pay with work day hours
-    const otPay = calculateOTPay(
-      grossSalary,
-      otHours,
-      totalDays,
-      workDayHoursValue,
+    const changed = ["days_worked", "advance", "ot_hours", "addition", "cash_payment"].some(
+      (f) => edits[f] !== undefined,
     );
-    const totalAddition = addition;
+    if (!changed) return { ...base, ...saved, edited: Object.keys(edits).length > 0 };
 
-    // Calculate absent days
-    const absentDays = Math.max(0, totalDays - daysWorked);
+    const pick = (field, fallback) => (edits[field] !== undefined ? toNumber(edits[field]) : fallback);
+    const daysWorked = pick("days_worked", saved.daysWorked) || base.totalDays;
+    const advance = pick("advance", saved.advance);
+    const otHours = pick("ot_hours", saved.otHours);
+    const addition = pick("addition", saved.addition);
+    const cashPayment = pick("cash_payment", saved.cashPayment);
+    const otPay = edits.ot_pay !== undefined ? toNumber(edits.ot_pay) : saved.otPay;
 
-    // Calculate absent deduction if we have daily basic
-    const dailyBasic = totalDays > 0 ? basic / totalDays : 0;
-    const absentDeduction = dailyBasic * absentDays;
-
-    // Calculate total deduction
-    const totalDeduction = ait + advance + absentDeduction;
-
-    // Calculate net pay (bank)
-    const netPayBank =
-      grossSalary - cashPayment - totalDeduction + totalAddition;
-
-    // Calculate total payable
-    const totalPayable = netPayBank + cashPayment + ait + cashSalary;
+    const unpaidLeaveDays = Math.max(
+      0,
+      saved.absentDays - Math.max(0, base.totalDays - saved.daysWorked),
+    );
+    const absentDays = Math.max(0, base.totalDays - daysWorked) + unpaidLeaveDays;
+    const dailyBasic = round2(base.basic / 30);
+    const absentDeduction = round2(dailyBasic * absentDays);
+    const totalDeduction = round2(saved.ait + advance + absentDeduction);
+    const netPayBank = round2(
+      (base.grossSalary / base.totalDays) * daysWorked - cashPayment - totalDeduction + addition,
+    );
+    const totalPayable = round2(netPayBank + cashPayment + saved.ait + base.cashSalary);
 
     return {
+      ...base,
       daysWorked,
       absentDays,
       absentDeduction,
       advance,
-      ait,
+      ait: saved.ait,
       totalDeduction,
       otHours,
       otPay,
-      addition: totalAddition,
+      addition,
       cashPayment,
       netPayBank,
       totalPayable,
-      grossSalary,
-      basic,
-      houseRent,
-      medical,
-      conveyance,
-      cashSalary,
+      edited: true,
     };
   };
 
-  // In SalaryRecords.jsx - Update loadApprovalStatus function
   const loadApprovalStatus = async (companyName = "All Companies") => {
     try {
-      // Pass month and year to get status for the selected month/year
       const response = await financeAPI.approval.getApprovalStatus({
         company_name: companyName,
         month: selectedMonth,
         year: selectedYear,
       });
-
-      console.log(
-        `✅ Approval status loaded for ${companyName} (${selectedMonth}/${selectedYear}):`,
-        response.data,
-      );
-
       setCompanyApprovalStatus((prev) => ({
         ...prev,
         [companyName]: {
@@ -423,12 +351,8 @@ const SalaryRecords = () => {
           loaded: true,
         },
       }));
-    } catch (error) {
-      console.error(
-        `❌ Failed to load approval status for ${companyName}:`,
-        error,
-      );
-      // Set default status if loading fails
+    } catch (err) {
+      console.error(`Failed to load approval status for ${companyName}:`, err);
       setCompanyApprovalStatus((prev) => ({
         ...prev,
         [companyName]: {
@@ -446,94 +370,51 @@ const SalaryRecords = () => {
 
   useEffect(() => {
     fetchSalaryRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedMonth]);
 
-  // Filter records based on search
+  // Approval status per company, once per loaded month (not per keystroke).
   useEffect(() => {
-    const term = searchTerm.toLowerCase().trim();
-    if (!term) {
-      setFilteredRecords(salaryRecords);
-    } else {
-      const filtered = salaryRecords.filter(
-        (record) =>
-          record.name?.toLowerCase().includes(term) ||
-          record.employee_id?.toLowerCase().includes(term) ||
-          record.company_name?.toLowerCase().includes(term) ||
-          record.designation?.toLowerCase().includes(term),
-      );
-      setFilteredRecords(filtered);
-    }
-  }, [searchTerm, salaryRecords]);
+    setCompanyApprovalStatus({});
+    companyNamesAll.forEach((companyName) => loadApprovalStatus(companyName));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyNamesAll]);
 
-  // Load approval status for companies when data loads
-  useEffect(() => {
-    if (filteredRecords.length > 0) {
-      const uniqueCompanies = [
-        ...new Set(
-          filteredRecords.map((record) => record.company_name || "Unknown"),
-        ),
-      ];
-      uniqueCompanies.forEach((companyName) => {
-        loadApprovalStatus(companyName);
-      });
-    }
-  }, [filteredRecords]);
-
-  // In SalaryRecords.jsx - Update isButtonEnabled function
-  const isButtonEnabled = (buttonStep, companyName) => {
-    const companyStatus = companyApprovalStatus[companyName] || {};
-    const user = currentUser ? currentUser.toLowerCase().trim() : "";
-
-    // Check if this step was already completed for this month/year
-    const isAlreadyCompleted = () => {
-      switch (buttonStep) {
-        case "hr_prepared":
-          return companyStatus.hr_prepared || false;
-        case "finance_checked":
-          return companyStatus.finance_checked || false;
-        case "director_checked":
-          return companyStatus.director_checked || false;
-        case "proprietor_approved":
-          return companyStatus.proprietor_approved || false;
-        default:
-          return false;
-      }
-    };
-
-    // If already completed for this month, disable button
-    if (isAlreadyCompleted()) {
-      return false;
-    }
-
-    // Check user permissions and workflow order
-    switch (buttonStep) {
-      case "hr_prepared":
-        return user === "lisa"; // Only Lisa can click HR Prepared
-
-      case "finance_checked":
-        // Zohaer can click, but only after HR has prepared
-        return user === "zohaer" && (companyStatus.hr_prepared || false);
-
-      case "director_checked":
-        // Samad can click, but only after Finance has checked
-        return user === "samad" && (companyStatus.finance_checked || false);
-
-      case "proprietor_approved":
-        // Tuhin/Proprietor/MD can click, but only after Director has checked
-        return (
-          (user === "ashikur1" || user === "proprietor" || user === "md") &&
-          (companyStatus.director_checked || false)
-        );
-
-      default:
-        return false;
-    }
+  const stepState = (step, companyName) => {
+    const status = companyApprovalStatus[companyName] || {};
+    if (status[step.key]) return "done";
+    const allowedUser = step.users.includes(currentUser);
+    const previousDone = !step.after || status[step.after];
+    return allowedUser && previousDone ? "ready" : "locked";
   };
 
-  // In SalaryRecords.jsx - Update handleApprovalStep function
-  const handleApprovalStep = async (step, companyName) => {
-    console.log(`📧 Processing ${step} for ${companyName} by ${currentUser}`);
+  const stepHint = (step, companyName) => {
+    const status = companyApprovalStatus[companyName] || {};
+    if (status[step.key]) return "Completed";
+    if (step.after && !status[step.after]) {
+      const prev = APPROVAL_STEPS.find((s) => s.key === step.after);
+      return `Waiting for ${prev.who}`;
+    }
+    return step.users.includes(currentUser) ? "Click to confirm" : `Only ${step.who}`;
+  };
 
+  const isButtonEnabled = (buttonStep, companyName) => {
+    const step = APPROVAL_STEPS.find((s) => s.key === buttonStep);
+    return !!step && stepState(step, companyName) === "ready";
+  };
+
+  const handleApprovalStep = async (step, companyName) => {
+    if (!isButtonEnabled(step, companyName)) return;
+    const stepInfo = APPROVAL_STEPS.find((s) => s.key === step);
+    if (
+      !window.confirm(
+        `Confirm "${stepInfo.title}" for ${companyName} — ${monthLabel}?\n\nAn approval email will be sent.`,
+      )
+    ) {
+      return;
+    }
+
+    setApproving((prev) => ({ ...prev, [`${companyName}|${step}`]: true }));
     try {
       const response = await financeAPI.approval.sendApproval({
         step: step,
@@ -545,25 +426,20 @@ const SalaryRecords = () => {
       });
 
       if (response.data.success) {
-        alert(`✅ Email sent successfully! ${response.data.message}`);
-        // Reload approval status to update UI
+        setNotice({ tone: "success", text: `Email sent. ${response.data.message || ""}` });
         await loadApprovalStatus(companyName);
       } else {
-        alert(`❌ Failed: ${response.data.message}`);
+        setNotice({ tone: "danger", text: `Failed: ${response.data.message}` });
       }
-    } catch (error) {
-      console.error("Approval step failed:", error);
-      alert("❌ Connection error. Please try again.");
+    } catch (err) {
+      console.error("Approval step failed:", err);
+      setNotice({ tone: "danger", text: "Connection error. Please try again." });
+    } finally {
+      setApproving((prev) => ({ ...prev, [`${companyName}|${step}`]: false }));
     }
   };
 
-  // Toggle company sections
-  const toggleCompany = (comp) => {
-    setOpenCompanies((prev) => ({
-      ...prev,
-      [comp]: !prev[comp],
-    }));
-  };
+  const toggleCompany = (comp) => setOpenCompanies((prev) => ({ ...prev, [comp]: !prev[comp] }));
 
   const showAllCompanies = () => {
     const allOpen = {};
@@ -573,67 +449,65 @@ const SalaryRecords = () => {
     setOpenCompanies(allOpen);
   };
 
-  const hideAllCompanies = () => {
-    setOpenCompanies({});
-  };
+  const hideAllCompanies = () => setOpenCompanies({});
 
-  // Save updated data
+  // Save the rows that were changed (all companies, whatever the search).
   const saveData = async () => {
-    const payload = filteredRecords
-      .map((record, idx) => {
-        const empId = record.employee_id?.trim();
-        if (!empId) return null;
+    const changedRecords = salaryRecords.filter(isEdited);
+    if (changedRecords.length === 0) {
+      setNotice({ tone: "info", text: "Nothing to save — no rows were changed." });
+      return;
+    }
+    if (
+      !window.confirm(
+        `Save changes to ${changedRecords.length} salary record${changedRecords.length === 1 ? "" : "s"} for ${monthLabel}?`,
+      )
+    ) {
+      return;
+    }
 
-        // Get calculated values
-        const calculated = calculateDerivedValues(record);
-        const editable = editableData[empId] || {};
+    const payload = changedRecords.map((record) => {
+      const empId = record.employee_id?.trim();
+      const calculated = calculateDerivedValues(record);
+      const edits = editableData[recordKey(record)] || {};
+      const companyName = record.company_name || "Unknown Company";
 
-        // Get work day hours for this company
-        const companyName = record.company_name || "Unknown Company";
-        const workDayHoursValue = workDayHours[companyName] || 10;
+      return {
+        sl: record.sl || 0,
+        name: record.name?.trim() || "Unknown",
+        employee_id: empId,
+        designation: record.designation?.trim() || "",
+        doj: record.doj,
+        bank_account: record.bank_account || "",
+        branch_name: record.branch_name || "",
+        basic: calculated.basic,
+        house_rent: calculated.houseRent,
+        medical: calculated.medical,
+        conveyance: calculated.conveyance,
+        gross_salary: calculated.grossSalary,
+        total_days: record.total_days || 0,
+        days_worked: calculated.daysWorked,
+        absent_days: calculated.absentDays,
+        absent_ded: calculated.absentDeduction,
+        advance: calculated.advance,
+        ait: calculated.ait,
+        total_ded: calculated.totalDeduction,
+        ot_hours: calculated.otHours,
+        ot_pay: calculated.otPay,
+        addition: calculated.addition,
+        cash_payment: calculated.cashPayment,
+        cash_salary: calculated.cashSalary,
+        net_pay_bank: calculated.netPayBank,
+        total_payable: calculated.totalPayable,
+        remarks: edits.remarks !== undefined ? edits.remarks : record.remarks || "",
+        month: selectedMonth,
+        year: selectedYear,
+        company_name: companyName,
+        work_day_hours: workDayHours[companyName] || 10,
+      };
+    });
 
-        // Create updated record with both original and edited values
-        const savedRecord = {
-          sl: idx + 1,
-          name: record.name?.trim() || "Unknown",
-          employee_id: empId,
-          designation: record.designation?.trim() || "",
-          doj: record.doj,
-          bank_account: record.bank_account || "",
-          branch_name: record.branch_name || "",
-          basic: calculated.basic,
-          house_rent: calculated.houseRent,
-          medical: calculated.medical,
-          conveyance: calculated.conveyance,
-          gross_salary: calculated.grossSalary,
-          total_days: record.total_days || 0,
-          days_worked: calculated.daysWorked,
-          absent_days: calculated.absentDays,
-          absent_ded: calculated.absentDeduction,
-          advance: calculated.advance,
-          ait: calculated.ait,
-          total_ded: calculated.totalDeduction,
-          ot_hours: calculated.otHours,
-          ot_pay: calculated.otPay,
-          addition: calculated.addition,
-          cash_payment: calculated.cashPayment,
-          cash_salary: calculated.cashSalary,
-          net_pay_bank: calculated.netPayBank,
-          total_payable: calculated.totalPayable,
-          remarks: editable.remarks || record.remarks || "",
-          month: selectedMonth,
-          year: selectedYear,
-          company_name: record.company_name || "Unknown Company",
-          work_day_hours: workDayHoursValue, // Save work day hours
-        };
-
-        return savedRecord;
-      })
-      .filter(Boolean);
-
-    console.log("Saving records to backend:", payload.length, "rows");
-    console.log("Sample record to save:", payload[0]);
-
+    setSaving(true);
     try {
       const res = await financeAPI.salary.saveSalary(payload);
       const saved = res.data.saved || 0;
@@ -641,2743 +515,911 @@ const SalaryRecords = () => {
 
       if (errors.length > 0) {
         console.warn("Save errors:", errors);
-        alert(
-          `Warning: Saved ${saved}, but ${errors.length} failed. Check console.`,
-        );
+        setNotice({
+          tone: "warning",
+          text: `Saved ${saved}, but ${errors.length} failed. Check the browser console for details.`,
+        });
       } else {
-        alert(`Success: All ${saved} rows saved!`);
-        // Refresh data after save
+        setNotice({ tone: "success", text: `Saved ${saved} updated record${saved === 1 ? "" : "s"}.` });
         fetchSalaryRecords();
       }
     } catch (e) {
       console.error("Save failed:", e.response?.data || e);
-      alert("Save failed – check console");
+      setNotice({ tone: "danger", text: "Save failed. Nothing was saved — please try again." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const errorText = async (err, fallback) => {
+    const data = err.response?.data;
+    if (!data) return err.message || fallback;
+    try {
+      if (data instanceof Blob) {
+        const text = await data.text();
+        try {
+          const json = JSON.parse(text);
+          return json.error || json.message || fallback;
+        } catch {
+          return text || fallback;
+        }
+      }
+      if (typeof data === "string") return data;
+      return data.error || data.message || fallback;
+    } catch {
+      return fallback;
     }
   };
 
   const generateSalarySheetForCompany = async (companyName) => {
+    const key = `sheet_${companyName}`;
     try {
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
-      console.log(`📊 Generating Salary Sheet Excel for ${companyName}...`);
-
+      setGeneratingExcel((prev) => ({ ...prev, [key]: true }));
       const response = await financeAPI.salaryRecords.generateSalarySheetExcel({
         company_name: companyName,
         month: selectedMonth,
         year: selectedYear,
       });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `${companyName.replace(/\s+/g, "_")}_Salary_Sheet_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`,
+      downloadBlob(
+        response.data,
+        `${companyName.replace(/\s+/g, "_")}_Salary_Sheet_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}.xlsx`,
       );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      console.log(`✅ Salary Sheet Excel file generated and downloaded!`);
-      alert(
-        `Salary Sheet Excel file generated successfully for ${companyName}!`,
-      );
-    } catch (error) {
-      console.error("❌ Error generating Salary Sheet Excel file:", error);
-      alert(
-        `❌ Failed to generate Salary Sheet Excel for ${companyName}. Error: ${error.message}`,
-      );
+      setNotice({ tone: "success", text: `Salary sheet downloaded for ${companyName}.` });
+    } catch (err) {
+      console.error("Error generating Salary Sheet Excel file:", err);
+      setNotice({
+        tone: "danger",
+        text: `Failed to generate the salary sheet for ${companyName}: ${await errorText(err, "unknown error")}`,
+      });
     } finally {
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
+      setGeneratingExcel((prev) => ({ ...prev, [key]: false }));
     }
   };
 
-  const exportAllCompanies = () => {
-    if (Object.keys(grouped).length === 0) {
-      alert("No company data to export");
-      return;
-    }
-
-    Object.keys(grouped).forEach((companyName, i) => {
-      setTimeout(() => exportCompanyData(companyName), i * 200);
-    });
-  };
-
-  // Generate Excel from backend
+  // Bank transfer / salary records Excel from the backend
   const generateExcelForCompany = async (companyName) => {
+    const key = `excel_${companyName}`;
     try {
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: true }));
-      console.log(`📊 Generating Excel file for ${companyName}...`);
-
+      setGeneratingExcel((prev) => ({ ...prev, [key]: true }));
       const response = await financeAPI.salaryRecords.generateExcelNow({
         company_name: companyName,
         month: selectedMonth,
         year: selectedYear,
       });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `${companyName.replace(/\s+/g, "_")}_Salary_Records_${
-          monthNames[selectedMonth - 1]
-        }_${selectedYear}.xlsx`,
+      downloadBlob(
+        response.data,
+        `${companyName.replace(/\s+/g, "_")}_Salary_Records_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}.xlsx`,
       );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      console.log(`✅ Excel file generated and downloaded!`);
-      alert(`Excel file generated successfully for ${companyName}!`);
-    } catch (error) {
-      console.error("❌ Error generating Excel file:", error);
-      alert(
-        `❌ Failed to generate Excel file for ${companyName}. Error: ${error.message}`,
-      );
+      setNotice({ tone: "success", text: `Excel file downloaded for ${companyName}.` });
+    } catch (err) {
+      console.error("Error generating Excel file:", err);
+      setNotice({
+        tone: "danger",
+        text: `Failed to generate the Excel file for ${companyName}: ${await errorText(err, "unknown error")}`,
+      });
     } finally {
-      setGeneratingExcel((prev) => ({ ...prev, [companyName]: false }));
+      setGeneratingExcel((prev) => ({ ...prev, [key]: false }));
     }
   };
 
   const generatePaySlipForCompany = async (companyName) => {
     try {
       setGeneratingPaySlip((prev) => ({ ...prev, [companyName]: true }));
-      console.log(
-        `📋 Generating Pay Slip Template Excel for ${companyName}...`,
-      );
-
-      // Create a clean data object - NO DOM elements
-      const requestData = {
+      const response = await financeAPI.salaryRecords.generatePaySlipForCompany({
         company_name: String(companyName).trim(),
         month: Number(selectedMonth),
         year: Number(selectedYear),
-      };
-
-      console.log("📤 Sending request with data:", requestData);
-
-      const response =
-        await financeAPI.salaryRecords.generatePaySlipForCompany(requestData);
-
-      // Check if response has data
-      if (!response || !response.data) {
-        throw new Error("No data received from server");
-      }
-
-      // Create filename
-      const monthName = monthNames[selectedMonth - 1];
-      const safeCompanyName = companyName.replace(/[^a-z0-9]/gi, "_");
-      const filename = `${safeCompanyName}_Pay_Slips_${monthName}_${selectedYear}.xlsx`;
-
-      // Create download link
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
+      if (!response || !response.data) throw new Error("No data received from server");
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      console.log(`✅ Pay Slip generated for ${companyName}`);
-      alert(`Pay Slip generated successfully for ${companyName}!`);
-    } catch (error) {
-      console.error("❌ Error generating Pay Slip:", error);
-
-      let errorMessage = "Failed to generate Pay Slip.";
-      if (error.response?.data) {
-        try {
-          if (typeof error.response.data === "string") {
-            errorMessage = error.response.data;
-          } else if (error.response.data.error) {
-            errorMessage = error.response.data.error;
-          } else if (error.response.data.message) {
-            errorMessage = error.response.data.message;
-          }
-        } catch (e) {
-          errorMessage = String(error);
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      alert(`❌ Failed: ${errorMessage}`);
+      const safeCompanyName = companyName.replace(/[^a-z0-9]/gi, "_");
+      downloadBlob(
+        response.data,
+        `${safeCompanyName}_Pay_Slips_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}.xlsx`,
+        XLSX_TYPE,
+      );
+      setNotice({ tone: "success", text: `Pay slips downloaded for ${companyName}.` });
+    } catch (err) {
+      console.error("Error generating Pay Slip:", err);
+      setNotice({
+        tone: "danger",
+        text: `Failed to generate pay slips for ${companyName}: ${await errorText(err, "unknown error")}`,
+      });
     } finally {
       setGeneratingPaySlip((prev) => ({ ...prev, [companyName]: false }));
     }
   };
 
-  // In SalaryRecords.jsx - Update the generateAllPaySlips function
-
   const generateAllPaySlips = async () => {
     if (Object.keys(grouped).length === 0) {
-      alert("No company data to generate pay slips");
+      setNotice({ tone: "warning", text: "No company data to generate pay slips." });
       return;
     }
 
     try {
       setGeneratingPaySlip((prev) => ({ ...prev, all_companies: true }));
-      console.log(`📋 Generating Pay Slips for ALL companies...`);
-
-      // Create clean data object
-      const requestData = {
+      const response = await financeAPI.salaryRecords.generateAllPaySlipsExcel({
         month: Number(selectedMonth),
         year: Number(selectedYear),
-      };
-
-      console.log("📤 Sending request for all companies:", requestData);
-
-      const response =
-        await financeAPI.salaryRecords.generateAllPaySlipsExcel(requestData);
-
-      // Check if response has data
-      if (!response || !response.data) {
-        throw new Error("No data received from server");
-      }
-
-      // Create filename
-      const monthName = monthNames[selectedMonth - 1];
-      const filename = `ALL_COMPANIES_PAY_SLIPS_${monthName}_${selectedYear}.xlsx`;
-
-      // Create download link
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
+      if (!response || !response.data) throw new Error("No data received from server");
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      console.log(`✅ All companies pay slips generated!`);
-      alert(`Pay slips for all companies generated successfully!`);
-    } catch (error) {
-      console.error("❌ Error generating All Companies Pay Slips:", error);
-
-      let errorMessage = "Failed to generate All Companies Pay Slips.";
-      if (error.response?.data) {
-        try {
-          if (typeof error.response.data === "string") {
-            errorMessage = error.response.data;
-          } else if (error.response.data.error) {
-            errorMessage = error.response.data.error;
-          } else if (error.response.data.message) {
-            errorMessage = error.response.data.message;
-          }
-        } catch (e) {
-          errorMessage = String(error);
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      alert(`❌ Failed: ${errorMessage}`);
-
-      // Fallback: Generate one by one with clean data
-      const useFallback = confirm(
-        "Consolidated generation failed. Would you like to generate individual files for each company?",
+      downloadBlob(
+        response.data,
+        `ALL_COMPANIES_PAY_SLIPS_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}.xlsx`,
+        XLSX_TYPE,
       );
-
+      setNotice({ tone: "success", text: "Pay slips for all companies downloaded." });
+    } catch (err) {
+      console.error("Error generating All Companies Pay Slips:", err);
+      const message = await errorText(err, "Failed to generate all companies pay slips.");
+      const useFallback = window.confirm(
+        `Consolidated generation failed: ${message}\n\nGenerate a separate file for each company instead?`,
+      );
       if (useFallback) {
-        const companyNames = Object.keys(grouped);
-        for (let i = 0; i < companyNames.length; i++) {
-          setTimeout(() => {
-            generatePaySlipForCompany(companyNames[i]);
-          }, i * 1000);
-        }
+        Object.keys(grouped).forEach((name, i) => {
+          setTimeout(() => generatePaySlipForCompany(name), i * 1000);
+        });
       }
     } finally {
       setGeneratingPaySlip((prev) => ({ ...prev, all_companies: false }));
     }
   };
-  // In SalaryRecords.jsx, replace the exportAllCompaniesSingleFile function:
 
   const exportAllCompaniesSingleFile = async () => {
     if (Object.keys(grouped).length === 0) {
-      alert("No company data to export");
+      setNotice({ tone: "warning", text: "No company data to export." });
       return;
     }
 
     try {
-      // Show loading
       setGeneratingExcel((prev) => ({ ...prev, all_companies: true }));
-
-      alert(
-        `Generating consolidated Excel file for ${Object.keys(grouped).length} companies...`,
-      );
-
-      // Call backend API to generate single Excel file
-      const response = await financeAPI.salaryRecords.generateAllCompaniesExcel(
-        {
-          month: selectedMonth,
-          year: selectedYear,
-        },
-      );
-
-      // Create a clean filename
-      const monthName = monthNames[selectedMonth - 1];
-      const safeMonthName = monthName.replace(/\s+/g, "_");
-      const filename = `ALL_COMPANIES_SALARY_${safeMonthName}_${selectedYear}.xlsx`;
-
-      // Create blob and download
-      const blob = new Blob([response.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      const response = await financeAPI.salaryRecords.generateAllCompaniesExcel({
+        month: selectedMonth,
+        year: selectedYear,
       });
-
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-
-      // Append to body, click, and remove
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up URL
-      window.URL.revokeObjectURL(url);
-
-      alert(
-        `Successfully exported ${Object.keys(grouped).length} companies to a single Excel file!`,
+      downloadBlob(
+        response.data,
+        `ALL_COMPANIES_SALARY_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}.xlsx`,
+        XLSX_TYPE,
       );
-    } catch (error) {
-      console.error("Export all companies error:", error);
-
-      // Show detailed error
-      let errorMessage = "Failed to export Excel file.";
-      if (error.response) {
-        errorMessage = `Server error: ${error.response.status}`;
-        if (error.response.data) {
-          try {
-            // Try to parse error message if it's JSON
-            if (typeof error.response.data === "string") {
-              errorMessage = error.response.data;
-            } else if (error.response.data.error) {
-              errorMessage = error.response.data.error;
-            }
-          } catch (e) {
-            console.log("Could not parse error response:", e);
-          }
-        }
-      } else if (error.request) {
-        errorMessage = "No response from server. Please check your connection.";
-      } else {
-        errorMessage = `Error: ${error.message}`;
-      }
-
-      alert(`Export failed: ${errorMessage}`);
-
-      // Fallback to frontend generation
-      const useFallback = confirm(
-        "Backend export failed. Would you like to try frontend export? " +
-          "(Note: Frontend export may have limited features)",
+      setNotice({
+        tone: "success",
+        text: `Exported ${Object.keys(grouped).length} companies to a single Excel file.`,
+      });
+    } catch (err) {
+      console.error("Export all companies error:", err);
+      const message = await errorText(err, "Failed to export Excel file.");
+      const useFallback = window.confirm(
+        `Server export failed: ${message}\n\nCreate the file in the browser instead? (simpler formatting)`,
       );
-
-      if (useFallback) {
-        await exportAllCompaniesFrontendFallback();
-      }
+      if (useFallback) await exportAllCompaniesFrontendFallback();
     } finally {
       setGeneratingExcel((prev) => ({ ...prev, all_companies: false }));
     }
   };
-  // Frontend fallback function (keeps your existing code but improves it)
+
+  // Browser-side export, used when the server export fails
   const exportAllCompaniesFrontendFallback = async () => {
-    if (Object.keys(grouped).length === 0) {
-      alert("No company data to export");
-      return;
-    }
-
     try {
-      // Show loading
-      alert(
-        `Generating consolidated Excel file for ${Object.keys(grouped).length} companies...`,
-      );
-
-      // Create a new workbook
       const wb = XLSX.utils.book_new();
+      const headers = [
+        "SL",
+        "Name",
+        "ID",
+        "Designation",
+        "DOJ",
+        "Basic",
+        "House Rent",
+        "Medical",
+        "Conveyance",
+        "Gross Salary",
+        "Total Days",
+        "Days Worked",
+        "Absent Days",
+        "Absent Ded.",
+        "Advance",
+        "AIT",
+        "Total Ded.",
+        "OT Minutes",
+        "OT Pay",
+        "Addition",
+        "Cash Payment",
+        "Cash Salary",
+        "Net Pay (Bank)",
+        "Total Payable",
+        "Bank Account",
+        "Branch Name",
+        "Remarks",
+        "Work Day Hours",
+      ];
 
-      // Add each company as a separate sheet with IMPROVED DESIGN
       Object.keys(grouped).forEach((companyName, companyIndex) => {
         const records = grouped[companyName];
-
-        // Prepare headers with all columns
-        const headers = [
-          "SL",
-          "Name",
-          "ID",
-          "Designation",
-          "DOJ",
-          "Basic",
-          "House Rent",
-          "Medical",
-          "Conveyance",
-          "Gross Salary",
-          "Total Days",
-          "Days Worked",
-          "Absent Days",
-          "Absent Ded.",
-          "Advance",
-          "AIT",
-          "Total Ded.",
-          "OT Hours",
-          "OT Pay",
-          "Addition",
-          "Cash Payment",
-          "Cash Salary",
-          "Net Pay (Bank)",
-          "Total Payable",
-          "Bank Account",
-          "Branch Name",
-          "Remarks",
-          "Work Day Hours",
-        ];
-
-        // Prepare rows with IMPROVED FORMATTING
         const rows = records.map((record, idx) => {
-          const calculated = calculateDerivedValues(record);
-          const workDayHoursValue = workDayHours[companyName] || 10;
-
+          const c = calculateDerivedValues(record);
           return [
             idx + 1,
             record.name || "",
             record.employee_id || "",
             record.designation || "",
             record.doj || "",
-            calculated.basic,
-            calculated.houseRent,
-            calculated.medical,
-            calculated.conveyance,
-            calculated.grossSalary,
+            c.basic,
+            c.houseRent,
+            c.medical,
+            c.conveyance,
+            c.grossSalary,
             record.total_days || 0,
-            calculated.daysWorked,
-            calculated.absentDays,
-            calculated.absentDeduction,
-            calculated.advance,
-            calculated.ait,
-            calculated.totalDeduction,
-            calculated.otHours,
-            calculated.otPay,
-            calculated.addition,
-            calculated.cashPayment,
-            calculated.cashSalary,
-            calculated.netPayBank,
-            calculated.totalPayable,
+            c.daysWorked,
+            c.absentDays,
+            c.absentDeduction,
+            c.advance,
+            c.ait,
+            c.totalDeduction,
+            c.otHours,
+            c.otPay,
+            c.addition,
+            c.cashPayment,
+            c.cashSalary,
+            c.netPayBank,
+            c.totalPayable,
             record.bank_account || "",
             record.branch_name || "",
             getEditableValue(record, "remarks") || "",
-            workDayHoursValue,
+            workDayHours[companyName] || 10,
           ];
         });
 
-        // Create worksheet with IMPROVED DESIGN
-        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const ws = XLSX.utils.aoa_to_sheet([
+          [`${companyName} - SALARY SHEET`],
+          [`Month: ${monthLabel}`],
+          [`Total Employees: ${records.length}`],
+          [""],
+          headers,
+          ...rows,
+        ]);
+        ws["!cols"] = headers.map((_, i) => ({
+          wch: Math.min(
+            Math.max(
+              ...rows.map((row) => (row[i] != null ? String(row[i]).length : 0)),
+              String(headers[i]).length,
+            ) + 2,
+            35,
+          ),
+        }));
 
-        // Add company title row
-        XLSX.utils.sheet_add_aoa(ws, [[`${companyName} - SALARY SHEET`]], {
-          origin: -1,
-        });
-        XLSX.utils.sheet_add_aoa(
-          ws,
-          [[`Month: ${monthNames[selectedMonth - 1]} ${selectedYear}`]],
-          { origin: -1 },
-        );
-        XLSX.utils.sheet_add_aoa(ws, [[`Total Employees: ${records.length}`]], {
-          origin: -1,
-        });
-
-        // Add empty rows before data
-        XLSX.utils.sheet_add_aoa(ws, [[""]], { origin: -1 });
-
-        // Set column widths
-        const colWidths = headers.map((_, i) => {
-          const max = Math.max(
-            ...rows.map((row) => (row[i] != null ? String(row[i]).length : 0)),
-            String(headers[i]).length,
-          );
-          return { wch: Math.min(max + 2, 35) };
-        });
-        ws["!cols"] = colWidths;
-
-        // Add worksheet to workbook with company name as sheet name
         let sheetName = companyName.substring(0, 31);
-
-        // Ensure unique sheet names
         if (wb.SheetNames.includes(sheetName)) {
           sheetName = `${companyName.substring(0, 28)}_${companyIndex + 1}`;
         }
-
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
       });
 
-      // Add IMPROVED SUMMARY sheet
-      const summaryHeaders = [
-        "SL",
-        "Company",
-        "Employees",
-        "Gross Salary",
-        "AIT",
-        "Net Pay (Bank)",
-        "Total Payable",
-        "Status",
-      ];
       const summaryRows = Object.keys(grouped).map((companyName, idx) => {
-        const records = grouped[companyName];
-        const summary = records.reduce(
-          (acc, record) => {
-            const calculated = calculateDerivedValues(record);
-            return {
-              gross: acc.gross + calculated.grossSalary,
-              ait: acc.ait + calculated.ait,
-              netBank: acc.netBank + calculated.netPayBank,
-              totalPay: acc.totalPay + calculated.totalPayable,
-            };
-          },
-          { gross: 0, ait: 0, netBank: 0, totalPay: 0 },
-        );
-
+        const totals = sumUp(grouped[companyName]);
         return [
           idx + 1,
           companyName,
-          records.length,
-          summary.gross,
-          summary.ait,
-          summary.netBank,
-          summary.totalPay,
-          "✓",
+          grouped[companyName].length,
+          totals.gross,
+          totals.ait,
+          totals.netBank,
+          totals.totalPay,
         ];
       });
-
-      // Add grand totals row
-      const grandTotalRow = [
-        "GRAND TOTAL",
-        "",
-        filteredRecords.length,
-        filteredRecords.reduce((sum, record) => {
-          const calculated = calculateDerivedValues(record);
-          return sum + calculated.grossSalary;
-        }, 0),
-        filteredRecords.reduce((sum, record) => {
-          const calculated = calculateDerivedValues(record);
-          return sum + calculated.ait;
-        }, 0),
-        filteredRecords.reduce((sum, record) => {
-          const calculated = calculateDerivedValues(record);
-          return sum + calculated.netPayBank;
-        }, 0),
-        filteredRecords.reduce((sum, record) => {
-          const calculated = calculateDerivedValues(record);
-          return sum + calculated.totalPayable;
-        }, 0),
-        "✓",
-      ];
-
+      const all = sumUp(filteredRecords);
       const summaryWs = XLSX.utils.aoa_to_sheet([
         ["MONTHLY SALARY SUMMARY"],
-        [`Month: ${monthNames[selectedMonth - 1]} ${selectedYear}`],
-        [
-          `Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
-        ],
+        [`Month: ${monthLabel}`],
+        [`Generated: ${new Date().toLocaleString()}`],
         [""],
-        summaryHeaders,
+        ["SL", "Company", "Employees", "Gross Salary", "AIT", "Net Pay (Bank)", "Total Payable"],
         ...summaryRows,
         [""],
-        grandTotalRow,
+        ["GRAND TOTAL", "", filteredRecords.length, all.gross, all.ait, all.netBank, all.totalPay],
       ]);
-
-      // Set summary column widths
-      const summaryColWidths = [
-        { wch: 5 }, // SL
-        { wch: 35 }, // Company
-        { wch: 12 }, // Employees
-        { wch: 15 }, // Gross Salary
-        { wch: 12 }, // AIT
-        { wch: 15 }, // Net Pay
-        { wch: 15 }, // Total Payable
-        { wch: 10 }, // Status
-      ];
-      summaryWs["!cols"] = summaryColWidths;
-
+      summaryWs["!cols"] = [5, 35, 12, 15, 12, 15, 15].map((wch) => ({ wch }));
       XLSX.utils.book_append_sheet(wb, summaryWs, "SUMMARY");
 
-      // Generate Excel file
       const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      const blob = new Blob([excelBuffer], {
-        type: "application/octet-stream",
-      });
-
-      // Download the file
       saveAs(
-        blob,
-        `ALL_COMPANIES_SALARY_${monthNames[selectedMonth - 1]}_${selectedYear}_IMPROVED.xlsx`,
+        new Blob([excelBuffer], { type: "application/octet-stream" }),
+        `ALL_COMPANIES_SALARY_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}_BROWSER.xlsx`,
       );
-
-      alert(
-        `Successfully exported ${Object.keys(grouped).length} companies to a single Excel file!`,
-      );
-    } catch (error) {
-      console.error("Frontend export error:", error);
-      alert(`Export failed: ${error.message}`);
+      setNotice({
+        tone: "success",
+        text: `Exported ${Object.keys(grouped).length} companies to a single Excel file.`,
+      });
+    } catch (err) {
+      console.error("Frontend export error:", err);
+      setNotice({ tone: "danger", text: `Export failed: ${err.message}` });
     }
   };
 
-  // In SalaryRecords.jsx - Update renderApprovalFooter function
-  const renderApprovalFooter = (companyName) => {
-    const companyStatus = companyApprovalStatus[companyName] || {};
-    const user = currentUser ? currentUser.toLowerCase().trim() : "";
-
-    return (
-      <div className="footer">
-        {/* HR Prepared Button */}
-        <button
-          onClick={() => handleApprovalStep("hr_prepared", companyName)}
-          disabled={!isButtonEnabled("hr_prepared", companyName)}
-          className={`approval-btn ${
-            companyStatus.hr_prepared
-              ? "completed"
-              : isButtonEnabled("hr_prepared", companyName)
-                ? "enabled"
-                : "disabled"
-          }`}
-          title={
-            companyStatus.hr_prepared
-              ? "Already prepared by HR"
-              : user === "lisa"
-                ? "Click to mark as prepared by HR"
-                : "Only Lisa can prepare HR documents"
-          }
-        >
-          <span>Prepared by: HR</span>
-          {companyStatus.hr_prepared && <span className="status-badge">✓</span>}
-          {!isButtonEnabled("hr_prepared", companyName) &&
-            !companyStatus.hr_prepared && (
-              <span className="disabled-label">Not Ready</span>
-            )}
-        </button>
-
-        {/* Finance Checked Button */}
-        <button
-          onClick={() => handleApprovalStep("finance_checked", companyName)}
-          disabled={!isButtonEnabled("finance_checked", companyName)}
-          className={`approval-btn ${
-            companyStatus.finance_checked
-              ? "completed"
-              : isButtonEnabled("finance_checked", companyName)
-                ? "enabled"
-                : "disabled"
-          }`}
-          title={
-            companyStatus.finance_checked
-              ? "Already checked by Finance"
-              : user === "zohaer" && companyStatus.hr_prepared
-                ? "Click to mark as checked by Finance"
-                : !companyStatus.hr_prepared
-                  ? "Wait for HR to prepare first"
-                  : "Only Morshed can check Finance documents"
-          }
-        >
-          <span>Checked by: Finance & Accounts</span>
-          {companyStatus.finance_checked && (
-            <span className="status-badge">✓</span>
-          )}
-          {!isButtonEnabled("finance_checked", companyName) &&
-            !companyStatus.finance_checked && (
-              <span className="disabled-label">Not Ready</span>
-            )}
-        </button>
-
-        {/* Director Checked Button */}
-        <button
-          onClick={() => handleApprovalStep("director_checked", companyName)}
-          disabled={!isButtonEnabled("director_checked", companyName)}
-          className={`approval-btn ${
-            companyStatus.director_checked
-              ? "completed"
-              : isButtonEnabled("director_checked", companyName)
-                ? "enabled"
-                : "disabled"
-          }`}
-          title={
-            companyStatus.director_checked
-              ? "Already checked by Director"
-              : user === "ankon" && companyStatus.finance_checked
-                ? "Click to mark as checked by Director"
-                : !companyStatus.finance_checked
-                  ? "Wait for Finance to check first"
-                  : "Only Ankon can check Director documents"
-          }
-        >
-          <span>Checked by: Director</span>
-          {companyStatus.director_checked && (
-            <span className="status-badge">✓</span>
-          )}
-          {!isButtonEnabled("director_checked", companyName) &&
-            !companyStatus.director_checked && (
-              <span className="disabled-label">Not Ready</span>
-            )}
-        </button>
-
-        {/* Proprietor Approved Button */}
-        <button
-          onClick={() => handleApprovalStep("proprietor_approved", companyName)}
-          disabled={!isButtonEnabled("proprietor_approved", companyName)}
-          className={`approval-btn ${
-            companyStatus.proprietor_approved
-              ? "completed"
-              : isButtonEnabled("proprietor_approved", companyName)
-                ? "enabled"
-                : "disabled"
-          }`}
-          title={
-            companyStatus.proprietor_approved
-              ? "Already approved by Proprietor/MD"
-              : (user === "tuhin" || user === "proprietor" || user === "md") &&
-                  companyStatus.director_checked
-                ? "Click to mark as approved by Proprietor/MD"
-                : !companyStatus.director_checked
-                  ? "Wait for Director to check first"
-                  : "Only Tuhin/Proprietor/MD can approve"
-          }
-        >
-          <span>Approved by: Proprietor / MD</span>
-          {companyStatus.proprietor_approved && (
-            <span className="status-badge">✓</span>
-          )}
-          {!isButtonEnabled("proprietor_approved", companyName) &&
-            !companyStatus.proprietor_approved && (
-              <span className="disabled-label">Not Ready</span>
-            )}
-        </button>
-      </div>
+  const sumUp = (records) =>
+    records.reduce(
+      (acc, record) => {
+        const c = calculateDerivedValues(record);
+        acc.gross += c.grossSalary;
+        acc.ait += c.ait;
+        acc.netBank += c.netPayBank;
+        acc.totalPay += c.totalPayable;
+        acc.absentDed += c.absentDeduction;
+        acc.advance += c.advance;
+        acc.totalDed += c.totalDeduction;
+        acc.addition += c.addition;
+        acc.cash += c.cashPayment;
+        acc.cashSalary += c.cashSalary;
+        return acc;
+      },
+      {
+        gross: 0,
+        ait: 0,
+        netBank: 0,
+        totalPay: 0,
+        absentDed: 0,
+        advance: 0,
+        totalDed: 0,
+        addition: 0,
+        cash: 0,
+        cashSalary: 0,
+      },
     );
-  };
 
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-content">
-          <FaSpinner
-            className="spinning"
-            style={{ fontSize: "3rem", color: "#7c3aed" }}
-          />
-          <h2>Loading Finance Dashboard...</h2>
-          <p>Fetching employee data and tax calculations</p>
-        </div>
-        <style jsx>{`
-          .loading-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          }
-          .loading-content {
-            text-align: center;
-            color: white;
-          }
-          .spinning {
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}</style>
-      </div>
-    );
-  }
+  const renderApprovalFooter = (companyName) => (
+    <div className="fin-steps">
+      {APPROVAL_STEPS.map((step, i) => {
+        const state = stepState(step, companyName);
+        const busy = approving[`${companyName}|${step.key}`];
+        return (
+          <button
+            key={step.key}
+            type="button"
+            className={`fin-step fin-step--${state}`}
+            onClick={() => handleApprovalStep(step.key, companyName)}
+            disabled={state !== "ready" || busy}
+            title={stepHint(step, companyName)}
+          >
+            <span className="fin-step-num">
+              {state === "done" ? <FaCheck /> : busy ? <span className="fin-spinner fin-spinner--sm" /> : i + 1}
+            </span>
+            <span className="fin-step-text">
+              <span className="fin-step-title">{step.title}</span>
+              <span className="fin-step-sub">{stepHint(step, companyName)}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const grand = sumUp(filteredRecords);
+  const companyNames = Object.keys(grouped);
+  const isCurrentMonth =
+    selectedMonth === new Date().getMonth() + 1 && selectedYear === new Date().getFullYear();
 
   return (
-    <div className="salary-records-container">
-      <div className="dashboard">
-        <div className="card">
-          {/* HEADER SECTION */}
-          <div className="header-section">
-            <div className="header-main">
-              <div className="title-section">
-                <h1 className="main-title">
-                  <FaCalendarAlt className="title-icon" />
-                  Salary Records History
-                </h1>
-                <div className="date-badge">
-                  {monthNames[selectedMonth - 1]} {selectedYear}
-                </div>
-              </div>
+    <FinanceShell
+      title="Salary Records"
+      icon={<FaHistory />}
+      meta={
+        <Badge tone="primary" className="fin-badge--lg">
+          {monthLabel}
+        </Badge>
+      }
+      subtitle="Saved salary sheets. Correct a value, download Excel files and pay slips, and approve the month."
+      actions={
+        <>
+          <button onClick={() => navigate("/salary-comparison")} className="fin-btn" title="Compare salaries between two months">
+            <FaChartLine /> Compare Months
+          </button>
+          <button
+            onClick={generateAllPaySlips}
+            className="fin-btn"
+            disabled={companyNames.length === 0 || generatingPaySlip.all_companies}
+            title="Pay slips for all companies in one Excel file"
+          >
+            <FaFileAlt /> {generatingPaySlip.all_companies ? "Generating…" : "All Pay Slips"}
+          </button>
+          <button
+            onClick={exportAllCompaniesSingleFile}
+            className="fin-btn"
+            disabled={companyNames.length === 0 || generatingExcel.all_companies}
+          >
+            <FaFileExport /> {generatingExcel.all_companies ? "Exporting…" : "Download All Companies"}
+          </button>
+          <button
+            className="fin-btn fin-btn--primary"
+            onClick={saveData}
+            disabled={editedCount === 0 || saving}
+            title={editedCount ? `Save ${editedCount} changed row(s)` : "Change a value to enable saving"}
+          >
+            <FaSave /> {saving ? "Saving…" : `Save Updates${editedCount ? ` (${editedCount})` : ""}`}
+          </button>
+        </>
+      }
+    >
+      <div className="fin-stack">
+        {notice && (
+          <Alert
+            tone={notice.tone}
+            action={
+              <button className="fin-btn fin-btn--ghost fin-btn--sm" onClick={() => setNotice(null)}>
+                ×
+              </button>
+            }
+          >
+            {notice.text}
+          </Alert>
+        )}
 
-              <div className="controls-section">
-                <div className="search-wrapper">
-                  <FaSearch className="search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Search employees by name or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="search-input"
-                  />
-                </div>
-
-                <div className="filter-controls">
-                  <div className="filter-group">
-                    <select
-                      value={selectedYear}
-                      onChange={(e) => setSelectedYear(Number(e.target.value))}
-                      className="filter-select"
-                    >
-                      {years.map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="filter-group">
-                    <select
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                      className="filter-select"
-                    >
-                      {monthNames.map((month, index) => (
-                        <option key={index + 1} value={index + 1}>
-                          {month}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="action-buttons">
-                  <button
-                    onClick={() => navigate("/salary-format")}
-                    className="btn btn-back"
-                  >
-                    <FaArrowLeft /> Back to Current Month
-                  </button>
-
-                  <button
-                    className="btn btn-save"
-                    onClick={saveData}
-                    disabled={filteredRecords.length === 0}
-                  >
-                    <FaSave /> Save Updates
-                  </button>
-
-                  <button
-                    onClick={exportAllCompaniesSingleFile}
-                    className="btn btn-export-all"
-                    disabled={Object.keys(grouped).length === 0}
-                  >
-                    <FaFileExport /> Download All Companies
-                  </button>
-                  <button
-                    onClick={() => navigate("/salary-comparison")}
-                    className="btn btn-comparison"
-                    title="Compare salaries between two months"
-                  >
-                    <FaChartLine /> Compare Months
-                  </button>
-
-                  <button
-                    onClick={generateAllPaySlips}
-                    className="btn btn-all-payslips"
-                    disabled={
-                      Object.keys(grouped).length === 0 ||
-                      generatingPaySlip.all_companies
-                    }
-                    title="Generate Pay Slip Templates for all companies in one Excel file"
-                  >
-                    <FaFileAlt />
-                    {generatingPaySlip.all_companies
-                      ? "Generating..."
-                      : "All Pay Slips"}
-                  </button>
-
-                  <button
-                    onClick={showAllCompanies}
-                    className="btn btn-show-all"
-                    disabled={Object.keys(grouped).length === 0}
-                  >
-                    <FaBuilding /> Show All
-                  </button>
-
-                  <button
-                    onClick={hideAllCompanies}
-                    className="btn btn-hide-all"
-                  >
-                    <FaBuilding /> Hide All
-                  </button>
-                </div>
-              </div>
-            </div>
+        <Card>
+          <div className="fin-toolbar">
+            <Field label="Month">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="fin-select"
+                disabled={editedCount > 0}
+                title={editedCount > 0 ? "Save or discard your changes first" : undefined}
+              >
+                {MONTH_NAMES.map((month, index) => (
+                  <option key={index + 1} value={index + 1}>
+                    {month}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Year">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="fin-select"
+                disabled={editedCount > 0}
+                title={editedCount > 0 ? "Save or discard your changes first" : undefined}
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Search">
+              <SearchInput
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Name, ID, company or designation…"
+              />
+            </Field>
+            <span className="fin-spacer" />
+            {editedCount > 0 && (
+              <button className="fin-btn fin-btn--danger" onClick={() => setEditableData({})}>
+                <FaUndo /> Discard changes
+              </button>
+            )}
+            <button className="fin-btn" onClick={fetchSalaryRecords} disabled={loading}>
+              <FaSync className={loading ? "fin-spin" : ""} /> Refresh
+            </button>
           </div>
+        </Card>
 
-          {/* TAX STATUS SUMMARY */}
-          <div className="tax-status-summary">
-            <div className="status-item">
-              <span className="status-label">Total Employees:</span>
-              <span className="status-value">{filteredRecords.length}</span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">Companies:</span>
-              <span className="status-value">
-                {Object.keys(grouped).length}
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">Total Gross Salary:</span>
-              <span className="status-value">
-                {formatNumber(
-                  filteredRecords.reduce(
-                    (sum, record) => sum + toNumber(record.gross_salary),
-                    0,
-                  ),
-                )}
-              </span>
-            </div>
-            <div className="status-item">
-              <span className="status-label">Total AIT:</span>
-              <span className="status-value">
-                {formatNumber(
-                  filteredRecords.reduce(
-                    (sum, record) => sum + toNumber(record.ait),
-                    0,
-                  ),
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* ERROR MESSAGE */}
-          {error && (
-            <div className="error-section">
-              <h4>
-                <FaExclamationTriangle /> Error Loading Data
-              </h4>
-              <p>{error}</p>
-              <button onClick={fetchSalaryRecords} className="btn">
+        {error && (
+          <Alert
+            tone="danger"
+            title="Error loading data"
+            action={
+              <button onClick={fetchSalaryRecords} className="fin-btn fin-btn--sm">
                 <FaSync /> Retry
               </button>
-            </div>
-          )}
+            }
+          >
+            {error}
+          </Alert>
+        )}
 
-          {/* COMPANY QUICK ACCESS */}
-          {Object.keys(grouped).length > 0 && (
-            <div className="company-quick-access">
-              <div className="section-label">
-                <FaBuilding className="section-icon" />
-                Companies ({Object.keys(grouped).length})
+        {loading ? (
+          <Card>
+            <LoadingState title={`Loading ${monthLabel}…`} />
+          </Card>
+        ) : (
+          <>
+            {salaryRecords.length > 0 && (
+              <div className="fin-kpis">
+                <Kpi
+                  tone="primary"
+                  icon={<FaUsers />}
+                  label="Employees"
+                  value={filteredRecords.length}
+                  hint={`${companyNames.length} companies`}
+                />
+                <Kpi icon={<FaMoneyBillWave />} label="Gross salary" value={formatNumber(grand.gross)} />
+                <Kpi tone="warning" icon={<FaCalculator />} label="AIT deducted" value={formatNumber(grand.ait)} />
+                <Kpi
+                  tone="success"
+                  icon={<FaUniversity />}
+                  label="Net pay (bank)"
+                  value={formatNumber(grand.netBank)}
+                  hint={`Total payable ${formatNumber(grand.totalPay)}`}
+                />
               </div>
-              <div className="company-buttons-grid">
-                {Object.keys(grouped).map((comp) => (
-                  <div key={comp} className="company-card">
-                    <button
-                      className={`company-toggle-btn ${openCompanies[comp] ? "active" : ""}`}
-                      onClick={() => toggleCompany(comp)}
-                    >
-                      <span className="company-name">{comp}</span>
-                      <span className="employee-count">
-                        {grouped[comp].length} employees
-                      </span>
-                      <span className="toggle-indicator">
-                        {openCompanies[comp] ? "▲" : "▼"}
-                      </span>
+            )}
+
+            {companyNames.length > 0 && (
+              <Card
+                title={
+                  <>
+                    <FaBuilding /> Companies
+                  </>
+                }
+                subtitle="Open a company to see its records, downloads and approvals."
+                actions={
+                  <>
+                    <button onClick={showAllCompanies} className="fin-btn fin-btn--sm">
+                      <FaEye /> Show all
                     </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                    <button onClick={hideAllCompanies} className="fin-btn fin-btn--sm">
+                      <FaEyeSlash /> Hide all
+                    </button>
+                  </>
+                }
+              >
+                <CompanyChips
+                  companies={companyNames.map((name) => ({ name, count: grouped[name].length }))}
+                  open={openCompanies}
+                  onToggle={toggleCompany}
+                  tag={(name) => {
+                    const s = companyApprovalStatus[name];
+                    return s?.proprietor_approved ? "Approved" : null;
+                  }}
+                />
+              </Card>
+            )}
 
-          {/* COMPANY SECTIONS - WITH EDITABLE FIELDS */}
-          {Object.keys(grouped).map((comp) => {
-            const records = grouped[comp];
-            if (!openCompanies[comp]) return null;
+            {companyNames.map((comp) => {
+              const records = grouped[comp];
+              if (!openCompanies[comp]) return null;
+              const totals = sumUp(records);
 
-            return (
-              <div key={comp} className="company-section">
-                <div className="company-header">
-                  <div className="company-title">
-                    <h2>{comp}</h2>
-                    <h3>
-                      Salary Records for {monthNames[selectedMonth - 1]}{" "}
-                      {selectedYear}
-                      <span className="record-count">
-                        {" "}
-                        ({records.length} employees)
-                      </span>
-                    </h3>
-
-                    {/* WORK DAY HOURS SELECTOR */}
-                    <div className="work-day-selector">
-                      <label>Work Day Hours for OT Calculation:</label>
-                      <select
-                        value={workDayHours[comp] || 10}
-                        onChange={(e) =>
-                          setWorkDayHours((prev) => ({
-                            ...prev,
-                            [comp]: Number(e.target.value),
-                          }))
-                        }
-                        className="work-day-select"
+              return (
+                <Card
+                  key={comp}
+                  flush
+                  title={comp}
+                  subtitle={`Salary records for ${monthLabel} · ${records.length} employees`}
+                  actions={
+                    <>
+                      <label className="fin-row" style={{ gap: 6 }}>
+                        <span className="fin-label">OT work day</span>
+                        <select
+                          value={workDayHours[comp] || 10}
+                          onChange={(e) =>
+                            setWorkDayHours((prev) => ({ ...prev, [comp]: Number(e.target.value) }))
+                          }
+                          className="fin-select"
+                          style={{ height: 30 }}
+                        >
+                          <option value={10}>10 hours/day</option>
+                          <option value={8}>8 hours/day</option>
+                        </select>
+                      </label>
+                      <button
+                        onClick={() => generateExcelForCompany(comp)}
+                        className="fin-btn fin-btn--sm"
+                        disabled={generatingExcel[`excel_${comp}`]}
                       >
-                        <option value={10}>10 Hours/Day</option>
-                        <option value={8}>8 Hours/Day</option>
-                      </select>
+                        <FaFileExcel /> {generatingExcel[`excel_${comp}`] ? "Generating…" : "Generate Excel"}
+                      </button>
+                      <button
+                        onClick={() => generateSalarySheetForCompany(comp)}
+                        className="fin-btn fin-btn--sm"
+                        disabled={generatingExcel[`sheet_${comp}`]}
+                      >
+                        <FaFileExport /> {generatingExcel[`sheet_${comp}`] ? "Generating…" : "Salary Sheet"}
+                      </button>
+                      <button
+                        onClick={() => generatePaySlipForCompany(comp)}
+                        className="fin-btn fin-btn--sm"
+                        disabled={generatingPaySlip[comp]}
+                      >
+                        <FaFileAlt /> {generatingPaySlip[comp] ? "Generating…" : "Pay Slips"}
+                      </button>
+                    </>
+                  }
+                  footer={
+                    <div className="fin-stack" style={{ gap: 12 }}>
+                      <div className="fin-stats">
+                        <Stat label="Employees" value={records.length} />
+                        <Stat label="Gross salary" value={formatNumber(totals.gross)} />
+                        <Stat label="AIT" value={formatNumber(totals.ait)} />
+                        <Stat label="Net pay (bank)" value={formatNumber(totals.netBank)} highlight />
+                        <Stat label="Total payable" value={formatNumber(totals.totalPay)} highlight />
+                      </div>
+                      {renderApprovalFooter(comp)}
                     </div>
-                  </div>
-
-                  <div className="company-action-buttons">
-                    <button
-                      onClick={() => generateExcelForCompany(comp)}
-                      className="btn btn-generate-excel"
-                      disabled={generatingExcel[comp]}
-                    >
-                      <FaFileExcel />
-                      {generatingExcel[comp]
-                        ? "Generating..."
-                        : "Generate Excel"}
-                    </button>
-                    <button
-                      onClick={() => generateSalarySheetForCompany(comp)}
-                      className="btn btn-export-salary-sheet"
-                      disabled={generatingExcel[comp]}
-                    >
-                      <FaFileExport /> Export {comp} Sheet
-                      {generatingExcel[comp] ? "Generating..." : ""}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="table-scroll-container">
-                  <div className="table-wrapper">
-                    <table className="salary-table">
+                  }
+                >
+                  <div className="fin-table-wrap">
+                    <table className="fin-table">
                       <thead>
                         <tr>
-                          <th>SL</th>
-                          <th>Name</th>
+                          <th className="fin-sticky" style={{ left: 0, minWidth: 48 }}>SL</th>
+                          <th className="fin-sticky fin-sticky-edge" style={{ left: 48 }}>Name</th>
                           <th>ID</th>
                           <th>Designation</th>
                           <th>DOJ</th>
-                          <th>Basic</th>
-                          <th>House Rent</th>
-                          <th>Medical</th>
-                          <th>Conveyance</th>
-                          <th>Gross Salary</th>
-                          <th>Total Days</th>
-                          <th>Days Worked</th>
-                          <th>Absent Days</th>
-                          <th>Absent Ded.</th>
-                          <th>Advance</th>
-                          <th>AIT</th>
-                          <th>Total Ded.</th>
-                          <th>OT Min</th>
-                          <th>OT Pay</th>
-                          <th>Addition</th>
-                          <th>Cash Payment</th>
-                          <th>Cash Salary</th>
-                          <th>Net Pay (Bank)</th>
-                          <th>Total Payable</th>
+                          <th className="num">Basic</th>
+                          <th className="num">House Rent</th>
+                          <th className="num">Medical</th>
+                          <th className="num">Conveyance</th>
+                          <th className="num">Gross Salary</th>
+                          <th className="num">Total Days</th>
+                          <th className="num">Days Worked</th>
+                          <th className="num">Absent Days</th>
+                          <th className="num">Absent Ded.</th>
+                          <th className="num">Advance</th>
+                          <th className="num">AIT</th>
+                          <th className="num">Total Ded.</th>
+                          <th className="num">OT Min</th>
+                          <th className="num">OT Pay</th>
+                          <th className="num">Addition</th>
+                          <th className="num">Cash Payment</th>
+                          <th className="num">Cash Salary</th>
+                          <th className="num">Net Pay (Bank)</th>
+                          <th className="num">Total Payable</th>
                           <th>Bank Account</th>
                           <th>Branch Name</th>
                           <th>Remarks</th>
+                          <th />
                         </tr>
                       </thead>
                       <tbody>
                         {records.map((record, idx) => {
-                          const calculated = calculateDerivedValues(record);
+                          const c = calculateDerivedValues(record);
+                          const edited = isEdited(record);
 
                           return (
-                            <tr
-                              key={`${record.employee_id}-${idx}`}
-                              className="data-row"
-                            >
-                              <td className="sl-number">{idx + 1}</td>
-                              <td className="emp-name">{record.name}</td>
-                              <td className="emp-id">{record.employee_id}</td>
-                              <td className="emp-designation">
-                                {record.designation}
+                            <tr key={recordKey(record)} className={edited ? "fin-row-expanded" : ""}>
+                              <td className="fin-sticky muted" style={{ left: 0, minWidth: 48 }}>
+                                {idx + 1}
                               </td>
-                              <td className="emp-doj">{record.doj}</td>
-                              <td className="salary-amount">
-                                {formatNumber(calculated.basic)}
+                              <td className="fin-sticky fin-sticky-edge fin-col-name" style={{ left: 48 }}>
+                                {record.name}
+                                {edited && <div className="fin-cell-note fin-cell-note--warning">Unsaved changes</div>}
                               </td>
-                              <td className="salary-amount">
-                                {formatNumber(calculated.houseRent)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(calculated.medical)}
-                              </td>
-                              <td className="salary-amount">
-                                {formatNumber(calculated.conveyance)}
-                              </td>
-                              <td className="gross-salary">
-                                {formatNumber(calculated.grossSalary)}
-                              </td>
-                              <td className="days-count">
-                                {record.total_days || 0}
-                              </td>
-
-                              {/* EDITABLE: Days Worked */}
-                              <td>
+                              <td className="fin-col-id">{record.employee_id}</td>
+                              <td className="muted">{record.designation}</td>
+                              <td className="muted">{record.doj}</td>
+                              <td className="num">{formatNumber(c.basic)}</td>
+                              <td className="num">{formatNumber(c.houseRent)}</td>
+                              <td className="num">{formatNumber(c.medical)}</td>
+                              <td className="num">{formatNumber(c.conveyance)}</td>
+                              <td className="num strong">{formatNumber(c.grossSalary)}</td>
+                              <td className="num muted">{record.total_days || 0}</td>
+                              <td className="num">
                                 <input
                                   type="number"
-                                  value={getEditableValue(
-                                    record,
-                                    "days_worked",
-                                  )}
-                                  placeholder={
-                                    record.days_worked || record.total_days || 0
-                                  }
-                                  onChange={(e) =>
-                                    updateEditableField(
-                                      record.employee_id,
-                                      "days_worked",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input days-input"
+                                  value={getEditableValue(record, "days_worked")}
+                                  placeholder={record.days_worked || record.total_days || 0}
+                                  onChange={(e) => updateEditableField(record, "days_worked", e.target.value)}
+                                  className="fin-cell-input fin-cell-input--sm"
                                   min="0"
                                   max={record.total_days || 31}
+                                  aria-label={`Days worked, ${record.name}`}
                                 />
                               </td>
-
-                              <td className="absent-days">
-                                {calculated.absentDays}
+                              <td className="num">{c.absentDays}</td>
+                              <td className={`num ${c.absentDeduction ? "text-neg" : "muted"}`}>
+                                {formatNumber(c.absentDeduction)}
                               </td>
-                              <td className="deduction-amount">
-                                {formatNumber(calculated.absentDeduction)}
-                              </td>
-
-                              {/* EDITABLE: Advance */}
-                              <td>
+                              <td className="num">
                                 <input
                                   type="number"
                                   value={getEditableValue(record, "advance")}
                                   placeholder="0"
-                                  onChange={(e) =>
-                                    updateEditableField(
-                                      record.employee_id,
-                                      "advance",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input advance-input"
+                                  onChange={(e) => updateEditableField(record, "advance", e.target.value)}
+                                  className="fin-cell-input"
                                   min="0"
+                                  aria-label={`Advance, ${record.name}`}
                                 />
                               </td>
-
-                              <td className="tax-amount">
-                                {formatNumber(calculated.ait)}
-                              </td>
-                              <td className="deduction-amount total-deduction">
-                                {formatNumber(calculated.totalDeduction)}
-                              </td>
-
-                              {/* EDITABLE: OT Hours */}
-                              <td className="ot-hours">
+                              <td className="num">{formatNumber(c.ait)}</td>
+                              <td className="num text-neg">{formatNumber(c.totalDeduction)}</td>
+                              <td className="num">
                                 <input
                                   type="number"
-                                  value={
-                                    getEditableValue(record, "ot_hours") || ""
-                                  }
-                                  placeholder="Minutes"
-                                  onChange={(e) =>
-                                    updateEditableField(
-                                      record.employee_id,
-                                      "ot_hours",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input ot-input"
+                                  value={getEditableValue(record, "ot_hours")}
+                                  placeholder="Min"
+                                  onChange={(e) => updateEditableField(record, "ot_hours", e.target.value)}
+                                  className="fin-cell-input fin-cell-input--sm"
                                   min="0"
                                   step="1"
                                   title="Enter OT in minutes (60 = 1 hour, 120 = 2 hours)"
+                                  aria-label={`OT minutes, ${record.name}`}
                                 />
                               </td>
-                              <td className="ot-pay-amount">
-                                {formatNumber(calculated.otPay)}
-                              </td>
-
-                              {/* EDITABLE: Addition */}
-                              <td>
+                              <td className="num">{formatNumber(c.otPay)}</td>
+                              <td className="num">
                                 <input
                                   type="number"
                                   value={getEditableValue(record, "addition")}
                                   placeholder="0"
-                                  onChange={(e) =>
-                                    updateEditableField(
-                                      record.employee_id,
-                                      "addition",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input addition-input"
-                                  min="0"
+                                  onChange={(e) => updateEditableField(record, "addition", e.target.value)}
+                                  className="fin-cell-input"
+                                  title="Includes OT pay"
+                                  aria-label={`Addition, ${record.name}`}
                                 />
                               </td>
-
-                              {/* EDITABLE: Cash Payment */}
-                              <td>
+                              <td className="num">
                                 <input
                                   type="number"
-                                  value={getEditableValue(
-                                    record,
-                                    "cash_payment",
-                                  )}
+                                  value={getEditableValue(record, "cash_payment")}
                                   placeholder="0"
-                                  onChange={(e) =>
-                                    updateEditableField(
-                                      record.employee_id,
-                                      "cash_payment",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input cash-input"
+                                  onChange={(e) => updateEditableField(record, "cash_payment", e.target.value)}
+                                  className="fin-cell-input"
                                   min="0"
+                                  aria-label={`Cash payment, ${record.name}`}
                                 />
                               </td>
-
-                              <td className="salary-amount">
-                                {formatNumber(calculated.cashSalary)}
+                              <td className="num">{formatNumber(c.cashSalary)}</td>
+                              <td className={`num strong ${c.netPayBank < 0 ? "text-neg" : "text-pos"}`}>
+                                {formatNumber(c.netPayBank)}
                               </td>
-                              <td
-                                className={`net-pay ${calculated.netPayBank < 0 ? "negative" : "positive"}`}
-                              >
-                                {formatNumber(calculated.netPayBank)}
-                              </td>
-                              <td className="total-payable">
-                                {formatNumber(calculated.totalPayable)}
-                              </td>
-                              <td className="bank-account">
-                                {record.bank_account || "N/A"}
-                              </td>
-                              <td className="branch-code">
-                                {record.branch_name || "N/A"}
-                              </td>
-
-                              {/* EDITABLE: Remarks */}
+                              <td className="num strong">{formatNumber(c.totalPayable)}</td>
+                              <td className="fin-col-id">{record.bank_account || "N/A"}</td>
+                              <td className="muted">{record.branch_name || "N/A"}</td>
                               <td>
                                 <input
                                   type="text"
                                   value={getEditableValue(record, "remarks")}
                                   placeholder="Remarks"
-                                  onChange={(e) =>
-                                    updateEditableField(
-                                      record.employee_id,
-                                      "remarks",
-                                      e.target.value,
-                                    )
-                                  }
-                                  className="editable-input remarks-input"
+                                  onChange={(e) => updateEditableField(record, "remarks", e.target.value)}
+                                  className="fin-cell-input fin-cell-input--text"
+                                  aria-label={`Remarks, ${record.name}`}
                                 />
+                              </td>
+                              <td>
+                                {edited && (
+                                  <button
+                                    type="button"
+                                    className="fin-edit-btn"
+                                    title="Discard this row's changes"
+                                    onClick={() => discardRow(record)}
+                                  >
+                                    <FaUndo />
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
+                      <tfoot>
+                        <tr>
+                          <td className="fin-sticky" style={{ left: 0, minWidth: 48 }} />
+                          <td className="fin-sticky fin-sticky-edge" style={{ left: 48 }}>
+                            Total ({records.length})
+                          </td>
+                          <td colSpan={7} />
+                          <td className="num">{formatNumber(totals.gross)}</td>
+                          <td colSpan={3} />
+                          <td className="num">{formatNumber(totals.absentDed)}</td>
+                          <td className="num">{formatNumber(totals.advance)}</td>
+                          <td className="num">{formatNumber(totals.ait)}</td>
+                          <td className="num">{formatNumber(totals.totalDed)}</td>
+                          <td colSpan={2} />
+                          <td className="num">{formatNumber(totals.addition)}</td>
+                          <td className="num">{formatNumber(totals.cash)}</td>
+                          <td className="num">{formatNumber(totals.cashSalary)}</td>
+                          <td className="num">{formatNumber(totals.netBank)}</td>
+                          <td className="num">{formatNumber(totals.totalPay)}</td>
+                          <td colSpan={4} />
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
-                </div>
+                </Card>
+              );
+            })}
 
-                {/* SUMMARY SECTION */}
-                <div className="tax-summary-note">
-                  <h4>📊 Records Summary for {comp}</h4>
-                  <div className="summary-stats">
-                    <div className="summary-stat">
-                      <span className="stat-label">Total Employees:</span>
-                      <span className="stat-value">{records.length}</span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">Total Gross Salary:</span>
-                      <span className="stat-value">
-                        {formatNumber(
-                          records.reduce(
-                            (sum, record) =>
-                              sum + toNumber(record.gross_salary),
-                            0,
-                          ),
-                        )}
-                      </span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">Total AIT:</span>
-                      <span className="stat-value">
-                        {formatNumber(
-                          records.reduce(
-                            (sum, record) => sum + toNumber(record.ait),
-                            0,
-                          ),
-                        )}
-                      </span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">Total Net Pay:</span>
-                      <span className="stat-value">
-                        {formatNumber(
-                          records.reduce((sum, record) => {
-                            const calculated = calculateDerivedValues(record);
-                            return sum + calculated.netPayBank;
-                          }, 0),
-                        )}
-                      </span>
-                    </div>
-                    <div className="summary-stat">
-                      <span className="stat-label">Total Payable:</span>
-                      <span className="stat-value">
-                        {formatNumber(
-                          records.reduce((sum, record) => {
-                            const calculated = calculateDerivedValues(record);
-                            return sum + calculated.totalPayable;
-                          }, 0),
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* APPROVAL FOOTER */}
-                {renderApprovalFooter(comp)}
-              </div>
-            );
-          })}
-
-          {/* SUMMARY SECTION - Only show when no companies are open */}
-          {Object.keys(openCompanies).every((comp) => !openCompanies[comp]) &&
-            filteredRecords.length > 0 && (
-              <div className="summary-section">
-                <div className="summary-header">
-                  <h2>
-                    <FaUsers className="section-icon" />
-                    Summary Overview
-                  </h2>
-                </div>
-
-                <div className="summary-stats">
-                  <div className="stat-card">
-                    <div className="stat-number">
-                      {Object.keys(grouped).length}
-                    </div>
-                    <div className="stat-label">Companies</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-number">{filteredRecords.length}</div>
-                    <div className="stat-label">Total Employees</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-number">
-                      {formatNumber(
-                        filteredRecords.reduce(
-                          (s, record) => s + toNumber(record.gross_salary),
-                          0,
-                        ),
-                      )}
-                    </div>
-                    <div className="stat-label">Total Gross Salary</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-number">
-                      {formatNumber(
-                        filteredRecords.reduce(
-                          (s, record) => s + toNumber(record.ait),
-                          0,
-                        ),
-                      )}
-                    </div>
-                    <div className="stat-label">Total Deducted AIT</div>
-                  </div>
-                </div>
-
-                <div className="table-scroll-container">
-                  <div className="table-wrapper">
-                    <table className="salary-table summary-table">
+            {Object.keys(openCompanies).every((comp) => !openCompanies[comp]) &&
+              filteredRecords.length > 0 && (
+                <Card
+                  flush
+                  title={
+                    <>
+                      <FaUsers /> Summary by company
+                    </>
+                  }
+                  subtitle={monthLabel}
+                >
+                  <div className="fin-table-wrap fin-table-wrap--auto">
+                    <table className="fin-table">
                       <thead>
                         <tr>
                           <th>SL</th>
                           <th>Company</th>
-                          <th>Employees</th>
-                          <th>Gross Salary</th>
-                          <th>AIT</th>
-                          <th>Net Pay (Bank)</th>
-                          <th>Total Payable</th>
+                          <th className="num">Employees</th>
+                          <th className="num">Gross Salary</th>
+                          <th className="num">AIT</th>
+                          <th className="num">Net Pay (Bank)</th>
+                          <th className="num">Total Payable</th>
+                          <th className="center">Approval</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.keys(grouped).map((comp, i) => {
-                          const records = grouped[comp];
-                          const summary = records.reduce(
-                            (acc, record) => {
-                              const calculated = calculateDerivedValues(record);
-                              return {
-                                gross: acc.gross + calculated.grossSalary,
-                                ait: acc.ait + calculated.ait,
-                                netBank: acc.netBank + calculated.netPayBank,
-                                totalPay:
-                                  acc.totalPay + calculated.totalPayable,
-                              };
-                            },
-                            { gross: 0, ait: 0, netBank: 0, totalPay: 0 },
-                          );
-
+                        {companyNames.map((comp, i) => {
+                          const summary = sumUp(grouped[comp]);
+                          const status = companyApprovalStatus[comp] || {};
+                          const doneSteps = APPROVAL_STEPS.filter((s) => status[s.key]).length;
                           return (
-                            <tr key={i} className="data-row summary-row">
-                              <td className="sl-number">{i + 1}</td>
-                              <td className="company-name">{comp}</td>
-                              <td className="employee-count">
-                                {records.length}
-                              </td>
-                              <td className="gross-salary">
-                                {formatNumber(summary.gross)}
-                              </td>
-                              <td className="tax-amount">
-                                {formatNumber(summary.ait)}
-                              </td>
-                              <td
-                                className={`net-pay ${
-                                  summary.netBank < 0 ? "negative" : "positive"
-                                }`}
-                              >
+                            <tr
+                              key={comp}
+                              className="fin-row-clickable"
+                              onClick={() => toggleCompany(comp)}
+                              title="Open this company"
+                            >
+                              <td className="muted">{i + 1}</td>
+                              <td className="fin-col-name">{comp}</td>
+                              <td className="num">{grouped[comp].length}</td>
+                              <td className="num">{formatNumber(summary.gross)}</td>
+                              <td className="num">{formatNumber(summary.ait)}</td>
+                              <td className={`num strong ${summary.netBank < 0 ? "text-neg" : ""}`}>
                                 {formatNumber(summary.netBank)}
                               </td>
-                              <td className="total-payable">
-                                {formatNumber(summary.totalPay)}
+                              <td className="num strong">{formatNumber(summary.totalPay)}</td>
+                              <td className="center">
+                                <Badge tone={doneSteps === 4 ? "success" : doneSteps ? "warning" : undefined}>
+                                  {doneSteps === 4 ? "Approved" : `${doneSteps} / 4 steps`}
+                                </Badge>
                               </td>
                             </tr>
                           );
                         })}
-
-                        {/* GRAND TOTAL ROW */}
-                        <tr className="grand-total">
-                          <td colSpan="2" className="grand-total-label">
-                            Grand Total
-                          </td>
-                          <td className="grand-total-count">
-                            {filteredRecords.length}
-                          </td>
-                          <td className="grand-total-gross">
-                            {formatNumber(
-                              filteredRecords.reduce((s, record) => {
-                                const calculated =
-                                  calculateDerivedValues(record);
-                                return s + calculated.grossSalary;
-                              }, 0),
-                            )}
-                          </td>
-                          <td className="grand-total-tax">
-                            {formatNumber(
-                              filteredRecords.reduce((s, record) => {
-                                const calculated =
-                                  calculateDerivedValues(record);
-                                return s + calculated.ait;
-                              }, 0),
-                            )}
-                          </td>
-                          <td
-                            className={`grand-total-net ${
-                              filteredRecords.reduce((s, record) => {
-                                const calculated =
-                                  calculateDerivedValues(record);
-                                return s + calculated.netPayBank;
-                              }, 0) < 0
-                                ? "negative"
-                                : "positive"
-                            }`}
-                          >
-                            {formatNumber(
-                              filteredRecords.reduce((s, record) => {
-                                const calculated =
-                                  calculateDerivedValues(record);
-                                return s + calculated.netPayBank;
-                              }, 0),
-                            )}
-                          </td>
-                          <td className="grand-total-payable">
-                            {formatNumber(
-                              filteredRecords.reduce((s, record) => {
-                                const calculated =
-                                  calculateDerivedValues(record);
-                                return s + calculated.totalPayable;
-                              }, 0),
-                            )}
-                          </td>
-                        </tr>
                       </tbody>
+                      <tfoot>
+                        <tr>
+                          <td colSpan={2}>Grand Total</td>
+                          <td className="num">{filteredRecords.length}</td>
+                          <td className="num">{formatNumber(grand.gross)}</td>
+                          <td className="num">{formatNumber(grand.ait)}</td>
+                          <td className={`num ${grand.netBank < 0 ? "text-neg" : ""}`}>
+                            {formatNumber(grand.netBank)}
+                          </td>
+                          <td className="num">{formatNumber(grand.totalPay)}</td>
+                          <td />
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
-                </div>
-              </div>
-            )}
+                </Card>
+              )}
 
-          {/* NO DATA MESSAGE */}
-          {filteredRecords.length === 0 && !loading && !error && (
-            <div className="no-data-section">
-              <div className="no-data-content">
-                <FaExclamationTriangle className="no-data-icon" />
-                <h3>No Salary Records Found</h3>
-                <p>
-                  No salary records found for {monthNames[selectedMonth - 1]}{" "}
-                  {selectedYear}.
-                  {selectedMonth === new Date().getMonth() + 1 &&
-                  selectedYear === new Date().getFullYear() ? (
-                    <span>
-                      {" "}
-                      You can create salary records in the{" "}
-                      <strong>Salary Format</strong> page.
-                    </span>
-                  ) : (
-                    <span> Try selecting a different month or year.</span>
-                  )}
-                </p>
-                <button
-                  onClick={() => navigate("/salary-format")}
-                  className="btn btn-primary"
+            {filteredRecords.length === 0 && !error && (
+              <Card>
+                <EmptyState
+                  icon={<FaExclamationTriangle />}
+                  title={salaryRecords.length ? "No records match your search" : "No salary records found"}
+                  action={
+                    !salaryRecords.length && (
+                      <button onClick={() => navigate("/salary-format")} className="fin-btn fin-btn--primary">
+                        <FaFileInvoiceDollar /> Go to Salary Sheet
+                      </button>
+                    )
+                  }
                 >
-                  <FaCalendarAlt /> Go to Current Month
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+                  {salaryRecords.length
+                    ? "Try a different name, ID or company."
+                    : isCurrentMonth
+                      ? `Nothing saved for ${monthLabel} yet. Create it on the Salary Sheet page.`
+                      : `Nothing saved for ${monthLabel}. Try a different month or year.`}
+                </EmptyState>
+              </Card>
+            )}
+          </>
+        )}
       </div>
-      <style>{`
-        /* REUSE ALL CSS FROM SALARY FORMAT */
-
-
-        /* In your CSS styles - Add these */
-        .approval-btn.enabled {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          border-color: #059669;
-          cursor: pointer;
-        }
-
-        .approval-btn.enabled:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
-        }
-
-        .approval-btn.completed {
-          background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-          color: white;
-          border-color: #6b7280;
-          cursor: not-allowed;
-          opacity: 0.8;
-        }
-
-        .approval-btn.completed:hover {
-          transform: none;
-          box-shadow: none;
-          background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-        }
-
-        .approval-btn.disabled {
-          background: #f3f4f6;
-          color: #9ca3af;
-          border-color: #e5e7eb;
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .status-badge {
-          background: white;
-          color: #10b981;
-          border-radius: 50%;
-          width: 20px;
-          height: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 12px;
-          margin-left: 8px;
-        }
-
-        .completed .status-badge {
-          background: #10b981;
-          color: white;
-        }
-
-        .disabled-label {
-          font-size: 0.7rem;
-          margin-left: 8px;
-          color: #9ca3af;
-          font-style: italic;
-        }
-
-
-
-
-        .salary-records-container {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 1rem;
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-
-        .dashboard {
-          width: 100%;
-          max-width: 100%;
-          margin: 0 auto;
-          padding: 1rem;
-        }
-
-        .card {
-          background: white;
-          border-radius: 20px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-          overflow: hidden;
-          backdrop-filter: blur(10px);
-        }
-
-        /* HEADER SECTION */
-        .header-section {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 2.5rem;
-          color: white;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .header-main {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 2rem;
-          flex-wrap: wrap;
-        }
-
-        .title-section {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .main-title {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          font-size: 2.5rem;
-          font-weight: 700;
-          margin: 0;
-          color: white;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .title-icon {
-          font-size: 2.2rem;
-          opacity: 0.9;
-          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-        }
-
-        .date-badge {
-          background: rgba(255, 255, 255, 0.2);
-          padding: 0.75rem 1.5rem;
-          border-radius: 15px;
-          font-size: 1.1rem;
-          font-weight: 600;
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          align-self: flex-start;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .controls-section {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          min-width: 320px;
-        }
-
-        .search-wrapper {
-          position: relative;
-          width: 100%;
-        }
-
-        .search-input {
-          width: 100%;
-          padding: 1rem 1rem 1rem 3.5rem;
-          border: none;
-          border-radius: 15px;
-          background: rgba(255, 255, 255, 0.95);
-          font-size: 1rem;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-          border: 2px solid transparent;
-        }
-
-        .search-input:focus {
-          outline: none;
-          background: white;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-          transform: translateY(-2px);
-          border-color: rgba(255, 255, 255, 0.5);
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 1.2rem;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #8b5cf6;
-          font-size: 1.2rem;
-        }
-
-        .filter-controls {
-          display: flex;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .filter-group {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .filter-select {
-          padding: 0.75rem;
-          border: none;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.95);
-          font-size: 0.9rem;
-          min-width: 120px;
-        }
-
-        .action-buttons {
-          display: flex;
-          gap: 0.8rem;
-          flex-wrap: wrap;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          padding: 1rem 1.8rem;
-          border: none;
-          border-radius: 15px;
-          font-weight: 600;
-          font-size: 0.95rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          text-decoration: none;
-          white-space: nowrap;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-          border: 2px solid transparent;
-        }
-
-        .btn:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .btn-active {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-          border: 2px solid #8b5cf6;
-        }
-
-        .btn-back {
-          background: rgba(255, 255, 255, 0.15);
-          color: white;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .btn-back:hover {
-          background: rgba(255, 255, 255, 0.25);
-        }
-
-        .btn-save {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-        }
-
-        .btn-save:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        }
-
-        .btn-comparison {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-        }
-
-        .btn-export-all,
-        .btn-export-section {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
-        }
-
-        .btn-export-all:hover,
-        .btn-export-section:hover {
-          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-        }
-
-        .btn-show-all,
-        .btn-hide-all {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-        }
-
-        .btn-show-all:hover,
-        .btn-hide-all:hover {
-          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-        }
-
-        .btn-primary {
-          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-          color: white;
-        }
-
-        .btn-primary:hover {
-          background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-        }
-
-        /* TAX STATUS SUMMARY */
-        .tax-status-summary {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1rem;
-          padding: 1rem 2.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-          flex-wrap: wrap;
-        }
-
-        .status-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 0.5rem 1rem;
-          background: white;
-          border-radius: 8px;
-          border: 1px solid #e5e7eb;
-          min-width: 120px;
-        }
-
-        .status-label {
-          font-size: 0.8rem;
-          color: #6b7280;
-          font-weight: 600;
-          margin-bottom: 0.25rem;
-        }
-
-        .status-value {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-
-        /* COMPANY QUICK ACCESS */
-        .company-quick-access {
-          padding: 2.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-bottom: 1px solid #e2e8f0;
-        }
-
-        .section-label {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          font-size: 1.5rem;
-          font-weight: 700;
-          color: #374151;
-          margin-bottom: 2rem;
-        }
-
-        .section-icon {
-          color: #8b5cf6;
-          font-size: 1.4rem;
-        }
-
-        .company-buttons-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1.2rem;
-        }
-
-        .company-card {
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-        }
-
-        .company-toggle-btn {
-          flex: 1;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1.2rem 1.8rem;
-          background: white;
-          border: 2px solid #e2e8f0;
-          border-radius: 15px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          text-align: left;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-        }
-
-        .company-toggle-btn:hover {
-          border-color: #8b5cf6;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
-        }
-
-        .company-toggle-btn.active {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-          border-color: #8b5cf6;
-          box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
-        }
-
-        .company-name {
-          font-weight: 600;
-          font-size: 1.1rem;
-        }
-
-        .employee-count {
-          font-size: 0.9rem;
-          opacity: 0.9;
-        }
-
-        .toggle-indicator {
-          font-weight: bold;
-          margin-left: 0.5rem;
-          font-size: 1.1rem;
-        }
-
-        /* COMPANY SECTIONS */
-        .company-section {
-          padding: 2.5rem;
-          border-bottom: 1px solid #e2e8f0;
-          background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-        }
-
-        .company-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 2.5rem;
-          gap: 1.5rem;
-          flex-wrap: wrap;
-        }
-
-        .company-title {
-          flex: 1;
-        }
-
-        .company-title h2 {
-          margin: 0 0 0.8rem 0;
-          color: #1f2937;
-          font-size: 2rem;
-          font-weight: 700;
-          background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .company-title h3 {
-          margin: 0;
-          color: #6b7280;
-          font-size: 1.2rem;
-          font-weight: 500;
-        }
-
-        .record-count {
-          color: #8b5cf6;
-          font-weight: 600;
-        }
-
-        .company-action-buttons {
-          display: flex;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .btn-generate-excel {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          padding: 1rem 1.8rem;
-          border: none;
-          border-radius: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-generate-excel:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-          transform: translateY(-3px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-generate-excel:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        /* TABLE STYLING */
-        .table-scroll-container {
-          overflow-x: auto;
-          border: 1px solid #e5e7eb;
-          border-radius: 15px;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-          margin-bottom: 2.5rem;
-          max-height: 70vh;
-          position: relative;
-          background: white;
-        }
-
-        .table-wrapper {
-          min-width: 2400px;
-          position: relative;
-        }
-
-        .salary-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.9rem;
-          position: relative;
-        }
-
-        .salary-table thead {
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-
-        .salary-table thead tr {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-          color: white;
-        }
-
-        .salary-table th {
-          padding: 1.2rem 0.8rem;
-          text-align: center;
-          font-weight: 600;
-          border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-          white-space: nowrap;
-          position: sticky;
-          top: 0;
-          background: inherit;
-          font-size: 0.85rem;
-        }
-
-        .data-row td {
-          padding: 1rem 0.8rem;
-          border-bottom: 1px solid #f3f4f6;
-          text-align: center;
-          transition: all 0.2s ease;
-        }
-
-        .data-row:hover {
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          transform: scale(1.01);
-        }
-
-        .data-row:nth-child(even) {
-          background: #fafafa;
-        }
-
-        .data-row:nth-child(even):hover {
-          background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-        }
-
-        .editable-input {
-          width: 85px;
-          padding: 0.6rem;
-          border: 2px solid #e5e7eb;
-          border-radius: 10px;
-          font-size: 0.85rem;
-          text-align: center;
-          transition: all 0.2s ease;
-          background: white;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-        }
-
-        .editable-input:focus {
-          outline: none;
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-          transform: scale(1.05);
-        }
-
-        .days-input {
-          border-color: #f59e0b;
-          background: #fffbeb;
-        }
-        .advance-input {
-          border-color: #ef4444;
-          background: #fef2f2;
-        }
-        .addition-input {
-          border-color: #10b981;
-          background: #ecfdf5;
-        }
-        .cash-input {
-          border-color: #3b82f6;
-          background: #eff6ff;
-        }
-        .remarks-input {
-          border-color: #8b5cf6;
-          background: #faf5ff;
-          width: 130px;
-        }
-
-        /* BEAUTIFUL COLOR CODING - Matching SalaryFormat */
-        .sl-number {
-          color: #7c3aed;
-          font-weight: 700;
-          background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
-          padding: 0.5rem;
-          border-radius: 10px;
-          border: 2px solid #ddd6fe;
-        }
-        .emp-name {
-          color: #1e40af;
-          font-weight: 700;
-          background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
-          padding: 0.5rem 0.8rem;
-          border-radius: 10px;
-        }
-        .emp-id {
-          color: #dc2626;
-          font-weight: 700;
-          background: linear-gradient(135deg, #fecaca 0%, #fee2e2 100%);
-          padding: 0.5rem 0.8rem;
-          border-radius: 10px;
-          border: 2px solid #fca5a5;
-        }
-        .emp-designation {
-          color: #059669;
-          font-weight: 600;
-          background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
-          padding: 0.5rem 0.8rem;
-          border-radius: 10px;
-        }
-        .emp-doj {
-          color: #7c2d12;
-          background: #fef3c7;
-          padding: 0.5rem;
-          border-radius: 8px;
-          font-weight: 500;
-        }
-        .salary-amount {
-          color: #1e3a8a;
-          font-weight: 600;
-          background: #f0f9ff;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .gross-salary {
-          color: #1e3a8a;
-          font-weight: 800;
-          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #93c5fd;
-        }
-        .days-count {
-          color: #7c2d12;
-          font-weight: 600;
-          background: #fed7aa;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .absent-days {
-          color: #dc2626;
-          font-weight: 600;
-          background: #fecaca;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .deduction-amount {
-          color: #dc2626;
-          font-weight: 600;
-          background: #fee2e2;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .total-deduction {
-          color: #b91c1c;
-          font-weight: 700;
-          background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #f87171;
-        }
-        .tax-amount {
-          color: #c2410c;
-          font-weight: 600;
-          background: #ffedd5;
-          padding: 0.5rem;
-          border-radius: 8px;
-          border: 2px solid #fdba74;
-        }
-        .net-pay.positive {
-          color: #059669;
-          font-weight: 800;
-          background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #34d399;
-        }
-        .net-pay.negative {
-          color: #dc2626;
-          font-weight: 800;
-          background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #f87171;
-        }
-        .total-payable {
-          color: #1e3a8a;
-          font-weight: 800;
-          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-          padding: 0.8rem 0.5rem;
-          border-radius: 12px;
-          border: 2px solid #a5b4fc;
-        }
-        .bank-account {
-          color: #7c3aed;
-          background: #f3e8ff;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-        .branch-code {
-          color: #1e40af;
-          background: #dbeafe;
-          padding: 0.5rem;
-          border-radius: 8px;
-        }
-
-        /* APPROVAL BUTTONS STYLES */
-        .approval-btn {
-          padding: 1rem 1.5rem;
-          border: 2px solid #e2e8f0;
-          border-radius: 10px;
-          background: white;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-weight: 600;
-          min-width: 200px;
-          justify-content: center;
-        }
-
-        .approval-btn.enabled {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-          border-color: #059669;
-          cursor: pointer;
-        }
-
-        .approval-btn.enabled:hover {
-          background: linear-gradient(135deg, #059669 0%, #047857 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
-        }
-
-        .approval-btn.disabled {
-          background: #f3f4f6;
-          color: #9ca3af;
-          cursor: not-allowed;
-          opacity: 0.6;
-        }
-
-        .status-badge {
-          background: white;
-          color: #10b981;
-          border-radius: 50%;
-          width: 20px;
-          height: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 12px;
-        }
-
-        .footer {
-          display: flex;
-          justify-content: space-between;
-          padding: 2rem 0;
-          color: #64748b;
-          font-size: 0.95rem;
-          border-top: 2px solid #e2e8f0;
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        /* TAX SUMMARY SECTION */
-        .tax-summary-note {
-          margin-top: 1rem;
-          padding: 1.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-radius: 12px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .tax-summary-note h4 {
-          margin-top: 0;
-          color: #1e293b;
-          margin-bottom: 1rem;
-          font-size: 1.2rem;
-        }
-
-        .summary-stats {
-          display: flex;
-          gap: 1rem;
-          flex-wrap: wrap;
-        }
-
-        .summary-stat {
-          display: flex;
-          flex-direction: column;
-          padding: 0.5rem 1rem;
-          background: white;
-          border-radius: 8px;
-          border: 1px solid #e5e7eb;
-          min-width: 150px;
-        }
-
-        .stat-label {
-          font-size: 0.8rem;
-          color: #6b7280;
-          font-weight: 600;
-        }
-
-        .stat-value {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-
-        /* ERROR SECTION */
-        .error-section {
-          padding: 1rem 2.5rem;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          border-radius: 10px;
-          margin: 1rem 2.5rem;
-          color: #dc2626;
-        }
-
-        .error-section h4 {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin: 0 0 0.5rem 0;
-        }
-
-        .error-section p {
-          margin: 0 0 1rem 0;
-        }
-
-        /* SUMMARY SECTION */
-        .summary-section {
-          padding: 2.5rem;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        }
-
-        .summary-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 2.5rem;
-          flex-wrap: wrap;
-          gap: 1.5rem;
-        }
-
-        .summary-header h2 {
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-          margin: 0;
-          color: #1f2937;
-          font-size: 2rem;
-          font-weight: 700;
-          background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        /* SUMMARY STATS CARDS */
-        .summary-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 1.5rem;
-          margin-bottom: 2.5rem;
-        }
-
-        .stat-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          padding: 2rem;
-          border-radius: 20px;
-          text-align: center;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-          border: 2px solid #e2e8f0;
-          transition: all 0.3s ease;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .stat-card::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-        }
-
-        .stat-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 15px 40px rgba(139, 92, 246, 0.15);
-          border-color: #8b5cf6;
-        }
-
-        .stat-number {
-          font-size: 2.5rem;
-          font-weight: 800;
-          color: #8b5cf6;
-          margin-bottom: 0.8rem;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-label {
-          font-size: 1rem;
-          color: #6b7280;
-          font-weight: 600;
-        }
-
-        /* SUMMARY TABLE */
-        .summary-table {
-          min-width: 1200px;
-        }
-
-        .summary-row {
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
-        }
-
-        .summary-row:hover {
-          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%) !important;
-          transform: scale(1.01);
-        }
-
-        .company-name {
-          font-weight: 700;
-          color: #1e40af;
-          background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
-          padding: 0.8rem;
-          border-radius: 10px;
-        }
-
-        .employee-count {
-          font-weight: 700;
-          color: #7c3aed;
-          text-align: center;
-          background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
-          padding: 0.8rem;
-          border-radius: 10px;
-        }
-
-        /* GRAND TOTAL STYLES */
-        .grand-total {
-          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
-          color: white !important;
-          font-weight: 800;
-        }
-
-        .grand-total td {
-          color: white !important;
-          border-bottom: none !important;
-          font-size: 1.1rem;
-          text-align: center;
-          padding: 1.2rem 0.8rem;
-        }
-
-        .grand-total-label {
-          font-size: 1.3rem !important;
-          text-align: left !important;
-          padding-left: 1.5rem !important;
-          background: transparent !important;
-        }
-
-        .grand-total-count,
-        .grand-total-gross,
-        .grand-total-tax,
-        .grand-total-net,
-        .grand-total-payable {
-          text-align: center !important;
-          font-weight: 800;
-          background: transparent !important;
-          border: none !important;
-        }
-
-        /* NO DATA SECTION */
-        .no-data-section {
-          padding: 4rem 2.5rem;
-          text-align: center;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        }
-
-        .no-data-content {
-          max-width: 500px;
-          margin: 0 auto;
-        }
-
-        .no-data-icon {
-          font-size: 4rem;
-          color: #d1d5db;
-          margin-bottom: 1.5rem;
-        }
-
-        .no-data-content h3 {
-          color: #374151;
-          margin-bottom: 1rem;
-          font-size: 1.5rem;
-        }
-
-        .no-data-content p {
-          color: #6b7280;
-          margin-bottom: 2rem;
-          line-height: 1.6;
-        }
-
-        /* LOADER STYLES */
-        .center-screen {
-          display: flex;
-          min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          justify-content: center;
-          align-items: center;
-          padding: 1rem;
-        }
-
-        .fullscreen-loader {
-          text-align: center;
-        }
-
-        .spinner {
-          width: 80px;
-          height: 80px;
-          border: 8px solid rgba(255, 255, 255, 0.3);
-          border-top: 8px solid #8b5cf6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 1.5rem;
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        /* RESPONSIVE DESIGN */
-        @media (max-width: 768px) {
-          .salary-records-container {
-            padding: 0.5rem;
-          }
-
-          .header-main {
-            flex-direction: column;
-          }
-
-          .controls-section {
-            width: 100%;
-          }
-
-          .action-buttons {
-            justify-content: space-between;
-          }
-
-          .btn {
-            flex: 1;
-            justify-content: center;
-            min-width: 120px;
-          }
-
-          .company-buttons-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .company-header {
-            flex-direction: column;
-          }
-
-          .company-action-buttons {
-            width: 100%;
-            justify-content: center;
-          }
-
-          .btn-generate-excel,
-          .btn-export-section {
-            flex: 1;
-            justify-content: center;
-          }
-
-          .table-scroll-container {
-            border-radius: 12px;
-          }
-
-          .salary-table th {
-            padding: 1rem 0.5rem;
-            font-size: 0.75rem;
-          }
-
-          .data-row td {
-            padding: 0.8rem 0.5rem;
-            font-size: 0.75rem;
-          }
-
-          .editable-input {
-            width: 65px;
-            padding: 0.5rem;
-          }
-
-          .summary-stats {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .stat-card {
-            padding: 1.5rem;
-          }
-
-          .stat-number {
-            font-size: 2rem;
-          }
-
-          .tax-status-summary {
-            padding: 1rem;
-          }
-
-          .status-item {
-            min-width: 90px;
-            padding: 0.5rem;
-          }
-
-          .footer {
-            flex-direction: column;
-            text-align: center;
-          }
-
-          .approval-btn {
-            min-width: 100%;
-          }
-        }
-
-        .work-day-selector {
-          margin-top: 1rem;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 1rem;
-          background: rgba(139, 92, 246, 0.1);
-          border-radius: 8px;
-          border: 1px solid rgba(139, 92, 246, 0.3);
-        }
-
-        .work-day-selector label {
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: #7c3aed;
-        }
-
-        .work-day-select {
-          padding: 0.4rem 0.8rem;
-          border: 2px solid #8b5cf6;
-          border-radius: 6px;
-          background: white;
-          color: #1f2937;
-          font-weight: 500;
-          cursor: pointer;
-        }
-
-        .work-day-select:focus {
-          outline: none;
-          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
-        }
-
-        @media (max-width: 480px) {
-          .header-section {
-            padding: 1.5rem 1rem;
-          }
-
-          .main-title {
-            font-size: 2rem;
-          }
-
-          .company-section {
-            padding: 1.5rem;
-          }
-
-          .action-buttons {
-            flex-direction: column;
-          }
-
-          .btn {
-            width: 100%;
-          }
-
-          .company-action-buttons {
-            flex-direction: column;
-          }
-
-          .btn-generate-excel,
-          .btn-export-section {
-            width: 100%;
-          }
-
-          .summary-stats {
-            grid-template-columns: 1fr;
-          }
-
-          .tax-status-summary {
-            flex-direction: column;
-          }
-
-          .status-item {
-            width: 100%;
-          }
-
-          .footer {
-            flex-direction: column;
-          }
-
-          .approval-btn {
-            width: 100%;
-          }
-        }
-      `}</style>
-    </div>
+    </FinanceShell>
   );
 };
 

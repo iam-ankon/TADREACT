@@ -1,969 +1,468 @@
 // src/components/stationery/StationeryDashboard.jsx
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+//
+// Stationery overview for managers. Everything on this page comes from the
+// live API (items, usage requests, stock transactions) - the old version's
+// sample notifications, made-up trend percentages and "coming soon" tabs
+// are gone; Inventory / Requests / Stock Report are their own pages in the
+// sidebar.
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
-  Package,
-  ClipboardList,
-  BarChart3,
-  AlertTriangle,
-  Clock,
-  Search,
-  Bell,
-  Settings,
-  Download,
-  Filter,
-  Plus,
-  MoreVertical,
-  TrendingUp,
-  TrendingDown,
-  Users,
-  ShoppingCart,
-  CheckCircle,
-  RefreshCw,
-  ChevronRight,
-  X,
-} from "lucide-react";
-import stationeryAPI from "../../api/stationery";
-import StationeryItems from "./StationeryItems";
-import StationeryUsage from "./StationeryUsage";
-import StockReport from "./StockReport";
+  FiAlertTriangle,
+  FiArrowRight,
+  FiCheckCircle,
+  FiClipboard,
+  FiClock,
+  FiDollarSign,
+  FiInbox,
+  FiPackage,
+  FiRefreshCw,
+  FiTrendingUp,
+  FiXCircle,
+} from "react-icons/fi";
+import stationeryAPI, { getStockStatus, getTransactionLabel } from "../../api/stationery";
+import { formatBDT } from "./stationeryShared";
+
+const fmtDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
+const sameMonth = (iso, ref) => {
+  if (!iso) return false;
+  const d = new Date(iso);
+  return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
+};
+
+const TX_TONE = { issue: "blue", order: "green", return: "violet", adjust: "amber", damage: "red" };
 
 const StationeryDashboard = () => {
-  const [activeTab, setActiveTab] = useState("items");
+  const [items, setItems] = useState([]);
+  const [usage, setUsage] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalItems: 0,
-    totalUsage: 0,
-    totalTransactions: 0,
-    lowStockItems: 0,
-    pendingRequests: 0,
-  });
-  const [searchTerm, setSearchTerm] = useState("");
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      message: "5 items below reorder level",
-      type: "warning",
-      time: "10 min ago",
-    },
-    {
-      id: 2,
-      message: "New request from John Doe",
-      type: "info",
-      time: "25 min ago",
-    },
-    {
-      id: 3,
-      message: "Monthly report ready",
-      type: "success",
-      time: "2 hours ago",
-    },
-  ]);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [loadedAt, setLoadedAt] = useState(null);
 
-  const fetchDashboardStats = async () => {
+  const load = useCallback(async ({ quiet = false } = {}) => {
+    if (quiet) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-
-      const [items, usage, transactions] = await Promise.all([
+      const [itemsRes, usageRes, txRes] = await Promise.all([
         stationeryAPI.fetchItems(),
         stationeryAPI.fetchUsage(),
-        stationeryAPI.fetchTransactions(),
+        // Transactions are restricted to full-access users server-side; the
+        // Admin team leader still gets the rest of the dashboard.
+        stationeryAPI.fetchTransactions().catch(() => []),
       ]);
-
-      const lowStockItems = items.filter(
-        (item) =>
-          item.current_stock <= item.reorder_level && item.current_stock > 0,
-      ).length;
-
-      const pendingRequests = usage.filter(
-        (req) => req.status === "pending",
-      ).length;
-
-      setStats({
-        totalItems: items.length,
-        totalUsage: usage.length,
-        totalTransactions: transactions.length,
-        lowStockItems,
-        pendingRequests,
-      });
-    } catch (error) {
-      console.error("Error fetching stats:", error);
+      setItems(Array.isArray(itemsRes) ? itemsRes : []);
+      setUsage(Array.isArray(usageRes) ? usageRes : []);
+      setTransactions(Array.isArray(txRes) ? txRes : []);
+      setLoadedAt(new Date());
+    } catch (err) {
+      console.error("Error loading stationery dashboard:", err);
+      setError(
+        err.response?.status === 401
+          ? "Session expired – please log in again."
+          : "Could not load stationery data. Please try again.",
+      );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchDashboardStats();
   }, []);
 
-  const tabs = [
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const data = useMemo(() => {
+    const now = new Date();
+    const withStatus = items.map((item) => ({ ...item, _status: getStockStatus(item).label }));
+    const low = withStatus.filter((i) => i._status === "Low Stock");
+    const out = withStatus.filter((i) => i._status === "Out of Stock");
+    const reorder = [...out, ...low].sort((a, b) => (a.current_stock || 0) - (b.current_stock || 0));
+
+    const priced = items.filter((i) => i.price_per_unit !== null && i.price_per_unit !== undefined && i.price_per_unit !== "");
+    const stockValue = priced.reduce(
+      (sum, i) => sum + Number(i.current_stock || 0) * Number(i.price_per_unit || 0),
+      0,
+    );
+
+    const pending = usage
+      .filter((u) => u.status === "pending")
+      .sort((a, b) => new Date(b.date_requested) - new Date(a.date_requested));
+    const toIssue = usage.filter((u) => u.status === "approved");
+
+    // Most requested this month (approved / issued / completed requests).
+    const counted = usage.filter(
+      (u) => ["approved", "issued", "completed"].includes(u.status) && sameMonth(u.date_requested, now),
+    );
+    const byItem = {};
+    counted.forEach((u) => {
+      const name = u.stationery_item_name || u.stationery_name || "Unknown item";
+      byItem[name] = byItem[name] || { name, qty: 0, unit: u.unit || "" };
+      byItem[name].qty += Number(u.quantity || 0);
+    });
+    const topItems = Object.values(byItem)
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 6);
+
+    const recentTx = [...transactions]
+      .sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date))
+      .slice(0, 8);
+
+    return {
+      low,
+      out,
+      reorder,
+      stockValue,
+      unpriced: items.length - priced.length,
+      pending,
+      toIssue,
+      topItems,
+      recentTx,
+      requestsThisMonth: usage.filter((u) => sameMonth(u.date_requested, now)).length,
+    };
+  }, [items, usage, transactions]);
+
+  if (loading) {
+    return (
+      <div className="st-dash">
+        <style>{CSS}</style>
+        <div className="st-loading">
+          <div className="st-spinner" />
+          Loading stationery…
+        </div>
+      </div>
+    );
+  }
+
+  const kpis = [
+    { label: "Items in catalogue", value: items.length, icon: <FiPackage />, tone: "blue", to: "/StationeryItems" },
+    { label: "Low stock", value: data.low.length, icon: <FiAlertTriangle />, tone: "amber", to: "/StockReport" },
+    { label: "Out of stock", value: data.out.length, icon: <FiXCircle />, tone: "red", to: "/StockReport" },
+    { label: "Pending requests", value: data.pending.length, icon: <FiClock />, tone: "violet", to: "/StationeryUsage" },
+    { label: "Approved, to issue", value: data.toIssue.length, icon: <FiCheckCircle />, tone: "green", to: "/StationeryUsage" },
     {
-      id: "items",
-      label: "Inventory",
-      icon: <Package size={18} />,
-      color: "#3B82F6",
-    },
-    {
-      id: "usage",
-      label: "Usage",
-      icon: <ClipboardList size={18} />,
-      color: "#10B981",
-    },
-    {
-      id: "transactions",
-      label: "Transactions",
-      icon: <ShoppingCart size={18} />,
-      color: "#8B5CF6",
-    },
-    {
-      id: "stock-report",
-      label: "Reports",
-      icon: <BarChart3 size={18} />,
-      color: "#F59E0B",
-    },
-    {
-      id: "employee-report",
-      label: "Employees",
-      icon: <Users size={18} />,
-      color: "#EC4899",
+      label: "Stock value",
+      value: formatBDT(data.stockValue),
+      icon: <FiDollarSign />,
+      tone: "gray",
+      hint: data.unpriced > 0 ? `${data.unpriced} item(s) have no price` : "All items priced",
     },
   ];
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case "items":
-        return <StationeryItems />;
-      case "usage":
-        return <StationeryUsage />;
-      case "transactions":
-        return (
-          <div
-            style={{ padding: "32px", textAlign: "center", color: "#6B7280" }}
-          >
-            Transactions component coming soon
-          </div>
-        );
-      case "stock-report":
-        return <StockReport />;
-      case "employee-report":
-        return (
-          <div
-            style={{ padding: "32px", textAlign: "center", color: "#6B7280" }}
-          >
-            Employee Report component coming soon
-          </div>
-        );
-      default:
-        return <StationeryItems />;
-    }
-  };
+  const maxTop = data.topItems[0]?.qty || 1;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)",
-        padding: "24px 80px",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-      }}
-    >
-      <div style={{ margin: "0 auto" }}>
-        {/* Modern Header */}
-        <div style={{ marginBottom: "32px" }}>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              marginBottom: "32px",
-            }}
-          >
-            {/* Top Row */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                marginBottom: "24px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  marginBottom: "8px",
-                }}
-              >
-                <div
-                  style={{
-                    width: "3px",
-                    height: "28px",
-                    background: "linear-gradient(to bottom, #3B82F6, #8B5CF6)",
-                    borderRadius: "2px",
-                  }}
-                ></div>
-                <div>
-                  <h1
-                    style={{
-                      fontSize: "28px",
-                      fontWeight: "700",
-                      background:
-                        "linear-gradient(135deg, #111827 0%, #374151 100%)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      letterSpacing: "-0.025em",
-                      margin: 0,
-                    }}
-                  >
-                    Stationery Management
-                  </h1>
-                  <p
-                    style={{
-                      color: "#6B7280",
-                      fontSize: "14px",
-                      margin: "4px 0 0 0",
-                    }}
-                  >
-                    Real-time inventory tracking and analytics dashboard
-                  </p>
-                </div>
-              </div>
+    <div className="st-dash">
+      <style>{CSS}</style>
 
-              {/* Quick Actions */}
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "12px",
-                  marginTop: "20px",
-                  marginLeft: "15px",
-                }}
-              >
+      <header className="st-header">
+        <div>
+          <div className="st-eyebrow">Stationery</div>
+          <h1 className="st-title">Overview</h1>
+          <p className="st-subtitle">
+            Stock levels, requests waiting for you and recent stock movements.
+            {loadedAt && <span> Updated {loadedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}.</span>}
+          </p>
+        </div>
+        <div className="st-actions">
+          <button type="button" className="st-btn ghost" onClick={() => load({ quiet: true })} disabled={refreshing}>
+            <FiRefreshCw className={refreshing ? "st-spin" : ""} /> Refresh
+          </button>
+          <Link to="/StationeryItems" className="st-btn ghost">
+            <FiPackage /> Inventory
+          </Link>
+          <Link to="/StationeryUsage" className="st-btn primary">
+            <FiClipboard /> Review requests
+            {data.pending.length > 0 && <span className="st-badge">{data.pending.length}</span>}
+          </Link>
+        </div>
+      </header>
+
+      <div className="st-body">
+        {error && (
+          <div className="st-alert">
+            <FiAlertTriangle />
+            <span>{error}</span>
+            <button type="button" className="st-btn ghost sm" onClick={() => load()}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        <div className="st-kpis">
+          {kpis.map((k) => {
+            const inner = (
+              <>
+                <span className={`st-kpi-icon tone-${k.tone}`}>{k.icon}</span>
+                <span className="st-kpi-text">
+                  <span className="st-kpi-value">{k.value}</span>
+                  <span className="st-kpi-label">{k.label}</span>
+                  {k.hint && <span className="st-kpi-hint">{k.hint}</span>}
+                </span>
+              </>
+            );
+            return k.to ? (
+              <Link key={k.label} to={k.to} className="st-kpi link">
+                {inner}
+              </Link>
+            ) : (
+              <div key={k.label} className="st-kpi">
+                {inner}
               </div>
+            );
+          })}
+        </div>
+
+        <div className="st-grid">
+          {/* Needs reorder */}
+          <section className="st-card">
+            <div className="st-card-head">
+              <h2>
+                <FiAlertTriangle /> Needs reorder
+                <span className="st-count">{data.reorder.length}</span>
+              </h2>
+              <Link to="/StockReport" className="st-link">
+                Stock report <FiArrowRight />
+              </Link>
             </div>
+            {data.reorder.length === 0 ? (
+              <Empty icon={<FiCheckCircle />} text="Every item is above its reorder level." />
+            ) : (
+              <table className="st-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th className="num">In stock</th>
+                    <th className="num">Reorder at</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.reorder.slice(0, 8).map((i) => (
+                    <tr key={i.id}>
+                      <td className="strong">{i.name}</td>
+                      <td className="num">
+                        {i.current_stock ?? 0} <span className="muted">{i.unit}</span>
+                      </td>
+                      <td className="num">{i.reorder_level ?? "—"}</td>
+                      <td>
+                        <span className={`st-pill ${i._status === "Out of Stock" ? "red" : "amber"}`}>{i._status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {data.reorder.length > 8 && <div className="st-more">+{data.reorder.length - 8} more in the stock report</div>}
+          </section>
 
-            {/* Action Bar */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "16px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: "16px",
-                }}
-              >
-                {/* Search Bar */}
-                <div
-                  style={{
-                    position: "relative",
-                    flex: "1",
-                    minWidth: "280px",
-                    maxWidth: "400px",
-                  }}
-                >
-                  <Search
-                    style={{
-                      position: "absolute",
-                      left: "16px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#9CA3AF",
-                    }}
-                    size={20}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search items, requests, reports..."
-                    style={{
-                      width: "100%",
-                      padding: "14px 16px 14px 48px",
-                      background: "rgba(255, 255, 255, 0.9)",
-                      backdropFilter: "blur(10px)",
-                      border: "1px solid rgba(209, 213, 219, 0.5)",
-                      borderRadius: "14px",
-                      fontSize: "14px",
-                      outline: "none",
-                      transition: "all 0.2s ease",
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = "#3B82F6";
-                      e.target.style.boxShadow =
-                        "0 0 0 3px rgba(59, 130, 246, 0.1)";
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
-                      e.target.style.boxShadow = "none";
-                    }}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
+          {/* Pending requests */}
+          <section className="st-card">
+            <div className="st-card-head">
+              <h2>
+                <FiClock /> Waiting for approval
+                <span className="st-count">{data.pending.length}</span>
+              </h2>
+              <Link to="/StationeryUsage" className="st-link">
+                All requests <FiArrowRight />
+              </Link>
+            </div>
+            {data.pending.length === 0 ? (
+              <Empty icon={<FiInbox />} text="No requests are waiting for approval." />
+            ) : (
+              <ul className="st-list">
+                {data.pending.slice(0, 8).map((u) => (
+                  <li key={u.id}>
+                    <span className="st-avatar">{(u.employee_name || "?").trim().charAt(0).toUpperCase()}</span>
+                    <span className="grow">
+                      <span className="strong">{u.employee_name || "Unknown employee"}</span>
+                      <span className="muted">
+                        {u.stationery_item_name || u.stationery_name} · {u.quantity} {u.unit || ""}
+                        {u.employee_department ? ` · ${u.employee_department}` : ""}
+                      </span>
+                    </span>
+                    <span className="muted nowrap">{fmtDate(u.date_requested)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {data.pending.length > 8 && <div className="st-more">+{data.pending.length - 8} more waiting</div>}
+          </section>
 
-                {/* Action Buttons */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                  }}
-                >
-                  {/* Notifications */}
-                  <div style={{ position: "relative" }}>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowNotifications(!showNotifications)}
-                      style={{
-                        position: "relative",
-                        padding: "12px",
-                        background: "white",
-                        border: "1px solid rgba(209, 213, 219, 0.5)",
-                        borderRadius: "12px",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.target.style.boxShadow =
-                          "0 4px 12px rgba(0, 0, 0, 0.1)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.target.style.boxShadow =
-                          "0 2px 8px rgba(0, 0, 0, 0.05)")
-                      }
-                    >
-                      <Bell size={20} style={{ color: "#374151" }} />
-                      {notifications.length > 0 && (
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "-4px",
-                            right: "-4px",
-                            width: "20px",
-                            height: "20px",
-                            background: "#EF4444",
-                            color: "white",
-                            fontSize: "11px",
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: "600",
-                          }}
-                        >
-                          {notifications.length}
+          {/* Most requested */}
+          <section className="st-card">
+            <div className="st-card-head">
+              <h2>
+                <FiTrendingUp /> Most requested this month
+              </h2>
+              <span className="muted small">{data.requestsThisMonth} request(s) this month</span>
+            </div>
+            {data.topItems.length === 0 ? (
+              <Empty icon={<FiTrendingUp />} text="No approved or issued requests yet this month." />
+            ) : (
+              <ul className="st-bars">
+                {data.topItems.map((t) => (
+                  <li key={t.name}>
+                    <div className="row">
+                      <span className="strong">{t.name}</span>
+                      <span className="muted">
+                        {t.qty} {t.unit}
+                      </span>
+                    </div>
+                    <div className="track">
+                      <span style={{ width: `${(t.qty / maxTop) * 100}%` }} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Recent movements */}
+          <section className="st-card">
+            <div className="st-card-head">
+              <h2>
+                <FiRefreshCw /> Recent stock movements
+              </h2>
+            </div>
+            {data.recentTx.length === 0 ? (
+              <Empty icon={<FiInbox />} text="No stock movements recorded yet." />
+            ) : (
+              <table className="st-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Item</th>
+                    <th className="num">Qty</th>
+                    <th>By / to</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentTx.map((t) => (
+                    <tr key={t.id}>
+                      <td>
+                        <span className={`st-pill ${TX_TONE[t.transaction_type] || "gray"}`}>
+                          {getTransactionLabel(t.transaction_type)}
                         </span>
-                      )}
-                    </motion.button>
-
-                    {/* Notification Dropdown */}
-                    {showNotifications && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        style={{
-                          position: "absolute",
-                          right: 0,
-                          top: "calc(100% + 8px)",
-                          width: "320px",
-                          background: "white",
-                          borderRadius: "16px",
-                          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
-                          zIndex: 50,
-                          border: "1px solid rgba(209, 213, 219, 0.5)",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            padding: "16px",
-                            borderBottom: "1px solid #F3F4F6",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <h3
-                            style={{
-                              fontSize: "16px",
-                              fontWeight: "600",
-                              color: "#111827",
-                              margin: 0,
-                            }}
-                          >
-                            Notifications
-                          </h3>
-                          <button
-                            onClick={() => setShowNotifications(false)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              color: "#9CA3AF",
-                              cursor: "pointer",
-                              padding: "4px",
-                            }}
-                          >
-                            <X size={18} />
-                          </button>
-                        </div>
-                        <div style={{ maxHeight: "320px", overflowY: "auto" }}>
-                          {notifications.map((notif) => (
-                            <div
-                              key={notif.id}
-                              style={{
-                                padding: "16px",
-                                borderBottom: "1px solid #F9FAFB",
-                                cursor: "pointer",
-                                transition: "background 0.2s ease",
-                              }}
-                              onMouseEnter={(e) =>
-                                (e.currentTarget.style.background = "#F9FAFB")
-                              }
-                              onMouseLeave={(e) =>
-                                (e.currentTarget.style.background = "white")
-                              }
-                            >
-                              <div style={{ display: "flex", gap: "12px" }}>
-                                <div
-                                  style={{
-                                    width: "8px",
-                                    height: "8px",
-                                    borderRadius: "50%",
-                                    marginTop: "6px",
-                                    background:
-                                      notif.type === "warning"
-                                        ? "#F59E0B"
-                                        : notif.type === "success"
-                                          ? "#10B981"
-                                          : "#3B82F6",
-                                  }}
-                                ></div>
-                                <div style={{ flex: 1 }}>
-                                  <p
-                                    style={{
-                                      fontSize: "14px",
-                                      fontWeight: "500",
-                                      color: "#111827",
-                                      margin: "0 0 4px 0",
-                                    }}
-                                  >
-                                    {notif.message}
-                                  </p>
-                                  <p
-                                    style={{
-                                      fontSize: "12px",
-                                      color: "#6B7280",
-                                      margin: 0,
-                                    }}
-                                  >
-                                    {notif.time}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-
-                  {/* Refresh Button */}
-                  <motion.button
-                    whileHover={{ rotate: 180, scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={fetchDashboardStats}
-                    style={{
-                      padding: "12px",
-                      background:
-                        "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "12px",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      boxShadow: "0 4px 14px rgba(59, 130, 246, 0.4)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background =
-                        "linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)";
-                      e.target.style.boxShadow =
-                        "0 6px 20px rgba(59, 130, 246, 0.6)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background =
-                        "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)";
-                      e.target.style.boxShadow =
-                        "0 4px 14px rgba(59, 130, 246, 0.4)";
-                    }}
-                  >
-                    <RefreshCw size={20} />
-                  </motion.button>
-
-                  {/* Settings */}
-                  <button
-                    style={{
-                      padding: "12px",
-                      background: "white",
-                      border: "1px solid rgba(209, 213, 219, 0.5)",
-                      borderRadius: "12px",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.boxShadow =
-                        "0 4px 12px rgba(0, 0, 0, 0.1)";
-                      e.target.style.borderColor = "#D1D5DB";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.boxShadow =
-                        "0 2px 8px rgba(0, 0, 0, 0.05)";
-                      e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
-                    }}
-                  >
-                    <Settings size={20} style={{ color: "#374151" }} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "16px",
-              marginBottom: "32px",
-            }}
-          >
-            <StatCard
-              title="Total Items"
-              value={stats.totalItems}
-              icon={<Package size={20} />}
-              color="#3B82F6"
-              loading={loading}
-              trend={12.5}
-              subtitle="Active items"
-            />
-            <StatCard
-              title="Usage Records"
-              value={stats.totalUsage}
-              icon={<ClipboardList size={20} />}
-              color="#10B981"
-              loading={loading}
-              trend={8.3}
-              subtitle="This month"
-            />
-            <StatCard
-              title="Transactions"
-              value={stats.totalTransactions}
-              icon={<ShoppingCart size={20} />}
-              color="#8B5CF6"
-              loading={loading}
-              trend={15.2}
-              subtitle="Processed"
-            />
-            <StatCard
-              title="Low Stock"
-              value={stats.lowStockItems}
-              icon={<AlertTriangle size={20} />}
-              color="#F59E0B"
-              loading={loading}
-              trend={-5.2}
-              subtitle="Need attention"
-            />
-            <StatCard
-              title="Pending Requests"
-              value={stats.pendingRequests}
-              icon={<Clock size={20} />}
-              color="#EC4899"
-              loading={loading}
-              trend={3.7}
-              subtitle="Awaiting approval"
-            />
-          </div>
-        </div>
-
-        {/* Tabs Navigation */}
-        <div style={{ marginBottom: "24px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "16px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                background: "rgba(243, 244, 246, 0.8)",
-                borderRadius: "14px",
-                padding: "4px",
-                gap: "4px",
-              }}
-            >
-              {tabs.map((tab) => (
-                <motion.button
-                  key={tab.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "12px 20px",
-                    background: activeTab === tab.id ? "white" : "transparent",
-                    color: activeTab === tab.id ? tab.color : "#6B7280",
-                    border: "none",
-                    borderRadius: "12px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    boxShadow:
-                      activeTab === tab.id
-                        ? "0 4px 12px rgba(0, 0, 0, 0.08)"
-                        : "none",
-                  }}
-                >
-                  {tab.icon}
-                  {tab.label}
-                  {activeTab === tab.id && (
-                    <ChevronRight size={16} style={{ marginLeft: "4px" }} />
-                  )}
-                </motion.button>
-              ))}
-            </div>
-
-            {/* Tab Actions */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-              }}
-            >
-              <button
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "white",
-                  border: "1px solid rgba(209, 213, 219, 0.5)",
-                  borderRadius: "12px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: "#374151",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = "#F9FAFB";
-                  e.target.style.borderColor = "#D1D5DB";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "white";
-                  e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
-                }}
-              >
-                <Filter size={16} />
-                Filter
-              </button>
-              <button
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 16px",
-                  background: "white",
-                  border: "1px solid rgba(209, 213, 219, 0.5)",
-                  borderRadius: "12px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: "#374151",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = "#F9FAFB";
-                  e.target.style.borderColor = "#D1D5DB";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "white";
-                  e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
-                }}
-              >
-                <Download size={16} />
-                Export
-              </button>
-              <button
-                style={{
-                  padding: "10px",
-                  background: "white",
-                  border: "1px solid rgba(209, 213, 219, 0.5)",
-                  borderRadius: "12px",
-                  cursor: "pointer",
-                  color: "#374151",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = "#F9FAFB";
-                  e.target.style.borderColor = "#D1D5DB";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "white";
-                  e.target.style.borderColor = "rgba(209, 213, 219, 0.5)";
-                }}
-              >
-                <MoreVertical size={20} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          style={{
-            background: "white",
-            borderRadius: "20px",
-            boxShadow:
-              "0 20px 40px -20px rgba(0, 0, 0, 0.1), 0 10px 20px -10px rgba(0, 0, 0, 0.04)",
-            border: "1px solid rgba(229, 231, 235, 0.5)",
-            overflow: "hidden",
-            minHeight: "500px",
-          }}
-        >
-          {renderContent()}
-        </motion.div>
-
-        {/* Footer */}
-        <div
-          style={{
-            marginTop: "32px",
-            padding: "16px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "16px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              fontSize: "14px",
-              color: "#6B7280",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  background: "#10B981",
-                  borderRadius: "50%",
-                  animation: "pulse 2s infinite",
-                }}
-              ></div>
-              <span>All systems operational</span>
-            </div>
-            <span style={{ color: "#D1D5DB" }}>•</span>
-            <span>Last updated: Just now</span>
-            <span style={{ color: "#D1D5DB" }}>•</span>
-            <span>Data refreshes every 5 minutes</span>
-          </div>
-          <div
-            style={{
-              fontSize: "13px",
-              color: "#9CA3AF",
-              textAlign: "center",
-            }}
-          >
-            © Stationery Management System • TAD GROUP
-          </div>
+                      </td>
+                      <td className="strong">{t.stationery_name || "—"}</td>
+                      <td className="num">{t.quantity}</td>
+                      <td className="muted">{t.employee_name || t.performed_by || "—"}</td>
+                      <td className="muted nowrap">{fmtDate(t.transaction_date)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
         </div>
       </div>
     </div>
   );
 };
 
-const StatCard = ({ title, value, icon, color, loading, trend, subtitle }) => {
-  return (
-    <motion.div
-      whileHover={{
-        y: -6,
-        boxShadow:
-          "0 20px 40px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.04)",
-      }}
-      style={{
-        background: "white",
-        borderRadius: "18px",
-        padding: "24px",
-        border: `1px solid ${color}20`,
-        transition: "all 0.3s ease",
-        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.06)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Decorative Accent */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "3px",
-          background: `linear-gradient(90deg, ${color}, ${color}80)`,
-        }}
-      ></div>
+const Empty = ({ icon, text }) => (
+  <div className="st-empty">
+    <span>{icon}</span>
+    {text}
+  </div>
+);
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: "13px",
-              fontWeight: "500",
-              color: "#6B7280",
-              marginBottom: "8px",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            {title}
-          </div>
+const CSS = `
+.st-dash {
+  --bg: #f3f5f9; --surface: #fff; --soft: #f8fafc; --border: #e6eaf0; --border-strong: #d5dbe4;
+  --text: #0f172a; --text-2: #334155; --muted: #64748b; --faint: #94a3b8;
+  --primary: #2563eb; --primary-dark: #1d4ed8; --primary-soft: #eef4ff;
+  min-height: 100vh; background: var(--bg); color: var(--text);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; font-size: 14px;
+}
+.st-dash *, .st-dash *::before, .st-dash *::after { box-sizing: border-box; }
+.st-dash a:focus-visible, .st-dash button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.st-header {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; padding: 18px 28px 16px; background: rgba(255,255,255,.94);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--border);
+}
+.st-eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); margin-bottom: 4px; }
+.st-title { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.st-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+.st-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.st-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 15px; border-radius: 10px;
+  font: inherit; font-size: 13.5px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap;
+  border: 1px solid transparent; transition: background .15s, border-color .15s;
+}
+.st-btn:disabled { opacity: .6; cursor: not-allowed; }
+.st-btn.primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(37,99,235,.25); }
+.st-btn.primary:hover { background: var(--primary-dark); }
+.st-btn.ghost { background: var(--surface); color: var(--text-2); border-color: var(--border-strong); }
+.st-btn.ghost:hover:not(:disabled) { background: var(--soft); }
+.st-btn.sm { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.st-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #fff; color: var(--primary-dark); font-size: 11.5px; font-weight: 700; display: inline-grid; place-items: center; }
+.st-body { padding: 22px 28px 32px; max-width: 1600px; margin: 0 auto; }
+.st-alert { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; margin-bottom: 16px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-weight: 500; }
+.st-alert span { flex: 1; }
 
-          {loading ? (
-            <div
-              style={{
-                width: "80px",
-                height: "32px",
-                background:
-                  "linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%)",
-                borderRadius: "8px",
-                animation: "shimmer 2s infinite",
-                backgroundSize: "200% 100%",
-              }}
-            ></div>
-          ) : (
-            <div
-              style={{
-                fontSize: "32px",
-                fontWeight: "700",
-                background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                marginBottom: "4px",
-              }}
-            >
-              {value.toLocaleString()}
-            </div>
-          )}
+.st-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.st-kpi { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(15,23,42,.04); color: inherit; text-decoration: none; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.st-kpi.link:hover { border-color: var(--border-strong); box-shadow: 0 4px 14px rgba(15,23,42,.06); transform: translateY(-1px); }
+.st-kpi-icon { flex-shrink: 0; width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; }
+.st-kpi-text { display: flex; flex-direction: column; min-width: 0; }
+.st-kpi-value { font-size: 22px; font-weight: 700; line-height: 1.15; letter-spacing: -.02em; }
+.st-kpi-label { font-size: 13px; font-weight: 600; color: var(--text-2); margin-top: 2px; }
+.st-kpi-hint { font-size: 11.5px; color: var(--faint); margin-top: 1px; }
+.tone-blue { color: #1d4ed8; background: #eff6ff; } .tone-amber { color: #b45309; background: #fffbeb; }
+.tone-red { color: #b91c1c; background: #fef2f2; } .tone-violet { color: #6d28d9; background: #f5f3ff; }
+.tone-green { color: #15803d; background: #f0fdf4; } .tone-gray { color: #475569; background: #f1f5f9; }
 
-          {subtitle && (
-            <div
-              style={{
-                fontSize: "13px",
-                color: "#9CA3AF",
-                marginTop: "4px",
-              }}
-            >
-              {subtitle}
-            </div>
-          )}
-        </div>
-
-        {/* Icon Container */}
-        <div
-          style={{
-            padding: "12px",
-            background: `${color}10`,
-            borderRadius: "12px",
-            border: `1px solid ${color}20`,
-          }}
-        >
-          {React.cloneElement(icon, {
-            style: {
-              color: color,
-              filter: `drop-shadow(0 2px 4px ${color}40)`,
-            },
-          })}
-        </div>
-      </div>
-
-      {/* Trend Indicator */}
-      {trend && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: "20px",
-            paddingTop: "16px",
-            borderTop: `1px solid ${color}15`,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            {trend > 0 ? (
-              <TrendingUp size={14} style={{ color: "#10B981" }} />
-            ) : (
-              <TrendingDown size={14} style={{ color: "#EF4444" }} />
-            )}
-            <span
-              style={{
-                fontSize: "13px",
-                fontWeight: "600",
-                color: trend > 0 ? "#10B981" : "#EF4444",
-              }}
-            >
-              {trend > 0 ? "+" : ""}
-              {trend}%
-            </span>
-          </div>
-          <span
-            style={{
-              fontSize: "12px",
-              color: "#9CA3AF",
-            }}
-          >
-            vs last month
-          </span>
-        </div>
-      )}
-    </motion.div>
-  );
-};
+.st-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.st-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.04); overflow: hidden; display: flex; flex-direction: column; }
+.st-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.st-card-head h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; }
+.st-card-head h2 svg { color: var(--muted); }
+.st-count { font-size: 12px; font-weight: 600; color: var(--primary-dark); background: var(--primary-soft); border: 1px solid #dbe6fe; border-radius: 999px; padding: 1px 8px; }
+.st-link { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; white-space: nowrap; }
+.st-link:hover { text-decoration: underline; }
+.st-table { width: 100%; border-collapse: collapse; }
+.st-table th { padding: 9px 16px; text-align: left; background: var(--soft); border-bottom: 1px solid var(--border); font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.st-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13.5px; color: var(--text-2); }
+.st-table tr:last-child td { border-bottom: none; }
+.st-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.strong { font-weight: 600; color: var(--text); }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+.nowrap { white-space: nowrap; }
+.st-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+.st-pill.red { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+.st-pill.amber { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+.st-pill.green { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+.st-pill.blue { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+.st-pill.violet { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+.st-pill.gray { color: #475569; background: #f1f5f9; border-color: #e2e8f0; }
+.st-list { list-style: none; margin: 0; padding: 4px 0; }
+.st-list li { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.st-list li:last-child { border-bottom: none; }
+.st-list .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.st-list .grow .muted { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-avatar { flex-shrink: 0; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: var(--primary-dark); background: linear-gradient(135deg,#eef4ff,#e0e7ff); border: 1px solid #dbe6fe; }
+.st-bars { list-style: none; margin: 0; padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.st-bars .row { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; margin-bottom: 5px; }
+.st-bars .track { height: 8px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+.st-bars .track span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #3b82f6, #6366f1); }
+.st-more { padding: 10px 16px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--border); background: var(--soft); }
+.st-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 36px 16px; color: var(--muted); font-size: 13.5px; text-align: center; }
+.st-empty span { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; color: var(--faint); background: var(--soft); border: 1px solid var(--border); }
+.st-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 60vh; color: var(--muted); }
+.st-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--primary); animation: st-spin .8s linear infinite; }
+.st-spin { animation: st-spin .8s linear infinite; }
+@keyframes st-spin { to { transform: rotate(360deg); } }
+@media (max-width: 1100px) { .st-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .st-header, .st-body { padding-left: 16px; padding-right: 16px; } }
+`;
 
 export default StationeryDashboard;

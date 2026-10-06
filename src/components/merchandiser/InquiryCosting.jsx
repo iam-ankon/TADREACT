@@ -34,6 +34,8 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  const authToken = localStorage.getItem("token");
+  if (authToken) config.headers.Authorization = `Token ${authToken}`;
   const token = getCookie("csrftoken");
   if (token) {
     config.headers["X-CSRFToken"] = token;

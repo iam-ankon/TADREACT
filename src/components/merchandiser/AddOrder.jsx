@@ -11,6 +11,8 @@ import {
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
 import { canViewOrderPricing, canViewOrderAttachments, canManageOrders } from "../../utils/accessControl";
+import { orderFormStyles, ORDER_FORM_CSS, delayColor } from "./orderFormTheme";
+import QuickDateInput from "./QuickDateInput";
 import {
   FaArrowLeft,
   FaSave,
@@ -69,6 +71,7 @@ const genderOptions = [
 ];
 
 const orderTypeOptions = [
+  { value: "regular", label: "Regular" },
   { value: "advertisement", label: "Advertisement" },
   { value: "programmer", label: "Programmer" },
 ];
@@ -169,6 +172,7 @@ const AddOrder = () => {
     shipped_value: 0,
     group_name: "",
     final_inspection_date: null,
+    dpi_date: null,
     ex_factory: null,
     etd: null,
     eta: null,
@@ -176,10 +180,6 @@ const AddOrder = () => {
     ic_issue_date: null,
     factory_ship_date: null,
     cargo_handover_date: null,
-    physical_test: "",
-    chemical_test: "",
-    during_production_inspection: "",
-    final_random_inspection: "",
     factory_value: "",
     remarks: "",
     shipment_delay: "",
@@ -992,6 +992,7 @@ const AddOrder = () => {
         group_name: formData.group_name || null,
         final_inspection_date:
           formData.final_inspection_date?.toISOString().split("T")[0] || null,
+        dpi_date: formData.dpi_date?.toISOString().split("T")[0] || null,
         ex_factory: formData.ex_factory?.toISOString().split("T")[0] || null,
         etd: formData.etd?.toISOString().split("T")[0] || null,
         eta: formData.eta?.toISOString().split("T")[0] || null,
@@ -1003,11 +1004,6 @@ const AddOrder = () => {
           formData.factory_ship_date?.toISOString().split("T")[0] || null,
         cargo_handover_date:
           formData.cargo_handover_date?.toISOString().split("T")[0] || null,
-        physical_test: formData.physical_test || null,
-        chemical_test: formData.chemical_test || null,
-        during_production_inspection:
-          formData.during_production_inspection || null,
-        final_random_inspection: formData.final_random_inspection || null,
         factory_value: formData.factory_value
           ? parseFloat(formData.factory_value)
           : null,
@@ -1097,10 +1093,10 @@ const AddOrder = () => {
         <table style={styles.colorSizeTable}>
           <thead>
             <tr>
-              <th style={styles.tableHeader}>Color</th>
+              <th style={styles.tableHeader}>Color/Size</th>
               {availableSizes.map((size) => (
                 <th key={size} style={styles.tableHeader}>
-                  Size {size}
+                  {size}
                 </th>
               ))}
               <th style={styles.tableHeader}>Total</th>
@@ -1181,7 +1177,8 @@ const AddOrder = () => {
   };
 
   return (
-    <div style={styles.appContainer}>
+    <div style={styles.appContainer} className="ord-form">
+      <style>{ORDER_FORM_CSS}</style>
       <Sidebar />
       <div style={styles.mainContent}>
         <div style={styles.addOrderContainer}>
@@ -1227,19 +1224,6 @@ const AddOrder = () => {
                       style={styles.input}
                     />
                   </div>
-
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>
-                      PO Number <span style={styles.required}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="po_no"
-                      value={formData.po_no}
-                      onChange={handleChange}
-                      style={styles.input}
-                    />
-                  </div>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>
                       Order NO <span style={styles.required}>*</span>
@@ -1248,6 +1232,18 @@ const AddOrder = () => {
                       type="text"
                       name="style"
                       value={formData.style}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>
+                      PO Number <span style={styles.required}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="po_no"
+                      value={formData.po_no}
                       onChange={handleChange}
                       style={styles.input}
                     />
@@ -1285,48 +1281,6 @@ const AddOrder = () => {
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Garment</label>
-                    <select
-                      name="garment"
-                      value={formData.garment}
-                      onChange={handleChange}
-                      style={styles.select}
-                    >
-                      <option value="">Select garment type</option>
-                      {garmentOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Season</label>
-                    <select
-                      name="season"
-                      value={formData.season}
-                      onChange={handleChange}
-                      style={styles.select}
-                    >
-                      <option value="">Select season</option>
-                      {seasonOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Ref No</label>
-                    <input
-                      type="text"
-                      name="ref_no"
-                      value={formData.ref_no}
-                      onChange={handleChange}
-                      style={styles.input}
-                    />
                   </div>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>Supplier</label>
@@ -1394,14 +1348,30 @@ const AddOrder = () => {
                     </div>
                   </div>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Shipment Month</label>
+                    <label style={styles.formLabel}>WGR</label>
                     <input
                       type="text"
-                      name="shipment_month"
-                      value={formData.shipment_month}
+                      name="wgr"
+                      value={formData.wgr}
                       onChange={handleChange}
                       style={styles.input}
                     />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Garment</label>
+                    <select
+                      name="garment"
+                      value={formData.garment}
+                      onChange={handleChange}
+                      style={styles.select}
+                    >
+                      <option value="">Select garment type</option>
+                      {garmentOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>Gender</label>
@@ -1429,23 +1399,50 @@ const AddOrder = () => {
                       style={styles.input}
                     />
                   </div>
-                  <div style={styles.formFieldFull}>
-                    <label style={styles.formLabel}>Fabrication</label>
-                    <textarea
-                      name="fabrication"
-                      value={formData.fabrication}
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Season</label>
+                    <select
+                      name="season"
+                      value={formData.season}
                       onChange={handleChange}
-                      rows={3}
-                      style={styles.textarea}
+                      style={styles.select}
+                    >
+                      <option value="">Select season</option>
+                      {seasonOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Repeat Ref No</label>
+                    <input
+                      type="text"
+                      name="ref_no"
+                      value={formData.ref_no}
+                      onChange={handleChange}
+                      style={styles.input}
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>WGR</label>
+                    <label style={styles.formLabel}>Shipment Month</label>
                     <input
                       type="text"
-                      name="wgr"
-                      value={formData.wgr}
+                      name="shipment_month"
+                      value={formData.shipment_month}
                       onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Fabrication</label>
+                    <input
+                      type="text"
+                      name="fabrication"
+                      value={formData.fabrication}
+                      onChange={handleChange}
+                      autoComplete="on"
                       style={styles.input}
                     />
                   </div>
@@ -1459,6 +1456,16 @@ const AddOrder = () => {
                   <h2 style={styles.sectionTitle}>Pricing & Quantity</h2>
                 </div>
                 <div style={styles.formGrid}>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Total Quantity</label>
+                    <input
+                      type="number"
+                      name="total_qty"
+                      value={formData.total_qty}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
                   {canViewOrderPricing() && (
                     <div style={styles.formField}>
                       <label style={styles.formLabel}>Unit Price ($)</label>
@@ -1472,16 +1479,6 @@ const AddOrder = () => {
                       />
                     </div>
                   )}
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Total Quantity</label>
-                    <input
-                      type="number"
-                      name="total_qty"
-                      value={formData.total_qty}
-                      onChange={handleChange}
-                      style={styles.input}
-                    />
-                  </div>
                   {canViewOrderPricing() && (
                     <div style={styles.formField}>
                       <label style={styles.formLabel}>Total Value ($)</label>
@@ -1492,12 +1489,53 @@ const AddOrder = () => {
                         readOnly
                         style={{
                           ...styles.input,
-                          backgroundColor: "#f3f4f6",
+                          backgroundColor: "#f5f7fa",
                           cursor: "not-allowed",
                         }}
                       />
                     </div>
                   )}
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Shipped Quantity</label>
+                    <input
+                      type="number"
+                      name="shipped_qty"
+                      value={formData.shipped_qty}
+                      onChange={handleChange}
+                      style={styles.input}
+                    />
+                  </div>
+                  {canViewOrderPricing() && (
+                    <div style={styles.formField}>
+                      <label style={styles.formLabel}>Shipped Value ($)</label>
+                      <input
+                        type="number"
+                        name="shipped_value"
+                        value={formData.shipped_value}
+                        readOnly
+                        style={{
+                          ...styles.input,
+                          backgroundColor: "#f5f7fa",
+                          cursor: "not-allowed",
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>Status</label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      style={styles.select}
+                    >
+                      {statusOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>Order Type</label>
                     <select
@@ -1544,47 +1582,6 @@ const AddOrder = () => {
                       style={styles.input}
                     />
                   </div>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Status</label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      style={styles.select}
-                    >
-                      {statusOptions.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={styles.formField}>
-                    <label style={styles.formLabel}>Shipped Quantity</label>
-                    <input
-                      type="number"
-                      name="shipped_qty"
-                      value={formData.shipped_qty}
-                      onChange={handleChange}
-                      style={styles.input}
-                    />
-                  </div>
-                  {canViewOrderPricing() && (
-                    <div style={styles.formField}>
-                      <label style={styles.formLabel}>Shipped Value ($)</label>
-                      <input
-                        type="number"
-                        name="shipped_value"
-                        value={formData.shipped_value}
-                        readOnly
-                        style={{
-                          ...styles.input,
-                          backgroundColor: "#f3f4f6",
-                          cursor: "not-allowed",
-                        }}
-                      />
-                    </div>
-                  )}
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>Group Name</label>
                     <input
@@ -1665,141 +1662,55 @@ const AddOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label>Ex-Factory Date</label>
-                    <input
-                      type="date"
-                      value={
-                        formData.ex_factory?.toISOString().split("T")[0] || ""
-                      }
-                      onChange={(e) =>
-                        handleDateChange(
-                          "ex_factory",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                    <label style={styles.formLabel}>Factory Ship Date</label>
+                    <QuickDateInput
+                      value={formData.factory_ship_date}
+                      onChange={(d) => handleDateChange("factory_ship_date", d)}
                       style={styles.input}
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label>Final Inspection Date</label>
-                    <input
-                      type="date"
-                      value={
-                        formData.final_inspection_date
-                          ?.toISOString()
-                          .split("T")[0] || ""
-                      }
-                      onChange={(e) =>
-                        handleDateChange(
-                          "final_inspection_date",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
-                      style={styles.input}
-                    />
-                  </div>
-
-                  <div style={styles.formField}>
-                    <label>ETD</label>
-                    <input
-                      type="date"
-                      value={formData.etd?.toISOString().split("T")[0] || ""}
-                      onChange={(e) =>
-                        handleDateChange(
-                          "etd",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                    <label style={styles.formLabel}>Shipment Date</label>
+                    <QuickDateInput
+                      value={formData.shipment_date}
+                      onChange={(d) => handleDateChange("shipment_date", d)}
                       style={styles.input}
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label>ETA</label>
-                    <input
-                      type="date"
-                      value={formData.eta?.toISOString().split("T")[0] || ""}
-                      onChange={(e) =>
-                        handleDateChange(
-                          "eta",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                    <label style={styles.formLabel}>DPI</label>
+                    <QuickDateInput
+                      value={formData.dpi_date}
+                      onChange={(d) => handleDateChange("dpi_date", d)}
                       style={styles.input}
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label>Shipment Date</label>
-                    <input
-                      type="date"
-                      value={
-                        formData.shipment_date?.toISOString().split("T")[0] ||
-                        ""
-                      }
-                      onChange={(e) =>
-                        handleDateChange(
-                          "shipment_date",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                    <label style={styles.formLabel}>Final Inspection Date</label>
+                    <QuickDateInput
+                      value={formData.final_inspection_date}
+                      onChange={(d) => handleDateChange("final_inspection_date", d)}
                       style={styles.input}
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label>Factory Ship Date</label>
-                    <input
-                      type="date"
-                      value={
-                        formData.factory_ship_date
-                          ?.toISOString()
-                          .split("T")[0] || ""
-                      }
-                      onChange={(e) =>
-                        handleDateChange(
-                          "factory_ship_date",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                    <label style={styles.formLabel}>Ex-Factory Date</label>
+                    <QuickDateInput
+                      value={formData.ex_factory}
+                      onChange={(d) => handleDateChange("ex_factory", d)}
                       style={styles.input}
                     />
                   </div>
-                  {/* FIXED: Delay from ETD - now showing delay_from_etd */}
                   <div style={styles.formField}>
-                    <label>Delay from ETD (Days)</label>
-                    <input
-                      type="number"
-                      name="delay_from_etd"
-                      value={formData.delay_from_etd}
-                      readOnly
-                      style={{
-                        ...styles.input,
-                        backgroundColor: "#f3f4f6",
-                        cursor: "not-allowed",
-                        color:
-                          formData.delay_from_etd < 0 ? "#10b981" : "#ef4444",
-                      }}
-                      placeholder="Auto-calculated"
-                    />
-                  </div>
-                  <div style={styles.formField}>
-                    <label>IC Issue Date</label>
-                    <input
-                      type="date"
-                      value={
-                        formData.ic_issue_date?.toISOString().split("T")[0] ||
-                        ""
-                      }
-                      onChange={(e) =>
-                        handleDateChange(
-                          "ic_issue_date",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                    <label style={styles.formLabel}>Cargo Handover Date</label>
+                    <QuickDateInput
+                      value={formData.cargo_handover_date}
+                      onChange={(d) => handleDateChange("cargo_handover_date", d)}
                       style={styles.input}
                     />
                   </div>
-                  {/* FIXED: Delay from Ex-Factory - now showing delay_from_ex_factory */}
                   <div style={styles.formField}>
-                    <label>Delay from Ex-Factory (Days)</label>
+                    <label style={styles.formLabel}>Delay from Ex-Factory (Days)</label>
                     <input
                       type="number"
                       name="delay_from_ex_factory"
@@ -1807,32 +1718,50 @@ const AddOrder = () => {
                       readOnly
                       style={{
                         ...styles.input,
-                        backgroundColor: "#f3f4f6",
+                        backgroundColor: "#f5f7fa",
                         cursor: "not-allowed",
-                        color:
-                          formData.delay_from_ex_factory < 0
-                            ? "#10b981"
-                            : "#ef4444",
+                        color: delayColor(formData.delay_from_ex_factory),
                       }}
                       placeholder="Auto-calculated"
                     />
                   </div>
-
                   <div style={styles.formField}>
-                    <label>Cargo Handover Date</label>
+                    <label style={styles.formLabel}>Delay from ETD (Days)</label>
                     <input
-                      type="date"
-                      value={
-                        formData.cargo_handover_date
-                          ?.toISOString()
-                          .split("T")[0] || ""
-                      }
-                      onChange={(e) =>
-                        handleDateChange(
-                          "cargo_handover_date",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                      type="number"
+                      name="delay_from_etd"
+                      value={formData.delay_from_etd}
+                      readOnly
+                      style={{
+                        ...styles.input,
+                        backgroundColor: "#f5f7fa",
+                        cursor: "not-allowed",
+                        color: delayColor(formData.delay_from_etd),
+                      }}
+                      placeholder="Auto-calculated"
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>ETD</label>
+                    <QuickDateInput
+                      value={formData.etd}
+                      onChange={(d) => handleDateChange("etd", d)}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>ETA</label>
+                    <QuickDateInput
+                      value={formData.eta}
+                      onChange={(d) => handleDateChange("eta", d)}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={styles.formField}>
+                    <label style={styles.formLabel}>IC Issue Date</label>
+                    <QuickDateInput
+                      value={formData.ic_issue_date}
+                      onChange={(d) => handleDateChange("ic_issue_date", d)}
                       style={styles.input}
                     />
                   </div>
@@ -1847,7 +1776,7 @@ const AddOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label>Commission Calculation Method</label>
+                    <label style={styles.formLabel}>Commission Calculation Method</label>
                     <select
                       name="commission_calc_method"
                       value={formData.commission_calc_method}
@@ -1865,7 +1794,7 @@ const AddOrder = () => {
                   "unit_price_minus_factory" ? (
                     <>
                       <div style={styles.formField}>
-                        <label>Factory Price ($)</label>
+                        <label style={styles.formLabel}>Factory Price ($)</label>
                         <input
                           type="number"
                           name="factory_price"
@@ -1876,7 +1805,7 @@ const AddOrder = () => {
                         />
                       </div>
                       <div style={styles.formField}>
-                        <label>Commission Rate ($)</label>
+                        <label style={styles.formLabel}>Commission Rate ($)</label>
                         <input
                           type="number"
                           name="commission_rate"
@@ -1885,7 +1814,7 @@ const AddOrder = () => {
                           placeholder="Auto: Unit Price − Factory Price"
                           style={{
                             ...styles.input,
-                            backgroundColor: "#f3f4f6",
+                            backgroundColor: "#f5f7fa",
                             cursor: "not-allowed",
                           }}
                         />
@@ -1893,7 +1822,7 @@ const AddOrder = () => {
                     </>
                   ) : (
                     <div style={styles.formField}>
-                      <label>Commission Percent (%)</label>
+                      <label style={styles.formLabel}>Commission Percent (%)</label>
                       <input
                         type="number"
                         name="commission_percent"
@@ -1905,7 +1834,7 @@ const AddOrder = () => {
                     </div>
                   )}
                   <div style={styles.formField}>
-                    <label>Estimated Commission ($)</label>
+                    <label style={styles.formLabel}>Estimated Commission ($)</label>
                     <input
                       type="number"
                       name="estimated_commission"
@@ -1913,13 +1842,13 @@ const AddOrder = () => {
                       readOnly
                       style={{
                         ...styles.input,
-                        backgroundColor: "#f3f4f6",
+                        backgroundColor: "#f5f7fa",
                         cursor: "not-allowed",
                       }}
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label>Actual Commission ($)</label>
+                    <label style={styles.formLabel}>Actual Commission ($)</label>
                     <input
                       type="number"
                       name="actual_commission"
@@ -1927,32 +1856,22 @@ const AddOrder = () => {
                       readOnly
                       style={{
                         ...styles.input,
-                        backgroundColor: "#f3f4f6",
+                        backgroundColor: "#f5f7fa",
                         cursor: "not-allowed",
                       }}
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label>Commission Receipt Date</label>
-                    <input
-                      type="date"
-                      value={
-                        formData.commission_rec_date
-                          ?.toISOString()
-                          .split("T")[0] || ""
-                      }
-                      onChange={(e) =>
-                        handleDateChange(
-                          "commission_rec_date",
-                          e.target.value ? new Date(e.target.value) : null,
-                        )
-                      }
+                    <label style={styles.formLabel}>Commission Receipt Date</label>
+                    <QuickDateInput
+                      value={formData.commission_rec_date}
+                      onChange={(d) => handleDateChange("commission_rec_date", d)}
                       style={styles.input}
                     />
                   </div>
                   {canViewOrderPricing() && (
                     <div style={styles.formField}>
-                      <label>Factory Value ($)</label>
+                      <label style={styles.formLabel}>Factory Value ($)</label>
                       <input
                         type="number"
                         name="factory_value"
@@ -1960,7 +1879,7 @@ const AddOrder = () => {
                         readOnly
                         style={{
                           ...styles.input,
-                          backgroundColor: "#f3f4f6",
+                          backgroundColor: "#f5f7fa",
                           cursor: "not-allowed",
                         }}
                       />
@@ -1969,55 +1888,15 @@ const AddOrder = () => {
                 </div>
               </div>
 
-              {/* Test Results Section */}
+              {/* Remarks Section */}
               <div style={styles.section}>
                 <div style={styles.sectionHeader}>
                   <FaFlask style={styles.sectionIcon} />
-                  <h2 style={styles.sectionTitle}>Test Results</h2>
+                  <h2 style={styles.sectionTitle}>Remarks</h2>
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formFieldFull}>
-                    <label>Physical Test</label>
-                    <textarea
-                      name="physical_test"
-                      value={formData.physical_test}
-                      onChange={handleChange}
-                      rows={3}
-                      style={styles.textarea}
-                    />
-                  </div>
-                  <div style={styles.formFieldFull}>
-                    <label>Chemical Test</label>
-                    <textarea
-                      name="chemical_test"
-                      value={formData.chemical_test}
-                      onChange={handleChange}
-                      rows={3}
-                      style={styles.textarea}
-                    />
-                  </div>
-                  <div style={styles.formFieldFull}>
-                    <label>During Production Inspection</label>
-                    <textarea
-                      name="during_production_inspection"
-                      value={formData.during_production_inspection}
-                      onChange={handleChange}
-                      rows={3}
-                      style={styles.textarea}
-                    />
-                  </div>
-                  <div style={styles.formFieldFull}>
-                    <label>Final Random Inspection</label>
-                    <textarea
-                      name="final_random_inspection"
-                      value={formData.final_random_inspection}
-                      onChange={handleChange}
-                      rows={3}
-                      style={styles.textarea}
-                    />
-                  </div>
-                  <div style={styles.formFieldFull}>
-                    <label>Remarks</label>
+                    <label style={styles.formLabel}>Remarks</label>
                     <textarea
                       name="remarks"
                       value={formData.remarks}
@@ -2306,13 +2185,13 @@ const AddOrder = () => {
                 </div>
                 <div style={styles.modalBody}>
                   <div style={styles.renameSection}>
-                    <label>Current Name:</label>
+                    <label style={styles.formLabel}>Current Name:</label>
                     <div style={styles.currentFileName}>
                       {renamingFile.currentName}
                     </div>
                   </div>
                   <div style={styles.renameSection}>
-                    <label>New Name (without extension):</label>
+                    <label style={styles.formLabel}>New Name (without extension):</label>
                     <input
                       type="text"
                       value={newFileName}
@@ -2418,526 +2297,7 @@ const AddOrder = () => {
   );
 };
 
-const styles = {
-  appContainer: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#f1f5f9",
-    fontFamily: "'Inter', sans-serif",
-    height: "100vh",
-    overflow: "hidden",
-  },
-  mainContent: { flex: 1, padding: "24px", overflowY: "auto", height: "100vh" },
-  addOrderContainer: { maxWidth: "1400px", margin: "0 auto" },
-  pageHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "32px",
-  },
-  headerLeft: { display: "flex", alignItems: "center", gap: "16px" },
-  backButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "40px",
-    height: "40px",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    cursor: "pointer",
-    color: "#475569",
-  },
-  pageTitle: {
-    fontSize: "28px",
-    fontWeight: 600,
-    color: "#0f172a",
-    margin: 0,
-    marginBottom: "4px",
-  },
-  pageSubtitle: { fontSize: "14px", color: "#64748b", margin: 0 },
-  btnCancel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "10px 24px",
-    borderRadius: "8px",
-    fontWeight: 500,
-    fontSize: "14px",
-    cursor: "pointer",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    color: "#475569",
-  },
-  btnPrimary: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "10px 24px",
-    borderRadius: "8px",
-    fontWeight: 500,
-    fontSize: "14px",
-    cursor: "pointer",
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-  },
-  formCard: {
-    background: "white",
-    borderRadius: "16px",
-    border: "1px solid #e2e8f0",
-    overflow: "hidden",
-  },
-  formContent: { padding: "32px" },
-  formActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "16px",
-    padding: "20px 32px",
-    borderTop: "1px solid #e2e8f0",
-    background: "#fafafa",
-  },
-  section: {
-    marginBottom: "48px",
-    borderBottom: "1px solid #e2e8f0",
-    paddingBottom: "32px",
-  },
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "24px",
-  },
-  sectionIcon: { fontSize: "24px", color: "#2563eb" },
-  sectionTitle: {
-    fontSize: "20px",
-    fontWeight: 600,
-    color: "#1e293b",
-    margin: 0,
-  },
-  formGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "24px",
-  },
-  formField: { display: "flex", flexDirection: "column" },
-  formFieldFull: {
-    display: "flex",
-    flexDirection: "column",
-    gridColumn: "span 2",
-  },
-  formLabel: {
-    fontSize: "13px",
-    fontWeight: 500,
-    color: "#334155",
-    marginBottom: "6px",
-  },
-  required: { color: "#ef4444" },
-  input: {
-    width: "100%",
-    height: "44px",
-    padding: "0 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "14px",
-    outline: "none",
-    fontFamily: "inherit",
-  },
-  select: {
-    width: "100%",
-    height: "44px",
-    padding: "0 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "14px",
-    outline: "none",
-    background: "white",
-  },
-  textarea: {
-    width: "100%",
-    padding: "10px 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "14px",
-    outline: "none",
-    resize: "vertical",
-  },
-  snackbar: {
-    position: "fixed",
-    bottom: "24px",
-    right: "24px",
-    padding: "12px 20px",
-    borderRadius: "10px",
-    color: "white",
-    fontSize: "14px",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    zIndex: 1000,
-  },
-  snackbarClose: {
-    background: "none",
-    border: "none",
-    color: "white",
-    fontSize: "20px",
-    cursor: "pointer",
-    padding: "0 4px",
-  },
-  addButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "8px 16px",
-    backgroundColor: "#3b82f6",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: 500,
-    cursor: "pointer",
-    marginLeft: "auto",
-  },
-  removeButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    padding: "6px 12px",
-    background: "#ef4444",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "12px",
-    cursor: "pointer",
-  },
-  tableWrapper: { overflowX: "auto", marginTop: "20px" },
-  colorSizeTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "13px",
-  },
-  tableHeader: {
-    padding: "12px",
-    textAlign: "center",
-    backgroundColor: "#f8fafc",
-    borderBottom: "2px solid #e2e8f0",
-    fontWeight: "600",
-    color: "#475569",
-  },
-  tableCell: {
-    padding: "10px 12px",
-    textAlign: "center",
-    borderBottom: "1px solid #f1f5f9",
-  },
-  tableFooter: {
-    padding: "12px",
-    textAlign: "center",
-    backgroundColor: "#f8fafc",
-    borderTop: "1px solid #e2e8f0",
-    fontWeight: "600",
-  },
-  colorInput: {
-    width: "100px",
-    padding: "6px 8px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "13px",
-  },
-  quantityInput: {
-    width: "70px",
-    padding: "6px 8px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "13px",
-    textAlign: "center",
-  },
-  totalInput: {
-    width: "80px",
-    padding: "6px 8px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    fontSize: "13px",
-    textAlign: "center",
-    backgroundColor: "#f3f4f6",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "40px",
-    color: "#94a3b8",
-    backgroundColor: "#f8fafc",
-    borderRadius: "12px",
-    marginTop: "16px",
-  },
-  filesUploadSection: { padding: "8px 0" },
-  uploadArea: {
-    marginBottom: "32px",
-    padding: "20px",
-    backgroundColor: "#f8fafc",
-    borderRadius: "12px",
-    border: "2px dashed #cbd5e1",
-    transition: "all 0.2s",
-  },
-  uploadAreaDragging: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
-  uploadLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "14px",
-    fontWeight: 600,
-    color: "#1e293b",
-    marginBottom: "12px",
-  },
-  dropZone: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "30px",
-    textAlign: "center",
-  },
-  dropZoneIcon: { fontSize: "48px", color: "#94a3b8", marginBottom: "12px" },
-  browseButton: {
-    display: "inline-block",
-    padding: "8px 20px",
-    backgroundColor: "#3b82f6",
-    color: "white",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: 500,
-    cursor: "pointer",
-  },
-  fileItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "12px 16px",
-    backgroundColor: "white",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
-    marginTop: "8px",
-  },
-  imageThumbnail: {
-    width: "50px",
-    height: "50px",
-    borderRadius: "8px",
-    overflow: "hidden",
-    cursor: "pointer",
-    backgroundColor: "#f1f5f9",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  thumbnailImg: { width: "100%", height: "100%", objectFit: "cover" },
-  fileIcon: { fontSize: "32px", color: "#64748b" },
-  fileInfo: { flex: 1, display: "flex", flexDirection: "column", gap: "2px" },
-  fileName: { fontSize: "14px", fontWeight: 500, color: "#1e293b" },
-  fileSize: { fontSize: "11px", color: "#94a3b8" },
-  fileActions: { display: "flex", gap: "8px" },
-  renameFileBtn: {
-    background: "none",
-    border: "none",
-    color: "#3b82f6",
-    cursor: "pointer",
-    padding: "6px 10px",
-    borderRadius: "6px",
-    fontSize: "12px",
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-  },
-  removeFileBtn: {
-    background: "none",
-    border: "none",
-    color: "#ef4444",
-    cursor: "pointer",
-    padding: "6px 10px",
-    borderRadius: "6px",
-    fontSize: "12px",
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: "white",
-    borderRadius: "16px",
-    width: "90%",
-    maxWidth: "500px",
-    overflow: "hidden",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "20px 24px",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  modalTitle: {
-    fontSize: "18px",
-    fontWeight: 600,
-    color: "#0f172a",
-    margin: 0,
-  },
-  modalClose: {
-    background: "none",
-    border: "none",
-    fontSize: "20px",
-    cursor: "pointer",
-    color: "#64748b",
-  },
-  modalBody: { padding: "24px" },
-  modalFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-    padding: "16px 24px",
-    borderTop: "1px solid #e2e8f0",
-  },
-  modalCancel: {
-    padding: "8px 16px",
-    borderRadius: "8px",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  modalSubmit: {
-    padding: "8px 20px",
-    borderRadius: "8px",
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: 500,
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  renameSection: { marginBottom: "20px" },
-  currentFileName: {
-    padding: "10px",
-    backgroundColor: "#f1f5f9",
-    borderRadius: "8px",
-    fontSize: "14px",
-    color: "#475569",
-    marginTop: "4px",
-  },
-  renameInput: {
-    width: "100%",
-    padding: "10px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "14px",
-    marginTop: "4px",
-    outline: "none",
-  },
-  fileExtensionHint: { fontSize: "12px", color: "#64748b", marginTop: "4px" },
-  imageViewerModal: {
-    backgroundColor: "white",
-    borderRadius: "16px",
-    width: "90%",
-    maxWidth: "900px",
-    maxHeight: "90vh",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-  },
-  imageViewerHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "16px 20px",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  imageViewerBody: {
-    flex: 1,
-    padding: "20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "auto",
-  },
-  fullImage: { maxWidth: "100%", maxHeight: "70vh", objectFit: "contain" },
-  imageViewerFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    padding: "16px 20px",
-    borderTop: "1px solid #e2e8f0",
-  },
-  searchableSelectContainer: { position: "relative", width: "100%" },
-  searchableSelectInputWrapper: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    color: "#94a3b8",
-    fontSize: "14px",
-  },
-  searchableSelectInput: {
-    width: "100%",
-    height: "44px",
-    padding: "0 32px 0 36px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "14px",
-    outline: "none",
-    backgroundColor: "white",
-  },
-  clearSelectionBtn: {
-    position: "absolute",
-    right: "12px",
-    background: "none",
-    border: "none",
-    color: "#94a3b8",
-    cursor: "pointer",
-    padding: "4px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchableDropdown: {
-    position: "absolute",
-    top: "100%",
-    left: 0,
-    right: 0,
-    maxHeight: "300px",
-    overflowY: "auto",
-    backgroundColor: "white",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-    zIndex: 1000,
-    marginTop: "4px",
-  },
-  dropdownItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "10px 12px",
-    cursor: "pointer",
-    transition: "background 0.2s",
-    borderBottom: "1px solid #f1f5f9",
-  },
-  dropdownItemSelected: { backgroundColor: "#eff6ff" },
-  dropdownItemIcon: { color: "#64748b", fontSize: "14px" },
-  dropdownItemContent: { flex: 1 },
-  dropdownItemName: { fontSize: "14px", fontWeight: 500, color: "#1e293b" },
-  dropdownItemCheck: { color: "#2563eb", fontSize: "14px" },
-};
+const styles = orderFormStyles;
 
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `@keyframes spin { to { transform: rotate(360deg); } } input:focus, select:focus, textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); } button:hover { transform: translateY(-1px); } .dropdownItem:hover { background-color: #f8fafc; }`;

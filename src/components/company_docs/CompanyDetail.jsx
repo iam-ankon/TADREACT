@@ -1,22 +1,43 @@
 /**
- * CompanyDetail.jsx  –  fixed
+ * CompanyDetail.jsx
  *
- * Bugs fixed:
- *  1. file_url was being double-prefixed with backendURL (backend now returns
- *     absolute URLs, so we use file_url directly)
- *  2. files array was always empty because the documents/ endpoint wasn't
- *     prefetch_related – fixed in backend; frontend now reads doc.files correctly
- *  3. DocFormModal: addCategory was passing { category } as initialData which
- *     looked like an "edit" (because it had a category key); fixed by passing
- *     defaultCategory prop separately
- *  4. DocFormModal initialData null-check – when both editDoc AND addCategory
- *     could conflict, now cleanly separated
- *  5. Error messages from Django shown properly (field-level errors)
- *  6. Loading guard was set to false even on error, hiding the actual issue
- *  7. Status filter now done client-side on live-computed status (matches backend)
+ * One company's regulatory documents, grouped by category: add/edit/delete
+ * documents, upload/remove files, filters, and the expiry digest email.
+ * Look shared with the dashboard via companyDocsTheme.js; sidebar comes from
+ * CompanyDocsLayout (App.jsx).
+ *
+ * Data notes kept from the earlier version:
+ *  - file_url is already absolute (backend builds it with build_absolute_uri)
+ *  - status / days_remaining are computed live by the backend
+ *  - blank dates are sent as null (DRF DateField rejects "")
  */
-import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import {
+  FiAlertTriangle,
+  FiCheckCircle,
+  FiChevronDown,
+  FiChevronRight,
+  FiClock,
+  FiEdit2,
+  FiFile,
+  FiFileText,
+  FiFolder,
+  FiHash,
+  FiInbox,
+  FiMail,
+  FiMapPin,
+  FiMinusCircle,
+  FiPaperclip,
+  FiPhone,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiTrash2,
+  FiUploadCloud,
+  FiUser,
+  FiX,
+} from "react-icons/fi";
 import {
   getCompany,
   getCompanyDocuments,
@@ -29,109 +50,122 @@ import {
   CATEGORY_LABELS,
   STATUS_CONFIG,
 } from "../../api/companyDocsApi";
+import { COMPANY_DOCS_CSS, apiErrorMessage, notifyCompanyDocsChanged } from "./companyDocsTheme";
 
-// ── Status Badge ──────────────────────────────────────────────────────────────
+const STATUS_ICONS = {
+  valid: <FiCheckCircle />,
+  expiring_soon: <FiClock />,
+  expired: <FiAlertTriangle />,
+  not_available: <FiMinusCircle />,
+  need_apply: <FiAlertTriangle />,
+};
+
+const ACCEPT = ".pdf,.jpg,.jpeg,.png,.doc,.docx";
+
+const formatDate = (iso) =>
+  iso
+    ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : null;
+
+// ── Status pill ───────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.not_available;
+  const key = STATUS_CONFIG[status] ? status : "not_available";
   return (
-    <span
-      style={{
-        padding: "3px 10px",
-        borderRadius: 99,
-        fontSize: 11,
-        fontWeight: 700,
-        color: cfg.color,
-        background: cfg.bg,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {cfg.icon} {cfg.label}
+    <span className={`cd-pill ${key}`}>
+      {STATUS_ICONS[key]}
+      {STATUS_CONFIG[key].label}
     </span>
   );
 };
 
-// ── Days chip ────────────────────────────────────────────────────────────────
+// ── Days left ─────────────────────────────────────────────────────────────────
 const DaysChip = ({ days, status }) => {
-  if (days == null)
-    return <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>;
-  const color =
-    status === "expired"
-      ? "#dc2626"
-      : status === "expiring_soon"
-        ? "#d97706"
-        : "#16a34a";
-  const label = days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`;
-  return <span style={{ fontSize: 12, fontWeight: 600, color }}>{label}</span>;
+  if (days == null) return <span className="cd-muted">—</span>;
+  const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Today" : `${days}d left`;
+  return <span className={`cd-days ${status}`}>{label}</span>;
 };
 
-// ── File list (expanded row) ──────────────────────────────────────────────────
-const FileList = ({ files, onDeleteFile }) => {
-  if (!files || files.length === 0) {
-    return (
-      <span style={{ fontSize: 12, color: "#94a3b8" }}>
-        No files uploaded yet.
-      </span>
-    );
-  }
+// ── File picker (click or drag & drop) ────────────────────────────────────────
+const FilePicker = ({ file, onChange, label = "Choose a file or drag it here" }) => {
+  const inputRef = useRef(null);
+  const [drag, setDrag] = useState(false);
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-      {files.map((f) => {
-        // file_url is already absolute (backend builds it with request.build_absolute_uri)
-        const href = f.file_url || null;
-        return (
-          <div
-            key={f.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              background: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: 8,
-              padding: "6px 12px",
+    <>
+      <label
+        className={`cd-drop ${drag ? "drag" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDrag(true);
+        }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) onChange(f);
+        }}
+      >
+        <FiUploadCloud size={22} />
+        <strong>{label}</strong>
+        <span>PDF, JPG, PNG, DOC, DOCX</span>
+        <input ref={inputRef} type="file" accept={ACCEPT} onChange={(e) => onChange(e.target.files[0] || null)} />
+      </label>
+      {file && (
+        <div className="cd-picked">
+          <FiFile />
+          <span className="grow" title={file.name}>
+            {file.name}
+          </span>
+          <span className="meta">{(file.size / 1024).toFixed(1)} KB</span>
+          <button
+            type="button"
+            className="cd-icon-btn"
+            title="Remove"
+            onClick={() => {
+              onChange(null);
+              if (inputRef.current) inputRef.current.value = "";
             }}
           >
+            <FiX />
+          </button>
+        </div>
+      )}
+    </>
+  );
+};
+
+// ── Attached files (expanded row) ─────────────────────────────────────────────
+const FileList = ({ files, onDeleteFile }) => {
+  if (!files || files.length === 0) return <span className="cd-muted">No files uploaded yet.</span>;
+  return (
+    <div className="cd-files">
+      {files.map((f) => {
+        const href = f.file_url || null;
+        const name = f.original_filename || "Document";
+        return (
+          <div key={f.id} className="cd-file">
+            <span className="cd-file-icon">
+              <FiFileText />
+            </span>
             {href ? (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  fontSize: 12,
-                  color: "#2563eb",
-                  textDecoration: "none",
-                }}
-              >
-                📄 {f.original_filename || "Document"}
+              <a href={href} target="_blank" rel="noopener noreferrer" title={name}>
+                {name}
               </a>
             ) : (
-              <span style={{ fontSize: 12, color: "#64748b" }}>
-                📄 {f.original_filename || "Document"}
+              <span className="name" title={name}>
+                {name}
               </span>
             )}
-            {f.file_size_kb != null && (
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                {f.file_size_kb} KB
-              </span>
-            )}
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>
-              {f.uploaded_at
-                ? new Date(f.uploaded_at).toLocaleDateString("en-GB")
-                : ""}
+            <span className="meta">
+              {f.file_size_kb != null && `${f.file_size_kb} KB · `}
+              {f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString("en-GB") : ""}
             </span>
-            <button
-              onClick={() => onDeleteFile(f.id)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#ef4444",
-                fontSize: 13,
-                lineHeight: 1,
-              }}
-              title="Remove file"
-            >
-              ✕
+            <button type="button" className="cd-icon-btn danger" onClick={() => onDeleteFile(f.id)} title="Remove file">
+              <FiTrash2 />
             </button>
           </div>
         );
@@ -147,141 +181,89 @@ const DocRow = ({ doc, onEdit, onDelete, onUpload, onDeleteFile }) => {
 
   return (
     <>
-      <tr
-        style={{
-          borderBottom: "1px solid #f1f5f9",
-          background: expanded ? "#f8fafc" : "#fff",
-        }}
-      >
-        <td style={{ padding: "11px 16px" }}>
-          <div style={{ fontWeight: 600, color: "#1e293b", fontSize: 13 }}>
-            {doc.document_name}
-          </div>
-          {doc.responsible_person && (
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
-              👤 {doc.responsible_person}
-            </div>
-          )}
-          {doc.document_number && (
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>
-              🔢 {doc.document_number}
+      <tr className={`cd-row ${expanded ? "open" : ""}`}>
+        <td>
+          <div className="cd-doc-name">{doc.document_name}</div>
+          {(doc.responsible_person || doc.document_number) && (
+            <div className="cd-doc-meta">
+              {doc.document_number && (
+                <span>
+                  <FiHash /> {doc.document_number}
+                </span>
+              )}
+              {doc.responsible_person && (
+                <span>
+                  <FiUser /> {doc.responsible_person}
+                </span>
+              )}
             </div>
           )}
         </td>
-        <td style={{ padding: "11px 16px", color: "#64748b", fontSize: 13 }}>
-          {doc.branch_location || "—"}
-        </td>
-        <td style={{ padding: "11px 16px", color: "#64748b", fontSize: 13 }}>
-          {doc.expiry_date
-            ? new Date(doc.expiry_date + "T00:00:00").toLocaleDateString(
-                "en-GB",
-                { day: "2-digit", month: "short", year: "numeric" },
-              )
-            : "—"}
-        </td>
-        <td style={{ padding: "11px 16px" }}>
+        <td>{doc.branch_location || <span className="cd-muted">—</span>}</td>
+        <td style={{ whiteSpace: "nowrap" }}>{formatDate(doc.expiry_date) || <span className="cd-muted">—</span>}</td>
+        <td>
           <DaysChip days={doc.days_remaining} status={doc.status} />
         </td>
-        <td style={{ padding: "11px 16px" }}>
+        <td>
           <StatusBadge status={doc.status} />
         </td>
-        <td style={{ padding: "11px 16px" }}>
-          {doc.remarks && (
-            <span
-              style={{ fontSize: 12, color: "#64748b", fontStyle: "italic" }}
-            >
-              {doc.remarks.length > 45
-                ? doc.remarks.slice(0, 45) + "…"
-                : doc.remarks}
-            </span>
+        <td>
+          {doc.remarks ? (
+            <div className="cd-remarks" title={doc.remarks}>
+              {doc.remarks}
+            </div>
+          ) : (
+            <span className="cd-muted">—</span>
           )}
         </td>
-        <td style={{ padding: "11px 16px" }}>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            {/* Upload — the primary, most-visible action for this row */}
+        <td>
+          <div className="cd-actions">
             <button
+              type="button"
+              className={`cd-btn cd-btn-sm ${fileCount === 0 ? "cd-btn-violet" : "cd-btn-ghost"}`}
               onClick={() => onUpload(doc)}
               title="Upload a file for this document"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                padding: "5px 10px",
-                borderRadius: 6,
-                border: "none",
-                background: fileCount === 0 ? "#7c3aed" : "#ede9fe",
-                color: fileCount === 0 ? "#fff" : "#7c3aed",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
             >
-              📎 {fileCount === 0 ? "Upload File" : `Upload (${fileCount})`}
+              <FiUploadCloud /> {fileCount === 0 ? "Upload" : "Add file"}
             </button>
             <button
+              type="button"
+              className={`cd-icon-btn ${expanded ? "on" : ""}`}
               onClick={() => setExpanded((p) => !p)}
-              title={expanded ? "Hide attached files" : "View attached files"}
               disabled={fileCount === 0}
-              style={{
-                padding: "5px 9px",
-                borderRadius: 6,
-                border: "1px solid #e2e8f0",
-                background: expanded ? "#eff6ff" : "#fff",
-                fontSize: 12,
-                cursor: fileCount === 0 ? "default" : "pointer",
-                color: fileCount === 0 ? "#cbd5e1" : "#2563eb",
-              }}
+              title={fileCount === 0 ? "No files yet" : expanded ? "Hide files" : `Show ${fileCount} file(s)`}
+              style={{ width: "auto", padding: "0 8px", gap: 4, display: "inline-flex", alignItems: "center" }}
             >
-              📂
+              <FiPaperclip />
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{fileCount}</span>
+            </button>
+            <button type="button" className="cd-icon-btn" onClick={() => onEdit(doc)} title="Edit">
+              <FiEdit2 />
             </button>
             <button
-              onClick={() => onEdit(doc)}
-              title="Edit"
-              style={{
-                padding: "5px 9px",
-                borderRadius: 6,
-                border: "1px solid #e2e8f0",
-                background: "#fff",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              ✏️
-            </button>
-            <button
+              type="button"
+              className="cd-icon-btn danger"
               onClick={() => onDelete(doc.id, doc.document_name)}
               title="Delete"
-              style={{
-                padding: "5px 9px",
-                borderRadius: 6,
-                border: "1px solid #fee2e2",
-                background: "#fff",
-                fontSize: 12,
-                cursor: "pointer",
-                color: "#ef4444",
-              }}
             >
-              🗑
+              <FiTrash2 />
             </button>
           </div>
         </td>
       </tr>
       {expanded && (
-        <tr style={{ background: "#f8fafc" }}>
-          <td colSpan={7} style={{ padding: "8px 24px 16px" }}>
+        <tr className="cd-subrow">
+          <td colSpan={7}>
             <FileList files={doc.files} onDeleteFile={onDeleteFile} />
           </td>
         </tr>
       )}
       {!expanded && fileCount === 0 && (
-        <tr style={{ background: "#fffbeb" }}>
-          <td
-            colSpan={7}
-            style={{ padding: "6px 24px", fontSize: 11, color: "#b45309" }}
-          >
-            ⚠ No file attached yet — click <strong>"Upload File"</strong> above
-            to attach the licence/document copy.
+        <tr className="cd-missing">
+          <td colSpan={7}>
+            <span>
+              <FiAlertTriangle /> No copy attached yet. Use <strong>Upload</strong> to attach the licence or document.
+            </span>
           </td>
         </tr>
       )}
@@ -289,139 +271,61 @@ const DocRow = ({ doc, onEdit, onDelete, onUpload, onDeleteFile }) => {
   );
 };
 
-// ── Category accordion section ────────────────────────────────────────────────
-const CategorySection = ({
-  category,
-  docs,
-  onEdit,
-  onDelete,
-  onUpload,
-  onDeleteFile,
-  onAddInCategory,
-}) => {
+// ── Category section ──────────────────────────────────────────────────────────
+const CategorySection = ({ category, docs, onEdit, onDelete, onUpload, onDeleteFile, onAddInCategory }) => {
   const [collapsed, setCollapsed] = useState(false);
   const label = CATEGORY_LABELS[category] || category;
   const expiredCount = docs.filter((d) => d.status === "expired").length;
-  const expiringSoonCount = docs.filter(
-    (d) => d.status === "expiring_soon",
-  ).length;
+  const expiringSoonCount = docs.filter((d) => d.status === "expiring_soon").length;
+  const missingFiles = docs.filter((d) => !d.files || d.files.length === 0).length;
 
   return (
-    <div
-      style={{
-        marginBottom: 20,
-        border: "1px solid #e2e8f0",
-        borderRadius: 12,
-        overflow: "hidden",
-      }}
-    >
-      {/* Header */}
+    <section className="cd-section">
       <div
+        className="cd-section-head"
         onClick={() => setCollapsed((p) => !p)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "13px 18px",
-          background: "#f8fafc",
-          cursor: "pointer",
-          borderBottom: collapsed ? "none" : "1px solid #e2e8f0",
-        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setCollapsed((p) => !p))}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>
-            {label}
+        <div className="cd-section-title">
+          <span className="cd-section-icon">
+            <FiFolder />
           </span>
-          <span style={{ fontSize: 12, color: "#94a3b8" }}>
-            ({docs.length})
-          </span>
-          {expiredCount > 0 && (
-            <span
-              style={{
-                fontSize: 11,
-                background: "#fee2e2",
-                color: "#dc2626",
-                padding: "1px 8px",
-                borderRadius: 99,
-                fontWeight: 600,
-              }}
-            >
-              {expiredCount} expired
-            </span>
-          )}
-          {expiringSoonCount > 0 && (
-            <span
-              style={{
-                fontSize: 11,
-                background: "#fef3c7",
-                color: "#d97706",
-                padding: "1px 8px",
-                borderRadius: 99,
-                fontWeight: 600,
-              }}
-            >
-              {expiringSoonCount} expiring
-            </span>
-          )}
+          <h3>{label}</h3>
+          <span className="cd-pill neutral">{docs.length}</span>
+          {expiredCount > 0 && <span className="cd-pill expired">{expiredCount} expired</span>}
+          {expiringSoonCount > 0 && <span className="cd-pill expiring_soon">{expiringSoonCount} expiring</span>}
+          {missingFiles > 0 && <span className="cd-pill need_apply">{missingFiles} without file</span>}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="cd-section-right">
           <button
+            type="button"
+            className="cd-btn cd-btn-sm cd-btn-ghost"
             onClick={(e) => {
               e.stopPropagation();
               onAddInCategory(category);
             }}
-            style={{
-              padding: "4px 12px",
-              borderRadius: 6,
-              border: "none",
-              background: "#2563eb",
-              color: "#fff",
-              fontSize: 12,
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
           >
-            + Add
+            <FiPlus /> Add
           </button>
-          <span style={{ color: "#94a3b8", fontSize: 12 }}>
-            {collapsed ? "▼" : "▲"}
-          </span>
+          {collapsed ? <FiChevronRight /> : <FiChevronDown />}
         </div>
       </div>
 
-      {/* Table */}
       {!collapsed && (
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}
-          >
+        <div className="cd-table-wrap">
+          <table className="cd-table">
             <thead>
-              <tr style={{ background: "#f1f5f9" }}>
-                {[
-                  "Document",
-                  "Branch",
-                  "Expiry Date",
-                  "Days Left",
-                  "Status",
-                  "Remarks",
-                  "Actions",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: "9px 16px",
-                      textAlign: "left",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      letterSpacing: ".5px",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
+              <tr>
+                <th>Document</th>
+                <th>Branch</th>
+                <th>Expiry Date</th>
+                <th>Days Left</th>
+                <th>Status</th>
+                <th>Remarks</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -439,18 +343,12 @@ const CategorySection = ({
           </table>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 
 // ── Document Form Modal ───────────────────────────────────────────────────────
-const DocFormModal = ({
-  companyId,
-  editDoc,
-  defaultCategory,
-  onClose,
-  onSaved,
-}) => {
+const DocFormModal = ({ companyId, editDoc, defaultCategory, onClose, onSaved }) => {
   const isEdit = !!editDoc;
   const [form, setForm] = useState({
     company: companyId,
@@ -463,11 +361,12 @@ const DocFormModal = ({
     remarks: editDoc?.remarks || "",
     responsible_person: editDoc?.responsible_person || "",
   });
-  const [file, setFile] = useState(null); // optional file attached at creation time
+  const [file, setFile] = useState(null); // optional file attached at save time
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const dateOrderBad = form.issue_date && form.expiry_date && form.expiry_date < form.issue_date;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -475,13 +374,13 @@ const DocFormModal = ({
       setErr("Document name is required.");
       return;
     }
+    if (dateOrderBad) {
+      setErr("Expiry date is before the issue date.");
+      return;
+    }
     setSaving(true);
     setErr(null);
     try {
-      // DRF's DateField only accepts null (not "") for an empty value, so
-      // convert blank date inputs to null before sending — otherwise
-      // leaving Issue Date / Expiry Date empty fails validation and makes
-      // them feel mandatory even though the model allows them to be blank.
       const payload = {
         ...form,
         issue_date: form.issue_date || null,
@@ -496,20 +395,15 @@ const DocFormModal = ({
         docId = created.data.id;
       }
 
-      // If a file was selected, upload it right after the document is saved
       if (file && docId) {
         const fd = new FormData();
         fd.append("document_type", docId);
         fd.append("file", file);
         try {
           await uploadDocumentFile(fd);
-        } catch (uploadErr) {
-          // Document itself saved fine — surface the upload issue separately
-          // so the user doesn't think the whole save failed.
-          setErr(
-            "Document saved, but the file upload failed. " +
-              "You can retry by clicking the 'Upload File' button on this document.",
-          );
+        } catch {
+          // The document itself saved - say so, so the user doesn't redo it.
+          setErr("Document saved, but the file upload failed. Use the Upload button on the document to retry.");
           setSaving(false);
           onSaved();
           return;
@@ -519,371 +413,149 @@ const DocFormModal = ({
       onSaved();
       onClose();
     } catch (ex) {
-      const data = ex.response?.data;
-      const msg = data
-        ? typeof data === "object"
-          ? Object.entries(data)
-              .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-              .join(" | ")
-          : String(data)
-        : "Failed to save. Please try again.";
-      setErr(msg);
+      setErr(apiErrorMessage(ex, "Failed to save. Please try again."));
       setSaving(false);
     }
   };
 
-  const inputStyle = {
-    width: "100%",
-    padding: "8px 10px",
-    borderRadius: 8,
-    border: "1px solid #d1d5db",
-    fontSize: 13,
-    boxSizing: "border-box",
-    outline: "none",
-  };
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1001,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: 28,
-          width: 560,
-          maxWidth: "95vw",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: "0 20px 60px rgba(0,0,0,.25)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 17, color: "#0f172a" }}>
-            {isEdit ? "Edit Document" : "Add Document"}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              fontSize: 20,
-              cursor: "pointer",
-              color: "#94a3b8",
-            }}
-          >
-            ×
+    <div className="cd-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="cd-modal" style={{ maxWidth: 600 }} onSubmit={handleSubmit}>
+        <div className="cd-modal-head">
+          <div>
+            <h2>{isEdit ? "Edit Document" : "Add Document"}</h2>
+            <p>{isEdit ? editDoc.document_name : "Track a licence, certificate or agreement and its expiry."}</p>
+          </div>
+          <button type="button" className="cd-icon-btn" onClick={onClose} title="Close">
+            <FiX />
           </button>
         </div>
 
-        {err && (
-          <div
-            style={{
-              padding: "10px 12px",
-              background: "#fee2e2",
-              color: "#dc2626",
-              borderRadius: 8,
-              fontSize: 12,
-              marginBottom: 14,
-            }}
-          >
-            {err}
-          </div>
-        )}
+        <div className="cd-modal-body">
+          {err && (
+            <div className="cd-alert err">
+              <FiAlertTriangle />
+              <span>{err}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit}>
-          {/* Category */}
-          <div style={{ marginBottom: 14 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 4,
-              }}
-            >
-              Category
-            </label>
-            <select
-              value={form.category}
-              onChange={(e) => set("category", e.target.value)}
-              style={{ ...inputStyle, background: "#fff" }}
-            >
-              {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
+          <div className="cd-field-grid">
+            <div className="cd-field">
+              <label>Category</label>
+              <select className="cd-input" value={form.category} onChange={(e) => set("category", e.target.value)}>
+                {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="cd-field">
+              <label>Branch / Location</label>
+              <input
+                className="cd-input"
+                value={form.branch_location}
+                onChange={(e) => set("branch_location", e.target.value)}
+                placeholder="e.g. Dhanmondi, Gulshan, HO"
+              />
+            </div>
           </div>
 
-          {/* Document Name */}
-          <div style={{ marginBottom: 14 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 4,
-              }}
-            >
-              Document Name *
+          <div className="cd-field">
+            <label>
+              Document Name <span className="req">*</span>
             </label>
             <input
-              type="text"
+              className="cd-input"
               value={form.document_name}
               onChange={(e) => set("document_name", e.target.value)}
               placeholder="e.g. Trade License – Dhanmondi"
               required
-              style={inputStyle}
+              autoFocus={!isEdit}
             />
           </div>
 
-          {/* Branch */}
-          <div style={{ marginBottom: 14 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 4,
-              }}
-            >
-              Branch / Location
-            </label>
-            <input
-              type="text"
-              value={form.branch_location}
-              onChange={(e) => set("branch_location", e.target.value)}
-              placeholder="e.g. Dhanmondi, Gulshan, HO"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Doc number */}
-          <div style={{ marginBottom: 14 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 4,
-              }}
-            >
-              Document / Licence No.
-            </label>
-            <input
-              type="text"
-              value={form.document_number}
-              onChange={(e) => set("document_number", e.target.value)}
-              placeholder="e.g. TRAD/DNCC/120756/2022"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Person */}
-          <div style={{ marginBottom: 14 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 4,
-              }}
-            >
-              Responsible Person
-            </label>
-            <input
-              type="text"
-              value={form.responsible_person}
-              onChange={(e) => set("responsible_person", e.target.value)}
-              placeholder="Name of licence holder / contact"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Dates */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              marginBottom: 14,
-            }}
-          >
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: 4,
-                }}
-              >
-                Issue Date
-              </label>
+          <div className="cd-field-grid">
+            <div className="cd-field">
+              <label>Document / Licence No.</label>
               <input
+                className="cd-input"
+                value={form.document_number}
+                onChange={(e) => set("document_number", e.target.value)}
+                placeholder="e.g. TRAD/DNCC/120756/2022"
+              />
+            </div>
+            <div className="cd-field">
+              <label>Responsible Person</label>
+              <input
+                className="cd-input"
+                value={form.responsible_person}
+                onChange={(e) => set("responsible_person", e.target.value)}
+                placeholder="Licence holder / contact"
+              />
+            </div>
+          </div>
+
+          <div className="cd-field-grid">
+            <div className="cd-field">
+              <label>Issue Date</label>
+              <input
+                className="cd-input"
                 type="date"
                 value={form.issue_date}
                 onChange={(e) => set("issue_date", e.target.value)}
-                style={inputStyle}
               />
             </div>
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: 4,
-                }}
-              >
-                Expiry Date
-              </label>
+            <div className="cd-field">
+              <label>Expiry Date</label>
               <input
+                className="cd-input"
                 type="date"
                 value={form.expiry_date}
                 onChange={(e) => set("expiry_date", e.target.value)}
-                style={inputStyle}
+                style={dateOrderBad ? { borderColor: "#ef4444" } : undefined}
               />
+              {dateOrderBad && (
+                <div className="cd-hint" style={{ color: "#b91c1c" }}>
+                  Expiry is before the issue date.
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Remarks */}
-          <div style={{ marginBottom: 18 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 4,
-              }}
-            >
-              Remarks
-            </label>
+          <div className="cd-field">
+            <label>Remarks</label>
             <textarea
+              className="cd-input"
               value={form.remarks}
               onChange={(e) => set("remarks", e.target.value)}
               rows={2}
               placeholder="Any notes or status comments"
-              style={{ ...inputStyle, resize: "vertical" }}
             />
           </div>
 
-          {/* File upload — attach the licence/document copy right here */}
-          <div
-            style={{
-              marginBottom: 20,
-              padding: "14px 16px",
-              borderRadius: 10,
-              border: "1px dashed #c4b5fd",
-              background: "#faf5ff",
-            }}
-          >
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 700,
-                color: "#6d28d9",
-                marginBottom: 6,
-              }}
-            >
-              📎{" "}
-              {isEdit
-                ? "Replace / Attach File (optional)"
-                : "Attach File (optional)"}
-            </label>
-            <input
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              onChange={(e) => setFile(e.target.files[0] || null)}
-              style={{ fontSize: 12, width: "100%" }}
-            />
-            {file && (
-              <div style={{ fontSize: 11, color: "#6d28d9", marginTop: 6 }}>
-                Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
-              </div>
-            )}
-            {isEdit && editDoc?.files?.length > 0 && (
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
-                This document already has {editDoc.files.length} file(s)
-                attached. Uploading here adds another — it won't remove the
-                existing ones.
-              </div>
-            )}
-            {!isEdit && (
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
-                You can also skip this and upload the file later using the
-                "Upload File" button on the document row.
-              </div>
-            )}
+          <div className="cd-field" style={{ marginBottom: 0 }}>
+            <label>{isEdit ? "Attach another file (optional)" : "Attach file (optional)"}</label>
+            <FilePicker file={file} onChange={setFile} />
+            <div className="cd-hint">
+              {isEdit && editDoc?.files?.length > 0
+                ? `This document already has ${editDoc.files.length} file(s). Uploading adds another; existing files are kept.`
+                : !isEdit
+                  ? "You can also skip this and upload later from the document row."
+                  : null}
+            </div>
           </div>
+        </div>
 
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: "8px 18px",
-                borderRadius: 8,
-                border: "1px solid #d1d5db",
-                background: "#fff",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              style={{
-                padding: "8px 22px",
-                borderRadius: 8,
-                border: "none",
-                background: "#2563eb",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: saving ? "not-allowed" : "pointer",
-                opacity: saving ? 0.7 : 1,
-              }}
-            >
-              {saving
-                ? "Saving…"
-                : isEdit
-                  ? "Update"
-                  : file
-                    ? "Add Document + Upload File"
-                    : "Add Document"}
-            </button>
-          </div>
-        </form>
-      </div>
+        <div className="cd-modal-foot">
+          <button type="button" className="cd-btn cd-btn-ghost" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="submit" className="cd-btn cd-btn-primary" disabled={saving}>
+            {saving ? "Saving…" : isEdit ? "Save Changes" : file ? "Add Document + Upload" : "Add Document"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
@@ -912,172 +584,67 @@ const FileUploadModal = ({ doc, onClose, onUploaded }) => {
       onUploaded();
       onClose();
     } catch (ex) {
-      const msg = ex.response?.data
-        ? typeof ex.response.data === "object"
-          ? JSON.stringify(ex.response.data)
-          : String(ex.response.data)
-        : "Upload failed. Please try again.";
-      setErr(msg);
+      setErr(apiErrorMessage(ex, "Upload failed. Please try again."));
       setUploading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1001,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: 28,
-          width: 420,
-          maxWidth: "95vw",
-          boxShadow: "0 20px 60px rgba(0,0,0,.25)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 14,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 16, color: "#0f172a" }}>
-            Upload Document
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              fontSize: 20,
-              cursor: "pointer",
-              color: "#94a3b8",
-            }}
-          >
-            ×
+    <div className="cd-modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !uploading && onClose()}>
+      <form className="cd-modal" style={{ maxWidth: 460 }} onSubmit={handleUpload}>
+        <div className="cd-modal-head">
+          <div>
+            <h2>Upload File</h2>
+            <p>
+              {doc.document_name}
+              {doc.branch_location ? ` – ${doc.branch_location}` : ""}
+            </p>
+          </div>
+          <button type="button" className="cd-icon-btn" onClick={onClose} title="Close">
+            <FiX />
           </button>
         </div>
-        <p style={{ margin: "0 0 18px", fontSize: 13, color: "#64748b" }}>
-          <strong>{doc.document_name}</strong>
-          {doc.branch_location ? ` – ${doc.branch_location}` : ""}
-        </p>
-
-        {err && (
-          <div
-            style={{
-              padding: "10px 12px",
-              background: "#fee2e2",
-              color: "#dc2626",
-              borderRadius: 8,
-              fontSize: 12,
-              marginBottom: 14,
-            }}
-          >
-            {err}
+        <div className="cd-modal-body">
+          {err && (
+            <div className="cd-alert err">
+              <FiAlertTriangle />
+              <span>{err}</span>
+            </div>
+          )}
+          <div className="cd-field">
+            <FilePicker file={file} onChange={setFile} />
           </div>
-        )}
-
-        <form onSubmit={handleUpload}>
-          <div style={{ marginBottom: 14 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 6,
-              }}
-            >
-              File (PDF, JPG, PNG, DOCX)
-            </label>
+          <div className="cd-field" style={{ marginBottom: 0 }}>
+            <label>Description (optional)</label>
             <input
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              onChange={(e) => setFile(e.target.files[0])}
-              style={{ fontSize: 13, width: "100%" }}
-            />
-            {file && (
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
-              </div>
-            )}
-          </div>
-          <div style={{ marginBottom: 18 }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "#374151",
-                marginBottom: 4,
-              }}
-            >
-              Description (optional)
-            </label>
-            <input
-              type="text"
+              className="cd-input"
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               placeholder="e.g. Renewed copy – 2026"
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #d1d5db",
-                fontSize: 13,
-                boxSizing: "border-box",
-              }}
             />
           </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: "8px 18px",
-                borderRadius: 8,
-                border: "1px solid #d1d5db",
-                background: "#fff",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={uploading}
-              style={{
-                padding: "8px 20px",
-                borderRadius: 8,
-                border: "none",
-                background: "#7c3aed",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: uploading ? "not-allowed" : "pointer",
-                opacity: uploading ? 0.7 : 1,
-              }}
-            >
-              {uploading ? "Uploading…" : "Upload File"}
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+        <div className="cd-modal-foot">
+          <button type="button" className="cd-btn cd-btn-ghost" onClick={onClose} disabled={uploading}>
+            Cancel
+          </button>
+          <button type="submit" className="cd-btn cd-btn-violet" disabled={uploading || !file}>
+            <FiUploadCloud /> {uploading ? "Uploading…" : "Upload File"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
+
+const STATUS_FILTERS = [
+  { key: "all", label: "All statuses" },
+  { key: "expired", label: "Expired" },
+  { key: "expiring_soon", label: "Expiring soon" },
+  { key: "valid", label: "Valid" },
+  { key: "not_available", label: "Not available" },
+  { key: "need_apply", label: "Need to apply" },
+];
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const CompanyDetail = () => {
@@ -1087,7 +654,9 @@ const CompanyDetail = () => {
   const [company, setCompany] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null);
 
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1101,471 +670,383 @@ const CompanyDetail = () => {
   const [notifStatus, setNotifStatus] = useState(null);
   const [sendingNotif, setSendingNotif] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [compRes, docsRes] = await Promise.all([
-        getCompany(id),
-        getCompanyDocuments(id),
-      ]);
-      setCompany(compRes.data);
-      // backend returns array directly from the documents/ action
-      const docsData = Array.isArray(docsRes.data)
-        ? docsRes.data
-        : docsRes.data?.results || [];
-      setDocuments(docsData);
-    } catch (err) {
-      console.error("Fetch error:", err.response?.data || err.message);
-      setError(
-        err.response?.status === 404
-          ? "Company not found."
-          : err.response?.status === 401
-            ? "Session expired – please log in again."
-            : `Failed to load data: ${err.message}`,
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+  const fetchData = useCallback(
+    async ({ quiet = false } = {}) => {
+      if (quiet) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const [compRes, docsRes] = await Promise.all([getCompany(id), getCompanyDocuments(id)]);
+        setCompany(compRes.data);
+        const docsData = Array.isArray(docsRes.data) ? docsRes.data : docsRes.data?.results || [];
+        setDocuments(docsData);
+      } catch (err) {
+        console.error("Fetch error:", err.response?.data || err.message);
+        setError(
+          err.response?.status === 404
+            ? "Company not found."
+            : err.response?.status === 401
+              ? "Session expired – please log in again."
+              : `Failed to load data: ${err.message}`,
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
+    // Switching company from the sidebar: start from a clean slate.
+    setSearch("");
+    setCategoryFilter("all");
+    setStatusFilter("all");
+    setNotifStatus(null);
+    setActionError(null);
     fetchData();
   }, [fetchData]);
 
+  // After a change: reload quietly (keeps scroll + filters) and update the sidebar badges.
+  const afterChange = useCallback(() => {
+    fetchData({ quiet: true });
+    notifyCompanyDocsChanged();
+  }, [fetchData]);
+
   const handleDeleteDoc = async (docId, name) => {
-    if (!window.confirm(`Delete document "${name}"?`)) return;
+    if (!window.confirm(`Delete document "${name}"?\nIts uploaded files are deleted too.`)) return;
+    setActionError(null);
     try {
       await deleteDocumentType(docId);
-      fetchData();
+      afterChange();
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed to delete document.");
+      setActionError(apiErrorMessage(err, "Failed to delete document."));
     }
   };
 
   const handleDeleteFile = async (fileId) => {
     if (!window.confirm("Remove this file?")) return;
+    setActionError(null);
     try {
       await deleteDocumentFile(fileId);
-      fetchData();
-    } catch {
-      alert("Failed to remove file.");
+      afterChange();
+    } catch (err) {
+      setActionError(apiErrorMessage(err, "Failed to remove file."));
     }
   };
 
   const handleSendNotifications = async () => {
+    if (
+      !window.confirm(
+        "Email the expiry digest now?\n\nIt covers ALL companies (not only this one): every document that is expired or expires within 90 days. It goes to the Company Documents team.",
+      )
+    )
+      return;
     setSendingNotif(true);
     setNotifStatus(null);
     try {
       const res = await sendExpiryNotifications(90);
       setNotifStatus({ ok: true, msg: res.data.message });
     } catch (err) {
-      setNotifStatus({
-        ok: false,
-        msg: err.response?.data?.message || "Failed to send.",
-      });
+      setNotifStatus({ ok: false, msg: apiErrorMessage(err, "Failed to send.") });
     } finally {
       setSendingNotif(false);
     }
   };
 
+  const filtered = useMemo(() => {
+    let list = documents;
+    if (categoryFilter !== "all") list = list.filter((d) => d.category === categoryFilter);
+    if (statusFilter !== "all") list = list.filter((d) => d.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (d) =>
+          (d.document_name || "").toLowerCase().includes(q) ||
+          (d.branch_location || "").toLowerCase().includes(q) ||
+          (d.document_number || "").toLowerCase().includes(q) ||
+          (d.responsible_person || "").toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [documents, categoryFilter, statusFilter, search]);
+
+  // Group by category, in the CATEGORY_LABELS order (unknown categories last).
+  const grouped = useMemo(() => {
+    const groups = {};
+    filtered.forEach((d) => {
+      (groups[d.category] = groups[d.category] || []).push(d);
+    });
+    const order = Object.keys(CATEGORY_LABELS);
+    return Object.entries(groups).sort(([a], [b]) => {
+      const ia = order.indexOf(a) === -1 ? order.length : order.indexOf(a);
+      const ib = order.indexOf(b) === -1 ? order.length : order.indexOf(b);
+      return ia - ib;
+    });
+  }, [filtered]);
+
   // ── Render states ──────────────────────────────────────────────────────────
   if (loading)
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "60vh",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            border: "3px solid #e2e8f0",
-            borderTop: "3px solid #2563eb",
-            borderRadius: "50%",
-            animation: "spin 0.8s linear infinite",
-          }}
-        />
-        <div style={{ fontSize: 13, color: "#94a3b8" }}>Loading documents…</div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="cd-app">
+        <style>{COMPANY_DOCS_CSS}</style>
+        <div className="cd-loading">
+          <div className="cd-spinner" />
+          Loading documents…
+        </div>
       </div>
     );
 
   if (error)
     return (
-      <div style={{ padding: 40 }}>
-        <button
-          onClick={() => navigate("/company-docs")}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "#2563eb",
-            fontSize: 13,
-            padding: 0,
-            marginBottom: 16,
-          }}
-        >
-          ← Back to Companies
-        </button>
-        <div
-          style={{
-            padding: "16px 20px",
-            background: "#fee2e2",
-            color: "#dc2626",
-            borderRadius: 10,
-            fontSize: 14,
-            marginBottom: 16,
-          }}
-        >
-          ⚠️ {error}
+      <div className="cd-app">
+        <style>{COMPANY_DOCS_CSS}</style>
+        <div className="cd-body">
+          <div className="cd-crumbs" style={{ marginBottom: 12 }}>
+            <Link to="/company-docs">Company Documents</Link>
+          </div>
+          <div className="cd-alert err">
+            <FiAlertTriangle />
+            <span>{error}</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="cd-btn cd-btn-ghost" onClick={() => navigate("/company-docs")}>
+              Back to Companies
+            </button>
+            <button type="button" className="cd-btn cd-btn-primary" onClick={() => fetchData()}>
+              <FiRefreshCw /> Retry
+            </button>
+          </div>
         </div>
-        <button
-          onClick={fetchData}
-          style={{
-            padding: "8px 18px",
-            borderRadius: 8,
-            border: "1px solid #d1d5db",
-            background: "#fff",
-            cursor: "pointer",
-            fontSize: 13,
-          }}
-        >
-          Retry
-        </button>
       </div>
     );
 
-  // ── Filter ─────────────────────────────────────────────────────────────────
-  let filtered = documents;
-  if (categoryFilter !== "all")
-    filtered = filtered.filter((d) => d.category === categoryFilter);
-  if (statusFilter !== "all")
-    filtered = filtered.filter((d) => d.status === statusFilter);
-  if (search.trim()) {
-    const q = search.toLowerCase();
-    filtered = filtered.filter(
-      (d) =>
-        (d.document_name || "").toLowerCase().includes(q) ||
-        (d.branch_location || "").toLowerCase().includes(q) ||
-        (d.document_number || "").toLowerCase().includes(q) ||
-        (d.responsible_person || "").toLowerCase().includes(q),
-    );
-  }
+  const count = (s) => documents.filter((d) => d.status === s).length;
+  const missingFiles = documents.filter((d) => !d.files || d.files.length === 0).length;
+  const hasFilters = search || categoryFilter !== "all" || statusFilter !== "all";
 
-  // Group by category
-  const grouped = {};
-  filtered.forEach((d) => {
-    if (!grouped[d.category]) grouped[d.category] = [];
-    grouped[d.category].push(d);
-  });
-
-  // Stats from raw documents (live status from backend)
-  const totalDocs = documents.length;
-  const expiredCount = documents.filter((d) => d.status === "expired").length;
-  const expiringSoonCount = documents.filter(
-    (d) => d.status === "expiring_soon",
-  ).length;
-  const validCount = documents.filter((d) => d.status === "valid").length;
+  const kpis = [
+    { key: "all", label: "Total Documents", value: documents.length, icon: <FiFileText />, tone: "blue" },
+    { key: "expired", label: "Expired", value: count("expired"), icon: <FiAlertTriangle />, tone: "red" },
+    { key: "expiring_soon", label: "Expiring Soon", value: count("expiring_soon"), icon: <FiClock />, tone: "amber" },
+    { key: "valid", label: "Valid", value: count("valid"), icon: <FiCheckCircle />, tone: "green" },
+  ];
 
   return (
-    <div
-      style={{
-        padding: "30px 60px",
-        background: "#f8fafc",
-        minHeight: "100vh",
-      }}
-    >
-      {/* ── Header ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          marginBottom: 22,
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div>
-          <button
-            onClick={() => navigate("/company-docs")}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "#2563eb",
-              fontSize: 13,
-              padding: 0,
-              marginBottom: 6,
-              display: "block",
-            }}
-          >
-            ← Back to Companies
-          </button>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 22,
-              fontWeight: 800,
-              color: "#0f172a",
-            }}
-          >
+    <div className="cd-app">
+      <style>{COMPANY_DOCS_CSS}</style>
+
+      <header className="cd-header">
+        <div style={{ minWidth: 0 }}>
+          <nav className="cd-crumbs" aria-label="Breadcrumb">
+            <Link to="/company-docs">Company Documents</Link>
+            <FiChevronRight />
+            <span style={{ color: "#334155", fontWeight: 600 }}>{company?.short_name || company?.name}</span>
+          </nav>
+          <h1 className="cd-title">
             {company?.name || "Company"}
+            {company?.short_name && <span className="cd-count">{company.short_name}</span>}
           </h1>
-          {company?.short_name && (
-            <p style={{ margin: "2px 0 0", color: "#64748b", fontSize: 13 }}>
-              {company.short_name}
-            </p>
-          )}
-          {company?.address && (
-            <p style={{ margin: "2px 0 0", color: "#94a3b8", fontSize: 12 }}>
-              📍 {company.address}
+          {(company?.address || company?.email || company?.phone) && (
+            <p className="cd-subtitle">
+              {company?.address && (
+                <span>
+                  <FiMapPin /> {company.address}
+                </span>
+              )}
+              {company?.email && (
+                <span>
+                  <FiMail /> {company.email}
+                </span>
+              )}
+              {company?.phone && (
+                <span>
+                  <FiPhone /> {company.phone}
+                </span>
+              )}
             </p>
           )}
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="cd-header-actions">
           <button
+            type="button"
+            className="cd-btn cd-btn-ghost"
+            onClick={() => fetchData({ quiet: true })}
+            disabled={refreshing}
+            title="Reload"
+          >
+            <FiRefreshCw className={refreshing ? "cd-spin" : ""} /> Refresh
+          </button>
+          <button
+            type="button"
+            className="cd-btn cd-btn-warn"
             onClick={handleSendNotifications}
             disabled={sendingNotif}
-            style={{
-              padding: "8px 16px",
-              borderRadius: 8,
-              border: "none",
-              background: sendingNotif ? "#94a3b8" : "#f59e0b",
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
+            title="Email the expiry digest for ALL companies to the Company Documents team"
           >
-            {sendingNotif ? "Sending…" : "📧 Send Expiry Alert"}
+            <FiMail /> {sendingNotif ? "Sending…" : "Send Expiry Digest"}
           </button>
-          <button
-            onClick={() => setAddCategory("other")}
-            style={{
-              padding: "8px 16px",
-              borderRadius: 8,
-              border: "none",
-              background: "#2563eb",
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            + Add Document
+          <button type="button" className="cd-btn cd-btn-primary" onClick={() => setAddCategory("other")}>
+            <FiPlus /> Add Document
           </button>
         </div>
-      </div>
+      </header>
 
-      {notifStatus && (
-        <div
-          style={{
-            marginBottom: 16,
-            padding: "10px 14px",
-            borderRadius: 8,
-            background: notifStatus.ok ? "#dcfce7" : "#fee2e2",
-            color: notifStatus.ok ? "#16a34a" : "#dc2626",
-            fontSize: 13,
-          }}
-        >
-          {notifStatus.ok ? "✓" : "✗"} {notifStatus.msg}
-        </div>
-      )}
-
-      {/* ── Stats ── */}
-      <div
-        style={{ display: "flex", gap: 12, marginBottom: 22, flexWrap: "wrap" }}
-      >
-        {[
-          {
-            label: "Total Docs",
-            value: totalDocs,
-            color: "#2563eb",
-            bg: "#eff6ff",
-          },
-          {
-            label: "Expired",
-            value: expiredCount,
-            color: "#dc2626",
-            bg: "#fee2e2",
-          },
-          {
-            label: "Expiring Soon",
-            value: expiringSoonCount,
-            color: "#d97706",
-            bg: "#fef3c7",
-          },
-          {
-            label: "Valid",
-            value: validCount,
-            color: "#16a34a",
-            bg: "#dcfce7",
-          },
-        ].map((s) => (
-          <div
-            key={s.label}
-            style={{
-              padding: "12px 18px",
-              borderRadius: 10,
-              background: s.bg,
-              minWidth: 90,
-            }}
-          >
-            <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>
-              {s.value}
-            </div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>{s.label}</div>
+      <div className="cd-body">
+        {notifStatus && (
+          <div className={`cd-alert ${notifStatus.ok ? "ok" : "err"}`}>
+            {notifStatus.ok ? <FiCheckCircle /> : <FiAlertTriangle />}
+            <span>{notifStatus.msg}</span>
+            <button type="button" className="cd-icon-btn" onClick={() => setNotifStatus(null)} title="Dismiss">
+              <FiX />
+            </button>
           </div>
-        ))}
-      </div>
+        )}
+        {actionError && (
+          <div className="cd-alert err">
+            <FiAlertTriangle />
+            <span>{actionError}</span>
+            <button type="button" className="cd-icon-btn" onClick={() => setActionError(null)} title="Dismiss">
+              <FiX />
+            </button>
+          </div>
+        )}
+        {missingFiles > 0 && (
+          <div className="cd-alert warn">
+            <FiPaperclip />
+            <span>
+              {missingFiles} document{missingFiles !== 1 ? "s have" : " has"} no file attached yet.
+            </span>
+          </div>
+        )}
 
-      {/* ── Filters ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginBottom: 20,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="🔍 Search documents…"
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #d1d5db",
-            fontSize: 13,
-            minWidth: 200,
-            outline: "none",
-          }}
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #d1d5db",
-            fontSize: 13,
-            background: "#fff",
-          }}
-        >
-          <option value="all">All Categories</option>
-          {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
+        <div className="cd-kpis">
+          {kpis.map((k) => (
+            <button
+              key={k.key}
+              type="button"
+              className={`cd-kpi tone-${k.tone} ${statusFilter === k.key && k.key !== "all" ? "active" : ""}`}
+              onClick={() => setStatusFilter(k.key === "all" || statusFilter === k.key ? "all" : k.key)}
+              title={k.key === "all" ? "Show all" : `Show ${k.label.toLowerCase()}`}
+            >
+              <span className="cd-kpi-icon">{k.icon}</span>
+              <span>
+                <span className="cd-kpi-value">{k.value}</span>
+                <span className="cd-kpi-label">{k.label}</span>
+              </span>
+            </button>
           ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #d1d5db",
-            fontSize: 13,
-            background: "#fff",
-          }}
-        >
-          <option value="all">All Statuses</option>
-          <option value="expired">🔴 Expired</option>
-          <option value="expiring_soon">🟡 Expiring Soon</option>
-          <option value="valid">🟢 Valid</option>
-          <option value="not_available">⚪ Not Available</option>
-          <option value="need_apply">🟣 Need to Apply</option>
-        </select>
-        {(search || categoryFilter !== "all" || statusFilter !== "all") && (
-          <button
-            onClick={() => {
-              setSearch("");
-              setCategoryFilter("all");
-              setStatusFilter("all");
-            }}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #d1d5db",
-              background: "#fff",
-              fontSize: 12,
-              cursor: "pointer",
-              color: "#64748b",
-            }}
-          >
-            ✕ Clear
-          </button>
+        </div>
+
+        <div className="cd-toolbar">
+          <div className="cd-search">
+            <FiSearch />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, branch, number or person"
+            />
+            {search && (
+              <button type="button" className="cd-search-clear" onClick={() => setSearch("")} title="Clear">
+                <FiX />
+              </button>
+            )}
+          </div>
+          <select className="cd-select" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="all">All categories</option>
+            {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <select className="cd-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            {STATUS_FILTERS.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          {hasFilters && (
+            <button
+              type="button"
+              className="cd-link-btn"
+              onClick={() => {
+                setSearch("");
+                setCategoryFilter("all");
+                setStatusFilter("all");
+              }}
+            >
+              Clear filters
+            </button>
+          )}
+          <span className="cd-result-note">
+            {filtered.length} of {documents.length} document{documents.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {grouped.length === 0 ? (
+          <div className="cd-state">
+            <div className="cd-state-icon">{documents.length === 0 ? <FiFolder /> : <FiInbox />}</div>
+            <h3>{documents.length === 0 ? "No documents added yet" : "No documents match your filters"}</h3>
+            <p>
+              {documents.length === 0
+                ? "Start tracking this company's licences, certificates and agreements."
+                : "Try clearing your search or filters."}
+            </p>
+            {documents.length === 0 ? (
+              <button type="button" className="cd-btn cd-btn-primary" onClick={() => setAddCategory("trade_license")}>
+                <FiPlus /> Add Document
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="cd-btn cd-btn-ghost"
+                onClick={() => {
+                  setSearch("");
+                  setCategoryFilter("all");
+                  setStatusFilter("all");
+                }}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        ) : (
+          grouped.map(([cat, docs]) => (
+            <CategorySection
+              key={cat}
+              category={cat}
+              docs={docs}
+              onEdit={setEditDoc}
+              onDelete={handleDeleteDoc}
+              onUpload={setUploadDoc}
+              onDeleteFile={handleDeleteFile}
+              onAddInCategory={(c) => setAddCategory(c)}
+            />
+          ))
         )}
       </div>
 
-      {/* ── Document groups ── */}
-      {Object.keys(grouped).length === 0 ? (
-        <div
-          style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}
-        >
-          <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
-          <div style={{ fontWeight: 600, color: "#64748b", marginBottom: 4 }}>
-            {documents.length === 0
-              ? "No documents added yet"
-              : "No documents match your filters"}
-          </div>
-          <div style={{ fontSize: 13 }}>
-            {documents.length === 0
-              ? 'Use "+ Add Document" to start tracking regulatory documents.'
-              : "Try clearing your search or filter."}
-          </div>
-        </div>
-      ) : (
-        Object.entries(grouped).map(([cat, docs]) => (
-          <CategorySection
-            key={cat}
-            category={cat}
-            docs={docs}
-            onEdit={setEditDoc}
-            onDelete={handleDeleteDoc}
-            onUpload={setUploadDoc}
-            onDeleteFile={handleDeleteFile}
-            onAddInCategory={(cat) => setAddCategory(cat)}
-          />
-        ))
-      )}
-
-      {/* ── Modals ── */}
       {editDoc && (
         <DocFormModal
-          companyId={parseInt(id)}
+          companyId={parseInt(id, 10)}
           editDoc={editDoc}
           defaultCategory={null}
           onClose={() => setEditDoc(null)}
-          onSaved={fetchData}
+          onSaved={afterChange}
         />
       )}
       {addCategory && !editDoc && (
         <DocFormModal
-          companyId={parseInt(id)}
+          companyId={parseInt(id, 10)}
           editDoc={null}
           defaultCategory={addCategory}
           onClose={() => setAddCategory(null)}
-          onSaved={fetchData}
+          onSaved={afterChange}
         />
       )}
-      {uploadDoc && (
-        <FileUploadModal
-          doc={uploadDoc}
-          onClose={() => setUploadDoc(null)}
-          onUploaded={fetchData}
-        />
-      )}
+      {uploadDoc && <FileUploadModal doc={uploadDoc} onClose={() => setUploadDoc(null)} onUploaded={afterChange} />}
     </div>
   );
 };

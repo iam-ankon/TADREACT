@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../assets/texweave_Logo_1.png";
 import React, { useEffect, useState } from "react";
 import { loginUser, debugAuth } from "../../api/employeeApi";
+import { homePath } from "../../utils/routeAccess";
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -76,18 +77,9 @@ const LoginPage = () => {
     // Check if already logged in
     const token = localStorage.getItem("token");
     if (token) {
-      const permissions = JSON.parse(
-        localStorage.getItem("permissions") || "{}",
-      );
-      if (permissions.full_access) {
-        navigate("/hr-work");
-      } else if (permissions.lab_qc) {
-        // Pure Lab/QC officer (not full_access) - no reason to land on the
-        // general HR dashboard.
-        navigate("/lab-qc");
-      } else {
-        navigate("/dashboard");
-      }
+      // Same home page as the URL guard (a pure Lab/QC officer lands on
+      // /lab-qc; Lab admins without full access, like Mizan, don't).
+      navigate(homePath());
     }
   }, [navigate]);
 
@@ -193,15 +185,7 @@ const LoginPage = () => {
       setError("✅ Login successful! Redirecting...");
 
       setTimeout(() => {
-        if (data.permissions?.full_access) {
-          navigate("/hr-work");
-        } else if (data.permissions?.lab_qc) {
-          // Pure Lab/QC officer (not full_access) - no reason to land on the
-          // general HR dashboard.
-          navigate("/lab-qc");
-        } else {
-          navigate("/dashboard");
-        }
+        navigate(homePath());
       }, 1000);
     } catch (err) {
       console.error("❌ Login error:", err);

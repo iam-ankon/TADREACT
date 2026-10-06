@@ -72,30 +72,192 @@ export const formatDateTime = (value) => {
 };
 
 export const isEmptyValue = (v) =>
-  v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+  v === null ||
+  v === undefined ||
+  (typeof v === "string" && v.trim() === "") ||
+  (typeof v === "object" && Object.keys(v).length === 0);
+
+// ---- Schema helpers (see TADDJANGO/lab_qc/section_schema.py) -------------
+
+/** Lookup context for show_if / label placeholders: the color entry, then
+ *  the section's setup fields, then General Information (Sample Type). */
+export const fieldContext = (sectionsState, setup, entry) => ({
+  ...(sectionsState?.general_info || {}),
+  ...(setup || {}),
+  ...(entry || {}),
+});
+
+/** A field with show_if is visible only when the named field holds one of
+ *  the listed values. */
+export const isFieldVisible = (field, ctx) => {
+  if (!field.show_if) return true;
+  return (field.show_if.in || []).includes(ctx?.[field.show_if.field]);
+};
+
+/** Fills "{field}" placeholders in a label (e.g. the selected weight unit);
+ *  an empty value drops the placeholder and its brackets. */
+export const fillLabel = (text, ctx) =>
+  String(text || "")
+    .replace(/\s*\(\{(\w+)\}\)/g, (_, k) => (isEmptyValue(ctx?.[k]) ? "" : ` (${ctx[k]})`))
+    .replace(/\{(\w+)\}/g, (_, k) => (isEmptyValue(ctx?.[k]) ? "" : String(ctx[k])));
+
+/** Drops empty cells and rows (fixed rows and user-added "_extra" rows);
+ *  returns null when the grid has no data. */
+export const cleanTableValue = (field, value) => {
+  if (!value || typeof value !== "object") return null;
+  const out = {};
+  const keepCells = (cells) => {
+    const rowOut = {};
+    (field.columns || []).forEach((col) => {
+      if (!isEmptyValue(cells?.[col.key])) rowOut[col.key] = cells[col.key];
+    });
+    return rowOut;
+  };
+  (field.rows || []).forEach((row) => {
+    if (!row.key) return;
+    const rowOut = keepCells(value[row.key]);
+    if (Object.keys(rowOut).length > 0) out[row.key] = rowOut;
+  });
+  if (field.allow_extra_rows) {
+    const extra = (value._extra || [])
+      .map((r) => {
+        const rowOut = keepCells(r);
+        if (Object.keys(rowOut).length === 0) return null;
+        return { label: String(r.label || "").trim() || "Other seam", ...rowOut };
+      })
+      .filter(Boolean);
+    if (extra.length > 0) out._extra = extra;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+};
+
+/** "rows" field: keeps only rows with at least one filled cell. */
+export const cleanRowsValue = (field, value) => {
+  if (!Array.isArray(value)) return null;
+  const out = value
+    .map((r) => {
+      const rowOut = {};
+      (field.columns || []).forEach((col) => {
+        if (!isEmptyValue(r?.[col.key])) rowOut[col.key] = r[col.key];
+      });
+      return rowOut;
+    })
+    .filter((r) => Object.keys(r).length > 0);
+  return out.length > 0 ? out : null;
+};
+
+/** Non-empty values of the visible fields, with tables/rows cleaned. */
+const cleanFields = (fields, raw, ctx) => {
+  const out = {};
+  (fields || []).forEach((field) => {
+    if (field.type === "heading" || field.type === "static") return;
+    if (!isFieldVisible(field, ctx)) return;
+    let val = raw?.[field.key];
+    if (field.type === "table") val = cleanTableValue(field, val);
+    else if (field.type === "rows") val = cleanRowsValue(field, val);
+    else if (typeof val === "string") val = val.trim() === "" ? "" : val;
+    if (!isEmptyValue(val)) out[field.key] = val;
+  });
+  return out;
+};
+
+const addStatics = (fields, target) => {
+  (fields || []).filter((f) => f.type === "static").forEach((f) => {
+    target[f.key] = f.value;
+  });
+};
+
+/** Entry has real test data (not just a color name). */
+export const entryHasData = (entry) => Object.keys(entry || {}).some((k) => k !== "color_name");
 
 /**
- * Strips empty leaf fields from the in-progress sections state and drops
- * any section that ends up with nothing filled. This is what keeps drafts
- * clean and is what makes the PDF export's "blank fields don't appear"
- * rule work - the backend only prints what's actually in this JSON.
+ * Strips empty fields from the in-progress sections state and drops any
+ * section / color entry that ends up with nothing filled. This is what
+ * keeps drafts clean and makes the PDF's "only filled sections appear" rule
+ * work - the backend only prints what's actually in this JSON.
+ *   info section: {field: value}
+ *   test section: {setup field: value, entries: [{color_name, ...}]}
  */
 export const buildCleanSections = (schema, sectionsState) => {
   const cleaned = {};
+  const general = sectionsState.general_info || {};
   (schema?.sections || []).forEach((section) => {
     const raw = sectionsState[section.key] || {};
-    const fieldsClean = {};
-    (section.fields || []).forEach((field) => {
-      const val = raw[field.key];
-      if (!isEmptyValue(val)) {
-        fieldsClean[field.key] = val;
+    if (section.kind !== "test") {
+      const fieldsClean = cleanFields(section.fields, raw, raw);
+      if (Object.keys(fieldsClean).length > 0) {
+        addStatics(section.fields, fieldsClean);
+        cleaned[section.key] = fieldsClean;
       }
-    });
-    if (Object.keys(fieldsClean).length > 0) {
-      cleaned[section.key] = fieldsClean;
+      return;
     }
+    const setupCtx = { ...general, ...raw };
+    const entries = (raw.entries || [])
+      .map((entry) => cleanFields(section.fields, entry, { ...setupCtx, ...entry }))
+      .filter(entryHasData);
+    if (entries.length === 0) return;
+    const setup = cleanFields(section.setup_fields, raw, setupCtx);
+    addStatics(section.setup_fields, setup);
+    cleaned[section.key] = { ...setup, entries };
   });
   return cleaned;
+};
+
+/** Labels of test sections that have a filled color entry without a name. */
+export const sectionsMissingColorName = (schema, cleaned) =>
+  (schema?.sections || [])
+    .filter((s) => s.kind === "test")
+    .filter((s) => (cleaned[s.key]?.entries || []).some((e) => isEmptyValue(e.color_name)))
+    .map((s) => s.label);
+
+/** Distinct color names used anywhere in the report, in first-seen order. */
+export const reportColorNames = (schema, sectionsState) => {
+  const seen = new Map();
+  (schema?.sections || []).forEach((section) => {
+    if (section.kind !== "test") return;
+    (sectionsState[section.key]?.entries || []).forEach((e) => {
+      const name = String(e?.color_name || "").trim();
+      const key = name.toLowerCase();
+      if (name && !seen.has(key)) seen.set(key, name);
+    });
+  });
+  return [...seen.values()];
+};
+
+const toNumber = (v) => {
+  if (isEmptyValue(v)) return null;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const round2 = (n) => String(Math.round(n * 100) / 100);
+
+/** Fills the computed columns of one table row, in column order (so a
+ *  computed column can feed a later one, e.g. g/m² -> oz/yd²). */
+export const computeTableRow = (columns, rowValues) => {
+  const row = { ...(rowValues || {}) };
+  (columns || []).forEach((col) => {
+    const c = col.compute;
+    if (!c) return;
+    let result = null;
+    if (c.op === "pct_change") {
+      const from = toNumber(row[c.from]);
+      const to = toNumber(row[c.to]);
+      if (from !== null && to !== null && from !== 0) result = ((to - from) / from) * 100;
+    } else if (c.op === "ratio_pct") {
+      const num = toNumber(row[c.num]);
+      const den = toNumber(row[c.den]);
+      if (num !== null && den !== null && den !== 0) result = (num / den) * 100;
+    } else if (c.op === "avg") {
+      const nums = (c.of || []).map((k) => toNumber(row[k])).filter((n) => n !== null);
+      if (nums.length > 0) result = nums.reduce((a, b) => a + b, 0) / nums.length;
+    } else if (c.op === "mul") {
+      const base = toNumber(row[c.of]);
+      if (base !== null) result = base * c.factor;
+    }
+    row[col.key] = result === null ? "" : round2(result);
+  });
+  return row;
 };
 
 export const Badge = ({ children, color }) => (

@@ -1,468 +1,256 @@
-// BuyerDetails.jsx - Individual buyer details view
-import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import axios from "axios";
-import Sidebar from "../merchandiser/Sidebar.jsx";
+// BuyerDetails.jsx - one buyer (route /buyer-details/:id): contact, linked
+// customers, department / WGR / item / category rows, remarks; edit / delete.
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  FiAlertTriangle,
+  FiArrowLeft,
+  FiBriefcase,
+  FiChevronRight,
+  FiEdit2,
+  FiLayers,
+  FiMail,
+  FiMessageSquare,
+  FiPhone,
+  FiTrash2,
+  FiUser,
+} from "react-icons/fi";
+import Sidebar from "./Sidebar.jsx";
+import { merchandiserApi } from "../../api/merchandiser";
+import { AGENT_CSS, customerName, initialsOf } from "./agentTheme";
 
-// Helper function to get customer display name
-const getCustomerDisplayName = (customer) => {
-  if (!customer) return "-";
-  if (typeof customer === "object") {
-    if (customer.customer_name) return customer.customer_name;
-    if (customer.name) {
-      if (typeof customer.name === "object") {
-        if (customer.name.customer_name) return customer.name.customer_name;
-        if (customer.name.name) return customer.name.name;
-      }
-      if (typeof customer.name === "string") return customer.name;
-    }
-    if (customer.hrms_customer_name) return customer.hrms_customer_name;
-    if (customer.display_name) return customer.display_name;
-    return `Customer ${customer.id}`;
-  }
-  return customer.toString() || "-";
-};
+const asList = (data) => (Array.isArray(data) ? data : data?.results || []);
 
 export default function BuyerDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [buyer, setBuyer] = useState(null);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [customers, setCustomers] = useState([]);
+  const [actionError, setActionError] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    fetchBuyerDetails();
-  }, [id]);
-
-  const fetchBuyerDetails = async () => {
+    let alive = true;
     setLoading(true);
     setError(null);
-    try {
-      const [buyerRes, customersRes] = await Promise.all([
-        axios.get(`http://119.148.51.38:8000/api/merchandiser/api/buyer/${id}/`),
-        axios.get("http://119.148.51.38:8000/api/merchandiser/api/customer/"),
-      ]);
-      setBuyer(buyerRes.data);
-      setCustomers(customersRes.data);
-    } catch (err) {
-      console.error("Error fetching buyer details:", err);
-      setError("Failed to load buyer details. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    Promise.all([merchandiserApi.get(`buyer/${id}/`), merchandiserApi.get("customer/").catch(() => ({ data: [] }))])
+      .then(([buyerRes, customersRes]) => {
+        if (!alive) return;
+        setBuyer(buyerRes.data);
+        setCustomers(asList(customersRes.data));
+      })
+      .catch((err) => alive && setError(err.response?.status === 404 ? "Buyer not found." : "Failed to load buyer details."))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  const buyerCustomers = useMemo(() => {
+    if (!buyer) return [];
+    if (Array.isArray(buyer.customers_display) && buyer.customers_display.length) return buyer.customers_display;
+    const ids = new Set(buyer.customers || []);
+    return customers.filter((c) => ids.has(c.id));
+  }, [buyer, customers]);
+
+  const rows = buyer?.rows || [];
+  const distinct = (key) => [...new Set(rows.map((r) => r[key]).filter(Boolean))];
 
   const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete this buyer?")) {
-      try {
-        await axios.delete(`http://119.148.51.38:8000/api/merchandiser/api/buyer/${id}/`);
-        navigate("/buyers");
-      } catch (err) {
-        console.error("Error deleting buyer:", err);
-        setError("Failed to delete buyer. Please try again.");
-      }
+    if (!window.confirm(`Delete buyer "${buyer.name || "this buyer"}"? Its rows and customer links are removed too.`)) return;
+    setDeleting(true);
+    setActionError(null);
+    try {
+      await merchandiserApi.delete(`buyer/${id}/`);
+      navigate("/buyers");
+    } catch (err) {
+      setActionError(err.response?.data?.detail || "Failed to delete the buyer.");
+      setDeleting(false);
     }
   };
-
-  // Get buyer's customers
-  const getBuyerCustomers = () => {
-    if (!buyer?.customers) return [];
-    return customers.filter((customer) => buyer.customers.includes(customer.id));
-  };
-
-  // Get rows data
-  const getRowsData = () => {
-    return buyer?.rows || [];
-  };
-
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <Sidebar />
-        <div style={styles.loadingContainer}>
-          <div style={styles.spinner}></div>
-          <p>Loading buyer details...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !buyer) {
-    return (
-      <div style={styles.container}>
-        <Sidebar />
-        <div style={styles.errorContainer}>
-          <div style={styles.errorIcon}>⚠️</div>
-          <h2>{error || "Buyer not found"}</h2>
-          <button onClick={() => navigate("/buyers")} style={styles.backButton}>
-            Back to Buyers
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const buyerCustomers = getBuyerCustomers();
-  const rows = getRowsData();
 
   return (
-    <div style={styles.container}>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
-      <div style={styles.mainContent}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.headerContent}>
-            <div style={styles.headerLeft}>
-              <button onClick={() => navigate("/buyers")} style={styles.backBtn}>
-                ← Back
-              </button>
-              <div style={styles.headerBadge}>🏢</div>
-              <div>
-                <h1 style={styles.headerTitle}>{buyer.name || "Buyer Details"}</h1>
-                <p style={styles.headerSubtitle}>View buyer information and assignments</p>
+      <div className="ag-app">
+        <style>{AGENT_CSS}</style>
+
+        {loading ? (
+          <div className="ag-loading">
+            <div className="ag-spinner" />
+            Loading buyer…
+          </div>
+        ) : error || !buyer ? (
+          <div className="ag-body">
+            <div className="ag-state ag-card">
+              <div className="ag-state-icon">
+                <FiAlertTriangle />
               </div>
-            </div>
-            <div style={styles.headerActions}>
-              <Link to={`/edit-buyer/${buyer.id}`} style={styles.editBtn}>
-                ✏️ Edit Buyer
-              </Link>
-              <button onClick={handleDelete} style={styles.deleteBtn}>
-                🗑️ Delete
+              <h3>{error || "Buyer not found."}</h3>
+              <p>It may have been deleted.</p>
+              <button type="button" className="ag-btn ghost" onClick={() => navigate("/buyers")}>
+                <FiArrowLeft /> Back to Buyers
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Basic Information Card */}
-        <div style={styles.card}>
-          <div style={styles.cardTitle}>
-            <div style={styles.cardIcon}>📋</div>
-            Basic Information
-          </div>
-          <div style={styles.infoGrid}>
-            <div style={styles.infoItem}>
-              <label>Buyer Name</label>
-              <div style={styles.infoValue}>{buyer.name || "-"}</div>
-            </div>
-            <div style={styles.infoItem}>
-              <label>Email Address</label>
-              <div style={styles.infoValue}>{buyer.email || "-"}</div>
-            </div>
-            <div style={styles.infoItem}>
-              <label>Phone Number</label>
-              <div style={styles.infoValue}>{buyer.phone || "-"}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Customers Card */}
-        <div style={styles.card}>
-          <div style={styles.cardTitle}>
-            <div style={styles.cardIcon}>👥</div>
-            Assigned Customers
-          </div>
-          {buyerCustomers.length > 0 ? (
-            <div style={styles.customersGrid}>
-              {buyerCustomers.map((customer) => (
-                <div key={customer.id} style={styles.customerCard}>
-                  <div style={styles.customerName}>{getCustomerDisplayName(customer)}</div>
-                  {customer.email && <div style={styles.customerEmail}>{customer.email}</div>}
-                  {customer.phone && <div style={styles.customerPhone}>{customer.phone}</div>}
+        ) : (
+          <>
+            <header className="ag-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span className="ag-avatar lg">{initialsOf(buyer.name)}</span>
+                <div>
+                  <nav className="ag-crumbs" aria-label="Breadcrumb">
+                    <Link to="/buyers">Buyers</Link>
+                    <FiChevronRight />
+                    <span>{buyer.name || "Buyer"}</span>
+                  </nav>
+                  <h1 className="ag-title">{buyer.name || "Unnamed buyer"}</h1>
+                  <p className="ag-subtitle">
+                    {buyerCustomers.length} customer(s) · {rows.length} row(s) · {distinct("department").length} department(s)
+                  </p>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div style={styles.emptyState}>No customers assigned to this buyer</div>
-          )}
-        </div>
+              </div>
+              <div className="ag-actions">
+                <button type="button" className="ag-btn ghost" onClick={() => navigate("/buyers")}>
+                  <FiArrowLeft /> Back
+                </button>
+                <button type="button" className="ag-btn danger-ghost" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? <span className="ag-spinner sm" /> : <FiTrash2 />} Delete
+                </button>
+                <button type="button" className="ag-btn primary" onClick={() => navigate(`/edit-buyer/${buyer.id}`)}>
+                  <FiEdit2 /> Edit Buyer
+                </button>
+              </div>
+            </header>
 
-        {/* Department, WGR, Items & Categories Card */}
-        <div style={styles.card}>
-          <div style={styles.cardTitle}>
-            <div style={styles.cardIcon}>📊</div>
-            Department, WGR, Items & Product Categories
-          </div>
-          {rows.length > 0 ? (
-            <div style={styles.tableWrapper}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>#</th>
-                    <th style={styles.th}>Department</th>
-                    <th style={styles.th}>WGR Number</th>
-                    <th style={styles.th}>Item</th>
-                    <th style={styles.th}>Product Category</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, idx) => (
-                    <tr key={row.id || idx}>
-                      <td style={styles.td}>{idx + 1}</td>
-                      <td style={styles.td}>{row.department || "-"}</td>
-                      <td style={styles.td}>{row.wgr_number || "-"}</td>
-                      <td style={styles.td}>{row.item || "-"}</td>
-                      <td style={styles.td}>{row.product_category || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={styles.emptyState}>No rows data available</div>
-          )}
-        </div>
+            <div className="ag-body">
+              {actionError && (
+                <div className="ag-alert err">
+                  <FiAlertTriangle />
+                  <span>{actionError}</span>
+                </div>
+              )}
 
-        {/* Remarks Card */}
-        {buyer.remarks && (
-          <div style={styles.card}>
-            <div style={styles.cardTitle}>
-              <div style={styles.cardIcon}>📝</div>
-              Remarks / Notes
+              <section className="ag-card ag-section">
+                <div className="ag-section-head">
+                  <h2>
+                    <FiUser /> Contact
+                  </h2>
+                </div>
+                <div className="ag-section-body">
+                  <div className="ag-info-grid">
+                    <div>
+                      <div className="k">Name</div>
+                      <div className="v">{buyer.name || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="k">Email</div>
+                      <div className="v">
+                        {buyer.email ? (
+                          <a className="ag-contact" href={`mailto:${buyer.email}`}>
+                            <FiMail /> {buyer.email}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="k">Phone</div>
+                      <div className="v">
+                        {buyer.phone ? (
+                          <a className="ag-contact" href={`tel:${buyer.phone}`}>
+                            <FiPhone /> {buyer.phone}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="ag-card ag-section">
+                <div className="ag-section-head">
+                  <h2>
+                    <FiBriefcase /> Customers <span className="ag-count">{buyerCustomers.length}</span>
+                  </h2>
+                </div>
+                {buyerCustomers.length === 0 ? (
+                  <div className="ag-empty-line">No customers linked to this buyer.</div>
+                ) : (
+                  <div className="ag-section-body">
+                    <div className="ag-chips" style={{ maxWidth: "none", gap: 6 }}>
+                      {buyerCustomers.map((c) => (
+                        <Link
+                          key={c.id}
+                          to={`/customer-details/${c.id}`}
+                          className="ag-chip blue"
+                          style={{ textDecoration: "none", fontSize: 13, padding: "4px 10px" }}
+                        >
+                          {customerName(c)}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="ag-card ag-section">
+                <div className="ag-section-head">
+                  <h2>
+                    <FiLayers /> Departments, WGR, items &amp; categories <span className="ag-count">{rows.length}</span>
+                  </h2>
+                </div>
+                {rows.length === 0 ? (
+                  <div className="ag-empty-line">No rows yet — add them from Edit Buyer.</div>
+                ) : (
+                  <div className="ag-table-wrap">
+                    <table className="ag-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 48 }}>#</th>
+                          <th>Department</th>
+                          <th>WGR number</th>
+                          <th>Item</th>
+                          <th>Product category</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r, i) => (
+                          <tr key={r.id || i} style={{ cursor: "default" }}>
+                            <td style={{ color: "#94a3b8", fontWeight: 600 }}>{i + 1}</td>
+                            <td>{r.department || <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                            <td>{r.wgr_number || <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                            <td>{r.item || <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                            <td>{r.product_category || <span style={{ color: "#94a3b8" }}>—</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              {buyer.remarks && (
+                <section className="ag-card ag-section">
+                  <div className="ag-section-head">
+                    <h2>
+                      <FiMessageSquare /> Remarks
+                    </h2>
+                  </div>
+                  <div className="ag-section-body" style={{ whiteSpace: "pre-wrap", color: "#334155", lineHeight: 1.6 }}>
+                    {buyer.remarks}
+                  </div>
+                </section>
+              )}
             </div>
-            <div style={styles.remarksText}>{buyer.remarks}</div>
-          </div>
+          </>
         )}
-
-
       </div>
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
-}
-
-const styles = {
-  container: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#f0f2f5",
-    fontFamily: "'Inter', sans-serif",
-  },
-  mainContent: {
-    flex: 1,
-    padding: "24px 32px",
-    overflow: "auto",
-    maxHeight: "100vh",
-  },
-  loadingContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "3px solid #e2e8f0",
-    borderTopColor: "#3b82f6",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  errorContainer: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "16px",
-    textAlign: "center",
-  },
-  errorIcon: {
-    fontSize: "48px",
-  },
-  backButton: {
-    padding: "10px 24px",
-    background: "#3b82f6",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  header: {
-    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-    borderRadius: "14px",
-    padding: "20px 24px",
-    marginBottom: "24px",
-  },
-  headerContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-  },
-  backBtn: {
-    background: "rgba(255,255,255,0.1)",
-    border: "1px solid rgba(255,255,255,0.2)",
-    color: "white",
-    padding: "8px 16px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "13px",
-  },
-  headerBadge: {
-    background: "rgba(255,255,255,0.15)",
-    borderRadius: "12px",
-    padding: "8px 12px",
-    fontSize: "20px",
-  },
-  headerTitle: {
-    fontSize: "22px",
-    fontWeight: "700",
-    color: "white",
-    margin: 0,
-  },
-  headerSubtitle: {
-    fontSize: "13px",
-    color: "rgba(255,255,255,0.8)",
-    margin: "4px 0 0 0",
-  },
-  headerActions: {
-    display: "flex",
-    gap: "12px",
-  },
-  editBtn: {
-    background: "linear-gradient(135deg, #10b981, #059669)",
-    color: "white",
-    padding: "8px 20px",
-    borderRadius: "8px",
-    textDecoration: "none",
-    fontSize: "13px",
-    fontWeight: "600",
-  },
-  deleteBtn: {
-    background: "#ef4444",
-    color: "white",
-    padding: "8px 20px",
-    borderRadius: "8px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: "600",
-  },
-  card: {
-    background: "white",
-    borderRadius: "16px",
-    border: "1px solid #e2e8f0",
-    padding: "24px",
-    marginBottom: "20px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-  },
-  cardTitle: {
-    fontSize: "15px",
-    fontWeight: "600",
-    color: "#0f172a",
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: "20px",
-    paddingBottom: "12px",
-    borderBottom: "2px solid #f1f5f9",
-  },
-  cardIcon: {
-    fontSize: "18px",
-  },
-  infoGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "20px",
-  },
-  infoItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-  },
-  infoValue: {
-    fontSize: "15px",
-    color: "#1e293b",
-    fontWeight: "500",
-    wordBreak: "break-word",
-  },
-  customersGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-    gap: "16px",
-  },
-  customerCard: {
-    background: "#f8fafc",
-    borderRadius: "12px",
-    padding: "16px",
-    border: "1px solid #e2e8f0",
-  },
-  customerName: {
-    fontSize: "15px",
-    fontWeight: "600",
-    color: "#0f172a",
-    marginBottom: "8px",
-  },
-  customerEmail: {
-    fontSize: "12px",
-    color: "#3b82f6",
-    marginBottom: "4px",
-  },
-  customerPhone: {
-    fontSize: "12px",
-    color: "#64748b",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-    borderRadius: "12px",
-    border: "1px solid #e2e8f0",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "13px",
-  },
-  th: {
-    textAlign: "left",
-    padding: "12px 16px",
-    background: "#f8fafc",
-    fontSize: "12px",
-    fontWeight: "700",
-    color: "#475569",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  td: {
-    padding: "10px 12px",
-    borderBottom: "1px solid #f1f5f9",
-    verticalAlign: "middle",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "40px",
-    color: "#94a3b8",
-    fontSize: "14px",
-  },
-  remarksText: {
-    fontSize: "14px",
-    color: "#334155",
-    lineHeight: 1.6,
-    whiteSpace: "pre-wrap",
-  },
-};
-
-if (typeof document !== "undefined") {
-  const style = document.createElement("style");
-  style.textContent = `
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `;
-  document.head.appendChild(style);
 }

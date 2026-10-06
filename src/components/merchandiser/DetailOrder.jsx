@@ -17,6 +17,8 @@ import {
 } from "../../api/merchandiser";
 import Sidebar from "../merchandiser/Sidebar";
 import SampleSection from "../merchandiser/SampleSection";
+import OrderLabReports from "./OrderLabReports";
+import { withDetailOrderTheme } from "./detailOrderTheme";
 import { canViewOrderPricing, canViewOrderAttachments, canManageOrders, isMerchandiserProduction } from "../../utils/accessControl";
 import {
   FaArrowLeft,
@@ -1769,41 +1771,7 @@ const DetailOrder = () => {
             {/* Test Results Tab */}
             {activeTab === "tests" && (
               <div style={styles.tabPanel}>
-                <div style={styles.twoColumnGrid}>
-                  <SectionCard title="Physical Test" icon={<FaFlask />}>
-                    <div style={styles.testResult}>
-                      {order.physical_test ||
-                        "No physical test results recorded"}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard title="Chemical Test" icon={<FaFlask />}>
-                    <div style={styles.testResult}>
-                      {order.chemical_test ||
-                        "No chemical test results recorded"}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard
-                    title="During Production Inspection"
-                    icon={<FaClipboardCheck />}
-                  >
-                    <div style={styles.testResult}>
-                      {order.during_production_inspection ||
-                        "No production inspection records"}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard
-                    title="Final Random Inspection"
-                    icon={<FaClipboardCheck />}
-                  >
-                    <div style={styles.testResult}>
-                      {order.final_random_inspection ||
-                        "No final inspection records"}
-                    </div>
-                  </SectionCard>
-                </div>
+                <OrderLabReports orderId={id} />
               </div>
             )}
 
@@ -2417,7 +2385,7 @@ const DetailOrder = () => {
 };
 
 // Styles
-const styles = {
+const baseStyles = {
   appContainer: {
     display: "flex",
     minHeight: "100vh",
@@ -3376,6 +3344,7 @@ const styles = {
     marginTop: "4px",
   },
 };
+const styles = withDetailOrderTheme(baseStyles);
 
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `

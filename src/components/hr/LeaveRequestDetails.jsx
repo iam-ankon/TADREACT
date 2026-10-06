@@ -102,6 +102,10 @@ const LeaveRequestDetails = () => {
     ...(isFinal
       ? [
           { key: "paid_days", label: "Paid from balance" },
+          // Casual and Sick share one pool: days taken from the other type
+          ...(table.borrowed_days > 0
+            ? [{ key: "borrowed_days", label: "Used from this balance" }]
+            : []),
           ...(unpaid > 0 ? [{ key: "unpaid_days", label: "Unpaid (salary deduction)" }] : []),
           { key: "balance_after", label: "Balance after" },
         ]
@@ -169,8 +173,8 @@ const LeaveRequestDetails = () => {
                 {unpaid} of {days} day{days === 1 ? "" : "s"}{" "}
                 are unpaid
               </strong>{" "}
-              — beyond the {typeLabel} balance. One day's basic salary is deducted for each unpaid
-              day.
+              — Casual and Sick leave were both used up. One day's basic salary is deducted for
+              each unpaid day.
             </div>
           )}
           <div className="lf-signs lf-signs--two">
