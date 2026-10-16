@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Sidebars from "./sidebars";
 import {
   getEmployeeById,
@@ -7,6 +7,7 @@ import {
   getCustomers,
   getDepartments,
   getMDepartments,
+  addEmployee,
   updateEmployee,
   updateEmployeeImage,
   updateEmployeeCustomers,
@@ -14,6 +15,7 @@ import {
 import {
   FaSave,
   FaArrowLeft,
+  FaUserPlus,
   FaUserEdit,
   FaBuilding,
   FaUsers,
@@ -29,39 +31,54 @@ import {
   FaImage,
 } from "react-icons/fa";
 
-const EditEmployeePage = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+const EMPTY_FORM = {
+  device_user_id: "",
+  employee_id: "",
+  name: "",
+  designation: "",
+  joining_date: "",
+  date_of_birth: "",
+  email: "",
+  mail_address: "",
+  personal_phone: "",
+  office_phone: "",
+  reference_phone: "",
+  department: "",
+  merchandising_department: [],
+  customer: [],
+  company: "",
+  salary: "",
+  salary_cash: "",
+  reporting_leader: "",
+  special_skills: "",
+  remarks: "",
+  image1: null,
+  permanent_address: "",
+  emergency_contact: "",
+  nid_number: "",
+  blood_group: "",
+  gender: "",
+  bank_account: "",
+  branch_name: "",
+};
 
-  const [employee, setEmployee] = useState({
-    device_user_id: "",
-    employee_id: "",
-    name: "",
-    designation: "",
-    joining_date: "",
-    date_of_birth: "",
-    email: "",
-    mail_address: "",
-    personal_phone: "",
-    office_phone: "",
-    reference_phone: "",
-    department: "",
-    merchandising_department: [], // CHANGE: Initialize as array
-    customer: [],
-    company: "",
-    salary: "",
-    salary_cash: "",
-    reporting_leader: "",
-    special_skills: "",
-    remarks: "",
-    image1: null,
-    permanent_address: "",
-    emergency_contact: "",
-    nid_number: "",
-    blood_group: "",
-    gender: "",
-    bank_account: "",
-    branch_name: "",
+const EmployeeForm = () => {
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // When arriving from Interviews "Hire" action (add mode only)
+  const { name, position_for, email, phone, age, date_of_birth } =
+    location.state || {};
+
+  const [formData, setFormData] = useState({
+    ...EMPTY_FORM,
+    name: name || "",
+    designation: position_for || "",
+    email: email || "",
+    personal_phone: phone || "",
+    date_of_birth: date_of_birth || age || "",
   });
 
   const [companies, setCompanies] = useState([]);
@@ -75,106 +92,103 @@ const EditEmployeePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [empRes, compRes, custRes, deptRes, mdeptRes] = await Promise.all(
-          [
-            getEmployeeById(id),
-            getCompanies(),
-            getCustomers(),
-            getDepartments(),
-            getMDepartments(),
-          ],
-        );
+        const calls = [
+          getCompanies(),
+          getCustomers(),
+          getDepartments(),
+          getMDepartments(),
+        ];
+        if (isEditMode) calls.unshift(getEmployeeById(id));
 
-        const emp = empRes.data;
+        const results = await Promise.all(calls);
+        const [empRes, compRes, custRes, deptRes, mdeptRes] = isEditMode
+          ? results
+          : [null, ...results];
 
-        // Handle customer IDs
-        const customerIds = Array.isArray(emp.customer)
-          ? emp.customer.map((c) => (typeof c === "object" ? c.id : c))
-          : [];
+        if (isEditMode && empRes) {
+          const emp = empRes.data;
 
-        // Handle merchandising department - ensure it's an array
-        let merchandisingDeptIds = [];
-        if (emp.merchandising_department) {
-          if (Array.isArray(emp.merchandising_department)) {
-            merchandisingDeptIds = emp.merchandising_department.map((m) =>
-              typeof m === "object" ? m.id : m,
-            );
-          } else if (typeof emp.merchandising_department === "object") {
-            // Single object
-            merchandisingDeptIds = [emp.merchandising_department.id];
-          } else {
-            // Single ID
-            merchandisingDeptIds = [emp.merchandising_department];
+          const customerIds = Array.isArray(emp.customer)
+            ? emp.customer.map((c) => (typeof c === "object" ? c.id : c))
+            : [];
+
+          let merchandisingDeptIds = [];
+          if (emp.merchandising_department) {
+            if (Array.isArray(emp.merchandising_department)) {
+              merchandisingDeptIds = emp.merchandising_department.map((m) =>
+                typeof m === "object" ? m.id : m,
+              );
+            } else if (typeof emp.merchandising_department === "object") {
+              merchandisingDeptIds = [emp.merchandising_department.id];
+            } else {
+              merchandisingDeptIds = [emp.merchandising_department];
+            }
           }
+
+          setFormData((prev) => ({
+            ...prev,
+            ...emp,
+            company: emp.company?.id || emp.company,
+            customer: customerIds,
+            merchandising_department: merchandisingDeptIds,
+          }));
+
+          if (emp.image1) setImagePreview(emp.image1);
         }
 
-        setEmployee({
-          ...emp,
-          company: emp.company?.id || emp.company,
-          customer: customerIds,
-          merchandising_department: merchandisingDeptIds, // Set as array
-        });
-
-        setCompanies(compRes.data);
-        setCustomers(custRes.data);
-        setDepartments(deptRes.data);
-        setMerchandisingDepartments(mdeptRes.data);
-
-        if (emp.image1) setImagePreview(emp.image1);
+        setCompanies(compRes.data || []);
+        setCustomers(custRes.data || []);
+        setDepartments(deptRes.data || []);
+        setMerchandisingDepartments(mdeptRes.data || []);
       } catch (err) {
-        console.error("Error fetching data:", err);
-        alert("Error loading employee data: " + err.message);
+        console.error("Failed to load employee form data:", err);
+        if (isEditMode) alert("Error loading employee data: " + err.message);
       }
     };
-
     fetchData();
-  }, [id]);
+  }, [id, isEditMode]);
 
-  const validateField = (name, value) => {
-    const newErrors = { ...errors };
+  const validateForm = () => {
+    const newErrors = {};
 
-    switch (name) {
-      case "email":
-        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-          newErrors.email = "Invalid email format";
-        } else {
-          delete newErrors.email;
-        }
-        break;
-      case "personal_phone":
-      case "office_phone":
-        if (value && !/^[0-9+\-\s()]{10,15}$/.test(value)) {
-          newErrors[name] = "Invalid phone number";
-        } else {
-          delete newErrors[name];
-        }
-        break;
-      case "salary":
-      case "salary_cash":
-        if (value && isNaN(value)) {
-          newErrors[name] = "Must be a number";
-        } else if (value && Number(value) < 0) {
-          newErrors[name] = "Cannot be negative";
-        } else {
-          delete newErrors[name];
-        }
-        break;
-      case "name":
-        if (!value.trim()) {
-          newErrors.name = "Name is required";
-        } else {
-          delete newErrors.name;
-        }
-        break;
-      case "employee_id":
-        if (!value.trim()) {
-          newErrors.employee_id = "Employee ID is required";
-        } else {
-          delete newErrors.employee_id;
-        }
-        break;
-      default:
-        delete newErrors[name];
+    if (!formData.employee_id?.trim())
+      newErrors.employee_id = "Employee ID is required";
+    if (!formData.name?.trim()) newErrors.name = "Name is required";
+    if (!formData.designation?.trim())
+      newErrors.designation = "Designation is required";
+    if (!formData.joining_date)
+      newErrors.joining_date = "Joining date is required";
+
+    if (formData.email?.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        newErrors.email = "Invalid email format";
+      }
+    }
+
+    if (
+      formData.personal_phone?.trim() &&
+      !/^[0-9+\-\s()]{10,15}$/.test(formData.personal_phone.trim())
+    ) {
+      newErrors.personal_phone = "Invalid phone number (10-15 digits)";
+    }
+    if (
+      formData.office_phone?.trim() &&
+      !/^[0-9+\-\s()]{10,15}$/.test(formData.office_phone.trim())
+    ) {
+      newErrors.office_phone = "Invalid phone number (10-15 digits)";
+    }
+
+    if (
+      formData.salary &&
+      (isNaN(formData.salary) || Number(formData.salary) < 0)
+    ) {
+      newErrors.salary = "Must be a valid positive number";
+    }
+    if (
+      formData.salary_cash &&
+      (isNaN(formData.salary_cash) || Number(formData.salary_cash) < 0)
+    ) {
+      newErrors.salary_cash = "Must be a valid positive number";
     }
 
     setErrors(newErrors);
@@ -185,142 +199,271 @@ const EditEmployeePage = () => {
     const { name, value, type, files, options, multiple } = e.target;
 
     if (type === "file" && files[0]) {
+      const file = files[0];
+      setFormData((prev) => ({ ...prev, [name]: file }));
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result);
-      reader.readAsDataURL(files[0]);
-      setEmployee((prev) => ({ ...prev, [name]: files[0] }));
+      reader.readAsDataURL(file);
     } else if (multiple) {
-      // Handle multi-select
       const selectedValues = Array.from(options)
-        .filter((option) => option.selected)
-        .map((option) => option.value)
-        .filter((val) => val !== ""); // Remove empty values
-
-      console.log(`Multi-select ${name}:`, selectedValues);
-      setEmployee((prev) => ({ ...prev, [name]: selectedValues }));
-      // Validate if needed
-      if (name === "merchandising_department") {
-        // Optional: Add validation for multi-select
-      }
+        .filter((option) => option.selected && option.value !== "")
+        .map((option) => option.value);
+      setFormData((prev) => ({ ...prev, [name]: selectedValues }));
     } else {
-      setEmployee((prev) => ({ ...prev, [name]: value }));
-      validateField(name, value);
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const handleCustomerCheckboxChange = (customerId) => {
-    setEmployee((prev) => {
+    setFormData((prev) => {
       const updated = prev.customer.includes(customerId)
-        ? prev.customer.filter((id) => id !== customerId)
+        ? prev.customer.filter((cid) => cid !== customerId)
         : [...prev.customer, customerId];
       return { ...prev, customer: updated };
     });
   };
 
-  const handleSubmit = async () => {
-    // Validate required fields
-    const requiredFields = ["name", "employee_id"];
-    const newErrors = {};
-
-    requiredFields.forEach((field) => {
-      if (!employee[field]?.trim()) {
-        newErrors[field] = `${field.replace("_", " ")} is required`;
+  const compressImage = (file, maxWidth = 800, quality = 0.7) => {
+    return new Promise((resolve) => {
+      if (!file || !file.type.includes("image")) {
+        resolve(file);
+        return;
       }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let { width, height } = img;
+
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              resolve(
+                new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                }),
+              );
+            },
+            "image/jpeg",
+            quality,
+          );
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAddSubmit = async () => {
+    let finalImage = formData.image1;
+    if (formData.image1 && formData.image1.size > 500000) {
+      finalImage = await compressImage(formData.image1);
+    }
+
+    const fd = new FormData();
+
+    ["employee_id", "name", "designation"].forEach((field) => {
+      if (formData[field]) fd.append(field, formData[field].trim());
     });
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      alert("Please fill in all required fields");
+    if (formData.joining_date) {
+      fd.append(
+        "joining_date",
+        new Date(formData.joining_date).toISOString().split("T")[0],
+      );
+    }
+    if (formData.date_of_birth) {
+      fd.append(
+        "date_of_birth",
+        new Date(formData.date_of_birth).toISOString().split("T")[0],
+      );
+    }
+
+    if (formData.email?.trim()) {
+      const emailValue = formData.email.trim();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+        fd.append("email", emailValue);
+      }
+    }
+
+    [
+      "device_user_id",
+      "mail_address",
+      "office_phone",
+      "reference_phone",
+      "reporting_leader",
+      "special_skills",
+      "remarks",
+      "permanent_address",
+      "emergency_contact",
+      "nid_number",
+      "blood_group",
+      "gender",
+      "bank_account",
+      "branch_name",
+    ].forEach((field) => {
+      if (formData[field]?.trim()) fd.append(field, formData[field].trim());
+    });
+
+    if (formData.personal_phone?.trim()) {
+      fd.append("personal_phone", formData.personal_phone.trim());
+    }
+
+    if (formData.department) fd.append("department", Number(formData.department));
+    if (formData.company) fd.append("company", Number(formData.company));
+
+    if (
+      Array.isArray(formData.merchandising_department) &&
+      formData.merchandising_department.length > 0
+    ) {
+      formData.merchandising_department
+        .map((mid) => parseInt(mid, 10))
+        .filter((mid) => !isNaN(mid) && mid > 0)
+        .forEach((mid) => fd.append("merchandising_department", mid));
+    }
+
+    if (formData.salary && !isNaN(formData.salary) && Number(formData.salary) > 0) {
+      fd.append("salary", Number(formData.salary));
+    }
+    if (
+      formData.salary_cash &&
+      !isNaN(formData.salary_cash) &&
+      Number(formData.salary_cash) > 0
+    ) {
+      fd.append("salary_cash", Number(formData.salary_cash));
+    }
+
+    if (finalImage) fd.append("image1", finalImage);
+
+    // Customer M2M — serializer field is "customer" (singular); sending "customers"
+    // here is what silently dropped the assignment on create.
+    if (formData.customer && formData.customer.length > 0) {
+      formData.customer
+        .map((cid) => parseInt(cid, 10))
+        .filter((cid) => !isNaN(cid))
+        .forEach((cid) => fd.append("customer", cid));
+    }
+
+    await addEmployee(fd);
+    navigate("/employees");
+  };
+
+  const handleEditSubmit = async () => {
+    const jsonData = {
+      employee_id: formData.employee_id || "",
+      name: formData.name || "",
+      designation: formData.designation || "",
+      joining_date: formData.joining_date || null,
+      date_of_birth: formData.date_of_birth || null,
+      mail_address: formData.mail_address || null,
+      personal_phone: formData.personal_phone || null,
+      office_phone: formData.office_phone || null,
+      reference_phone: formData.reference_phone || null,
+      reporting_leader: formData.reporting_leader || null,
+      special_skills: formData.special_skills || null,
+      remarks: formData.remarks || null,
+      permanent_address: formData.permanent_address || null,
+      emergency_contact: formData.emergency_contact || null,
+      nid_number: formData.nid_number || null,
+      blood_group: formData.blood_group || null,
+      gender: formData.gender || null,
+      bank_account: formData.bank_account || null,
+      branch_name: formData.branch_name || null,
+      device_user_id: formData.device_user_id
+        ? Number(formData.device_user_id)
+        : null,
+      email: formData.email?.trim() ? formData.email.trim() : null,
+      department: formData.department ? Number(formData.department) : null,
+      company: formData.company ? Number(formData.company) : null,
+      salary: formData.salary ? Number(formData.salary) : null,
+      salary_cash: formData.salary_cash ? Number(formData.salary_cash) : null,
+      merchandising_department:
+        formData.merchandising_department &&
+        formData.merchandising_department.length > 0
+          ? formData.merchandising_department.map((mid) => Number(mid))
+          : [],
+    };
+
+    await updateEmployee(id, jsonData);
+
+    if (formData.image1 && typeof formData.image1 === "object") {
+      const imageFormData = new FormData();
+      imageFormData.append("image1", formData.image1);
+      try {
+        await updateEmployeeImage(id, imageFormData);
+      } catch (imageError) {
+        console.error("Image update failed:", imageError);
+      }
+    }
+
+    const customerIds = formData.customer
+      .map((cid) => parseInt(cid, 10))
+      .filter((cid) => !isNaN(cid));
+
+    if (customerIds.length > 0) {
+      await updateEmployeeCustomers(id, customerIds);
+    }
+
+    navigate(`/employee/${id}`);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      alert("Please fix the errors before submitting");
       return;
     }
 
-    if (isSubmitting) return;
-
     setIsSubmitting(true);
-    setErrors({});
 
     try {
-      const jsonData = {
-        employee_id: employee.employee_id || "",
-        name: employee.name || "",
-        designation: employee.designation || "",
-        // Convert empty date strings to null
-        joining_date: employee.joining_date || null,
-        date_of_birth: employee.date_of_birth || null,
-        mail_address: employee.mail_address || null,
-        personal_phone: employee.personal_phone || null,
-        office_phone: employee.office_phone || null,
-        reference_phone: employee.reference_phone || null,
-        reporting_leader: employee.reporting_leader || null,
-        special_skills: employee.special_skills || null,
-        remarks: employee.remarks || null,
-        permanent_address: employee.permanent_address || null,
-        emergency_contact: employee.emergency_contact || null,
-        nid_number: employee.nid_number || null,
-        blood_group: employee.blood_group || null,
-        gender: employee.gender || null,
-        bank_account: employee.bank_account || null,
-        branch_name: employee.branch_name || null,
-        device_user_id: employee.device_user_id
-          ? Number(employee.device_user_id)
-          : null,
-      };
-
-      // Email handling
-      jsonData.email = employee.email?.trim() ? employee.email.trim() : null;
-
-      // Foreign keys and numbers (use null if empty)
-      jsonData.department = employee.department
-        ? Number(employee.department)
-        : null;
-      jsonData.company = employee.company ? Number(employee.company) : null;
-      jsonData.salary = employee.salary ? Number(employee.salary) : null;
-      jsonData.salary_cash = employee.salary_cash
-        ? Number(employee.salary_cash)
-        : null;
-
-      // Handle merchandising_department array
-      if (
-        employee.merchandising_department &&
-        employee.merchandising_department.length > 0
-      ) {
-        jsonData.merchandising_department =
-          employee.merchandising_department.map((id) => Number(id));
+      if (isEditMode) {
+        await handleEditSubmit();
       } else {
-        jsonData.merchandising_department = [];
+        await handleAddSubmit();
       }
-
-      // Step 1: Update basic employee data
-      await updateEmployee(id, jsonData);
-
-      // Step 2: Handle image update
-      if (employee.image1 && typeof employee.image1 === "object") {
-        const imageFormData = new FormData();
-        imageFormData.append("image1", employee.image1);
-        try {
-          await updateEmployeeImage(id, imageFormData);
-        } catch (imageError) {
-          console.error("Image update failed:", imageError);
-        }
-      }
-
-      // Step 3: Handle customers update
-      const customerIds = employee.customer
-        .map((cid) => parseInt(cid))
-        .filter((cid) => !isNaN(cid));
-
-      if (customerIds.length > 0) {
-        await updateEmployeeCustomers(id, customerIds);
-      }
-
-      alert("Employee updated successfully!");
-      navigate(`/employee/${id}`);
     } catch (error) {
-      console.error("Update failed:", error);
-      let errorMessage = "Update failed: ";
+      console.error(`${isEditMode ? "Update" : "Add"} employee failed:`, error);
+
+      let errorMessage = `${isEditMode ? "Update" : "Add"} failed: `;
       if (error.response?.data) {
         const errorData = error.response.data;
-        if (typeof errorData === "object") {
+        if (
+          errorData.email &&
+          String(errorData.email).includes("already exists")
+        ) {
+          errorMessage =
+            "This email address is already registered. Please use a different email.";
+          setErrors((prev) => ({ ...prev, email: "Email already exists" }));
+        } else if (
+          errorData.employee_id &&
+          String(errorData.employee_id).includes("already exists")
+        ) {
+          errorMessage =
+            "This Employee ID is already taken. Please use a different ID.";
+          setErrors((prev) => ({
+            ...prev,
+            employee_id: "Employee ID already exists",
+          }));
+        } else if (typeof errorData === "object") {
           Object.keys(errorData).forEach((key) => {
             const errorValue = errorData[key];
             errorMessage += `\n${key}: ${Array.isArray(errorValue) ? errorValue.join(", ") : errorValue}`;
@@ -331,48 +474,63 @@ const EditEmployeePage = () => {
       } else {
         errorMessage += error.message;
       }
+
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const cancelTarget = isEditMode ? `/employee/${id}` : "/employees";
+
   return (
-    <div className="edit-employee-container">
+    <div className="employee-form-container">
       <Sidebars />
       <div className="content-wrapper">
-        <div className="edit-employee-card">
+        <div className="employee-form-card">
           {/* Header */}
-          <div className="edit-header">
+          <div className="form-header">
             <div className="header-content">
               <h1>
-                <FaUserEdit className="header-icon" />
-                Edit Employee Profile
+                {isEditMode ? (
+                  <FaUserEdit className="header-icon" />
+                ) : (
+                  <FaUserPlus className="header-icon" />
+                )}
+                {isEditMode ? "Edit Employee Profile" : "Add New Employee"}
               </h1>
               <p className="header-subtitle">
-                Update details for {employee.name}
+                {isEditMode
+                  ? `Update details for ${formData.name}`
+                  : "Fill in the details to create a new employee profile"}
               </p>
             </div>
             <div className="header-actions">
               <button
-                onClick={() => navigate(`/employee/${id}`)}
+                type="button"
+                onClick={() => navigate(cancelTarget)}
                 className="btn-cancel"
                 disabled={isSubmitting}
               >
                 <FaArrowLeft /> Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSubmit}
                 className="btn-save"
                 disabled={isSubmitting}
               >
                 <FaSave />
-                {isSubmitting ? "Saving..." : "Save Changes"}
+                {isSubmitting
+                  ? "Saving..."
+                  : isEditMode
+                    ? "Save Changes"
+                    : "Save Employee"}
               </button>
             </div>
           </div>
 
-          {/* Form Sections - Scrollable Container */}
+          {/* Form Sections */}
           <div className="form-sections-container">
             <div className="form-sections">
               {/* Personal Information */}
@@ -389,7 +547,7 @@ const EditEmployeePage = () => {
                     <input
                       type="text"
                       name="name"
-                      value={employee.name}
+                      value={formData.name}
                       onChange={handleChange}
                       placeholder="Enter full name"
                       disabled={isSubmitting}
@@ -408,7 +566,7 @@ const EditEmployeePage = () => {
                     <input
                       type="text"
                       name="employee_id"
-                      value={employee.employee_id}
+                      value={formData.employee_id}
                       onChange={handleChange}
                       placeholder="Enter employee ID"
                       disabled={isSubmitting}
@@ -425,36 +583,46 @@ const EditEmployeePage = () => {
                     <input
                       type="text"
                       name="device_user_id"
-                      value={employee.device_user_id}
+                      value={formData.device_user_id}
                       onChange={handleChange}
                       placeholder="Enter device user ID"
                       disabled={isSubmitting}
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label>Designation</label>
+                  <div
+                    className={`form-group ${errors.designation ? "error" : ""}`}
+                  >
+                    <label>
+                      Designation <span className="required">*</span>
+                    </label>
                     <input
                       type="text"
                       name="designation"
-                      value={employee.designation}
+                      value={formData.designation}
                       onChange={handleChange}
                       placeholder="Enter designation"
                       disabled={isSubmitting}
                     />
+                    {errors.designation && (
+                      <span className="error-message">
+                        {errors.designation}
+                      </span>
+                    )}
                   </div>
 
                   <div className="form-group">
                     <label>Gender</label>
                     <select
                       name="gender"
-                      value={employee.gender}
+                      value={formData.gender}
                       onChange={handleChange}
                       disabled={isSubmitting}
                     >
                       <option value="">Select Gender</option>
                       <option value="M">Male</option>
                       <option value="F">Female</option>
+                      <option value="O">Other</option>
                     </select>
                   </div>
 
@@ -463,12 +631,42 @@ const EditEmployeePage = () => {
                     <input
                       type="date"
                       name="date_of_birth"
-                      value={employee.date_of_birth}
+                      value={formData.date_of_birth}
                       onChange={handleChange}
                       disabled={isSubmitting}
-                      placeholder="Optional"
                     />
                     <small className="optional-text">Optional</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label>NID Number</label>
+                    <input
+                      type="text"
+                      name="nid_number"
+                      value={formData.nid_number}
+                      onChange={handleChange}
+                      placeholder="National ID number"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Blood Group</label>
+                    <select
+                      name="blood_group"
+                      value={formData.blood_group}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Select Blood Group</option>
+                      {["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"].map(
+                        (bg) => (
+                          <option key={bg} value={bg}>
+                            {bg}
+                          </option>
+                        ),
+                      )}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -487,9 +685,9 @@ const EditEmployeePage = () => {
                       <input
                         type="email"
                         name="email"
-                        value={employee.email}
+                        value={formData.email}
                         onChange={handleChange}
-                        placeholder="employee@company.com"
+                        placeholder="example@company.com (optional)"
                         disabled={isSubmitting}
                       />
                     </div>
@@ -507,9 +705,9 @@ const EditEmployeePage = () => {
                       <input
                         type="text"
                         name="personal_phone"
-                        value={employee.personal_phone}
+                        value={formData.personal_phone}
                         onChange={handleChange}
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="Optional"
                         disabled={isSubmitting}
                       />
                     </div>
@@ -529,9 +727,9 @@ const EditEmployeePage = () => {
                       <input
                         type="text"
                         name="office_phone"
-                        value={employee.office_phone}
+                        value={formData.office_phone}
                         onChange={handleChange}
-                        placeholder="Extension or direct line"
+                        placeholder="Optional"
                         disabled={isSubmitting}
                       />
                     </div>
@@ -547,9 +745,9 @@ const EditEmployeePage = () => {
                     <input
                       type="text"
                       name="reference_phone"
-                      value={employee.reference_phone}
+                      value={formData.reference_phone}
                       onChange={handleChange}
-                      placeholder="Reference contact number"
+                      placeholder="Optional"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -559,9 +757,9 @@ const EditEmployeePage = () => {
                     <input
                       type="text"
                       name="emergency_contact"
-                      value={employee.emergency_contact}
+                      value={formData.emergency_contact}
                       onChange={handleChange}
-                      placeholder="Emergency contact person"
+                      placeholder="Optional"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -579,9 +777,9 @@ const EditEmployeePage = () => {
                     <label>Mailing Address</label>
                     <textarea
                       name="mail_address"
-                      value={employee.mail_address}
+                      value={formData.mail_address}
                       onChange={handleChange}
-                      placeholder="Current mailing address"
+                      placeholder="Optional"
                       rows="3"
                       disabled={isSubmitting}
                     />
@@ -591,9 +789,9 @@ const EditEmployeePage = () => {
                     <label>Permanent Address</label>
                     <textarea
                       name="permanent_address"
-                      value={employee.permanent_address}
+                      value={formData.permanent_address}
                       onChange={handleChange}
-                      placeholder="Permanent residential address"
+                      placeholder="Optional"
                       rows="3"
                       disabled={isSubmitting}
                     />
@@ -601,27 +799,50 @@ const EditEmployeePage = () => {
                 </div>
               </div>
 
-              {/* Company Information */}
+              {/* Employment Details */}
               <div className="form-section">
                 <div className="section-header">
-                  <FaBuilding className="section-icon" />
-                  <h3>Company Information</h3>
+                  <FaBriefcase className="section-icon" />
+                  <h3>Employment Details</h3>
                 </div>
                 <div className="form-grid">
+                  <div
+                    className={`form-group ${errors.joining_date ? "error" : ""}`}
+                  >
+                    <label>
+                      Joining Date <span className="required">*</span>
+                    </label>
+                    <div className="input-with-icon">
+                      <FaCalendarAlt className="input-icon" />
+                      <input
+                        type="date"
+                        name="joining_date"
+                        value={formData.joining_date}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    {errors.joining_date && (
+                      <span className="error-message">
+                        {errors.joining_date}
+                      </span>
+                    )}
+                  </div>
+
                   <div className="form-group">
                     <label>Company</label>
                     <div className="select-with-icon">
                       <FaBuilding className="select-icon" />
                       <select
                         name="company"
-                        value={employee.company}
+                        value={formData.company}
                         onChange={handleChange}
                         disabled={isSubmitting}
                       >
                         <option value="">Select Company</option>
                         {companies.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.company_name}
+                            {c.company_name || c.name}
                           </option>
                         ))}
                       </select>
@@ -634,35 +855,33 @@ const EditEmployeePage = () => {
                       <FaBriefcase className="select-icon" />
                       <select
                         name="department"
-                        value={employee.department}
+                        value={formData.department}
                         onChange={handleChange}
                         disabled={isSubmitting}
                       >
                         <option value="">Select Department</option>
                         {departments.map((d) => (
                           <option key={d.id} value={d.id}>
-                            {d.department_name}
+                            {d.department_name || d.name}
                           </option>
                         ))}
                       </select>
                     </div>
                   </div>
 
-                  {/* FIXED: Management Department - Multi-select */}
                   <div className="form-group full-width">
                     <label>Management Departments (Select Multiple)</label>
                     <div className="select-with-icon">
                       <FaUsers className="select-icon" />
                       <select
                         name="merchandising_department"
-                        value={employee.merchandising_department || []}
+                        value={formData.merchandising_department || []}
                         onChange={handleChange}
                         disabled={isSubmitting}
                         multiple
                         size={4}
                         style={{ height: "auto", minHeight: "120px" }}
                       >
-                        <option value="">Select Management Departments</option>
                         {merchandising_departments.map((md) => (
                           <option key={md.id} value={md.id}>
                             {md.merchandising_department_name ||
@@ -678,26 +897,20 @@ const EditEmployeePage = () => {
                       Hold Ctrl (Windows) or Cmd (Mac) to select multiple
                       departments
                     </small>
-                    {employee.merchandising_department &&
-                      employee.merchandising_department.length > 0 && (
-                        <div
-                          style={{
-                            marginTop: "8px",
-                            fontSize: "13px",
-                            color: "#666",
-                          }}
-                        >
+                    {formData.merchandising_department &&
+                      formData.merchandising_department.length > 0 && (
+                        <div className="selected-summary">
                           <strong>Selected:</strong>{" "}
-                          {employee.merchandising_department
-                            .map((id) => {
+                          {formData.merchandising_department
+                            .map((mid) => {
                               const dept = merchandising_departments.find(
-                                (d) => d.id === id,
+                                (d) => String(d.id) === String(mid),
                               );
                               return dept
                                 ? dept.merchandising_department_name ||
                                     dept.merchandising_department ||
                                     dept.name
-                                : id;
+                                : mid;
                             })
                             .join(", ")}
                         </div>
@@ -705,27 +918,13 @@ const EditEmployeePage = () => {
                   </div>
 
                   <div className="form-group">
-                    <label>Joining Date</label>
-                    <div className="input-with-icon">
-                      <FaCalendarAlt className="input-icon" />
-                      <input
-                        type="date"
-                        name="joining_date"
-                        value={employee.joining_date}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
                     <label>Reporting Leader</label>
                     <input
                       type="text"
                       name="reporting_leader"
-                      value={employee.reporting_leader}
+                      value={formData.reporting_leader}
                       onChange={handleChange}
-                      placeholder="Manager or supervisor"
+                      placeholder="Optional"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -746,7 +945,7 @@ const EditEmployeePage = () => {
                       <input
                         type="number"
                         name="salary"
-                        value={employee.salary}
+                        value={formData.salary}
                         onChange={handleChange}
                         placeholder="0.00"
                         disabled={isSubmitting}
@@ -768,7 +967,7 @@ const EditEmployeePage = () => {
                       <input
                         type="number"
                         name="salary_cash"
-                        value={employee.salary_cash}
+                        value={formData.salary_cash}
                         onChange={handleChange}
                         placeholder="0.00"
                         disabled={isSubmitting}
@@ -788,9 +987,9 @@ const EditEmployeePage = () => {
                     <input
                       type="text"
                       name="bank_account"
-                      value={employee.bank_account}
+                      value={formData.bank_account}
                       onChange={handleChange}
-                      placeholder="Bank account number"
+                      placeholder="Optional"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -800,9 +999,9 @@ const EditEmployeePage = () => {
                     <input
                       type="text"
                       name="branch_name"
-                      value={employee.branch_name}
+                      value={formData.branch_name}
                       onChange={handleChange}
-                      placeholder="Bank branch code"
+                      placeholder="Optional"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -816,49 +1015,25 @@ const EditEmployeePage = () => {
                   <h3>Additional Information</h3>
                 </div>
                 <div className="form-grid">
-                  <div className="form-group">
-                    <label>NID Number</label>
-                    <input
-                      type="text"
-                      name="nid_number"
-                      value={employee.nid_number}
-                      onChange={handleChange}
-                      placeholder="National ID number"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Blood Group</label>
-                    <input
-                      type="text"
-                      name="blood_group"
-                      value={employee.blood_group}
-                      onChange={handleChange}
-                      placeholder="e.g., A+, O-"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-
-                  <div className="form-group">
+                  <div className="form-group full-width">
                     <label>Special Skills</label>
                     <textarea
                       name="special_skills"
-                      value={employee.special_skills}
+                      value={formData.special_skills}
                       onChange={handleChange}
-                      placeholder="Special skills or certifications"
+                      placeholder="Optional"
                       rows="2"
                       disabled={isSubmitting}
                     />
                   </div>
 
-                  <div className="form-group">
+                  <div className="form-group full-width">
                     <label>Remarks</label>
                     <textarea
                       name="remarks"
-                      value={employee.remarks}
+                      value={formData.remarks}
                       onChange={handleChange}
-                      placeholder="Additional notes or remarks"
+                      placeholder="Optional"
                       rows="2"
                       disabled={isSubmitting}
                     />
@@ -877,28 +1052,32 @@ const EditEmployeePage = () => {
                     Select customers assigned to this employee
                   </p>
                   <div className="customers-grid">
-                    {customers.map((c) => {
-                      const checked = employee.customer.includes(c.id);
-                      return (
-                        <label
-                          key={c.id}
-                          className={`customer-checkbox ${checked ? "checked" : ""}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() =>
-                              !isSubmitting &&
-                              handleCustomerCheckboxChange(c.id)
-                            }
-                            disabled={isSubmitting}
-                          />
-                          <span className="customer-name">
-                            {c.customer_name}
-                          </span>
-                        </label>
-                      );
-                    })}
+                    {customers.length > 0 ? (
+                      customers.map((c) => {
+                        const checked = formData.customer.includes(c.id);
+                        return (
+                          <label
+                            key={c.id}
+                            className={`customer-checkbox ${checked ? "checked" : ""}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                !isSubmitting &&
+                                handleCustomerCheckboxChange(c.id)
+                              }
+                              disabled={isSubmitting}
+                            />
+                            <span className="customer-name">
+                              {c.customer_name || c.name}
+                            </span>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <p className="no-customers">No customers available</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -926,7 +1105,7 @@ const EditEmployeePage = () => {
                     ) : (
                       <div className="upload-placeholder">
                         <FaFileUpload size={40} />
-                        <span>No photo selected</span>
+                        <span>Upload photo</span>
                       </div>
                     )}
                     <input
@@ -952,26 +1131,32 @@ const EditEmployeePage = () => {
           {/* Footer Actions */}
           <div className="form-footer">
             <button
-              onClick={() => navigate(`/employee/${id}`)}
+              type="button"
+              onClick={() => navigate(cancelTarget)}
               className="btn-cancel"
               disabled={isSubmitting}
             >
               <FaArrowLeft /> Cancel
             </button>
             <button
+              type="button"
               onClick={handleSubmit}
               className="btn-save"
               disabled={isSubmitting}
             >
               <FaSave />
-              {isSubmitting ? "Saving Changes..." : "Save Changes"}
+              {isSubmitting
+                ? "Saving..."
+                : isEditMode
+                  ? "Save Changes"
+                  : "Save Employee"}
             </button>
           </div>
         </div>
       </div>
 
       <style>{`
-        .edit-employee-container {
+        .employee-form-container {
           display: flex;
           min-height: 100vh;
           background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -984,7 +1169,7 @@ const EditEmployeePage = () => {
           overflow-y: auto;
         }
 
-        .edit-employee-card {
+        .employee-form-card {
           background: white;
           border-radius: 16px;
           box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
@@ -997,8 +1182,7 @@ const EditEmployeePage = () => {
           height: calc(100vh - 4rem);
         }
 
-        /* Header Styles */
-        .edit-header {
+        .form-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
@@ -1035,7 +1219,6 @@ const EditEmployeePage = () => {
           gap: 0.75rem;
         }
 
-        /* Scrollable Form Sections Container */
         .form-sections-container {
           flex: 1;
           overflow-y: auto;
@@ -1080,7 +1263,6 @@ const EditEmployeePage = () => {
           font-size: 1.25rem;
         }
 
-        /* Form Grid */
         .form-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -1114,6 +1296,12 @@ const EditEmployeePage = () => {
           color: #6b7280;
           font-size: 0.75rem;
           margin-top: 0.25rem;
+        }
+
+        .selected-summary {
+          margin-top: 8px;
+          font-size: 13px;
+          color: #666;
         }
 
         .form-group input,
@@ -1178,7 +1366,6 @@ const EditEmployeePage = () => {
           font-weight: 500;
         }
 
-        /* Input with Icon */
         .input-with-icon {
           position: relative;
         }
@@ -1215,7 +1402,6 @@ const EditEmployeePage = () => {
           padding-left: 2.5rem;
         }
 
-        /* Select with Icon */
         .select-with-icon {
           position: relative;
         }
@@ -1236,7 +1422,6 @@ const EditEmployeePage = () => {
           appearance: none;
         }
 
-        /* Customers Section */
         .customers-section {
           margin-top: 1rem;
         }
@@ -1259,7 +1444,13 @@ const EditEmployeePage = () => {
           border: 1px solid #e5e7eb;
         }
 
-        /* Custom Scrollbar Styles */
+        .no-customers {
+          grid-column: 1 / -1;
+          text-align: center;
+          color: #9ca3af;
+          padding: 1rem;
+        }
+
         .form-sections-container::-webkit-scrollbar {
           width: 8px;
         }
@@ -1297,7 +1488,6 @@ const EditEmployeePage = () => {
           background: #64748b;
         }
 
-        /* Firefox scrollbar */
         .form-sections-container {
           scrollbar-width: thin;
           scrollbar-color: #cbd5e1 #f1f5f9;
@@ -1342,7 +1532,6 @@ const EditEmployeePage = () => {
           font-weight: 500;
         }
 
-        /* Photo Upload */
         .photo-upload-section {
           display: flex;
           flex-direction: column;
@@ -1443,7 +1632,6 @@ const EditEmployeePage = () => {
           font-size: 0.85rem;
         }
 
-        /* Footer */
         .form-footer {
           display: flex;
           justify-content: space-between;
@@ -1454,7 +1642,6 @@ const EditEmployeePage = () => {
           flex-shrink: 0;
         }
 
-        /* Button Styles */
         .btn-save,
         .btn-cancel {
           padding: 0.75rem 1.5rem;
@@ -1507,17 +1694,16 @@ const EditEmployeePage = () => {
           transform: none !important;
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
           .content-wrapper {
             padding: 1rem;
           }
 
-          .edit-employee-card {
+          .employee-form-card {
             height: calc(100vh - 2rem);
           }
 
-          .edit-header {
+          .form-header {
             flex-direction: column;
             gap: 1rem;
             padding: 1.5rem 1rem;
@@ -1572,4 +1758,4 @@ const EditEmployeePage = () => {
   );
 };
 
-export default EditEmployeePage;
+export default EmployeeForm;

@@ -55,36 +55,24 @@ const EditLeaveRequest = () => {
         const response = await getEmployeeLeaveById(id);
         const data = response.data;
 
-        console.log("📋 Raw API Response:", data);
 
         let correctDesignation = "";
         const employeeCode = data.employee_code || data.employee?.employee_id;
         const employeeName = data.employee_name || data.employee?.name;
 
-        console.log("🔍 Looking for employee:", {
-          code: employeeCode,
-          name: employeeName,
-        });
 
         // Try to get designation from different sources
         if (data.employee && typeof data.employee === "object") {
           correctDesignation = data.employee.designation || "";
-          console.log(
-            "📝 Found designation in employee object:",
-            correctDesignation,
-          );
         } else if (data.designation) {
           correctDesignation = data.designation;
-          console.log("📝 Found designation in main data:", correctDesignation);
         }
 
         // If still no designation, fetch from employee API
         if (!correctDesignation && employeeCode) {
           try {
-            console.log("🔄 Fetching employee details for code:", employeeCode);
             const employeeData = await getEmployeeDetailsByCode(employeeCode);
 
-            console.log("📦 Employee API Response:", employeeData);
 
             // Handle different response structures
             if (employeeData) {
@@ -117,7 +105,6 @@ const EditLeaveRequest = () => {
                 correctDesignation = employeeData.results[0].designation || "";
               }
 
-              console.log("✅ Fetched designation:", correctDesignation);
             } else {
               console.warn("⚠️ No employee data found for code:", employeeCode);
             }
@@ -126,7 +113,6 @@ const EditLeaveRequest = () => {
           }
         }
 
-        console.log("🎯 Final designation:", correctDesignation);
 
         const mappedData = {
           employee: employeeName || data.employee || "",
@@ -161,7 +147,6 @@ const EditLeaveRequest = () => {
             data.personal_phone || data.employee?.personal_phone || "",
         };
 
-        console.log("🔄 Mapped Form Data:", mappedData);
         setFormData(mappedData);
         setSaved({
           status: data.status,
@@ -232,7 +217,6 @@ const EditLeaveRequest = () => {
       delete updateData.from_email;
       delete updateData.to_email;
 
-      console.log("📤 Sending update data:", updateData);
 
       const res = await updateEmployeeLeave(id, updateData);
       setSaved((prev) => ({

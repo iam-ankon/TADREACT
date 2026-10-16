@@ -1014,7 +1014,6 @@ const EditSupplierCSR = () => {
       const supplierData = response.data;
       const updatedFormData = { ...formData };
 
-      console.log("📦 Supplier Data:", supplierData);
 
       Object.keys(supplierData).forEach((key) => {
         if (updatedFormData.hasOwnProperty(key)) {
@@ -1385,8 +1384,6 @@ const EditSupplierCSR = () => {
   const prepareFormData = () => {
     const formDataToSend = new FormData();
 
-    console.log("📦 Preparing form data...");
-    console.log("🗑️ Deleted files state:", deletedFiles);
 
     if (Object.keys(deletedFiles).length > 0) {
       const singleFileDeletions = {};
@@ -1405,14 +1402,12 @@ const EditSupplierCSR = () => {
           "deleted_files",
           JSON.stringify(Object.keys(singleFileDeletions))
         );
-        console.log("🗑️ Single file deletions:", Object.keys(singleFileDeletions));
       }
       
       Object.keys(multipleFileDeletions).forEach(key => {
         const paths = multipleFileDeletions[key];
         if (Array.isArray(paths) && paths.length > 0) {
           formDataToSend.append(key, JSON.stringify(paths));
-          console.log(`🗑️ Sending ${key}:`, paths);
         }
       });
     }
@@ -1653,7 +1648,6 @@ const EditSupplierCSR = () => {
       
       if (keptPaths.length > 0) {
         formDataToSend.append(`existing_${fieldName}`, JSON.stringify(keptPaths));
-        console.log(`📁 Keeping ${keptPaths.length} files in ${fieldName}:`, keptPaths);
       }
     }
 
@@ -1666,7 +1660,6 @@ const EditSupplierCSR = () => {
         newFiles.forEach((file) => {
           formDataToSend.append(fileFieldName, file);
         });
-        console.log(`📤 Uploading ${newFiles.length} new files to ${fieldName}`);
       }
     }
 
@@ -1699,12 +1692,9 @@ const EditSupplierCSR = () => {
       formDataToSend.append("total_manpower", total.toString());
     }
 
-    console.log("📦 FormData entries:");
     for (let [key, value] of formDataToSend.entries()) {
       if (value instanceof File) {
-        console.log(`  ${key}: [File] ${value.name} (${value.size} bytes)`);
       } else {
-        console.log(`  ${key}: ${value}`);
       }
     }
 

@@ -188,7 +188,6 @@ const EmployeeDetails = () => {
       params.birth_month = parseInt(month, 10);
       params.birth_day = parseInt(day, 10);
 
-      console.log(`🎂 Birthday filter: Month=${month}, Day=${day}`);
     }
 
     // Add sorting
@@ -197,7 +196,6 @@ const EmployeeDetails = () => {
         sortConfig.direction === "desc" ? `-${sortConfig.key}` : sortConfig.key;
     }
 
-    console.log("📤 Sending filters to API:", params);
     return params;
   }, [
     searchQuery,
@@ -647,6 +645,7 @@ const EmployeeDetails = () => {
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
+              className="pagination-button"
               style={styles.paginationButton}
             >
               ‹
@@ -656,7 +655,8 @@ const EmployeeDetails = () => {
               <>
                 <button
                   onClick={() => handlePageChange(1)}
-                  style={styles.paginationButton}
+                  className="pagination-button"
+              style={styles.paginationButton}
                 >
                   1
                 </button>
@@ -670,6 +670,11 @@ const EmployeeDetails = () => {
               <button
                 key={number}
                 onClick={() => handlePageChange(number)}
+                className={
+                  currentPage === number
+                    ? "pagination-button pagination-button-active"
+                    : "pagination-button"
+                }
                 style={{
                   ...styles.paginationButton,
                   ...(currentPage === number
@@ -688,7 +693,8 @@ const EmployeeDetails = () => {
                 )}
                 <button
                   onClick={() => handlePageChange(totalPages)}
-                  style={styles.paginationButton}
+                  className="pagination-button"
+              style={styles.paginationButton}
                 >
                   {totalPages}
                 </button>
@@ -698,6 +704,7 @@ const EmployeeDetails = () => {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
+              className="pagination-button"
               style={styles.paginationButton}
             >
               ›
@@ -742,6 +749,7 @@ const EmployeeDetails = () => {
             <p style={{ color: "#64748b", marginBottom: "20px" }}>{error}</p>
             <button
               onClick={() => window.location.reload()}
+              className="btn-primary"
               style={styles.btnPrimary}
             >
               Try Again
@@ -767,10 +775,11 @@ const EmployeeDetails = () => {
               </div>
             </div>
             <div style={styles.headerActions}>
-              <button style={styles.btnExport} onClick={handleExport}>
+              <button className="btn-export" style={styles.btnExport} onClick={handleExport}>
                 <FaDownload /> Export CSV
               </button>
               <button
+                className="btn-primary"
                 style={styles.btnPrimary}
                 onClick={() => navigate("/add-employee")}
               >
@@ -781,7 +790,7 @@ const EmployeeDetails = () => {
 
           {/* Stats Cards */}
           <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
+            <div className="stat-card" style={styles.statCard}>
               <div style={{ ...styles.statIcon, ...styles.statIconBlue }}>
                 <FaUsers />
               </div>
@@ -790,7 +799,7 @@ const EmployeeDetails = () => {
                 <span style={styles.statValue}>{totalItems}</span>
               </div>
             </div>
-            <div style={styles.statCard}>
+            <div className="stat-card" style={styles.statCard}>
               <div style={{ ...styles.statIcon, ...styles.statIconPurple }}>
                 <FaLayerGroup />
               </div>
@@ -799,7 +808,7 @@ const EmployeeDetails = () => {
                 <span style={styles.statValue}>{allDepartments.length}</span>
               </div>
             </div>
-            <div style={styles.statCard}>
+            <div className="stat-card" style={styles.statCard}>
               <div style={{ ...styles.statIcon, ...styles.statIconGreen }}>
                 <FaBriefcase />
               </div>
@@ -808,7 +817,7 @@ const EmployeeDetails = () => {
                 <span style={styles.statValue}>{allDesignations.length}</span>
               </div>
             </div>
-            <div style={styles.statCard}>
+            <div className="stat-card" style={styles.statCard}>
               <div style={{ ...styles.statIcon, ...styles.statIconOrange }}>
                 <FaFilter />
               </div>
@@ -840,7 +849,7 @@ const EmployeeDetails = () => {
                 birthdateFilter ||
                 joiningDateFrom ||
                 joiningDateTo) && (
-                <button style={styles.clearFilters} onClick={clearAllFilters}>
+                <button className="clear-filters" style={styles.clearFilters} onClick={clearAllFilters}>
                   <FaTimes /> Clear all
                 </button>
               )}
@@ -852,6 +861,7 @@ const EmployeeDetails = () => {
                 <FaSearch style={styles.searchIcon} />
                 <input
                   type="text"
+                  className="search-input"
                   placeholder="Search by name, email, department..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -859,6 +869,7 @@ const EmployeeDetails = () => {
                 />
                 {searchQuery && (
                   <button
+                    className="clear-search"
                     style={styles.clearSearch}
                     onClick={() => setSearchQuery("")}
                   >
@@ -870,6 +881,7 @@ const EmployeeDetails = () => {
               {/* Designation Filter */}
               <div style={styles.filterWrapper} ref={designationDropdownRef}>
                 <div
+                  className="filter-select"
                   style={{
                     ...styles.filterSelect,
                     ...(showDesignationDropdown
@@ -905,6 +917,7 @@ const EmployeeDetails = () => {
                     </div>
                     <div style={styles.dropdownOptions}>
                       <div
+                        className="dropdown-option"
                         style={{
                           ...styles.dropdownOption,
                           ...(!designationFilter
@@ -921,6 +934,7 @@ const EmployeeDetails = () => {
                       {filteredDesignations.map((designation) => (
                         <div
                           key={designation}
+                          className="dropdown-option"
                           style={{
                             ...styles.dropdownOption,
                             ...(designationFilter === designation
@@ -943,6 +957,7 @@ const EmployeeDetails = () => {
               {/* Department Filter */}
               <div style={styles.filterWrapper} ref={departmentDropdownRef}>
                 <div
+                  className="filter-select"
                   style={{
                     ...styles.filterSelect,
                     ...(showDepartmentDropdown
@@ -978,6 +993,7 @@ const EmployeeDetails = () => {
                     </div>
                     <div style={styles.dropdownOptions}>
                       <div
+                        className="dropdown-option"
                         style={{
                           ...styles.dropdownOption,
                           ...(!departmentFilter
@@ -994,6 +1010,7 @@ const EmployeeDetails = () => {
                       {filteredDepartments.map((department) => (
                         <div
                           key={department}
+                          className="dropdown-option"
                           style={{
                             ...styles.dropdownOption,
                             ...(departmentFilter === department
@@ -1016,6 +1033,7 @@ const EmployeeDetails = () => {
               {/* Joining Date Filter */}
               <div style={styles.filterWrapper} ref={joiningDateDropdownRef}>
                 <div
+                  className="filter-select"
                   style={{
                     ...styles.filterSelect,
                     ...(showJoiningDatePicker ? styles.filterSelectActive : {}),
@@ -1045,6 +1063,7 @@ const EmployeeDetails = () => {
                   <div style={styles.selectIcons}>
                     {(joiningDateFrom || joiningDateTo) && (
                       <FaTimes
+                        className="clear-icon"
                         style={styles.clearIcon}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1064,6 +1083,7 @@ const EmployeeDetails = () => {
                           type="date"
                           value={joiningDateFrom}
                           onChange={(e) => handleJoiningDateFromChange(e.target.value)}
+                          className="date-input"
                           style={styles.dateInput}
                           placeholder="Start Date"
                         />
@@ -1074,6 +1094,7 @@ const EmployeeDetails = () => {
                           type="date"
                           value={joiningDateTo}
                           onChange={(e) => handleJoiningDateToChange(e.target.value)}
+                          className="date-input"
                           style={styles.dateInput}
                           placeholder="End Date"
                         />
@@ -1105,6 +1126,7 @@ const EmployeeDetails = () => {
             <div style={styles.filtersGridSecondRow}>
               <div style={styles.filterWrapper} ref={birthdateDropdownRef}>
                 <div
+                  className="filter-select"
                   style={{
                     ...styles.filterSelect,
                     ...(showBirthdatePicker ? styles.filterSelectActive : {}),
@@ -1124,6 +1146,7 @@ const EmployeeDetails = () => {
                   <div style={styles.selectIcons}>
                     {birthdateFilter && (
                       <FaTimes
+                        className="clear-icon"
                         style={styles.clearIcon}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1153,6 +1176,7 @@ const EmployeeDetails = () => {
                         setBirthdateFilter(e.target.value);
                         setShowBirthdatePicker(false);
                       }}
+                      className="date-input"
                       style={styles.dateInput}
                       autoFocus
                     />
@@ -1165,7 +1189,7 @@ const EmployeeDetails = () => {
             {(designationFilter || departmentFilter || birthdateFilter || joiningDateFrom || joiningDateTo) && (
               <div style={styles.activeFilters}>
                 {designationFilter && (
-                  <span style={styles.filterTag}>
+                  <span className="filter-tag" style={styles.filterTag}>
                     Designation: {designationFilter}
                     <button
                       style={styles.filterTagButton}
@@ -1176,7 +1200,7 @@ const EmployeeDetails = () => {
                   </span>
                 )}
                 {departmentFilter && (
-                  <span style={styles.filterTag}>
+                  <span className="filter-tag" style={styles.filterTag}>
                     Department: {departmentFilter}
                     <button
                       style={styles.filterTagButton}
@@ -1187,7 +1211,7 @@ const EmployeeDetails = () => {
                   </span>
                 )}
                 {joiningDateFrom && (
-                  <span style={styles.filterTag}>
+                  <span className="filter-tag" style={styles.filterTag}>
                     Joining From: {formatDateForDisplay(joiningDateFrom)}
                     <button
                       style={styles.filterTagButton}
@@ -1198,7 +1222,7 @@ const EmployeeDetails = () => {
                   </span>
                 )}
                 {joiningDateTo && (
-                  <span style={styles.filterTag}>
+                  <span className="filter-tag" style={styles.filterTag}>
                     Joining To: {formatDateForDisplay(joiningDateTo)}
                     <button
                       style={styles.filterTagButton}
@@ -1209,7 +1233,7 @@ const EmployeeDetails = () => {
                   </span>
                 )}
                 {birthdateFilter && (
-                  <span style={styles.filterTag}>
+                  <span className="filter-tag" style={styles.filterTag}>
                     Birth Date: {formatDateForDisplay(birthdateFilter)}
                     <button
                       style={styles.filterTagButton}
@@ -1248,24 +1272,28 @@ const EmployeeDetails = () => {
                   <tr>
                     <th
                       onClick={() => handleSort("employee_id")}
+                      className="table-header-cell sortable"
                       style={{ ...styles.tableHeaderCell, ...styles.sortable }}
                     >
                       ID {getSortIcon("employee_id")}
                     </th>
                     <th
                       onClick={() => handleSort("name")}
+                      className="table-header-cell sortable"
                       style={{ ...styles.tableHeaderCell, ...styles.sortable }}
                     >
                       Employee {getSortIcon("name")}
                     </th>
                     <th
                       onClick={() => handleSort("designation")}
+                      className="table-header-cell sortable"
                       style={{ ...styles.tableHeaderCell, ...styles.sortable }}
                     >
                       Designation {getSortIcon("designation")}
                     </th>
                     <th
                       onClick={() => handleSort("department_name")}
+                      className="table-header-cell sortable"
                       style={{ ...styles.tableHeaderCell, ...styles.sortable }}
                     >
                       Department {getSortIcon("department_name")}
@@ -1282,6 +1310,7 @@ const EmployeeDetails = () => {
                     employees.map((employee) => (
                       <tr
                         key={employee.id}
+                        className="employee-row"
                         style={{
                           ...styles.employeeRow,
                           ...(selectedRows.includes(employee.id)
@@ -1307,7 +1336,11 @@ const EmployeeDetails = () => {
                                   style={styles.avatarImage}
                                 />
                               ) : (
-                                <FaUserCircle />
+                                <span style={styles.avatarInitial}>
+                                  {employee.name
+                                    ? employee.name.charAt(0).toUpperCase()
+                                    : <FaUserCircle />}
+                                </span>
                               )}
                             </div>
                             <div style={styles.employeeDetails}>
@@ -1389,10 +1422,8 @@ const EmployeeDetails = () => {
                         <td style={styles.tableCell}>
                           <div style={styles.actionButtons}>
                             <button
-                              style={{
-                                ...styles.actionBtn,
-                                ...styles.actionBtnAttachment,
-                              }}
+                              className="action-btn attachment"
+                              style={styles.actionBtn}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(
@@ -1419,6 +1450,7 @@ const EmployeeDetails = () => {
                             Try adjusting your search or filters
                           </p>
                           <button
+                            className="btn-outline"
                             style={styles.btnOutline}
                             onClick={clearAllFilters}
                           >
@@ -1481,9 +1513,12 @@ const styles = {
   },
   pageTitle: {
     fontSize: "28px",
-    fontWeight: 600,
-    color: "#0f172a",
+    fontWeight: 700,
     margin: 0,
+    background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    backgroundClip: "text",
   },
   headerBadge: {
     display: "flex",
@@ -1552,13 +1587,13 @@ const styles = {
   },
   statCard: {
     background: "white",
-    borderRadius: "8px",
+    borderRadius: "14px",
     padding: "10px",
     display: "flex",
     alignItems: "center",
     gap: "16px",
-    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-    border: "1px solid #e2e8f0",
+    boxShadow: "0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.06)",
+    border: "1px solid #eef2f7",
     transition: "all 0.2s",
   },
   statIcon: {
@@ -1602,11 +1637,11 @@ const styles = {
   },
   filtersSection: {
     background: "white",
-    borderRadius: "8px",
+    borderRadius: "14px",
     padding: "10px",
     marginBottom: "10px",
-    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-    border: "1px solid #e2e8f0",
+    boxShadow: "0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.06)",
+    border: "1px solid #eef2f7",
   },
   filtersHeader: {
     display: "flex",
@@ -1845,9 +1880,9 @@ const styles = {
   },
   tableSection: {
     background: "white",
-    borderRadius: "8px",
-    boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+    boxShadow: "0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.06)",
+    border: "1px solid #eef2f7",
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
@@ -1929,16 +1964,21 @@ const styles = {
     cursor: "pointer",
   },
   employeeAvatar: {
-    width: "36px",
-    height: "36px",
+    width: "38px",
+    height: "38px",
     borderRadius: "50%",
-    background: "#e2e8f0",
+    background: "#dbeafe",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "#64748b",
+    color: "#2563eb",
     fontSize: "20px",
     overflow: "hidden",
+    flexShrink: 0,
+  },
+  avatarInitial: {
+    fontSize: "15px",
+    fontWeight: 600,
   },
   avatarImage: {
     width: "100%",
@@ -2013,9 +2053,8 @@ const styles = {
     transition: "all 0.2s",
     cursor: "pointer",
     color: "#f59e0b",
-    borderColor: "#f59e0b",
     background: "#fff3cd",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #f59e0b",
     marginTop: "4px",
     marginBottom: "5px",
   },

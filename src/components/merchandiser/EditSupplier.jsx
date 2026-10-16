@@ -817,12 +817,9 @@ const EditSupplier = () => {
     }
 
     // Log what we're sending for debugging
-    console.log("Sending FormData:");
     for (let pair of formData.entries()) {
       if (pair[1] instanceof File) {
-        console.log(`  ${pair[0]}: File - ${pair[1].name}`);
       } else {
-        console.log(`  ${pair[0]}: ${pair[1]}`);
       }
     }
 

@@ -12,16 +12,17 @@ import {
   FiTrendingUp,
   FiBarChart2,
   FiDollarSign,
-  FiActivity,
   FiArrowUp,
   FiArrowDown,
   FiRefreshCw,
   FiPieChart,
+  FiFilter,
   FiShoppingBag,
   FiTruck,
   FiCalendar,
   FiSearch,
   FiX,
+  FiPackage,
 } from "react-icons/fi";
 import Sidebar from "../merchandiser/Sidebar.jsx";
 import {
@@ -36,6 +37,9 @@ import {
   ComposedChart,
   LabelList,
   Line,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import axios from "axios";
 import {
@@ -46,6 +50,7 @@ import {
   getToken,
   getCustomers,
   getSuppliers,
+  getDepartments,
 } from "../../api/merchandiser.js";
 import { isMerchandiserProduction } from "../../utils/accessControl";
 
@@ -148,6 +153,16 @@ const iconTile = (color) => ({
   color,
   flexShrink: 0,
 });
+
+// $1.34B / $94.1M / $512K
+const fmtMoney = (n) =>
+  n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n > 0 ? `$${Math.round(n / 1e3)}K` : "$0";
+
+// 1.34B / 94.1M / 512K (same scale as fmtMoney, no currency sign)
+const fmtCount = (n) =>
+  n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n > 0 ? `${Math.round(n / 1e3)}K` : "0";
+
+const DASHBOARD_FILTERS_KEY = "orderDashboard.filters.v1";
 
 const safeNumber = (value, defaultValue = 0) => {
   const num = Number(value);
@@ -844,8 +859,323 @@ const MultiSupplierSelect = ({
 };
 
 // ============================================================================
+// MULTI-DEPARTMENT SELECT COMPONENT WITH SEARCH
+// ============================================================================
+const MultiDepartmentSelect = ({
+  selectedDepartments,
+  onChange,
+  departmentsList,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const selectRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearchTerm("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Selection is the department NAME (not id) - matches how the Orders page's
+  // own department filter already works (backend filters department__name).
+  const toggleDepartment = (departmentName) => {
+    let newSelection;
+    if (departmentName === "all") {
+      newSelection = ["all"];
+    } else {
+      let currentWithoutAll = selectedDepartments.filter((d) => d !== "all");
+      if (currentWithoutAll.includes(departmentName)) {
+        newSelection = currentWithoutAll.filter((d) => d !== departmentName);
+        if (newSelection.length === 0) newSelection = ["all"];
+      } else {
+        newSelection = [...currentWithoutAll, departmentName];
+      }
+    }
+    onChange(newSelection);
+  };
+
+  const getDisplayText = () => {
+    if (selectedDepartments.includes("all"))
+      return `All Departments (${departmentsList.length})`;
+    if (selectedDepartments.length === 1) {
+      return `${selectedDepartments[0]}`;
+    }
+    return `${selectedDepartments.length} Departments Selected`;
+  };
+
+  const isSelected = (departmentName) => {
+    if (selectedDepartments.includes("all")) return true;
+    return selectedDepartments.includes(departmentName);
+  };
+
+  const departmentsArray = Array.isArray(departmentsList) ? departmentsList : [];
+
+  const filteredDepartments = departmentsArray.filter((department) =>
+    (department.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div ref={selectRef} style={{ position: "relative", minWidth: 220 }}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          height: 36,
+          padding: "0 12px",
+          borderRadius: 9,
+          border: `1px solid ${T.borderStrong}`,
+          backgroundColor: "white",
+          fontSize: 13,
+          color: T.text2,
+          fontWeight: 500,
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span>{getDisplayText()}</span>
+        <span style={{ fontSize: 10 }}>{isOpen ? "▲" : "▼"}</span>
+      </div>
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            backgroundColor: "white",
+            border: "1px solid #e2e8f0",
+            borderRadius: "0.5rem",
+            marginTop: 4,
+            zIndex: 1000,
+            maxHeight: 350,
+            overflowY: "auto",
+            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div
+            style={{
+              padding: "8px 12px",
+              borderBottom: "1px solid #e2e8f0",
+              position: "sticky",
+              top: 0,
+              backgroundColor: "white",
+              zIndex: 1,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor: "#f1f5f9",
+                borderRadius: "0.5rem",
+                padding: "4px 10px",
+              }}
+            >
+              <FiSearch size={14} color="#94a3b8" />
+              <input
+                type="text"
+                placeholder="Search departments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  outline: "none",
+                  fontSize: "0.85rem",
+                  width: "100%",
+                  padding: "6px 0",
+                  color: "#1e293b",
+                }}
+              />
+              {searchTerm && (
+                <FiX
+                  size={14}
+                  color="#94a3b8"
+                  style={{ cursor: "pointer" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchTerm("");
+                  }}
+                />
+              )}
+            </div>
+          </div>
+          <div
+            onClick={() => {
+              toggleDepartment("all");
+              setSearchTerm("");
+            }}
+            style={{
+              padding: "10px 12px",
+              cursor: "pointer",
+              backgroundColor: selectedDepartments.includes("all")
+                ? "#eff6ff"
+                : "white",
+              fontWeight: selectedDepartments.includes("all") ? 600 : 400,
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                border: "2px solid #2563eb",
+                backgroundColor: selectedDepartments.includes("all")
+                  ? "#2563eb"
+                  : "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {selectedDepartments.includes("all") && (
+                <span style={{ color: "white", fontSize: 12 }}>✓</span>
+              )}
+            </div>
+            <span>All Departments ({departmentsArray.length})</span>
+          </div>
+          {filteredDepartments.length === 0 ? (
+            <div style={{ padding: "12px", color: "#94a3b8", textAlign: "center" }}>
+              No departments found
+            </div>
+          ) : (
+            filteredDepartments.map((department) => (
+              <div
+                key={department.id}
+                onClick={() => {
+                  toggleDepartment(department.name);
+                  setSearchTerm("");
+                }}
+                style={{
+                  padding: "10px 12px",
+                  cursor: "pointer",
+                  backgroundColor:
+                    isSelected(department.name) &&
+                    !selectedDepartments.includes("all")
+                      ? "#f3f4f6"
+                      : "white",
+                  borderBottom: "1px solid #f0f0f0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: 4,
+                    border: "2px solid #cbd5e1",
+                    backgroundColor:
+                      isSelected(department.name) &&
+                      !selectedDepartments.includes("all")
+                        ? "#2563eb"
+                        : "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {isSelected(department.name) &&
+                    !selectedDepartments.includes("all") && (
+                      <span style={{ color: "white", fontSize: 12 }}>✓</span>
+                    )}
+                </div>
+                <span>{department.name}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
 // STATS CARD COMPONENT
 // ============================================================================
+// Contribution by `metric` ("value" | "quantity"): every entry, no "Others".
+// Same-name rows are merged (API sends '' and null as two "No garment" rows).
+const topSlices = (share, metric) => {
+  const byName = {};
+  (share || []).forEach((c) => {
+    const e = (byName[c.name] ||= { name: c.name, value: 0, quantity: 0 });
+    e.value += c.value || 0;
+    e.quantity += c.quantity || 0;
+  });
+  const list = Object.values(byName).filter((c) => c[metric] > 0).sort((a, b) => b[metric] - a[metric]);
+  const total = list.reduce((t, c) => t + c[metric], 0);
+  return { total, slices: list.map((c) => ({ ...c, pct: total ? (c[metric] / total) * 100 : 0 })) };
+};
+
+// Palette first, then golden-angle hues so long lists don't repeat colours.
+const sliceColor = (c, i) => (i < COMPARE_COLORS.length ? COMPARE_COLORS[i] : `hsl(${(i * 137.5) % 360} 55% 52%)`);
+const fmtPct = (p) => (p > 0 && p < 0.1 ? "<0.1%" : `${p.toFixed(1)}%`);
+
+const SharePie = ({ title, share, stats }) => {
+  const [metric, setMetric] = useState("value");
+  const pie = useMemo(() => topSlices(share, metric), [share, metric]);
+  return (
+  <div style={panelStyle}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <h3 style={panelTitle}>
+        <span style={iconTile(T.accent)}><FiPieChart size={16} /></span> {title}
+        <span style={{ fontSize: 12.5, fontWeight: 500, color: T.muted, marginLeft: 6 }}>
+          by {metric === "value" ? "value" : "qty"}{stats?.filtered ? " · filtered" : ""}
+        </span>
+      </h3>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button type="button" style={segBtn(metric === "quantity")} onClick={() => setMetric("quantity")}>Qty</button>
+        <button type="button" style={segBtn(metric === "value")} onClick={() => setMetric("value")}>Value</button>
+      </div>
+    </div>
+    {!pie.slices.length ? (
+      <div style={{ padding: 30, textAlign: "center", color: T.muted, fontSize: 13 }}>
+        {stats ? "No orders for this selection." : "Loading…"}
+      </div>
+    ) : (
+      <div>
+        <div style={{ width: "100%", height: 200, marginTop: 6 }}>
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie data={pie.slices} dataKey={metric} nameKey="name" innerRadius={50} outerRadius={95} isAnimationActive={false}>
+                {pie.slices.map((c, i) => <Cell key={c.name} fill={sliceColor(c, i)} />)}
+              </Pie>
+              <Tooltip formatter={(v, n, p) => [`${metric === "value" ? "$" : ""}${(v / 1e6).toFixed(2)}M${metric === "value" ? "" : " pcs"} · ${fmtPct(p.payload.pct)}`, n]} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{ maxHeight: 230, overflowY: "auto", paddingRight: 4 }}>
+          {pie.slices.map((c, i) => (
+            <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${T.border}`, fontSize: 12.5 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: sliceColor(c, i) }} />
+              <span style={{ flex: 1, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={c.name}>{c.name}</span>
+              <span style={{ fontWeight: 600, width: 84, textAlign: "right" }}>
+                {metric === "value" ? `$${(c.value / 1e6).toFixed(2)}M` : `${(c.quantity / 1e6).toFixed(2)}M pcs`}
+              </span>
+              <span style={{ fontWeight: 700, width: 48, textAlign: "right" }}>{fmtPct(c.pct)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+  );
+};
+
 const StatsCard = React.memo(
   ({ stat, index, hoveredCard, setHoveredCard, navigate }) => {
     const hovered = hoveredCard === `order-${index}`;
@@ -1641,13 +1971,16 @@ const YearlyChart = React.memo(({ data, loading, selectedMetric }) => {
                 stroke="#0d9488"
                 strokeWidth={3}
                 dot={{ fill: "#0d9488", r: 6 }}
+                isAnimationActive={false}
               >
                 <LabelList
                   dataKey="value"
                   position="top"
                   content={(props) => {
-                    const { cx, cy, value } = props;
-                    const safeValue = safeNumber(value);
+                    // Recharts 3 gives Line labels x/y, not cx/cy.
+                    const cx = props.cx ?? props.x;
+                    const cy = props.cy ?? props.y;
+                    const safeValue = safeNumber(props.value);
                     if (safeValue === 0 || isNaN(cy)) return null;
                     return (
                       <text
@@ -1889,6 +2222,7 @@ const CustomerChart = React.memo(
                   name="Order Value"
                   stroke="#0d9488"
                   strokeWidth={3}
+                  isAnimationActive={false}
                   dot={{
                     fill: "#0d9488",
                     r: 5,
@@ -2046,43 +2380,6 @@ const GarmentCustomerComparisonChart = React.memo(
 
     return (
       <div>
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            marginBottom: 20,
-            flexWrap: "wrap",
-            alignItems: "center",
-            padding: "10px 14px",
-            backgroundColor: "#f8fafc",
-            borderRadius: 10,
-            border: `1px solid ${T.border}`,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <FiCalendar size={14} color="#64748b" />
-            <span
-              style={{ fontSize: "0.85rem", color: "#64748b", fontWeight: 500 }}
-            >
-              Filter:
-            </span>
-          </div>
-          <MultiYearSelect
-            selectedYears={selectedYears}
-            onChange={onYearChange}
-            availableYears={availableYears}
-          />
-          <MultiCustomerSelect
-            selectedCustomers={selectedCustomers}
-            onChange={onCustomerChange}
-            customersList={customersDropdownList}
-          />
-          <MultiSupplierSelect
-            selectedSuppliers={selectedSuppliers}
-            onChange={onSupplierChange}
-            suppliersList={suppliersList}
-          />
-        </div>
 
         {customersToShow.length > 0 && chartData.length > 0 ? (
           <div style={{ height: 450, width: "100%" }}>
@@ -2306,6 +2603,9 @@ const DashboardPage = () => {
   const [masterSupplierList, setMasterSupplierList] = useState(
     () => getCachedData("master_supplier_list") || [],
   );
+  const [masterDepartmentList, setMasterDepartmentList] = useState(
+    () => getCachedData("master_department_list") || [],
+  );
   const [availableCustomerYears, setAvailableCustomerYears] = useState(
     () => getCachedData("available_customer_years") || [],
   );
@@ -2326,42 +2626,47 @@ const DashboardPage = () => {
   );
 
   // Filter states
-  const [selectedYears, setSelectedYears] = useState(["all"]);
-  const [selectedYearsForYearly, setSelectedYearsForYearly] = useState(["all"]);
-  const [selectedYearsForGarment, setSelectedYearsForGarment] = useState([
-    "all",
-  ]);
-  const [selectedYearsForCustomer, setSelectedYearsForCustomer] = useState([
-    "all",
-  ]);
-
-  const [selectedCustomers, setSelectedCustomers] = useState(["all"]);
-  const [selectedYearlyCustomers, setSelectedYearlyCustomers] = useState([
-    "all",
-  ]);
-  const [selectedGarmentCustomers, setSelectedGarmentCustomers] = useState([
-    "all",
-  ]);
-  const [selectedCustomerCustomers, setSelectedCustomerCustomers] = useState([
-    "all",
-  ]);
-
-  // Supplier filter states
-  const [selectedSuppliers, setSelectedSuppliers] = useState(["all"]);
-  const [selectedYearlySuppliers, setSelectedYearlySuppliers] = useState([
-    "all",
-  ]);
-  const [selectedGarmentSuppliers, setSelectedGarmentSuppliers] = useState([
-    "all",
-  ]);
-  const [selectedCustomerSuppliers, setSelectedCustomerSuppliers] = useState([
-    "all",
-  ]);
+  // One filter set for the whole page (top Filters bar), kept across reloads.
+  const savedFilters = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem(DASHBOARD_FILTERS_KEY) || "{}") || {};
+    } catch {
+      return {};
+    }
+  }, []);
+  const [selectedYears, setSelectedYears] = useState(savedFilters.years || ["all"]);
+  const [selectedCustomers, setSelectedCustomers] = useState(savedFilters.customers || ["all"]);
+  const [selectedSuppliers, setSelectedSuppliers] = useState(savedFilters.suppliers || ["all"]);
+  const [selectedDepartments, setSelectedDepartments] = useState(savedFilters.departments || ["all"]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(DASHBOARD_FILTERS_KEY, JSON.stringify({
+        years: selectedYears, customers: selectedCustomers, suppliers: selectedSuppliers, departments: selectedDepartments,
+      }));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [selectedYears, selectedCustomers, selectedSuppliers, selectedDepartments]);
+  // Every chart follows the global selection.
+  const selectedYearsForYearly = selectedYears;
+  const selectedYearsForGarment = selectedYears;
+  const selectedYearsForCustomer = selectedYears;
+  const selectedYearlyCustomers = selectedCustomers;
+  const selectedGarmentCustomers = selectedCustomers;
+  const selectedCustomerCustomers = selectedCustomers;
+  const selectedYearlySuppliers = selectedSuppliers;
+  const selectedGarmentSuppliers = selectedSuppliers;
+  const selectedCustomerSuppliers = selectedSuppliers;
+  const selectedYearlyDepartments = selectedDepartments;
+  const selectedGarmentDepartments = selectedDepartments;
+  const selectedCustomerDepartments = selectedDepartments;
 
   const [selectedMetric, setSelectedMetric] = useState("both");
   // Monthly chart comparison: one series per selected year/customer/supplier.
   const [monthlyCompareBy, setMonthlyCompareBy] = useState(null);
   const [monthlyCompare, setMonthlyCompare] = useState(null);
+  // Order Statistics + customer pie for the monthly chart's current filters.
+  const [monthlyStats, setMonthlyStats] = useState(null);
   const monthlyRequestId = useRef(0);
   const [selectedYearlyMetric, setSelectedYearlyMetric] = useState("both");
   const [selectedCustomerGraphMetric, setSelectedCustomerGraphMetric] =
@@ -2458,6 +2763,30 @@ const DashboardPage = () => {
     }
     return [];
   }, [getAuthHeaders]);
+
+  // ========== FETCH MASTER DEPARTMENT LIST ==========
+  const fetchMasterDepartmentList = useCallback(async () => {
+    const cached = getCachedData("master_department_list");
+    if (cached && cached.length > 0) {
+      setMasterDepartmentList(cached);
+      return cached;
+    }
+    try {
+      const response = await getDepartments(1, 500, true);
+      const data = response.data?.results || response.data || [];
+      if (Array.isArray(data) && data.length > 0) {
+        const departments = data
+          .map((d) => ({ id: d.id, name: d.name || `Department ${d.id}` }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setMasterDepartmentList(departments);
+        setCachedData("master_department_list", departments);
+        return departments;
+      }
+    } catch (error) {
+      console.error("Error fetching master department list:", error);
+    }
+    return [];
+  }, []);
 
   // ========== FETCH AVAILABLE YEARS ==========
   const fetchAvailableYears = useCallback(async () => {
@@ -2685,13 +3014,20 @@ const DashboardPage = () => {
       fetchDashboardStats();
       fetchMasterCustomerList();
       fetchMasterSupplierList();
-      fetchChartData();
+      fetchMasterDepartmentList();
+      // With a saved filter the filter effects below load every chart; the
+      // unfiltered preload could land after them and overwrite the result.
+      const filtered = ["years", "customers", "suppliers", "departments"].some(
+        (k) => savedFilters[k] && !savedFilters[k].includes("all"),
+      );
+      if (!filtered) fetchChartData();
     }
   }, [
     fetchAvailableYears,
     fetchDashboardStats,
     fetchMasterCustomerList,
     fetchMasterSupplierList,
+    fetchMasterDepartmentList,
     fetchChartData,
   ]);
 
@@ -2707,6 +3043,7 @@ const DashboardPage = () => {
         year: selectedYears.filter((y) => y !== "all"),
         customer: selectedCustomers.filter((c) => c !== "all"),
         supplier: selectedSuppliers.filter((s) => s !== "all"),
+        department: selectedDepartments.filter((d) => d !== "all"),
       };
       const buildParams = (override = {}) => {
         const params = new URLSearchParams();
@@ -2761,6 +3098,13 @@ const DashboardPage = () => {
       }
 
       if (response.data?.success && response.data.data) {
+        setMonthlyStats({
+          orderStats: response.data.data.orderStats,
+          customerShare: response.data.data.customerShare || [],
+          supplierShare: response.data.data.supplierShare || [],
+          garmentShare: response.data.data.garmentShare || [],
+          filtered: Object.values(picked).some((l) => l.length > 0),
+        });
         setOrderMonthlyData({
           months: response.data.data.months || [],
           quantities: (response.data.data.quantities || []).map((v) => safeNumber(v, 0)),
@@ -2772,7 +3116,7 @@ const DashboardPage = () => {
       console.error("Error updating monthly chart:", error);
     }
     if (requestId === monthlyRequestId.current) setLoadingMonthly(false);
-  }, [selectedYears, selectedCustomers, selectedSuppliers, monthlyCompareBy, masterCustomerList, masterSupplierList]);
+  }, [selectedYears, selectedCustomers, selectedSuppliers, selectedDepartments, monthlyCompareBy, masterCustomerList, masterSupplierList]);
 
   // Yearly Chart Filter Handler
   const handleYearlyFilterChange = useCallback(async () => {
@@ -2792,7 +3136,11 @@ const DashboardPage = () => {
       if (!selectedYearlySuppliers.includes("all")) {
         params.append("supplier", selectedYearlySuppliers.join("|"));
       }
-      
+
+      if (!selectedYearlyDepartments.includes("all")) {
+        params.append("department", selectedYearlyDepartments.join("|"));
+      }
+
       const url = `${API_BASE_URL}/orders/yearly-data/?${params.toString()}`;
       const response = await axios.get(url, {
         headers: { Authorization: `Token ${token}` }
@@ -2811,7 +3159,7 @@ const DashboardPage = () => {
       console.error("Error updating yearly chart:", error);
     }
     setLoadingYearly(false);
-  }, [selectedYearsForYearly, selectedYearlyCustomers, selectedYearlySuppliers]);
+  }, [selectedYearsForYearly, selectedYearlyCustomers, selectedYearlySuppliers, selectedYearlyDepartments]);
 
   // Customer Chart Filter Handler
   const handleCustomerFilterChange = useCallback(async () => {
@@ -2827,7 +3175,13 @@ const DashboardPage = () => {
       if (!selectedCustomerCustomers.includes("all")) {
         params.append("customer", selectedCustomerCustomers.join("|"));
       }
-      
+      if (!selectedCustomerSuppliers.includes("all")) {
+        params.append("supplier", selectedCustomerSuppliers.join("|"));
+      }
+      if (!selectedCustomerDepartments.includes("all")) {
+        params.append("department", selectedCustomerDepartments.join("|"));
+      }
+
       const url = `${API_BASE_URL}/orders/customer-data/?${params.toString()}`;
       const response = await axios.get(url, {
         headers: { Authorization: `Token ${token}` }
@@ -2859,7 +3213,7 @@ const DashboardPage = () => {
       console.error("Error updating customer chart:", error);
     }
     setLoadingCustomer(false);
-  }, [selectedYearsForCustomer, selectedCustomerCustomers, sortBy]);
+  }, [selectedYearsForCustomer, selectedCustomerCustomers, selectedCustomerSuppliers, selectedCustomerDepartments, sortBy]);
 
   // Garment Chart Filter Handler
   const handleGarmentFilterChange = useCallback(async () => {
@@ -2875,7 +3229,13 @@ const DashboardPage = () => {
       if (!selectedGarmentCustomers.includes("all")) {
         params.append("customers", selectedGarmentCustomers.join("|"));
       }
-      
+      if (!selectedGarmentSuppliers.includes("all")) {
+        params.append("supplier", selectedGarmentSuppliers.join("|"));
+      }
+      if (!selectedGarmentDepartments.includes("all")) {
+        params.append("department", selectedGarmentDepartments.join("|"));
+      }
+
       const url = `${API_BASE_URL}/orders/garment-customer-comparison/?${params.toString()}`;
       const response = await axios.get(url, {
         headers: { Authorization: `Token ${token}` }
@@ -2901,42 +3261,15 @@ const DashboardPage = () => {
       console.error("Error updating garment chart:", error);
     }
     setLoadingGarment(false);
-  }, [selectedYearsForGarment, selectedGarmentCustomers]);
+  }, [selectedYearsForGarment, selectedGarmentCustomers, selectedGarmentSuppliers, selectedGarmentDepartments]);
 
   // ========== WRAPPER HANDLERS FOR UI ==========
-  const handleYearSelection = useCallback((years, type) => {
-    if (type === "monthly") {
-      setSelectedYears(years);
-    } else if (type === "yearly") {
-      setSelectedYearsForYearly(years);
-    } else if (type === "customer") {
-      setSelectedYearsForCustomer(years);
-    } else if (type === "garment") {
-      setSelectedYearsForGarment(years);
-    }
-  }, []);
+  const handleYearSelection = useCallback((years) => setSelectedYears(years), []);
 
-  const handleCustomerSelection = useCallback((customers, type) => {
-    if (type === "monthly") {
-      setSelectedCustomers(customers);
-    } else if (type === "yearly") {
-      setSelectedYearlyCustomers(customers);
-    } else if (type === "customer") {
-      setSelectedCustomerCustomers(customers);
-    } else if (type === "garment") {
-      setSelectedGarmentCustomers(customers);
-    }
-  }, []);
+  const handleCustomerSelection = useCallback((customers) => setSelectedCustomers(customers), []);
 
-  const handleSupplierSelection = useCallback((suppliers, type) => {
-    if (type === "monthly") {
-      setSelectedSuppliers(suppliers);
-    } else if (type === "yearly") {
-      setSelectedYearlySuppliers(suppliers);
-    } else if (type === "garment") {
-      setSelectedGarmentSuppliers(suppliers);
-    }
-  }, []);
+  const handleSupplierSelection = useCallback((suppliers) => setSelectedSuppliers(suppliers), []);
+  const handleDepartmentSelection = useCallback((departments) => setSelectedDepartments(departments), []);
 
   // Trigger filter changes when selections update
   useEffect(() => {
@@ -3006,6 +3339,7 @@ const DashboardPage = () => {
         fetchDashboardStats(),
         fetchMasterCustomerList(),
         fetchMasterSupplierList(),
+        fetchMasterDepartmentList(),
         handleMonthlyFilterChange(),
         handleYearlyFilterChange(),
         handleCustomerFilterChange(),
@@ -3021,6 +3355,7 @@ const DashboardPage = () => {
     fetchDashboardStats,
     fetchMasterCustomerList,
     fetchMasterSupplierList,
+    fetchMasterDepartmentList,
     handleMonthlyFilterChange,
     handleYearlyFilterChange,
     handleCustomerFilterChange,
@@ -3028,9 +3363,7 @@ const DashboardPage = () => {
   ]);
 
   const orderStats = useMemo(() => {
-    const stats = dashboardData?.orderStats || {};
-    const runningOrders =
-      stats.statusBreakdown?.running || stats.statusBreakdown?.active || 0;
+    const stats = monthlyStats?.orderStats || dashboardData?.orderStats || {};
     const totalOrderValue = safeNumber(stats.totalOrderValue, 0);
     const shippedValue = safeNumber(stats.shippedValue, 0);
     return [
@@ -3045,11 +3378,18 @@ const DashboardPage = () => {
         description: "",
       },
       {
+        title: "Total Quantity",
+        value: fmtCount(safeNumber(stats.totalOrderQuantity, 0)),
+        icon: <FiPackage size={20} />,
+        link: "/orders",
+        accent: T.qty,
+        changeType: "increase",
+        change: "",
+        description: "",
+      },
+      {
         title: "Order Value",
-        value:
-          totalOrderValue > 0
-            ? `$${(totalOrderValue / 1000000).toFixed(1)}M`
-            : "$0",
+        value: fmtMoney(totalOrderValue),
         icon: <FiDollarSign size={20} />,
         link: "/orders",
         accent: T.val,
@@ -3059,8 +3399,7 @@ const DashboardPage = () => {
       },
       {
         title: "Shipped Value",
-        value:
-          shippedValue > 0 ? `$${(shippedValue / 1000000).toFixed(1)}M` : "$0",
+        value: fmtMoney(shippedValue),
         icon: <FiTruck size={20} />,
         link: "/orders?status=Shipped",
         accent: "#059669",
@@ -3068,18 +3407,10 @@ const DashboardPage = () => {
         change: "",
         description: "",
       },
-      {
-        title: "Active Orders",
-        value: `${runningOrders}`,
-        icon: <FiActivity size={20} />,
-        link: "/orders?status=Running",
-        accent: T.cnt,
-        change: `${Math.round((runningOrders / (stats.totalOrders || 1)) * 100)}%`,
-        changeType: "increase",
-        description: "of total orders",
-      },
     ];
-  }, [dashboardData]);
+  }, [dashboardData, monthlyStats]);
+
+
 
   return (
     <div
@@ -3174,6 +3505,66 @@ const DashboardPage = () => {
           </div>
         </header>
 
+        {/* Global filters: drive the statistics cards, contribution pies and monthly chart */}
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
+            margin: "0 -28px 18px",
+            padding: "12px 28px",
+            background: "rgba(243,245,249,0.92)",
+            backdropFilter: "blur(6px)",
+            borderBottom: `1px solid ${T.border}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: T.text }}>
+            <span style={iconTile(T.accent)}><FiFilter size={15} /></span> Filters
+          </span>
+            <MultiYearSelect
+              selectedYears={selectedYears}
+              onChange={(years) => handleYearSelection(years, "monthly")}
+              availableYears={availableYearsList}
+              />
+            <MultiCustomerSelect
+              selectedCustomers={selectedCustomers}
+              onChange={(customers) =>
+                handleCustomerSelection(customers, "monthly")
+            }
+              customersList={masterCustomerList}
+              />
+            <MultiSupplierSelect
+              selectedSuppliers={selectedSuppliers}
+              onChange={(suppliers) =>
+                handleSupplierSelection(suppliers, "monthly")
+            }
+              suppliersList={masterSupplierList}
+              />
+            <MultiDepartmentSelect
+              selectedDepartments={selectedDepartments}
+              onChange={(departments) =>
+                handleDepartmentSelection(departments, "monthly")
+            }
+              departmentsList={masterDepartmentList}
+              />
+          {(!selectedYears.includes("all") || !selectedCustomers.includes("all") || !selectedSuppliers.includes("all") || !selectedDepartments.includes("all")) && (
+            <button
+              type="button"
+              style={segBtn(false)}
+              onClick={() => { setSelectedYears(["all"]); setSelectedCustomers(["all"]); setSelectedSuppliers(["all"]); setSelectedDepartments(["all"]); }}
+            >
+              Reset
+            </button>
+          )}
+          <span style={{ marginLeft: "auto", fontSize: 12, color: T.muted }}>
+            Applies to every chart on this page · saved on this browser
+          </span>
+        </div>
+
         <h3
           style={{
             margin: "0 0 10px",
@@ -3185,6 +3576,11 @@ const DashboardPage = () => {
           }}
         >
           Order Statistics
+          {monthlyStats?.filtered && (
+            <span style={{ marginLeft: 8, textTransform: "none", letterSpacing: 0, color: T.accent, fontWeight: 600 }}>
+              · filtered by the monthly chart selection
+            </span>
+          )}
         </h3>
         <div
           style={{
@@ -3237,25 +3633,6 @@ const DashboardPage = () => {
                 flexWrap: "wrap",
               }}
             >
-              <MultiYearSelect
-                selectedYears={selectedYears}
-                onChange={(years) => handleYearSelection(years, "monthly")}
-                availableYears={availableYearsList}
-              />
-              <MultiCustomerSelect
-                selectedCustomers={selectedCustomers}
-                onChange={(customers) =>
-                  handleCustomerSelection(customers, "monthly")
-                }
-                customersList={masterCustomerList}
-              />
-              <MultiSupplierSelect
-                selectedSuppliers={selectedSuppliers}
-                onChange={(suppliers) =>
-                  handleSupplierSelection(suppliers, "monthly")
-                }
-                suppliersList={masterSupplierList}
-              />
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => setSelectedMetric("both")}
@@ -3295,6 +3672,13 @@ const DashboardPage = () => {
           )}
         </div>
 
+        {/* Customer + supplier contribution (follow the monthly chart filters) */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16, marginBottom: 18 }}>
+          <SharePie title="Customer-wise Contribution" share={monthlyStats?.customerShare} stats={monthlyStats} />
+          <SharePie title="Supplier-wise Contribution" share={monthlyStats?.supplierShare} stats={monthlyStats} />
+          <SharePie title="Garment-wise Contribution" share={monthlyStats?.garmentShare} stats={monthlyStats} />
+        </div>
+
         {/* Yearly Order Chart */}
         <div
           style={panelStyle}
@@ -3322,29 +3706,6 @@ const DashboardPage = () => {
                 flexWrap: "wrap",
               }}
             >
-              <MultiYearSelect
-                selectedYears={selectedYearsForYearly}
-                onChange={(years) => handleYearSelection(years, "yearly")}
-                availableYears={
-                  yearlyData.availableYears?.length
-                    ? yearlyData.availableYears
-                    : availableYearsList
-                }
-              />
-              <MultiCustomerSelect
-                selectedCustomers={selectedYearlyCustomers}
-                onChange={(customers) =>
-                  handleCustomerSelection(customers, "yearly")
-                }
-                customersList={masterCustomerList}
-              />
-              <MultiSupplierSelect
-                selectedSuppliers={selectedYearlySuppliers}
-                onChange={(suppliers) =>
-                  handleSupplierSelection(suppliers, "yearly")
-                }
-                suppliersList={masterSupplierList}
-              />
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => setSelectedYearlyMetric("both")}
@@ -3401,11 +3762,6 @@ const DashboardPage = () => {
                 flexWrap: "wrap",
               }}
             >
-              <MultiYearSelect
-                selectedYears={selectedYearsForCustomer}
-                onChange={(years) => handleYearSelection(years, "customer")}
-                availableYears={availableCustomerYears}
-              />
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => handleSortChange("quantity")}

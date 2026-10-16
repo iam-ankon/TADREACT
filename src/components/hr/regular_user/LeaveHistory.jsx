@@ -35,35 +35,19 @@ const LeaveHistory = () => {
       setLoading(true);
       setError("");
 
-      console.log("🔄 Fetching leave history...");
-      console.log("👤 Employee Info:", employeeInfo);
 
       const leavesResponse = await getEmployeeLeaves();
 
-      console.log("📋 Raw leaves API Response:", leavesResponse);
 
       // Use the transformed data from API
       let leavesData = leavesResponse.data || [];
 
-      console.log("📊 All leaves from backend:", leavesData.length);
 
       const employeeId = localStorage.getItem("employee_id");
       const employeeDbId = localStorage.getItem("employee_db_id");
 
       // Debug: Check each leave
       leavesData.forEach((leave, index) => {
-        console.log(`🔍 Leave ${index}:`, {
-          id: leave.id,
-          employee: leave.employee,
-          employee_name: leave.employee?.name,
-          employee_code: leave.employee_code,
-          matches:
-            (leave.employee && leave.employee.employee_id === employeeId) ||
-            leave.employee_code === employeeId ||
-            (leave.employee &&
-              leave.employee.id &&
-              leave.employee.id.toString() === employeeDbId),
-        });
       });
 
       // Use the SAME filtering logic as Dashboard
@@ -72,13 +56,11 @@ const LeaveHistory = () => {
 
         // Strategy 1: Check if employee_code matches
         if (leave.employee_code === employeeId) {
-          console.log(`✅ Leave ${leave.id} matched by employee_code`);
           matches = true;
         }
 
         // Strategy 2: Check if employee object has matching employee_id
         else if (leave.employee && leave.employee.employee_id === employeeId) {
-          console.log(`✅ Leave ${leave.id} matched by employee.employee_id`);
           matches = true;
         }
 
@@ -88,7 +70,6 @@ const LeaveHistory = () => {
           leave.employee.id &&
           leave.employee.id.toString() === employeeDbId
         ) {
-          console.log(`✅ Leave ${leave.id} matched by employee.id`);
           matches = true;
         }
 
@@ -97,34 +78,20 @@ const LeaveHistory = () => {
           leave.employee_name &&
           leave.employee_name === employeeInfo.name
         ) {
-          console.log(`✅ Leave ${leave.id} matched by employee_name`);
           matches = true;
         }
 
         // Strategy 5: Check if the raw employee field matches database ID
         else if (leave.employee && leave.employee.toString() === employeeDbId) {
-          console.log(`✅ Leave ${leave.id} matched by raw employee field`);
           matches = true;
         }
 
         if (!matches) {
-          console.log(`❌ Leave ${leave.id} didn't match any criteria:`, {
-            leaveEmployeeCode: leave.employee_code,
-            leaveEmployeeId: leave.employee?.employee_id,
-            leaveEmployeeDbId: leave.employee?.id,
-            leaveEmployeeName: leave.employee_name,
-            rawEmployeeField: leave.employee,
-            ourEmployeeId: employeeId,
-            ourEmployeeDbId: employeeDbId,
-            ourEmployeeName: employeeInfo.name,
-          });
         }
 
         return matches;
       });
 
-      console.log("👤 User's leaves after filtering:", userLeaves.length);
-      console.log("✅ Final user leaves:", userLeaves);
 
       // Sort leaves by date (newest first)
       userLeaves.sort((a, b) => {

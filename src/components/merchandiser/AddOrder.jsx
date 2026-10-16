@@ -486,24 +486,25 @@ const AddOrder = () => {
     try {
       const response = await getSuppliers(1, 500, { all: true });
       if (response && response.data) {
-        let suppliersList = [];
+        let rawSuppliers = [];
         if (Array.isArray(response.data)) {
-          suppliersList = response.data.map((supplier) => ({
-            id: supplier.id,
-            name:
-              supplier.supplier_name ||
-              supplier.name ||
-              `Supplier ${supplier.id}`,
-          }));
+          rawSuppliers = response.data;
         } else if (response.data.results) {
-          suppliersList = response.data.results.map((supplier) => ({
+          rawSuppliers = response.data.results;
+        }
+        // Ex Suppliers are no longer active - don't offer them for new orders.
+        let suppliersList = rawSuppliers
+          .filter(
+            (supplier) =>
+              (supplier.tad_group_order_status || "").trim().toLowerCase() !== "ex supplier"
+          )
+          .map((supplier) => ({
             id: supplier.id,
             name:
               supplier.supplier_name ||
               supplier.name ||
               `Supplier ${supplier.id}`,
           }));
-        }
         suppliersList.sort((a, b) => a.name.localeCompare(b.name));
         setSuppliers(suppliersList);
       }
@@ -906,11 +907,23 @@ const AddOrder = () => {
     }
   };
 
+  const REQUIRED_FIELDS = [
+    ["style", "Order NO"],
+    ["po_no", "PO Number"],
+    ["department_id", "Department"],
+    ["customer_id", "Customer"],
+    ["supplier_id", "Supplier"],
+    ["total_qty", "Quantity"],
+    ["factory_ship_date", "Factory Ship Date"],
+    ["shipment_date", "Shipment Date"],
+  ];
+
   const validateForm = () => {
-    if (!formData.style || !formData.po_no || !formData.customer_id) {
+    const missing = REQUIRED_FIELDS.filter(([key]) => !formData[key]).map(([, label]) => label);
+    if (missing.length > 0) {
       setSnackbar({
         open: true,
-        message: "Please fill all required fields (Order NO, PO Number, Customer)",
+        message: `Please fill the required field(s): ${missing.join(", ")}`,
         type: "warning",
       });
       return false;
@@ -1025,7 +1038,6 @@ const AddOrder = () => {
         color_size_groups: formattedColorGroups,
       };
 
-      console.log("Submitting data:", submitData);
       const response = await createOrder(submitData);
 
       if (
@@ -1214,7 +1226,7 @@ const AddOrder = () => {
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>
-                      Style<span style={styles.required}>*</span>
+                      Style
                     </label>
                     <input
                       type="text"
@@ -1249,7 +1261,9 @@ const AddOrder = () => {
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Department</label>
+                    <label style={styles.formLabel}>
+                      Department <span style={styles.required}>*</span>
+                    </label>
                     <select
                       name="department_id"
                       value={formData.department_id || ""}
@@ -1283,7 +1297,9 @@ const AddOrder = () => {
                     </select>
                   </div>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Supplier</label>
+                    <label style={styles.formLabel}>
+                      Supplier <span style={styles.required}>*</span>
+                    </label>
                     <div
                       style={styles.searchableSelectContainer}
                       ref={supplierSearchRef}
@@ -1457,7 +1473,9 @@ const AddOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Total Quantity</label>
+                    <label style={styles.formLabel}>
+                      Total Quantity <span style={styles.required}>*</span>
+                    </label>
                     <input
                       type="number"
                       name="total_qty"
@@ -1662,7 +1680,9 @@ const AddOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Factory Ship Date</label>
+                    <label style={styles.formLabel}>
+                      Factory Ship Date <span style={styles.required}>*</span>
+                    </label>
                     <QuickDateInput
                       value={formData.factory_ship_date}
                       onChange={(d) => handleDateChange("factory_ship_date", d)}
@@ -1670,7 +1690,9 @@ const AddOrder = () => {
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Shipment Date</label>
+                    <label style={styles.formLabel}>
+                      Shipment Date <span style={styles.required}>*</span>
+                    </label>
                     <QuickDateInput
                       value={formData.shipment_date}
                       onChange={(d) => handleDateChange("shipment_date", d)}

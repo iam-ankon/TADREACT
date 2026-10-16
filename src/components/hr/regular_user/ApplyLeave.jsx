@@ -53,26 +53,18 @@ const ApplyLeave = () => {
     fetchEmployeeReportingLeader();
 
     // Debug localStorage
-    console.log("🔍 localStorage contents:");
-    console.log("employee_db_id:", localStorage.getItem("employee_db_id"));
-    console.log("employee_id:", localStorage.getItem("employee_id"));
-    console.log("employee_name:", localStorage.getItem("employee_name"));
-    console.log("reporting_leader:", localStorage.getItem("reporting_leader"));
   }, []);
 
   const fetchEmployeeReportingLeader = async () => {
     try {
       const employeeId = localStorage.getItem("employee_id");
-      console.log("🔍 Fetching employee details for reporting leader:", employeeId);
 
       if (employeeId) {
         const employeeData = await getEmployeeDetailsByCode(employeeId);
         if (employeeData && employeeData.reporting_leader) {
-          console.log("✅ Found reporting leader:", employeeData.reporting_leader);
           localStorage.setItem("reporting_leader", employeeData.reporting_leader);
           employeeInfo.reporting_leader = employeeData.reporting_leader;
         } else {
-          console.log("⚠️ No reporting leader found for employee");
         }
       }
     } catch (error) {
@@ -83,20 +75,22 @@ const ApplyLeave = () => {
   const fetchLeaveBalances = async () => {
     try {
       const employeeId = localStorage.getItem("employee_id");
-      console.log("🔍 Fetching leave balances for employee:", employeeId);
 
       const response = await getEmployeeLeaveBalances(employeeId);
-      console.log("💰 Raw balances response:", response.data);
 
       // Handle different response structures
       let balanceData = {};
 
       if (response.data && Array.isArray(response.data)) {
-        // Case 1: Array response (multiple balance records)
+        // Case 1: Array response (multiple balance records). Match by the
+        // employee PK (employee_db_id), not the denormalized employee_code,
+        // which can go stale if an employee's employee_id is reassigned
+        // after their balance row was created.
+        const employeeDbId = localStorage.getItem("employee_db_id");
         const userBalance = response.data.find(
           (balance) =>
+            String(balance.employee) === String(employeeDbId) ||
             balance.employee_code === employeeId ||
-            balance.employee === employeeId ||
             (balance.employee && balance.employee.employee_id === employeeId)
         );
 
@@ -118,7 +112,6 @@ const ApplyLeave = () => {
         };
       }
 
-      console.log("🔄 Setting leave balances:", balanceData);
       setLeaveBalances(balanceData);
     } catch (error) {
       console.error("❌ Error fetching leave balances:", error);
@@ -197,12 +190,6 @@ const ApplyLeave = () => {
       const employeeId = localStorage.getItem("employee_id");
       const reportingLeader = localStorage.getItem("reporting_leader") || employeeInfo.reporting_leader || "";
 
-      console.log("📝 Creating leave with:", {
-        employeeDbId,
-        employeeId,
-        employeeName: employeeInfo.name,
-        reportingLeader,
-      });
 
       // Format dates properly for backend
       const formatDateForBackend = (dateString) => {
@@ -233,7 +220,6 @@ const ApplyLeave = () => {
         reporting_leader: reportingLeader,
       };
 
-      console.log("📦 Final leave data with reporting leader:", leaveData);
       await addEmployeeLeave(leaveData);
       alert("Leave request submitted successfully! Your reporting leader will be notified.");
       navigate("/dashboard");

@@ -301,16 +301,9 @@ const BulkCosting = () => {
         }
       }
       
-      console.log(`✅ Fetched ${allInquiries.length} inquiries`);
       
       // Debug: Log first inquiry to see structure
       if (allInquiries.length > 0) {
-        console.log("Sample inquiry data:", {
-          id: allInquiries[0].id,
-          inquiry_no: allInquiries[0].inquiry_no,
-          customer_name: allInquiries[0].customer_name,
-          buyer_name: allInquiries[0].buyer_name,
-        });
       }
       
       return allInquiries;
@@ -352,7 +345,6 @@ const BulkCosting = () => {
       }
     }
     
-    console.log(`✅ Loaded costing for ${Object.keys(costingMap).length} inquiries`);
     return costingMap;
   };
 

@@ -248,7 +248,6 @@ const InquiryForm = () => {
         ]);
 
         setBuyers(buyersRes.data || []);
-        console.log("✅ Buyers loaded:", buyersRes.data?.length || 0);
 
         // Transform departments
         const transformedDepartments = (departmentsRes.data || []).map((dept) => ({
@@ -257,7 +256,6 @@ const InquiryForm = () => {
         }));
         transformedDepartments.sort((a, b) => a.name.localeCompare(b.name));
         setDepartments(transformedDepartments);
-        console.log("✅ Departments loaded:", transformedDepartments);
 
         // Transform customers
         const transformedCustomers = (customersRes.data || []).map((cust) => {
@@ -289,7 +287,6 @@ const InquiryForm = () => {
           };
         });
         setCustomers(transformedCustomers);
-        console.log("✅ Customers loaded:", transformedCustomers.length);
 
         // Transform suppliers
         const transformedSuppliers = (suppliersRes.data || []).map((sup) => ({
@@ -298,7 +295,6 @@ const InquiryForm = () => {
           email: sup.email || "",
         }));
         setSuppliers(transformedSuppliers);
-        console.log("✅ Suppliers loaded:", transformedSuppliers.length);
 
         if (isEditMode) {
           await fetchInquiryData(transformedSuppliers);
@@ -318,7 +314,6 @@ const InquiryForm = () => {
           `http://119.148.51.38:8000/api/merchandiser/api/inquiry/${id}/`,
         );
         const inquiryData = inquiryRes.data;
-        console.log("📋 Fetched inquiry data:", inquiryData);
 
         // Extract customer ID
         let customerId = null;
@@ -338,9 +333,7 @@ const InquiryForm = () => {
           } else {
             departmentId = inquiryData.department.toString();
           }
-          console.log("📋 Department ID extracted from inquiry:", departmentId);
         } else {
-          console.log("⚠️ No department found in inquiry data");
         }
 
         // Extract buyer ID
@@ -376,7 +369,6 @@ const InquiryForm = () => {
           suppliers: inquiryData.suppliers?.map((s) => s.id) || [],
           department: departmentId, // Set department ID
         });
-        console.log("📋 Form data set with department:", departmentId);
 
         // Set supplier prices
         const initialSupplierPrices = {};
@@ -874,12 +866,6 @@ const InquiryForm = () => {
         ...restFormData
       } = formData;
 
-      console.log("🔍 SUBMIT DEBUG:");
-      console.log("  - department value:", department);
-      console.log("  - department type:", typeof department);
-      console.log("  - is null?", department === null);
-      console.log("  - is undefined?", department === undefined);
-      console.log("  - is empty string?", department === "");
 
       const payload = {};
 
@@ -968,15 +954,12 @@ const InquiryForm = () => {
       // Check if department has a valid value
       if (department !== null && department !== undefined && department !== "" && department !== "null" && department !== "undefined") {
         payload.department_id = parseInt(department);
-        console.log("✅ Department ID set to:", payload.department_id);
       } else {
         payload.department_id = null;
-        console.log("⚠️ Department ID set to null");
       }
       
       payload.supplier_ids = formSuppliers && formSuppliers.length > 0 ? formSuppliers : [];
 
-      console.log("📋 Final payload department_id:", payload.department_id);
 
       // Supplier prices
       const supplierPricesData = (formSuppliers || []).map((supplierId) => ({
@@ -1019,7 +1002,6 @@ const InquiryForm = () => {
         }
       }
 
-      console.log("📋 Full payload:", JSON.stringify(payload, null, 2));
 
       const formDataToSend = new FormData();
       formDataToSend.append("data", JSON.stringify(payload));

@@ -223,7 +223,7 @@ const AddLeaveRequest = () => {
         status: "pending",
       };
 
-      console.log("Submitting leave data:", leaveData); // Debug log
+       // Debug log
 
       await addEmployeeLeave(leaveData);
 

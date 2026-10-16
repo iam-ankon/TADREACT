@@ -18,8 +18,9 @@ import {
 import Sidebar from "../merchandiser/Sidebar";
 import SampleSection from "../merchandiser/SampleSection";
 import OrderLabReports from "./OrderLabReports";
-import { withDetailOrderTheme } from "./detailOrderTheme";
+import { withDetailOrderTheme, baseStyles } from "./detailOrderTheme";
 import { canViewOrderPricing, canViewOrderAttachments, canManageOrders, isMerchandiserProduction } from "../../utils/accessControl";
+import OrderTNATab from "./OrderTNATab.jsx";
 import {
   FaArrowLeft,
   FaEdit,
@@ -48,6 +49,7 @@ import {
   FaComments,
   FaUsers,
   FaRegClock,
+  FaCalendarCheck,
   FaExclamationTriangle,
   FaPalette,
   FaPaperclip,
@@ -324,17 +326,8 @@ const DetailOrder = () => {
       // TEMP DEBUG - remove once the progress bar color issue is
       // confirmed fixed. Open the browser console after checking an
       // Approved box to see exactly what this page received.
-      console.log("[TNA Progress] fetched TNA for order", id, {
-        id: response.data?.id,
-        lab_dip_status: response.data?.lab_dip_status,
-        fabric_status: response.data?.fabric_status,
-        fit_sample_status: response.data?.fit_sample_status,
-        pp_sample_status: response.data?.pp_sample_status,
-        progress_percentage: response.data?.progress_percentage,
-      });
       setTna(response.data || null);
     } catch (err) {
-      console.log("[TNA Progress] fetch failed for order", id, err?.response?.status, err?.response?.data);
       // No TNA record for this order yet - normal, just show the empty state.
       setTna(null);
     } finally {
@@ -360,7 +353,6 @@ const DetailOrder = () => {
     try {
       const response = await getOrderById(id);
       const orderData = response.data;
-      console.log("Order data:", orderData);
       setOrder(orderData);
       setError(null);
       await Promise.all([
@@ -377,17 +369,12 @@ const DetailOrder = () => {
 
   const fetchOrderFiles = async () => {
     try {
-      console.log("🔍 Fetching files for order:", id);
       const response = await getOrderFiles(id);
-      console.log("📁 Files response:", response.data);
 
       const attachments = response.data.attachments || [];
       const images = response.data.images || [];
       const sampleFiles = response.data.sample_files || [];
 
-      console.log(`📎 Attachments found: ${attachments.length}`);
-      console.log(`🖼️ Images found: ${images.length}`);
-      console.log(`🧵 Sample files found: ${sampleFiles.length}`);
 
       setOrderFiles({
         attachments: attachments,
@@ -405,7 +392,6 @@ const DetailOrder = () => {
     setCourierLoading(true);
     try {
       const data = await getCourierBookingsByOrder(id);
-      console.log("📦 Courier bookings:", data);
       setCourierBookings(data.results || []);
     } catch (error) {
       console.error("❌ Error fetching courier bookings:", error);
@@ -430,7 +416,6 @@ const DetailOrder = () => {
   };
 
   const handleEmail = () => {
-    console.log("Emailing order...");
   };
 
   const handleDownload = async () => {
@@ -879,6 +864,11 @@ const DetailOrder = () => {
                   {downloading ? "..." : <FaDownload />}
                 </button>
               )}
+              {order.last_edited_by && (
+                <span style={styles.lastEditedBadge}>
+                  Last edited by {order.last_edited_by}
+                </span>
+              )}
               {canManageOrders() && (
                 <button
                   style={styles.btnPrimary}
@@ -1022,6 +1012,13 @@ const DetailOrder = () => {
               id="timeline"
               label="Timeline"
               icon={<FaRegClock />}
+              active={activeTab}
+              onClick={setActiveTab}
+            />
+            <TabButton
+              id="tna"
+              label="T&A"
+              icon={<FaCalendarCheck />}
               active={activeTab}
               onClick={setActiveTab}
             />
@@ -1436,6 +1433,11 @@ const DetailOrder = () => {
                       icon={<FaCalendarAlt />}
                     />
                     <InfoRow
+                      label="Created By"
+                      value={order.created_by || "—"}
+                      icon={<FaUsers />}
+                    />
+                    <InfoRow
                       label="Last Updated"
                       value={formatDate(order.updated_at)}
                       icon={<FaCalendarAlt />}
@@ -1673,6 +1675,10 @@ const DetailOrder = () => {
             )}
 
             {/* Commission / Shipment Tracking Tab */}
+            {activeTab === "tna" && (
+              <OrderTNATab tna={tna} loading={tnaLoading} canEdit={canManageOrders()} onUpdated={setTna} />
+            )}
+
             {activeTab === "commission" && (
               <div style={styles.tabPanel}>
                 <div style={styles.twoColumnGrid}>
@@ -2384,966 +2390,6 @@ const DetailOrder = () => {
   );
 };
 
-// Styles
-const baseStyles = {
-  appContainer: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#f1f5f9",
-    fontFamily:
-      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    color: "#0f172a",
-    height: "100vh",
-    overflow: "hidden",
-  },
-  mainContent: {
-    flex: 1,
-    padding: "24px",
-    overflowY: "auto",
-    height: "100vh",
-  },
-  orderDetailContainer: {
-    maxWidth: "1400px",
-    margin: "0 auto",
-  },
-  pageHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: "24px",
-    flexWrap: "wrap",
-    gap: "16px",
-  },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-  },
-  pageTitle: {
-    fontSize: "28px",
-    fontWeight: 600,
-    color: "#0f172a",
-    margin: 0,
-    marginBottom: "4px",
-  },
-  pageSubtitle: {
-    fontSize: "14px",
-    color: "#64748b",
-    margin: 0,
-  },
-  headerActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    flexWrap: "wrap",
-  },
-  warningBadge: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "6px 12px",
-    backgroundColor: "#fef3c7",
-    color: "#d97706",
-    borderRadius: "20px",
-    fontSize: "13px",
-    fontWeight: 500,
-  },
-  btnIcon: {
-    display: "flex",
-    padding: "8px 10px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    color: "#475569",
-    background: "white",
-    border: "1px solid #e2e8f0",
-  },
-  btnPrimary: {
-    display: "flex",
-    alignItems: "center",
-    padding: "8px 20px",
-    borderRadius: "8px",
-    fontWeight: 500,
-    fontSize: "14px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-  },
-  btnDanger: {
-    display: "flex",
-    alignItems: "center",
-    padding: "8px 20px",
-    borderRadius: "8px",
-    fontWeight: 500,
-    fontSize: "14px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    border: "none",
-    background: "#ef4444",
-    color: "white",
-  },
-  btnDangerOutline: {
-    display: "flex",
-    alignItems: "center",
-    padding: "8px 20px",
-    borderRadius: "8px",
-    fontWeight: 500,
-    fontSize: "14px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    border: "1px solid #ef4444",
-    background: "transparent",
-    color: "#ef4444",
-  },
-  btnOutline: {
-    display: "flex",
-    alignItems: "center",
-    padding: "8px 20px",
-    borderRadius: "8px",
-    fontWeight: 500,
-    fontSize: "14px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    color: "#475569",
-  },
-  btnCancel: {
-    padding: "4px 12px",
-    borderRadius: "6px",
-    border: "1px solid #cbd5e1",
-    background: "white",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  btnConfirm: {
-    padding: "4px 12px",
-    borderRadius: "6px",
-    border: "none",
-    background: "#dc2626",
-    color: "white",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  deleteConfirm: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "4px 12px",
-    backgroundColor: "#fee2e2",
-    borderRadius: "8px",
-    fontSize: "13px",
-    color: "#dc2626",
-  },
-  progressSection: {
-    background: "white",
-    borderRadius: "16px",
-    padding: "20px 24px",
-    marginBottom: "24px",
-    border: "1px solid #e2e8f0",
-  },
-  progressHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "12px",
-    flexWrap: "wrap",
-    gap: "8px",
-  },
-  progressTitle: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#64748b",
-    marginRight: "16px",
-  },
-  progressStats: {
-    fontSize: "14px",
-    fontWeight: 600,
-    color: "#2563eb",
-  },
-  progressCount: {
-    fontSize: "13px",
-    color: "#64748b",
-  },
-  progressBarContainer: {
-    height: "8px",
-    backgroundColor: "#e2e8f0",
-    borderRadius: "4px",
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    borderRadius: "4px",
-    transition: "width 0.3s ease",
-  },
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "20px",
-    marginBottom: "24px",
-  },
-  metricCard: {
-    background: "white",
-    borderRadius: "16px",
-    padding: "16px 20px",
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-    border: "1px solid #e2e8f0",
-    transition: "all 0.2s",
-  },
-  metricIcon: {
-    width: "48px",
-    height: "48px",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "20px",
-  },
-  metricContent: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  metricTitle: {
-    fontSize: "13px",
-    color: "#64748b",
-    marginBottom: "4px",
-  },
-  metricValue: {
-    fontSize: "20px",
-    fontWeight: 700,
-    color: "#0f172a",
-  },
-  tabsContainer: {
-    display: "flex",
-    gap: "8px",
-    background: "white",
-    borderRadius: "12px",
-    padding: "8px",
-    border: "1px solid #e2e8f0",
-    marginBottom: "24px",
-    flexWrap: "wrap",
-  },
-  tabButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "10px 20px",
-    borderRadius: "8px",
-    fontSize: "14px",
-    fontWeight: 500,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    border: "none",
-    background: "transparent",
-    color: "#64748b",
-  },
-  tabButtonActive: {
-    background: "#eff6ff",
-    color: "#2563eb",
-  },
-  tabContent: {
-    marginBottom: "24px",
-  },
-  tabPanel: {
-    animation: "fadeIn 0.3s ease",
-  },
-  twoColumnGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "24px",
-  },
-  sectionCard: {
-    background: "white",
-    borderRadius: "16px",
-    border: "1px solid #e2e8f0",
-    overflow: "hidden",
-    marginBottom: "24px",
-  },
-  sectionHeader: {
-    padding: "16px 20px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#fafafa",
-  },
-  sectionTitle: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-  sectionIcon: {
-    fontSize: "18px",
-    color: "#2563eb",
-  },
-  sectionHeading: {
-    fontSize: "16px",
-    fontWeight: 600,
-    color: "#1e293b",
-    margin: 0,
-  },
-  sectionContent: {
-    padding: "20px",
-  },
-  sectionSubtitle: {
-    fontSize: "16px",
-    fontWeight: 600,
-    color: "#1e293b",
-    marginBottom: "16px",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  infoRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 0",
-    borderBottom: "1px solid #f1f5f9",
-  },
-  infoLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "14px",
-    color: "#64748b",
-  },
-  infoIcon: {
-    fontSize: "14px",
-    color: "#94a3b8",
-  },
-  infoValue: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#0f172a",
-  },
-  inlineEditInput: {
-    fontSize: "13px",
-    padding: "4px 8px",
-    borderRadius: "6px",
-    border: "1px solid #cbd5e1",
-    color: "#0f172a",
-  },
-  inlineEditBtn: {
-    background: "none",
-    border: "none",
-    color: "#94a3b8",
-    cursor: "pointer",
-    padding: "2px",
-    display: "inline-flex",
-    alignItems: "center",
-  },
-  inlineEditSaveBtn: {
-    background: "#10b981",
-    border: "none",
-    color: "#fff",
-    borderRadius: "4px",
-    width: "22px",
-    height: "22px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-  },
-  inlineEditCancelBtn: {
-    background: "#ef4444",
-    border: "none",
-    color: "#fff",
-    borderRadius: "4px",
-    width: "22px",
-    height: "22px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-  },
-  timelineContainer: {
-    position: "relative",
-    paddingLeft: "24px",
-  },
-  timelineItem: {
-    display: "flex",
-    gap: "16px",
-    paddingBottom: "24px",
-    position: "relative",
-  },
-  timelineDot: {
-    width: "12px",
-    height: "12px",
-    borderRadius: "50%",
-    backgroundColor: "#cbd5e1",
-    marginTop: "4px",
-    flexShrink: 0,
-  },
-  timelineContent: {
-    flex: 1,
-  },
-  timelineTitle: {
-    fontSize: "14px",
-    fontWeight: 600,
-    color: "#1e293b",
-    marginBottom: "4px",
-  },
-  timelineDate: {
-    fontSize: "13px",
-    color: "#64748b",
-  },
-  testResult: {
-    padding: "16px",
-    backgroundColor: "#f8fafc",
-    borderRadius: "12px",
-    fontSize: "14px",
-    color: "#334155",
-    lineHeight: "1.6",
-    whiteSpace: "pre-wrap",
-  },
-  remarksContent: {
-    padding: "16px",
-    backgroundColor: "#fefce8",
-    borderRadius: "12px",
-    fontSize: "14px",
-    color: "#854d0e",
-    lineHeight: "1.6",
-    whiteSpace: "pre-wrap",
-  },
-  footerActions: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "16px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e2e8f0",
-  },
-  footerRightActions: {
-    display: "flex",
-    gap: "12px",
-  },
-  loadingState: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "200px",
-    textAlign: "center",
-  },
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "3px solid #e2e8f0",
-    borderTopColor: "#2563eb",
-    borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
-    marginBottom: "20px",
-  },
-  errorState: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "400px",
-    textAlign: "center",
-  },
-  errorIcon: {
-    width: "48px",
-    height: "48px",
-    background: "#fee2e2",
-    color: "#ef4444",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "24px",
-    fontWeight: "bold",
-    marginBottom: "16px",
-  },
-  snackbar: {
-    position: "fixed",
-    bottom: "24px",
-    right: "24px",
-    padding: "12px 20px",
-    borderRadius: "10px",
-    color: "white",
-    fontSize: "14px",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    zIndex: 1000,
-    animation: "slideIn 0.3s ease",
-  },
-  snackbarClose: {
-    background: "none",
-    border: "none",
-    color: "white",
-    fontSize: "20px",
-    cursor: "pointer",
-    padding: "0 4px",
-  },
-  colorTableWrapper: {
-    overflowX: "auto",
-  },
-  colorTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "14px",
-  },
-  colorTableHeader: {
-    padding: "12px",
-    backgroundColor: "#f8fafc",
-    borderBottom: "2px solid #e2e8f0",
-    textAlign: "center",
-    fontWeight: 600,
-    color: "#475569",
-  },
-  colorTableCell: {
-    padding: "12px",
-    borderBottom: "1px solid #e2e8f0",
-    textAlign: "center",
-  },
-  colorTableFooter: {
-    padding: "12px",
-    backgroundColor: "#f8fafc",
-    borderTop: "2px solid #e2e8f0",
-    textAlign: "center",
-    fontWeight: 500,
-  },
-  colorCell: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  colorDot: {
-    width: "20px",
-    height: "20px",
-    borderRadius: "4px",
-    border: "1px solid #e2e8f0",
-  },
-  colorName: {
-    fontWeight: 500,
-    color: "#1e293b",
-  },
-  quantityBadge: {
-    display: "inline-block",
-    padding: "4px 8px",
-    backgroundColor: "#f1f5f9",
-    borderRadius: "6px",
-    fontSize: "13px",
-    color: "#475569",
-  },
-  totalBadge: {
-    display: "inline-block",
-    padding: "4px 12px",
-    backgroundColor: "#e0e7ff",
-    color: "#4338ca",
-    borderRadius: "20px",
-    fontSize: "13px",
-    fontWeight: 600,
-  },
-  grandTotalBadge: {
-    display: "inline-block",
-    padding: "6px 16px",
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    borderRadius: "20px",
-    fontSize: "14px",
-    fontWeight: 700,
-  },
-  emptyColorState: {
-    textAlign: "center",
-    padding: "60px 20px",
-    backgroundColor: "#f8fafc",
-    borderRadius: "12px",
-  },
-  emptyColorIcon: {
-    fontSize: "48px",
-    color: "#cbd5e1",
-    marginBottom: "16px",
-  },
-  filesSection: {
-    padding: "8px 0",
-  },
-  imagesSection: {
-    marginBottom: "32px",
-  },
-  attachmentsSection: {
-    marginTop: "16px",
-  },
-  imageGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-    gap: "16px",
-  },
-  imageCard: {
-    position: "relative",
-    border: "1px solid #e2e8f0",
-    borderRadius: "12px",
-    overflow: "hidden",
-    backgroundColor: "#f8fafc",
-    transition: "all 0.2s",
-    cursor: "pointer",
-  },
-  imagePreview: {
-    width: "100%",
-    height: "160px",
-    objectFit: "cover",
-  },
-  imageOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "12px",
-    opacity: 0,
-    transition: "opacity 0.2s",
-  },
-  imageActionBtn: {
-    background: "white",
-    border: "none",
-    borderRadius: "8px",
-    padding: "8px",
-    cursor: "pointer",
-    color: "#2563eb",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.2s",
-    fontSize: "14px",
-  },
-  imageName: {
-    padding: "8px 12px",
-    fontSize: "12px",
-    color: "#64748b",
-    textAlign: "center",
-    borderTop: "1px solid #e2e8f0",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  attachmentsList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-  },
-  attachmentCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "12px 16px",
-    backgroundColor: "#f8fafc",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
-    transition: "all 0.2s",
-  },
-  attachmentIcon: {
-    fontSize: "28px",
-    color: "#64748b",
-  },
-  attachmentInfo: {
-    flex: 1,
-  },
-  attachmentName: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#1e293b",
-    marginBottom: "4px",
-  },
-  attachmentType: {
-    fontSize: "11px",
-    color: "#94a3b8",
-    textTransform: "uppercase",
-  },
-  attachmentActions: {
-    display: "flex",
-    gap: "8px",
-  },
-  attachmentActionBtn: {
-    background: "white",
-    border: "1px solid #e2e8f0",
-    borderRadius: "6px",
-    padding: "6px 10px",
-    cursor: "pointer",
-    color: "#64748b",
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    fontSize: "12px",
-    transition: "all 0.2s",
-  },
-  emptyFilesState: {
-    textAlign: "center",
-    padding: "60px 20px",
-    backgroundColor: "#f8fafc",
-    borderRadius: "12px",
-  },
-  emptyFilesIcon: {
-    fontSize: "48px",
-    color: "#cbd5e1",
-    marginBottom: "16px",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: "white",
-    borderRadius: "16px",
-    width: "90%",
-    maxWidth: "500px",
-    overflow: "auto",
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "20px 24px",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  modalTitle: {
-    fontSize: "18px",
-    fontWeight: 600,
-    color: "#0f172a",
-    margin: 0,
-  },
-  modalClose: {
-    background: "none",
-    border: "none",
-    fontSize: "20px",
-    cursor: "pointer",
-    color: "#64748b",
-  },
-  modalBody: {
-    padding: "24px",
-  },
-  modalFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-    padding: "16px 24px",
-    borderTop: "1px solid #e2e8f0",
-  },
-  modalCancel: {
-    padding: "8px 16px",
-    borderRadius: "8px",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  modalSubmit: {
-    padding: "8px 20px",
-    borderRadius: "8px",
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: 500,
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-  renameSection: {
-    marginBottom: "20px",
-  },
-  currentFileName: {
-    padding: "10px",
-    backgroundColor: "#f1f5f9",
-    borderRadius: "8px",
-    fontSize: "14px",
-    color: "#475569",
-    marginTop: "4px",
-  },
-  renameInput: {
-    width: "100%",
-    padding: "10px",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "14px",
-    marginTop: "4px",
-    outline: "none",
-  },
-  fileExtensionHint: {
-    fontSize: "12px",
-    color: "#64748b",
-    marginTop: "4px",
-  },
-  uploadLabel: {
-    fontSize: "14px",
-    fontWeight: 500,
-    color: "#334155",
-    marginBottom: "6px",
-    display: "block",
-  },
-  imageViewerModal: {
-    backgroundColor: "white",
-    borderRadius: "16px",
-    width: "90%",
-    maxWidth: "900px",
-    maxHeight: "90vh",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-  },
-  imageViewerHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "16px 20px",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  imageViewerBody: {
-    flex: 1,
-    padding: "20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "auto",
-  },
-  fullImage: {
-    maxWidth: "100%",
-    maxHeight: "70vh",
-    objectFit: "contain",
-  },
-  imageViewerFooter: {
-    display: "flex",
-    justifyContent: "flex-end",
-    padding: "16px 20px",
-    borderTop: "1px solid #e2e8f0",
-  },
-
-  // =============================================================
-  // COURIER TABLE STYLES - ADD THIS
-  // =============================================================
-  courierTableWrapper: {
-    overflowX: "auto",
-    marginTop: "8px",
-  },
-  courierTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "13px",
-  },
-  courierTableHeader: {
-    padding: "12px 14px",
-    backgroundColor: "#f8fafc",
-    borderBottom: "2px solid #e2e8f0",
-    textAlign: "left",
-    fontWeight: 600,
-    color: "#475569",
-    fontSize: "12px",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    whiteSpace: "nowrap",
-  },
-  courierTableRow: {
-    borderBottom: "1px solid #f1f5f9",
-    transition: "background 0.15s",
-  },
-  courierTableCell: {
-    padding: "12px 14px",
-    verticalAlign: "middle",
-    fontSize: "13px",
-    color: "#1e293b",
-  },
-  courierBookingRef: {
-    fontWeight: 600,
-    color: "#2563eb",
-    fontSize: "13px",
-  },
-  courierName: {
-    fontWeight: 500,
-    color: "#0f172a",
-  },
-  courierTrackingNumber: {
-    fontFamily: "monospace",
-    fontSize: "12px",
-    color: "#475569",
-    display: "block",
-  },
-  courierAwb: {
-    fontSize: "11px",
-    color: "#94a3b8",
-    display: "block",
-    marginTop: "2px",
-  },
-  courierType: {
-    display: "inline-block",
-    padding: "2px 10px",
-    borderRadius: "12px",
-    fontSize: "11px",
-    fontWeight: 600,
-    textTransform: "uppercase",
-  },
-  courierOverdueBadge: {
-    display: "inline-block",
-    marginLeft: "6px",
-    padding: "1px 8px",
-    backgroundColor: "#fee2e2",
-    color: "#dc2626",
-    borderRadius: "10px",
-    fontSize: "10px",
-    fontWeight: 600,
-  },
-  courierActions: {
-    display: "flex",
-    gap: "6px",
-    alignItems: "center",
-  },
-  courierActionBtn: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "32px",
-    height: "32px",
-    borderRadius: "6px",
-    border: "1px solid #e2e8f0",
-    background: "white",
-    color: "#64748b",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    fontSize: "14px",
-  },
-
-  // Courier Stats Cards
-  courierStatsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "16px",
-    marginTop: "16px",
-  },
-  courierStatCard: {
-    background: "white",
-    borderRadius: "12px",
-    padding: "16px 20px",
-    border: "1px solid #e2e8f0",
-    textAlign: "center",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  courierStatValue: {
-    fontSize: "24px",
-    fontWeight: 700,
-    color: "#0f172a",
-  },
-  courierStatLabel: {
-    fontSize: "13px",
-    color: "#64748b",
-    marginTop: "4px",
-  },
-};
 const styles = withDetailOrderTheme(baseStyles);
 
 const styleSheet = document.createElement("style");

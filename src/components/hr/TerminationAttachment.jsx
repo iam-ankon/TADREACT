@@ -31,18 +31,15 @@ const TerminationAttachment = () => {
       setLoading(true);
       setError(null);
       
-      console.log(`Fetching attachments for employee ID: ${id}`);
       
       // Try multiple possible endpoints
       let response;
       
       // Try employee_termination endpoint first
       try {
-        console.log("Trying employee_termination endpoint...");
         response = await hrmsApi.get(`employee_termination/?employee=${id}`);
         
         if (response.data && response.data.length > 0) {
-          console.log("Found termination records:", response.data.length);
           // Check if attachments are included in termination data
           const terminationData = response.data[0];
           if (terminationData.attachments) {
@@ -51,12 +48,10 @@ const TerminationAttachment = () => {
           }
         }
       } catch (terminationError) {
-        console.log("employee_termination endpoint failed, trying other options...");
       }
       
       // Try checking if employee has any documents in their record
       try {
-        console.log("Trying employee documents endpoint...");
         response = await hrmsApi.get(`employees/${id}/`);
         
         if (response.data) {
@@ -70,7 +65,6 @@ const TerminationAttachment = () => {
           
           // If no attachments found, show appropriate message
           setAttachments([]);
-          console.log("No attachments found for this employee");
           return;
         }
       } catch (employeeError) {
@@ -79,7 +73,6 @@ const TerminationAttachment = () => {
       
       // If we get here, no attachments were found
       setAttachments([]);
-      console.log("No attachments found for employee");
       
     } catch (error) {
       console.error("Error fetching attachments:", error);
@@ -129,7 +122,6 @@ const TerminationAttachment = () => {
           terminationId = terminationResponse.data[0].id;
         }
       } catch (err) {
-        console.log("No existing termination record found");
       }
       
       // If no termination record exists, create one first
@@ -145,7 +137,6 @@ const TerminationAttachment = () => {
           
           if (createResponse.data && createResponse.data.id) {
             terminationId = createResponse.data.id;
-            console.log("Created termination record with ID:", terminationId);
           }
         } catch (createError) {
           console.error("Failed to create termination record:", createError);
@@ -169,7 +160,6 @@ const TerminationAttachment = () => {
       // Try uploading to employee endpoint if termination_attachment doesn't exist
       let uploadResponse;
       try {
-        console.log("Attempting to upload files...");
         uploadResponse = await hrmsApi.post(`employees/${id}/upload_documents/`, formData, {
           headers: { 
             "Content-Type": "multipart/form-data",

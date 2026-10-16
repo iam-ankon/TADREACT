@@ -551,29 +551,32 @@ const EditOrder = () => {
     try {
       const response = await getSuppliers(1, 500, { all: true });
       if (response && response.data) {
-        let suppliersList = [];
+        let rawSuppliers = [];
 
         if (Array.isArray(response.data)) {
-          suppliersList = response.data.map((supplier) => ({
-            id: supplier.id,
-            name:
-              supplier.supplier_name ||
-              supplier.name ||
-              `Supplier ${supplier.id}`,
-          }));
+          rawSuppliers = response.data;
         } else if (response.data.results) {
-          suppliersList = response.data.results.map((supplier) => ({
+          rawSuppliers = response.data.results;
+        }
+
+        // Ex Suppliers are no longer active - don't offer them when
+        // re-picking a supplier (the order's current supplier, even if Ex,
+        // still shows - that text comes from the loaded order, not this list).
+        let suppliersList = rawSuppliers
+          .filter(
+            (supplier) =>
+              (supplier.tad_group_order_status || "").trim().toLowerCase() !== "ex supplier"
+          )
+          .map((supplier) => ({
             id: supplier.id,
             name:
               supplier.supplier_name ||
               supplier.name ||
               `Supplier ${supplier.id}`,
           }));
-        }
 
         suppliersList.sort((a, b) => a.name.localeCompare(b.name));
         setSuppliers(suppliersList);
-        console.log("Loaded suppliers:", suppliersList);
       }
     } catch (error) {
       console.error("Error fetching suppliers:", error);
@@ -672,11 +675,9 @@ const EditOrder = () => {
   const fetchOrder = async () => {
     setLoading(true);
     try {
-      console.log("Fetching order with ID:", id);
       const response = await getOrderById(id);
       const orderData = response.data;
 
-      console.log("Order data:", orderData);
 
       // Handle customer ID
       let customerId = "";
@@ -1296,7 +1297,27 @@ const EditOrder = () => {
     }
   };
 
+  const REQUIRED_FIELDS = [
+    ["style", "Order NO"],
+    ["po_no", "PO Number"],
+    ["department_id", "Department"],
+    ["customer_id", "Customer"],
+    ["supplier_id", "Supplier"],
+    ["total_qty", "Quantity"],
+    ["factory_ship_date", "Factory Ship Date"],
+    ["shipment_date", "Shipment Date"],
+  ];
+
   const handleSubmit = async () => {
+    const missing = REQUIRED_FIELDS.filter(([key]) => !formData[key]).map(([, label]) => label);
+    if (missing.length > 0) {
+      setSnackbar({
+        open: true,
+        message: `Please fill the required field(s): ${missing.join(", ")}`,
+        type: "warning",
+      });
+      return;
+    }
     setSaving(true);
     try {
       // Format color size groups
@@ -1404,7 +1425,6 @@ const EditOrder = () => {
         sample_files: orderFiles.sampleFiles,
       };
 
-      console.log("Submitting data:", submitData);
       await updateOrder(id, submitData);
 
       setSnackbar({
@@ -1633,7 +1653,7 @@ const EditOrder = () => {
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
                     <label style={styles.formLabel}>
-                      Style <span style={styles.required}>*</span>
+                      Style
                     </label>
                     <input
                       type="text"
@@ -1668,7 +1688,9 @@ const EditOrder = () => {
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Department</label>
+                    <label style={styles.formLabel}>
+                      Department <span style={styles.required}>*</span>
+                    </label>
                     <select
                       name="department_id"
                       value={formData.department_id || ""}
@@ -1710,7 +1732,9 @@ const EditOrder = () => {
                   </div>
                   {/* Searchable Supplier Dropdown */}
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Supplier</label>
+                    <label style={styles.formLabel}>
+                      Supplier <span style={styles.required}>*</span>
+                    </label>
                     <div
                       style={styles.searchableSelectContainer}
                       ref={supplierSearchRef}
@@ -1910,7 +1934,9 @@ const EditOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Total Quantity</label>
+                    <label style={styles.formLabel}>
+                      Total Quantity <span style={styles.required}>*</span>
+                    </label>
                     <input
                       type="number"
                       name="total_qty"
@@ -2115,7 +2141,9 @@ const EditOrder = () => {
                 </div>
                 <div style={styles.formGrid}>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Factory Ship Date</label>
+                    <label style={styles.formLabel}>
+                      Factory Ship Date <span style={styles.required}>*</span>
+                    </label>
                     <QuickDateInput
                       value={formData.factory_ship_date}
                       onChange={(d) => handleDateChange("factory_ship_date", d)}
@@ -2123,7 +2151,9 @@ const EditOrder = () => {
                     />
                   </div>
                   <div style={styles.formField}>
-                    <label style={styles.formLabel}>Shipment Date</label>
+                    <label style={styles.formLabel}>
+                      Shipment Date <span style={styles.required}>*</span>
+                    </label>
                     <QuickDateInput
                       value={formData.shipment_date}
                       onChange={(d) => handleDateChange("shipment_date", d)}

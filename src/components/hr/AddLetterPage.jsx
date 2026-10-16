@@ -27,7 +27,6 @@ const AddLetterPage = () => {
   const location = useLocation();
   const interviewData = location.state || {};
 
-  console.log("📨 AddLetterPage received state:", interviewData);
 
   const [cvData, setCvData] = useState({
     name: interviewData.name || "",
@@ -145,7 +144,6 @@ const AddLetterPage = () => {
             interviewData.id,
             cvData.email
           );
-          console.log("✅ Interview offer_letter_sent updated in database");
 
           // Also store in localStorage for immediate access
           const sentLetters = JSON.parse(
@@ -184,9 +182,6 @@ const AddLetterPage = () => {
           timestamp: Date.now(),
         };
 
-        console.log(
-          "🔄 Navigating back to interviews with offer letter sent status"
-        );
 
         navigate("/interviews", {
           state: returnState,

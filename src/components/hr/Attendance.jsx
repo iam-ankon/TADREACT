@@ -606,10 +606,6 @@ const Attendance = () => {
       setLoading(true);
       setIsFiltering(true);
 
-      console.log(
-        `📊 Generating report for ${selectedEmployees.length} employees`,
-      );
-      console.log(`📅 Month filter: ${monthFilter}`);
 
       // ============================================================
       // Build filter parameters for the API
@@ -645,13 +641,11 @@ const Attendance = () => {
         filters.company = companyFilter;
       }
 
-      console.log(`🔍 Filters:`, filters);
 
       // ============================================================
       // Fetch ALL attendance records for ALL employees first
       // (we'll filter client-side since API doesn't support employee_id)
       // ============================================================
-      console.log(`🔍 Fetching all attendance records...`);
 
       // Loop through all backend pages so the report isn't silently
       // truncated by the API's page_size cap.
@@ -667,7 +661,6 @@ const Attendance = () => {
         allRecords = response.data.results;
       }
 
-      console.log(`📊 Total records fetched: ${allRecords.length}`);
 
       if (allRecords.length === 0) {
         alert("No attendance records found for the selected filters");
@@ -689,7 +682,6 @@ const Attendance = () => {
         }
       });
 
-      console.log(`🎯 Selected employee IDs:`, [...selectedEmployeeIds]);
 
       // ============================================================
       // Filter records to ONLY selected employees
@@ -716,7 +708,6 @@ const Attendance = () => {
         return selectedEmployeeIds.has(employeeId);
       });
 
-      console.log(`📊 Records after filtering: ${filteredRecords.length}`);
 
       if (filteredRecords.length === 0) {
         alert(

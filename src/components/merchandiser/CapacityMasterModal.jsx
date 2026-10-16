@@ -8,6 +8,8 @@
  * A simple 12-month grid, saved in one bulk request.
  */
 import React, { useState, useEffect, useCallback } from "react";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
 import {
   getCapacityMasterForSupplierYear,
   bulkSaveCapacityMaster,
@@ -196,18 +198,17 @@ const CapacityMasterModal = ({ suppliers, defaultYear, onClose, onSaved }) => {
           <div style={{ display: "flex", gap: 12, marginBottom: 18 }}>
             <div style={{ flex: 2 }}>
               <label style={labelStyle}>Supplier</label>
-              <select
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                style={{ ...inputStyle, textAlign: "left", width: "100%" }}
-              >
-                <option value="">Select supplier…</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.supplier_name || s.name}
-                  </option>
-                ))}
-              </select>
+              {/* Type to search; the pop-up list renders above this modal (MUI z 1300 > 1000). */}
+              <Autocomplete
+                size="small"
+                options={suppliers}
+                value={suppliers.find((s) => String(s.id) === String(supplierId)) || null}
+                getOptionLabel={(s) => s.supplier_name || s.name || ""}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                onChange={(_, s) => setSupplierId(s ? s.id : "")}
+                noOptionsText="No supplier found"
+                renderInput={(params) => <TextField {...params} placeholder="Search supplier…" />}
+              />
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Year</label>

@@ -40,31 +40,26 @@ export default function ChatWindow({ conversation, messages, setMessages, users,
     cleanupWebSocket();
 
     if (!conversation) {
-      console.log("No conversation selected, skipping WebSocket connection");
       return;
     }
 
     const token = getToken();
     if (!token) {
-      console.log("No token found, redirecting to login");
       navigate("/", { replace: true });
       return;
     }
 
     try {
       const backendURL = getBackendURL();
-      console.log("Backend URL:", backendURL);
       const host = backendURL.replace(/^https?:\/\//, "");
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${host}/ws/chat/${conversation.id}/?token=${token}`;
 
-      console.log("Connecting to WebSocket:", wsUrl);
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("✅ WebSocket connected");
         setWsStatus("connected");
         setError(null);
       };
@@ -72,13 +67,10 @@ export default function ChatWindow({ conversation, messages, setMessages, users,
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("📨 WebSocket message received:", data);
           if (data.type === "message") {
             const serverMessage = data.message;
             
             // Debug the server message to see if it has reply_to
-            console.log("🔍 Server message reply_to:", serverMessage.reply_to);
-            console.log("🔍 Full server message:", serverMessage);
             
             const tempId = [...pendingMessages.current.entries()].find(
               ([, content]) => content === serverMessage.content
@@ -112,7 +104,6 @@ export default function ChatWindow({ conversation, messages, setMessages, users,
       };
 
       ws.onclose = (event) => {
-        console.log("WebSocket closed:", event.code, event.reason);
         setWsStatus("disconnected");
         if (event.code !== 1000) {
           reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
@@ -168,8 +159,6 @@ export default function ChatWindow({ conversation, messages, setMessages, users,
     const currentUser = localStorage.getItem("username");
 
     // Enhanced debug logging
-    console.log("📤 Sending message with reply_to:", replyTo);
-    console.log("📤 Full replyTo object:", JSON.stringify(replyTo, null, 2));
 
     const optimisticMessage = {
       id: tempId,
@@ -196,7 +185,6 @@ export default function ChatWindow({ conversation, messages, setMessages, users,
       content: input,
       reply_to: replyTo ? replyTo.id : null,
     };
-    console.log("🔧 WebSocket payload being sent:", wsPayload);
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       try {
@@ -245,7 +233,6 @@ export default function ChatWindow({ conversation, messages, setMessages, users,
   };
 
   const handleReply = (message) => {
-    console.log("🔗 Setting reply to message:", message);
     setReplyTo(message); // Set the message to reply to
   };
 
@@ -257,17 +244,8 @@ export default function ChatWindow({ conversation, messages, setMessages, users,
 
   // Debug effect to see messages structure
   useEffect(() => {
-    console.log("💬 Current messages:", messages);
     messages.forEach((msg, index) => {
       if (msg.reply_to) {
-        console.log(`🔍 Message ${index} has reply_to:`, {
-          id: msg.id,
-          content: msg.content,
-          reply_to: msg.reply_to,
-          replied_message: msg.replied_message,
-          hasReplyTo: !!msg.reply_to,
-          repliedTo: msg.reply_to ? messages.find(m => m.id === msg.reply_to) : null
-        });
       }
     });
   }, [messages]);

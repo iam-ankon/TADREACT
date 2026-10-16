@@ -33,7 +33,6 @@ const ChatList = ({
   const startDirectMessage = async (userId) => {
     if (!userId) return;
     try {
-      console.log("👤 User ID to start DM with:", userId);
 
       const numericUserId = parseInt(userId);
       if (isNaN(numericUserId)) {
@@ -42,7 +41,6 @@ const ChatList = ({
       }
 
       const response = await chatAPI.createDirectConversation(numericUserId);
-      console.log("✅ Direct message created:", response);
       
       await fetchConversations();
       setSelectedConversation(response);
@@ -50,7 +48,6 @@ const ChatList = ({
       await fetchMessages(response);
     } catch (err) {
       console.error("❌ Error starting direct message:", err);
-      console.log("🔍 Full error response:", err.response?.data);
     }
   };
 

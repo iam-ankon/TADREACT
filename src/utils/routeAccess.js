@@ -83,7 +83,7 @@ export const homePath = (p = getAccessProfile()) => {
 
 // ---- page groups (path prefixes; "/x" also covers "/x/...") -------------
 
-const COMMON = ["/dashboard", "/apply-leave", "/leave-history", "/chat", "/vault", "/notifications", "/RegularUserStationery"];
+const COMMON = ["/dashboard", "/apply-leave", "/leave-history", "/chat", "/vault", "/notifications", "/RegularUserStationery", "/front-desk"];
 
 const TEAM_LEADER = ["/team-leaves", "/performance-appraisal", "/add-newAppraisal", "/appraisal-details", "/edit-appraisal"];
 
@@ -111,13 +111,16 @@ const LAB_QC = ["/lab-qc"];
 // Buyers, Customers, Inquiries, Orders, Courier, T&A, Production Planning, Commissions, Supplier
 // Capacity, On-Time Delivery - not Suppliers or Lab/QC).
 const MERCH = [
-  "/merchandiser-dashboard", "/merchandiser/supplier-capacity-report", "/merchandiser/on-time-delivery-scorecard",
+  "/merchandiser-dashboard", "/merchandiser/supplier-capacity-report", "/merchandiser/on-time-delivery-scorecard", "/merchandiser/shipment-history",
   "/agents", "/add-agent", "/edit-agent", "/buyers", "/add-buyer", "/edit-buyer", "/buyer-details",
   "/customers", "/add-customer", "/edit-customer", "/customer-details",
   "/inquiries", "/inquiry-costing-list", "/bulk-costing", "/orders", "/development-samples",
   "/courier", "/production-planning", "/create-tna", "/edit-tna", "/tna-details", "/tna-reminders", "/commissions",
 ];
-const MERCH_SUPPLIERS = ["/suppliers", "/add-supplier", "/edit/suppliers"];
+// Regular merchandisers may view Suppliers but not add/edit/delete them -
+// only merchFullMenu/full-access users get the manage routes.
+const MERCH_SUPPLIERS_VIEW = ["/suppliers"];
+const MERCH_SUPPLIERS_MANAGE = ["/add-supplier", "/edit/suppliers"];
 
 const matches = (path, prefixes) => prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 
@@ -140,7 +143,7 @@ export const canAccessPath = (rawPath, p = getAccessProfile()) => {
 
   if (p.isLabQcOnly) return false;
 
-  if (p.merchFullMenu && matches(path, [...MERCH, ...MERCH_SUPPLIERS])) return true;
+  if (p.merchFullMenu && matches(path, [...MERCH, ...MERCH_SUPPLIERS_VIEW, ...MERCH_SUPPLIERS_MANAGE])) return true;
 
   if (p.isMerchandiserProduction) {
     // Orders (view only - no add/edit) and Courier Management.
@@ -150,7 +153,12 @@ export const canAccessPath = (rawPath, p = getAccessProfile()) => {
 
   if (p.dept.merchandising) {
     if (matches(path, MERCH)) return true;
-    if (matches(path, MERCH_SUPPLIERS)) return false;
+    if (matches(path, MERCH_SUPPLIERS_VIEW)) return true;
+    if (matches(path, MERCH_SUPPLIERS_MANAGE)) return false;
   }
   return false;
 };
+
+/** Suppliers: add/edit/delete is merchFullMenu/full-access only; everyone
+ * who can reach /suppliers can view. */
+export const canManageSuppliers = (p = getAccessProfile()) => p.fullAccess || p.merchFullMenu;

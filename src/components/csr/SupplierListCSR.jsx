@@ -10,6 +10,7 @@ import {
   FiChevronRight,
   FiChevronUp,
   FiClock,
+  FiDownload,
   FiEdit2,
   FiEye,
   FiInbox,
@@ -21,7 +22,48 @@ import {
   FiTrash2,
   FiX,
 } from "react-icons/fi";
-import { getSuppliers, deleteSupplier } from "../../api/supplierApi";
+import { getSuppliers, deleteSupplier, exportDocumentStatusExcel } from "../../api/supplierApi";
+
+// Licenses & certifications with a validity date. Keep in sync with
+// SUPPLIER_DOCUMENTS in TADDJANGO/csr/views.py (the Excel export).
+const SUPPLIER_DOCUMENTS = [
+  { key: "bsci", label: "BSCI", field: "bsci_validity", type: "Certification" },
+  { key: "sedex", label: "SEDEX", field: "sedex_validity", type: "Certification" },
+  { key: "wrap", label: "WRAP", field: "wrap_validity", type: "Certification" },
+  { key: "ctpat", label: "CTPAT", field: "security_audit_validity", type: "Certification" },
+  { key: "oeko_tex", label: "Oeko-Tex", field: "oeko_tex_validity", type: "Certification" },
+  { key: "gots", label: "GOTS", field: "gots_validity", type: "Certification" },
+  { key: "ocs", label: "OCS", field: "ocs_validity", type: "Certification" },
+  { key: "grs", label: "GRS", field: "grs_validity", type: "Certification" },
+  { key: "rcs", label: "RCS", field: "rcs_validity", type: "Certification" },
+  { key: "iso_9001", label: "ISO 9001", field: "iso_9001_validity", type: "Certification" },
+  { key: "iso_14001", label: "ISO 14001", field: "iso_14001_validity", type: "Certification" },
+  { key: "trade", label: "Trade License", field: "trade_license_validity", type: "License" },
+  { key: "factory", label: "Factory License", field: "factory_license_validity", type: "License" },
+  { key: "fire", label: "Fire License", field: "fire_license_validity", type: "License" },
+  { key: "membership", label: "Membership", field: "membership_validity", type: "License" },
+  { key: "group_insurance", label: "Group Insurance", field: "group_insurance_validity", type: "License" },
+  { key: "boiler", label: "Boiler License", field: "boiler_license_validity", type: "License" },
+  { key: "berc", label: "BERC License", field: "berc_license_validity", type: "License" },
+  { key: "drinking_water", label: "Drinking Water License", field: "drinking_water_license_validity", type: "License" },
+];
+
+const DOC_STATUS = {
+  valid: { label: "Valid", bg: "#dcfce7", text: "#166534" },
+  expiring: { label: "Expiring (\u2264 30 days)", bg: "#fef3c7", text: "#92400e" },
+  expired: { label: "Expired", bg: "#fee2e2", text: "#991b1b" },
+  missing: { label: "Not available", bg: "#f1f5f9", text: "#64748b" },
+};
+const DOC_STATUS_ORDER = Object.keys(DOC_STATUS);
+
+// Status from the validity date itself (stored *_days_remaining go stale).
+const docStatusOf = (supplier, field) => {
+  const value = supplier[field];
+  if (!value) return { status: "missing", days: null };
+  const today = new Date(new Date().toLocaleDateString("en-CA"));
+  const days = Math.round((new Date(String(value).slice(0, 10)) - today) / 86400000);
+  return { status: days <= 0 ? "expired" : days <= 30 ? "expiring" : "valid", days };
+};
 
 // Enhanced color system with better contrast and professional palette
 const colors = {
@@ -322,12 +364,18 @@ const SupplierListCSR = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterExpiring, setFilterExpiring] = useState(false);
   const [filterCategory, setFilterCategory] = useState("all");
+  // Default to hiding Ex Suppliers so they don't clutter the active list.
+  const [filterLifecycle, setFilterLifecycle] = useState("active");
   const [currentPage, setCurrentPage] = useState(1);
   const [deletingId, setDeletingId] = useState(null);
   const [selectedSuppliers, setSelectedSuppliers] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [actionError, setActionError] = useState("");
+  const [docKey, setDocKey] = useState("all"); // license / certification
+  const [docStatus, setDocStatus] = useState("all");
+  const [exporting, setExporting] = useState(false);
+  const selectedDoc = SUPPLIER_DOCUMENTS.find((d) => d.key === docKey);
 
   // Parse URL params on mount and when URL changes
   useEffect(() => {
@@ -375,12 +423,12 @@ const SupplierListCSR = () => {
   };
 
   // Get compliance stats for the header
-  const getComplianceStats = () => {
+  const getComplianceStats = (list) => {
     let compliant = 0;
     let nonCompliant = 0;
     let underReview = 0;
 
-    suppliers.forEach((supplier) => {
+    list.forEach((supplier) => {
       const status = getComplianceStatus(supplier);
       if (status === "compliant") compliant++;
       else if (status === "non_compliant") nonCompliant++;
@@ -390,8 +438,39 @@ const SupplierListCSR = () => {
     return { compliant, nonCompliant, underReview };
   };
 
-  const stats = getComplianceStats();
-  const expiringCount = suppliers.filter(hasExpiringCertifications).length;
+  // Search + category + lifecycle, but NOT status/expiring - those are the
+  // dimensions the stat cards below break this set down by, so the cards
+  // stay in sync with search/category/lifecycle without zeroing each other out.
+  const searchScopedSuppliers = suppliers.filter((supplier) => {
+    if (!supplier) return false;
+
+    const isExSupplier = (supplier.tad_group_order_status || "").trim().toLowerCase() === "ex supplier";
+    if (filterLifecycle === "active" && isExSupplier) return false;
+    if (filterLifecycle === "ex" && !isExSupplier) return false;
+
+    if (filterCategory !== "all" && supplier.supplier_category !== filterCategory) {
+      return false;
+    }
+
+    const name = (supplier.supplier_name || supplier.name || "").toLowerCase();
+    const vendorId = String(supplier.supplier_id || supplier.vendor_id || "").toLowerCase();
+    const email = (supplier.email || "").toLowerCase();
+    const location = (supplier.location || "").toLowerCase();
+    const category = (supplier.supplier_category || "").toLowerCase();
+    const search = searchTerm.toLowerCase().trim();
+
+    return (
+      !search ||
+      name.includes(search) ||
+      vendorId.includes(search) ||
+      email.includes(search) ||
+      location.includes(search) ||
+      category.includes(search)
+    );
+  });
+
+  const stats = getComplianceStats(searchScopedSuppliers);
+  const expiringCount = searchScopedSuppliers.filter(hasExpiringCertifications).length;
   const uniqueCategories = getUniqueCategories(suppliers);
 
   const handleSort = (key) => {
@@ -403,6 +482,16 @@ const SupplierListCSR = () => {
   };
 
   const getSortedSuppliers = (suppliersList) => {
+    if (!sortConfig.key && selectedDoc) {
+      return [...suppliersList].sort((a, b) => {
+        const x = docStatusOf(a, selectedDoc.field);
+        const y = docStatusOf(b, selectedDoc.field);
+        return (
+          DOC_STATUS_ORDER.indexOf(x.status) - DOC_STATUS_ORDER.indexOf(y.status) ||
+          (x.days ?? 0) - (y.days ?? 0)
+        );
+      });
+    }
     if (!sortConfig.key) return suppliersList;
 
     return [...suppliersList].sort((a, b) => {
@@ -421,9 +510,7 @@ const SupplierListCSR = () => {
     });
   };
 
-  const filteredSuppliers = suppliers.filter((supplier) => {
-    if (!supplier) return false;
-
+  const filteredSuppliers = searchScopedSuppliers.filter((supplier) => {
     if (filterExpiring && !hasExpiringCertifications(supplier)) {
       return false;
     }
@@ -435,31 +522,14 @@ const SupplierListCSR = () => {
       }
     }
 
-    if (filterCategory !== "all") {
-      const supplierCategory = supplier.supplier_category;
-      if (supplierCategory !== filterCategory) {
+    if (docStatus !== "all") {
+      const docs = selectedDoc ? [selectedDoc] : SUPPLIER_DOCUMENTS;
+      if (!docs.some((d) => docStatusOf(supplier, d.field).status === docStatus)) {
         return false;
       }
     }
 
-    const name = (supplier.supplier_name || supplier.name || "").toLowerCase();
-    const vendorId = String(
-      supplier.supplier_id || supplier.vendor_id || "",
-    ).toLowerCase();
-    const email = (supplier.email || "").toLowerCase();
-    const location = (supplier.location || "").toLowerCase();
-    const category = (supplier.supplier_category || "").toLowerCase();
-    const search = searchTerm.toLowerCase().trim();
-
-    const matchesSearch =
-      !search ||
-      name.includes(search) ||
-      vendorId.includes(search) ||
-      email.includes(search) ||
-      location.includes(search) ||
-      category.includes(search);
-
-    return matchesSearch;
+    return true;
   });
 
   const sortedSuppliers = getSortedSuppliers(filteredSuppliers);
@@ -542,6 +612,8 @@ const SupplierListCSR = () => {
     setFilterStatus("all");
     setFilterExpiring(false);
     setFilterCategory("all");
+    setDocKey("all");
+    setDocStatus("all");
     setCurrentPage(1);
     window.history.replaceState({}, "", "/suppliersCSR");
   };
@@ -588,7 +660,35 @@ const SupplierListCSR = () => {
 
 
   const hasFilters =
-    searchTerm || filterStatus !== "all" || filterExpiring || filterCategory !== "all";
+    searchTerm || filterStatus !== "all" || filterExpiring || filterCategory !== "all" ||
+    docKey !== "all" || docStatus !== "all";
+
+  // Styled workbook built server-side for exactly the rows currently listed.
+  const handleExport = async () => {
+    setExporting(true);
+    setActionError("");
+    try {
+      const res = await exportDocumentStatusExcel({
+        doc: docKey,
+        status: docStatus,
+        ids: sortedSuppliers.map((s) => s.id).join(","),
+      });
+      const name =
+        /filename="([^"]+)"/.exec(res.headers["content-disposition"] || "")?.[1] ||
+        "Supplier_Document_Status.xlsx";
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export failed:", error);
+      setActionError("Excel export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const activeChips = [
     filterStatus !== "all" && {
@@ -606,6 +706,16 @@ const SupplierListCSR = () => {
       label: `Category: ${filterCategory}`,
       onRemove: () => handleCategoryChange("all"),
     },
+    selectedDoc && {
+      key: "doc",
+      label: `Document: ${selectedDoc.label}`,
+      onRemove: () => setDocKey("all"),
+    },
+    docStatus !== "all" && {
+      key: "docStatus",
+      label: `${selectedDoc ? selectedDoc.label : "Any document"}: ${DOC_STATUS[docStatus].label}`,
+      onRemove: () => setDocStatus("all"),
+    },
     searchTerm && {
       key: "search",
       label: `Search: "${searchTerm}"`,
@@ -618,7 +728,7 @@ const SupplierListCSR = () => {
       key: "all",
       label: "Total Suppliers",
       hint: "In the CSR register",
-      value: suppliers.length,
+      value: searchScopedSuppliers.length,
       icon: <FiLayers />,
       tone: "blue",
       active: filterStatus === "all" && !filterExpiring,
@@ -833,6 +943,70 @@ const SupplierListCSR = () => {
                 </option>
               ))}
             </select>
+
+            <select
+              className="sl-select"
+              value={filterLifecycle}
+              onChange={(e) => {
+                setFilterLifecycle(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Supplier lifecycle"
+            >
+              <option value="active">Active suppliers</option>
+              <option value="ex">Ex suppliers</option>
+              <option value="all">All (active + ex)</option>
+            </select>
+
+            <select
+              className="sl-select"
+              value={docKey}
+              onChange={(e) => {
+                setDocKey(e.target.value);
+                setSortConfig({ key: null, direction: "asc" });
+                setCurrentPage(1);
+              }}
+              aria-label="License or certification"
+            >
+              <option value="all">All licenses &amp; certifications</option>
+              {["Certification", "License"].map((type) => (
+                <optgroup key={type} label={`${type}s`}>
+                  {SUPPLIER_DOCUMENTS.filter((d) => d.type === type).map((d) => (
+                    <option key={d.key} value={d.key}>
+                      {d.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+
+            <select
+              className="sl-select"
+              value={docStatus}
+              onChange={(e) => {
+                setDocStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Document status"
+            >
+              <option value="all">Any document status</option>
+              {DOC_STATUS_ORDER.map((k) => (
+                <option key={k} value={k}>
+                  {DOC_STATUS[k].label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="sl-btn sl-btn-ghost"
+              onClick={handleExport}
+              disabled={exporting || loading || sortedSuppliers.length === 0}
+              title="Excel: summary, status matrix and document list for the suppliers shown"
+            >
+              {exporting ? <span className="sl-spinner sm" /> : <FiDownload />}
+              Export Excel
+            </button>
           </div>
 
           {activeChips.length > 0 && (
@@ -988,6 +1162,21 @@ const SupplierListCSR = () => {
                                 {complianceReason}
                               </div>
                             )}
+                            {selectedDoc && (() => {
+                              const d = docStatusOf(supplier, selectedDoc.field);
+                              const st = DOC_STATUS[d.status];
+                              return (
+                                <div
+                                  className="sl-doc"
+                                  style={{ background: st.bg, color: st.text }}
+                                  title={`${selectedDoc.label} validity`}
+                                >
+                                  {selectedDoc.label}: {st.label}
+                                  {supplier[selectedDoc.field] &&
+                                    ` · ${new Date(String(supplier[selectedDoc.field]).slice(0, 10)).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="sl-td">
                             {expiringCerts.length > 0 ? (
@@ -1244,7 +1433,7 @@ const SUPPLIER_LIST_CSS = `
   box-shadow: 0 1px 2px rgba(15,23,42,.04); overflow: hidden;
 }
 .csr-sl .sl-toolbar {
-  display: grid; grid-template-columns: minmax(240px, 1fr) 220px 200px; gap: 10px;
+  display: grid; grid-template-columns: minmax(200px, 1fr) 190px 150px 200px 190px auto; gap: 10px;
   padding: 14px 16px; border-bottom: 1px solid var(--c-border);
 }
 .csr-sl .sl-search { position: relative; }
@@ -1265,6 +1454,10 @@ const SUPPLIER_LIST_CSS = `
   background: var(--c-surface); color: var(--c-text-2); font-size: 13.5px; cursor: pointer; outline: none;
 }
 .csr-sl .sl-select:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.csr-sl .sl-doc { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+@media (max-width: 1400px) {
+  .csr-sl .sl-toolbar { grid-template-columns: minmax(220px, 1fr) 200px 160px; }
+}
 
 .csr-sl .sl-chips {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;

@@ -65,8 +65,6 @@ const Dashboard = () => {
       ];
       const hybridUsers = ["ZOHAER"]; // Users who have both full access AND team leader view
 
-      console.log("🔍 Current Username:", currentUsername);
-      console.log("🔍 Is Hybrid User:", hybridUsers.includes(currentUsername));
 
       // Get current user's leaves (always show)
       const leavesResponse = await getEmployeeLeaves();
@@ -87,7 +85,6 @@ const Dashboard = () => {
 
       // For HYBRID users (ZOHAER) - show team leaves on dashboard (like team leader)
       if (hybridUsers.includes(currentUsername)) {
-        console.log("👤 Hybrid user - showing team leaves on dashboard");
         try {
           const teamLeavesResponse = await getTeamLeaves();
           if (
@@ -112,9 +109,7 @@ const Dashboard = () => {
             return leaveEmployeeId !== currentEmployeeId;
           });
 
-          console.log("📊 Team leaves count:", teamLeavesData.length);
         } catch (teamError) {
-          console.log("⚠️ Could not fetch team leaves:", teamError.message);
         }
       }
       // For regular FULL ACCESS users (not hybrid) - don't show team leaves on dashboard
@@ -123,9 +118,6 @@ const Dashboard = () => {
         hasFullAccess ||
         mode === "full_access"
       ) {
-        console.log(
-          "👑 Full access user - not showing team leaves on dashboard",
-        );
         teamLeavesData = [];
       } else {
         // Regular team leaders - show team leaves
@@ -158,7 +150,6 @@ const Dashboard = () => {
               return leaveEmployeeId !== currentEmployeeId;
             });
           } catch (teamError) {
-            console.log("⚠️ Could not fetch team leaves:", teamError.message);
           }
         }
       }
@@ -179,13 +170,16 @@ const Dashboard = () => {
       setMyLeaves(myLeavesData);
       setTeamLeaves(teamLeavesData);
 
-      // Get leave balances
+      // Get leave balances. Match by the employee PK (employee_db_id), not
+      // the denormalized employee_code, which can go stale if an employee's
+      // employee_id is reassigned after their balance row was created.
       const balancesResponse = await getEmployeeLeaveBalances();
+      const employeeDbId = localStorage.getItem("employee_db_id");
       if (balancesResponse.data && Array.isArray(balancesResponse.data)) {
         const userBalance = balancesResponse.data.find(
           (b) =>
+            String(b.employee) === String(employeeDbId) ||
             b.employee_code === employeeInfo.employee_id ||
-            b.employee === employeeInfo.employee_id ||
             (b.employee && b.employee.employee_id === employeeInfo.employee_id),
         );
         setLeaveBalances(userBalance || {});

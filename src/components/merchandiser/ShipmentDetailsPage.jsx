@@ -87,6 +87,21 @@ const statusColors = {
   cancelled: '#dc2626',
 };
 
+// Official courier tracking pages, keyed by courier_name (case-insensitive).
+// courier_name is free text (see CourierForm.jsx), so unknown couriers just
+// render the tracking number as plain text instead of a dead link.
+const COURIER_TRACKING_URL = {
+  fedex: (no) => `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(no)}`,
+  dhl: (no) => `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(no)}`,
+  ups: (no) => `https://www.ups.com/track?tracknum=${encodeURIComponent(no)}`,
+};
+
+const courierTrackingUrl = (courierName, trackingNo) => {
+  if (!trackingNo) return null;
+  const build = COURIER_TRACKING_URL[(courierName || '').trim().toLowerCase()];
+  return build ? build(trackingNo.trim()) : null;
+};
+
 export default function ShipmentDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -445,7 +460,21 @@ export default function ShipmentDetailsPage() {
             <button onClick={() => navigate('/courier')} style={styles.backLink}>← Courier Booking List</button>
             <h1 style={styles.pageTitle}>Shipment Details</h1>
             <p style={styles.pageSubtitle}>
-              Tracking No. <strong>{booking.tracking_no}</strong> • {booking.courier_name} • {booking.type_display}
+              Tracking No.{' '}
+              {courierTrackingUrl(booking.courier_name, booking.tracking_no) ? (
+                <a
+                  href={courierTrackingUrl(booking.courier_name, booking.tracking_no)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={styles.trackingLink}
+                  title={`Track on ${booking.courier_name}`}
+                >
+                  {booking.tracking_no}
+                </a>
+              ) : (
+                <strong>{booking.tracking_no}</strong>
+              )}{' '}
+              • {booking.courier_name} • {booking.type_display}
             </p>
           </div>
           <div style={styles.headerActions}>
@@ -854,6 +883,7 @@ const styles = {
   backLink: { background: 'none', border: 'none', color: '#1a73e8', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '6px' },
   pageTitle: { fontSize: '22px', fontWeight: 700, color: '#0f172a', margin: 0 },
   pageSubtitle: { fontSize: '14px', color: '#64748b', margin: '4px 0 0 0' },
+  trackingLink: { fontWeight: 700, color: '#1a73e8', textDecoration: 'none' },
   headerActions: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' },
   btnPrimary: { background: '#1a73e8', color: 'white', padding: '10px 20px', borderRadius: '8px', textDecoration: 'none', fontSize: '14px', fontWeight: 600, border: 'none', cursor: 'pointer' },
   btnOutline: { background: 'white', color: '#1a73e8', padding: '10px 16px', borderRadius: '8px', border: '1px solid #d0d5dd', fontSize: '14px', fontWeight: 500, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },

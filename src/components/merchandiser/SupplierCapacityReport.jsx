@@ -67,9 +67,12 @@ const NumCell = ({ value, bold }) => {
 };
 
 /** Lightweight multi-select dropdown — checkbox list, no external deps. */
-const MultiSelectDropdown = ({ label, options, selected, onChange, width }) => {
+export const MultiSelectDropdown = ({ label, options, selected, onChange, width }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const ref = useRef(null);
+  const q = search.trim().toLowerCase();
+  const shown = q ? options.filter((o) => String(o.label || "").toLowerCase().includes(q)) : options;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -109,13 +112,22 @@ const MultiSelectDropdown = ({ label, options, selected, onChange, width }) => {
       </button>
       {open && (
         <div className="sc-ms-menu">
+          <input
+            type="search"
+            autoFocus
+            className="sc-ms-search"
+            placeholder={`Search ${label}…`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ position: "sticky", top: 0, zIndex: 1, width: "100%", boxSizing: "border-box", height: 32, padding: "0 10px", margin: "0 0 6px", border: "1px solid #cfd8e2", borderRadius: 7, fontSize: 13, outline: "none", background: "#fff" }}
+          />
           {selected.length > 0 && (
             <button type="button" className="sc-ms-clear" onClick={() => onChange([])}>
               Clear selection
             </button>
           )}
-          {options.length === 0 && <div className="sc-ms-none">No options</div>}
-          {options.map((opt) => (
+          {shown.length === 0 && <div className="sc-ms-none">{options.length ? `No ${label} match “${search}”` : "No options"}</div>}
+          {shown.map((opt) => (
             <label key={opt.value}>
               <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
               {opt.label}
@@ -697,6 +709,19 @@ const SupplierCapacityReport = () => {
   );
 };
 
+// Searchable multi-select dropdown styles (also used by ShipmentHistory.jsx).
+// Colours fall back to literals so the dropdown works outside .sc-app.
+export const MS_CSS = `
+.sc-ms-btn { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--c-border-strong, #d5dbe4); border-radius: 10px; background: #fff; font: inherit; font-size: 13.5px; display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; color: var(--c-text, #0f172a); }
+.sc-ms-btn.empty { color: var(--c-muted, #64748b); }
+.sc-ms-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-ms-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; min-width: 100%; width: max-content; max-width: 360px; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid var(--c-border, #e6eaf0); border-radius: 12px; box-shadow: 0 16px 32px -12px rgba(15,23,42,.3); padding: 6px; }
+.sc-ms-menu label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; color: var(--c-text-2, #334155); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 450; }
+.sc-ms-menu label:hover { background: #f8fafc; }
+.sc-ms-clear { display: block; width: 100%; text-align: left; padding: 6px 8px; border: none; background: none; font: inherit; font-size: 12px; font-weight: 600; color: #2563eb; cursor: pointer; }
+.sc-ms-none { padding: 8px; font-size: 12.5px; color: var(--c-faint, #94a3b8); }
+`;
+
 const CAPACITY_CSS = `
 .sc-shell { display: flex; height: 100vh; background: #f3f5f9; }
 .sc-app {
@@ -736,14 +761,7 @@ const CAPACITY_CSS = `
 .sc-field label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--c-muted); }
 .sc-field select { height: 38px; padding: 0 10px; border: 1px solid var(--c-border-strong); border-radius: 10px; background: #fff; font: inherit; font-size: 13.5px; color: var(--c-text); outline: none; }
 .sc-field select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
-.sc-ms-btn { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--c-border-strong); border-radius: 10px; background: #fff; font: inherit; font-size: 13.5px; display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; color: var(--c-text); }
-.sc-ms-btn.empty { color: var(--c-muted); }
-.sc-ms-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sc-ms-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; min-width: 100%; width: max-content; max-width: 360px; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid var(--c-border); border-radius: 12px; box-shadow: 0 16px 32px -12px rgba(15,23,42,.3); padding: 6px; }
-.sc-ms-menu label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; color: var(--c-text-2); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 450; }
-.sc-ms-menu label:hover { background: #f8fafc; }
-.sc-ms-clear { display: block; width: 100%; text-align: left; padding: 6px 8px; border: none; background: none; font: inherit; font-size: 12px; font-weight: 600; color: #2563eb; cursor: pointer; }
-.sc-ms-none { padding: 8px; font-size: 12.5px; color: var(--c-faint); }
+${MS_CSS}
 
 .sc-alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; font-size: 13px; border: 1px solid; margin-bottom: 12px; }
 .sc-alert svg { flex-shrink: 0; margin-top: 2px; }
@@ -782,6 +800,8 @@ const CAPACITY_CSS = `
 .sc-table td { padding: 5px 12px; white-space: nowrap; color: var(--c-text-2); font-variant-numeric: tabular-nums; background: #fff; }
 .sc-table td.sticky { position: sticky; left: 0; z-index: 1; min-width: 230px; max-width: 280px; border-right: 1px solid var(--c-border); white-space: normal; }
 .sc-table .num { text-align: right; }
+/* Month dividers (every month cell is .num; the Total column draws its own). */
+.sc-table .num:not(.total) { border-left: 1px solid #c9d3de; }
 .sc-table .total { font-weight: 650; color: var(--c-text); background: #f8fafc; border-left: 1px solid var(--c-border); }
 .sc-table th.total { color: var(--c-text-2); }
 .sc-table td.util { vertical-align: middle; border-left: 1px solid var(--c-border); background: #fff; border-bottom: 1px solid var(--c-border-strong); }

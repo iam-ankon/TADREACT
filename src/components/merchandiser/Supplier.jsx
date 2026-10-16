@@ -30,6 +30,7 @@ import {
 import Sidebar from "./Sidebar.jsx";
 import SupplierDeleteModal from "./SupplierDeleteModal.jsx";
 import { AGENT_CSS, initialsOf } from "./agentTheme";
+import { canManageSuppliers } from "../../utils/routeAccess";
 
 const API = "http://119.148.51.38:8000/api/csr/api/supplier/";
 const authHeaders = () => ({ Authorization: `Token ${localStorage.getItem("token")}` });
@@ -73,6 +74,7 @@ const num = (v) => {
 
 export default function Supplier() {
   const navigate = useNavigate();
+  const canManage = canManageSuppliers();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,6 +82,7 @@ export default function Supplier() {
   const [notice, setNotice] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [category, setCategory] = useState("all");
+  const [lifecycle, setLifecycle] = useState("active");
   const [compliance, setCompliance] = useState("all");
   const [sort, setSort] = useState({ key: "name", dir: "asc" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,21 +114,33 @@ export default function Supplier() {
     [suppliers],
   );
 
-  const counts = useMemo(() => {
-    const c = { compliant: 0, under_review: 0, non_compliant: 0 };
-    suppliers.forEach((s) => (c[complianceOf(s)] += 1));
-    return c;
-  }, [suppliers]);
+  const isExSupplier = (s) => (s.tad_group_order_status || "").trim().toLowerCase() === "ex supplier";
 
-  const filtered = useMemo(() => {
+  // Search + category + lifecycle, but NOT compliance - the KPI cards break
+  // this set down by compliance, so they'd zero each other out otherwise.
+  const searchScoped = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const list = suppliers.filter((s) => {
+    return suppliers.filter((s) => {
+      if (lifecycle === "active" && isExSupplier(s)) return false;
+      if (lifecycle === "ex" && !isExSupplier(s)) return false;
       if (category !== "all" && s.supplier_category !== category) return false;
-      if (compliance !== "all" && complianceOf(s) !== compliance) return false;
       if (!q) return true;
       return [s.supplier_name, s.supplier_id, s.email, s.location, s.manufacturing_item, s.production_process, s.factory_main_contact]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [suppliers, searchTerm, category, lifecycle]);
+
+  const counts = useMemo(() => {
+    const c = { compliant: 0, under_review: 0, non_compliant: 0 };
+    searchScoped.forEach((s) => (c[complianceOf(s)] += 1));
+    return c;
+  }, [searchScoped]);
+
+  const filtered = useMemo(() => {
+    const list = searchScoped.filter((s) => {
+      if (compliance !== "all" && complianceOf(s) !== compliance) return false;
+      return true;
     });
     const value = (s) => {
       if (sort.key === "capacity") return num(s.capacity_per_month);
@@ -140,9 +155,9 @@ export default function Supplier() {
       if (av === bv) return 0;
       return (av > bv ? 1 : -1) * (sort.dir === "asc" ? 1 : -1);
     });
-  }, [suppliers, searchTerm, category, compliance, sort]);
+  }, [searchScoped, compliance, sort]);
 
-  useEffect(() => setCurrentPage(1), [searchTerm, category, compliance, perPage]);
+  useEffect(() => setCurrentPage(1), [searchTerm, category, lifecycle, compliance, perPage]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -197,7 +212,7 @@ export default function Supplier() {
   };
 
   const kpis = [
-    { key: "all", label: "Suppliers", value: suppliers.length, icon: <FiTruck />, tone: "t-blue" },
+    { key: "all", label: "Suppliers", value: searchScoped.length, icon: <FiTruck />, tone: "t-blue" },
     { key: "compliant", label: "Compliant", value: counts.compliant, icon: <FiCheckCircle />, tone: "t-green" },
     { key: "under_review", label: "Under review", value: counts.under_review, icon: <FiClock />, tone: "t-amber" },
     { key: "non_compliant", label: "Non-compliant", value: counts.non_compliant, icon: <FiAlertTriangle />, tone: "t-red" },
@@ -224,9 +239,11 @@ export default function Supplier() {
             <button type="button" className="ag-btn ghost" onClick={exportCSV} disabled={filtered.length === 0}>
               <FiDownload /> Export CSV
             </button>
-            <button type="button" className="ag-btn primary" onClick={() => navigate("/add-supplier")}>
-              <FiPlus /> New Supplier
-            </button>
+            {canManage && (
+              <button type="button" className="ag-btn primary" onClick={() => navigate("/add-supplier")}>
+                <FiPlus /> New Supplier
+              </button>
+            )}
           </div>
         </header>
 
@@ -286,6 +303,11 @@ export default function Supplier() {
                 <option value="compliant">Compliant</option>
                 <option value="under_review">Under review</option>
                 <option value="non_compliant">Non-compliant</option>
+              </select>
+              <select className="ag-select" value={lifecycle} onChange={(e) => setLifecycle(e.target.value)} aria-label="Supplier lifecycle">
+                <option value="active">Active suppliers</option>
+                <option value="ex">Ex suppliers</option>
+                <option value="all">All (active + ex)</option>
               </select>
               <span className="ag-spacer" />
               <span className="ag-note">
@@ -389,12 +411,16 @@ export default function Supplier() {
                                 <button type="button" className="ag-icon-btn" title="View" onClick={() => navigate(`/suppliers/${s.id}`)}>
                                   <FiEye />
                                 </button>
-                                <button type="button" className="ag-icon-btn" title="Edit" onClick={() => navigate(`/edit/suppliers/${s.id}`)}>
-                                  <FiEdit2 />
-                                </button>
-                                <button type="button" className="ag-icon-btn danger" title="Delete" onClick={() => setDeleting(s)}>
-                                  <FiTrash2 />
-                                </button>
+                                {canManage && (
+                                  <>
+                                    <button type="button" className="ag-icon-btn" title="Edit" onClick={() => navigate(`/edit/suppliers/${s.id}`)}>
+                                      <FiEdit2 />
+                                    </button>
+                                    <button type="button" className="ag-icon-btn danger" title="Delete" onClick={() => setDeleting(s)}>
+                                      <FiTrash2 />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>

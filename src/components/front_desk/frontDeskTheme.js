@@ -1,0 +1,42 @@
+// Shared look for the Front Desk module (couriers, sample routing, vendor
+// receipts, visitors, meeting rooms). One small theme instead of five.
+export const styles = {
+  page: { padding: "28px 32px", maxWidth: "1400px" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" },
+  title: { fontSize: "24px", fontWeight: 600, color: "#0f172a", margin: 0 },
+  subtitle: { fontSize: "13.5px", color: "#64748b", margin: "4px 0 0" },
+  btnPrimary: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 16px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: "8px", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" },
+  btnOutline: { display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: "#fff", color: "#475569", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13px", cursor: "pointer" },
+  btnDanger: { padding: "6px 10px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "6px", fontSize: "12.5px", cursor: "pointer" },
+  searchBar: { padding: "9px 14px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13.5px", width: "280px", maxWidth: "100%" },
+  card: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: "12px", overflow: "hidden" },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: "13px" },
+  th: { textAlign: "left", padding: "10px 14px", background: "#f8fafc", color: "#64748b", fontWeight: 600, fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" },
+  td: { padding: "10px 14px", borderBottom: "1px solid #f1f5f9", color: "#1e293b", verticalAlign: "top" },
+  empty: { padding: "40px", textAlign: "center", color: "#94a3b8", fontSize: "13.5px" },
+  modalOverlay: { position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" },
+  modal: { background: "#fff", borderRadius: "12px", width: "640px", maxWidth: "100%", maxHeight: "88vh", overflow: "auto", padding: "24px" },
+  modalTitle: { fontSize: "17px", fontWeight: 600, color: "#0f172a", margin: "0 0 16px" },
+  formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" },
+  field: { display: "flex", flexDirection: "column", gap: "5px" },
+  fieldFull: { display: "flex", flexDirection: "column", gap: "5px", gridColumn: "1 / -1" },
+  label: { fontSize: "12.5px", fontWeight: 600, color: "#475569" },
+  input: { padding: "8px 10px", border: "1px solid #d8dee9", borderRadius: "7px", fontSize: "13.5px" },
+  modalActions: { display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" },
+  badge: (bg, color) => ({ display: "inline-block", padding: "3px 9px", borderRadius: "20px", fontSize: "11.5px", fontWeight: 600, background: bg, color }),
+};
+
+export const STATUS_COLORS = {
+  Pending: ["#fef3c7", "#d97706"],
+  Confirmed: ["#dcfce7", "#16a34a"],
+  Cancelled: ["#fee2e2", "#dc2626"],
+  Sent: ["#e0e7ff", "#4f46e5"],
+  Received: ["#dbeafe", "#2563eb"],
+  Testing: ["#fef3c7", "#d97706"],
+  Completed: ["#dcfce7", "#16a34a"],
+  Returned: ["#f1f5f9", "#64748b"],
+  Export: ["#dcfce7", "#16a34a"],
+  Import: ["#dbeafe", "#2563eb"],
+  Guest: ["#e0e7ff", "#4f46e5"],
+  Host: ["#dcfce7", "#16a34a"],
+};

@@ -25,10 +25,12 @@ import {
   FiTrendingUp,
   FiFlag,
   FiLock,
+  FiTruck,
 } from "react-icons/fi";
 import { TfiEmail, TfiWorld } from "react-icons/tfi";
 // Try different import paths for the logo
 import logo from "../../assets/texweave_Logo_1.png";
+import { useEmployeeImage } from "../common/useEmployeeImage";
 import "../../styles/sidebar.css";
 
 class ErrorBoundary extends React.Component {
@@ -70,9 +72,11 @@ const Sidebar = () => {
 
   // Get employee info from localStorage
   const username = localStorage.getItem("username") || "";
+  const employeeImage = useEmployeeImage();
   const employeeInfo = {
     employee_id: localStorage.getItem("employee_id") || "",
     name: localStorage.getItem("employee_name") || "",
+    image: employeeImage,
     designation: localStorage.getItem("designation") || "",
     department: localStorage.getItem("department") || "",
     reporting_leader: localStorage.getItem("reporting_leader") || "",
@@ -198,7 +202,6 @@ const Sidebar = () => {
 
   const handleLogout = async () => {
     try {
-      console.log("Logging out...");
       const token = localStorage.getItem("token");
 
       if (token) {
@@ -223,7 +226,6 @@ const Sidebar = () => {
       localStorage.removeItem("reporting_leader");
       sessionStorage.clear();
 
-      console.log("Logout successful, redirecting to login...");
       navigate("/", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
@@ -233,7 +235,6 @@ const Sidebar = () => {
   };
 
   const handleChatClick = (e) => {
-    console.log("Chatbox clicked, navigating to /chat");
     navigate("/chat");
     e.preventDefault();
   };
@@ -307,6 +308,12 @@ const Sidebar = () => {
       badge: null,
     },
     {
+      to: "/front-desk",
+      icon: <FiTruck />,
+      label: "Front Desk",
+      badge: null,
+    },
+    {
       to: "/merchandiser-dashboard",
       icon: <FiUsers />,
       label: "Merchandising",
@@ -344,6 +351,12 @@ const Sidebar = () => {
     },
     { to: "/hr-work", icon: <FiHome />, label: "HR Dashboard", badge: null },
     {
+      to: "/front-desk",
+      icon: <FiTruck />,
+      label: "Front Desk",
+      badge: null,
+    },
+    {
       to: "/finance-provision",
       icon: <FiDollarSign />,
       label: "Finance",
@@ -374,6 +387,12 @@ const Sidebar = () => {
       highlight: true,
     },
     { to: "/dashboard", icon: <FiHome />, label: "Leave Apply", badge: null },
+    {
+      to: "/front-desk",
+      icon: <FiTruck />,
+      label: "Front Desk",
+      badge: null,
+    },
 
     ...(isTeamLeader ||
     isTeamLeaderQC ||
@@ -634,7 +653,15 @@ const Sidebar = () => {
             {/* User Info */}
             <div className="tad-drawer-profile">
               <div className="tad-sb-user">
-                <span className="tad-sb-avatar">{employeeInfo.name?.charAt(0) || "U"}</span>
+                {employeeInfo.image ? (
+                  <img
+                    className="tad-sb-avatar tad-sb-avatar-img"
+                    src={employeeInfo.image}
+                    alt={employeeInfo.name || "User"}
+                  />
+                ) : (
+                  <span className="tad-sb-avatar">{employeeInfo.name?.charAt(0) || "U"}</span>
+                )}
                 <div className="tad-sb-user-text">
                   <div className="tad-sb-user-name">{employeeInfo.name || "User"}</div>
                   <div className="tad-sb-user-role">{employeeInfo.designation || "Employee"}</div>

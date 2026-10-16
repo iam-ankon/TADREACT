@@ -35,13 +35,9 @@ const TeamLeaves = () => {
   const fetchTeamLeaves = async () => {
     try {
       setLoading(true);
-      console.log("🔍 Fetching team leaves for:", employeeInfo.name);
-      console.log("🔍 Employee ID:", employeeInfo.employee_id);
-      console.log("🔍 Reporting leader:", employeeInfo.reporting_leader);
 
       // Try the dedicated team leaves endpoint first
       const response = await getTeamLeaves();
-      console.log("📋 Team leaves response:", response);
 
       let teamLeavesData = [];
 
@@ -61,11 +57,9 @@ const TeamLeaves = () => {
         teamLeavesData = [];
       }
 
-      console.log("📊 Raw team leaves count:", teamLeavesData.length);
 
       // If no data from API, try manual filtering
       if (teamLeavesData.length === 0) {
-        console.log("🔄 No data from API, trying manual filtering...");
 
         // Fetch all leaves
         const allLeavesResponse = await getEmployeeLeaves(1, 500, true);
@@ -77,7 +71,6 @@ const TeamLeaves = () => {
           allLeaves = allLeavesResponse.data.results;
         }
 
-        console.log("📊 Total leaves found:", allLeaves.length);
 
         // Filter leaves where current user is the reporting leader
         const filteredLeaves = allLeaves.filter((leave) => {
@@ -92,9 +85,6 @@ const TeamLeaves = () => {
             leave.employee_name === employeeInfo.name;
 
           if (isOwnLeave) {
-            console.log(
-              `Skipping own leave: ${leave.employee_name || "Unknown"}`,
-            );
             return false;
           }
 
@@ -105,9 +95,6 @@ const TeamLeaves = () => {
             "";
 
           if (!reportingLeader) {
-            console.log(
-              `No reporting leader for: ${leave.employee_name || "Unknown"}`,
-            );
             return false;
           }
 
@@ -122,27 +109,19 @@ const TeamLeaves = () => {
             userNameLower.includes(leaderLower);
 
           if (isTeamLeader) {
-            console.log(
-              `✅ Found team leave: ${leave.employee_name} (Reports to: ${reportingLeader})`,
-            );
           } else {
-            console.log(
-              `❌ Not team leave: ${leave.employee_name} (Reports to: ${reportingLeader}, Current user: ${employeeInfo.name})`,
-            );
           }
 
           return isTeamLeader;
         });
 
         teamLeavesData = filteredLeaves;
-        console.log("👥 Filtered team leaves count:", teamLeavesData.length);
       }
 
       // Set the team leaves
       setTeamLeaves(teamLeavesData);
 
       if (teamLeavesData.length === 0) {
-        console.log("ℹ️ No team leaves found.");
       }
     } catch (error) {
       console.error("❌ Error fetching team leaves:", error);
@@ -269,23 +248,12 @@ const TeamLeaves = () => {
 
     try {
       setUpdating(true);
-      console.log(
-        "💬 Submitting team leader comment for leave:",
-        selectedLeave.id,
-      );
-      console.log("📝 Selected leave:", {
-        id: selectedLeave.id,
-        employee_name: selectedLeave.employee_name,
-        reporting_leader: selectedLeave.reporting_leader,
-        current_user: employeeInfo.name,
-      });
 
       // Use the new team leader comment endpoint
       const response = await addTeamLeaderComment(
         selectedLeave.id,
         comment.trim(),
       );
-      console.log("✅ Comment added successfully:", response.data);
 
       // Update local state
       setTeamLeaves((prev) =>
@@ -320,7 +288,6 @@ const TeamLeaves = () => {
   const handleStatusChange = async (leaveId, newStatus) => {
     try {
       setUpdating(true);
-      console.log("🔄 Updating status for leave:", leaveId, "to:", newStatus);
 
       const updateData = {
         status: newStatus,

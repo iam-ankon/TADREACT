@@ -37,13 +37,10 @@ const EmployeeLeaveBalance = () => {
       setLoading(true);
       setError(null);
 
-      console.log("📊 Fetching all leave balances (all pages)...");
 
       // Fetch ALL pages by passing true as the second parameter (allPages = true)
       const response = await getEmployeeLeaveBalances(null, true);
 
-      console.log("📊 API Response:", response);
-      console.log("📊 Total balances fetched:", response.data?.length || 0);
 
       let allBalances = [];
 
@@ -57,7 +54,6 @@ const EmployeeLeaveBalance = () => {
         allBalances = response.results;
       }
 
-      console.log(`✅ Processed ${allBalances.length} balances`);
 
       // Ensure each balance has an employee name
       const processedBalances = allBalances.map((balance) => ({
@@ -113,10 +109,6 @@ const EmployeeLeaveBalance = () => {
 
   // Debug filtered balances
   useEffect(() => {
-    console.log("🔍 Total balances:", balances.length);
-    console.log("🔍 Filtered balances count:", filteredBalances.length);
-    console.log("🔍 Current page:", currentPage);
-    console.log("🔍 Items per page:", itemsPerPage);
   }, [filteredBalances.length, currentPage, itemsPerPage, balances.length]);
 
   // Update total pages when filtered balances change
@@ -346,12 +338,6 @@ const EmployeeLeaveBalance = () => {
   const currentPageData = getCurrentPageData();
 
   // Debug: Log what's being rendered
-  console.log("🎨 Rendering with:", {
-    totalBalances: balances.length,
-    filteredCount: filteredBalances.length,
-    currentPageDataLength: currentPageData.length,
-    sampleData: currentPageData[0],
-  });
 
   return (
     <div style={styles.container}>

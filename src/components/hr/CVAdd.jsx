@@ -99,10 +99,6 @@ const CVAdd = () => {
         employee: localStorage.getItem("employee_id") || 1,
       };
 
-      console.log("Submitting CV data:", {
-        ...cvData,
-        cv_file: cvData.cv_file ? cvData.cv_file.name : "No file",
-      });
 
       await addCV(cvData);
 

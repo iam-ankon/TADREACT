@@ -22,13 +22,11 @@ export const authService = {
       
       for (const endpoint of endpoints) {
         try {
-          console.log(`Trying login at: ${API_BASE_URL}${endpoint}`);
           const response = await authApi.post(endpoint, {
             username,
             password
           });
           
-          console.log(`Login successful at ${endpoint}:`, response.data);
           
           // Handle different response formats
           const token = response.data.token || response.data.key || response.data.access;
@@ -37,7 +35,6 @@ export const authService = {
             return { success: true, token };
           }
         } catch (e) {
-          console.log(`Login failed at ${endpoint}:`, e.response?.status);
         }
       }
       

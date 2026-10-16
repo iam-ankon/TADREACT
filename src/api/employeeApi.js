@@ -11,10 +11,6 @@ const getHRMSBaseUrl = () => `${getBackendURL()}/api/hrms/api/`;
 /* Token handling – enhanced with validation */
 export const getToken = () => {
   const token = localStorage.getItem("token");
-  console.log(
-    "Retrieved token:",
-    token ? "Yes (length: " + token.length + ")" : "No",
-  );
 
   // Validate token format (basic check)
   if (token && token.length < 10) {
@@ -35,8 +31,6 @@ export const setToken = (token) => {
 
   // Verify token was stored
   const storedToken = localStorage.getItem("token");
-  console.log("Token stored:", storedToken ? "✅ Success" : "❌ Failed");
-  console.log("Token preview:", token.substring(0, 15) + "...");
 };
 
 export const removeToken = () => {
@@ -47,6 +41,7 @@ export const removeToken = () => {
     "employee_id",
     "employee_db_id",
     "employee_name",
+    "employee_image",
     "designation",
     "permissions",
     "mode",
@@ -54,7 +49,6 @@ export const removeToken = () => {
     "reporting_leader",
   ];
   keys.forEach((k) => localStorage.removeItem(k));
-  console.log("All auth data cleared");
 };
 
 /* -------------------------------------------------------------------------- */
@@ -66,13 +60,11 @@ let _csrfFetchInProgress = false;
 export const fetchCsrfToken = async (forceRefresh = false) => {
   // Return cached token if available and not forcing refresh
   if (_csrfToken && !forceRefresh) {
-    console.log("Using cached CSRF token");
     return _csrfToken;
   }
 
   // Prevent multiple simultaneous requests
   if (_csrfFetchInProgress) {
-    console.log("CSRF fetch already in progress, waiting...");
     // Wait for existing request to complete
     await new Promise((resolve) => setTimeout(resolve, 1000));
     if (_csrfToken) return _csrfToken;
@@ -81,7 +73,6 @@ export const fetchCsrfToken = async (forceRefresh = false) => {
   _csrfFetchInProgress = true;
 
   try {
-    console.log("Fetching CSRF token...");
 
     const response = await fetch(`${getBackendURL()}/api/csrf/`, {
       method: "GET",
@@ -92,27 +83,20 @@ export const fetchCsrfToken = async (forceRefresh = false) => {
       },
     });
 
-    console.log("CSRF fetch response status:", response.status);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     }
 
     const data = await response.json();
-    console.log("CSRF response data:", data);
 
     // Try multiple ways to get the token
     if (data.csrfToken) {
       _csrfToken = data.csrfToken;
-      console.log("CSRF token from JSON:", _csrfToken.substring(0, 10) + "...");
     } else {
       // Fallback to cookie reading
       _csrfToken = getCsrfTokenFromCookie();
       if (_csrfToken) {
-        console.log(
-          "CSRF token from cookie after fetch:",
-          _csrfToken.substring(0, 10) + "...",
-        );
       }
     }
 
@@ -138,7 +122,6 @@ const getCsrfTokenFromCookie = () => {
   const name = "csrftoken";
   const cookieMatch = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
   if (cookieMatch && cookieMatch[2]) {
-    console.log("🍪 CSRF token found in cookies");
     return cookieMatch[2];
   }
   return null;
@@ -147,7 +130,6 @@ const getCsrfTokenFromCookie = () => {
 export const getCsrfToken = () => {
   // Method 1: Check memory cache
   if (_csrfToken) {
-    console.log("🔐 Using cached CSRF token");
     return _csrfToken;
   }
 
@@ -162,7 +144,6 @@ export const getCsrfToken = () => {
   const metaTag = document.querySelector('meta[name="csrf-token"]');
   if (metaTag) {
     _csrfToken = metaTag.getAttribute("content");
-    console.log("🏷️ CSRF token found in meta tag");
     return _csrfToken;
   }
 
@@ -170,7 +151,6 @@ export const getCsrfToken = () => {
   const tokenFromStorage = localStorage.getItem("csrftoken");
   if (tokenFromStorage) {
     _csrfToken = tokenFromStorage;
-    console.log("💾 CSRF token found in localStorage");
     return tokenFromStorage;
   }
 
@@ -201,7 +181,6 @@ const createInstance = (baseURL) => {
 
   // FIXED: Request interceptor with ONLY standard headers
   instance.interceptors.request.use(async (cfg) => {
-    console.log(`🚀 Making ${cfg.method?.toUpperCase()} request to:`, cfg.url);
 
     // Get token from localStorage
     const token = localStorage.getItem("token");
@@ -210,11 +189,6 @@ const createInstance = (baseURL) => {
       // ONLY use standard Authorization header - NO custom headers
       cfg.headers.Authorization = `Token ${token}`;
 
-      console.log("🔑 Auth token added:", token.substring(0, 15) + "...");
-      console.log(
-        "📋 Authorization header:",
-        cfg.headers.Authorization ? "Present" : "Missing",
-      );
     } else {
       console.warn("⚠️ No auth token found in localStorage!");
     }
@@ -225,13 +199,11 @@ const createInstance = (baseURL) => {
       let csrfToken = getCsrfToken();
 
       if (!csrfToken) {
-        console.log("🔄 No CSRF token found, fetching...");
         csrfToken = await fetchCsrfToken();
       }
 
       if (csrfToken) {
         cfg.headers["X-CSRFToken"] = csrfToken;
-        console.log("🔒 CSRF Token sent:", csrfToken.substring(0, 10) + "...");
       } else {
         console.warn("⚠️ CSRF token missing for state-changing request");
       }
@@ -243,12 +215,6 @@ const createInstance = (baseURL) => {
   // Enhanced response interceptor with pagination handling
   instance.interceptors.response.use(
     (response) => {
-      console.log(
-        `✅ ${response.config.method?.toUpperCase()} ${
-          response.config.url
-        } success:`,
-        response.status,
-      );
       return response;
     },
     async (error) => {
@@ -293,21 +259,16 @@ const extractDataFromResponse = (response) => {
 
   // Case 1: Paginated response with results array
   if (response.data.results && Array.isArray(response.data.results)) {
-    console.log(
-      `📊 Paginated response: ${response.data.results.length} items (page ${response.data.current_page || 1} of ${Math.ceil(response.data.count / (response.data.page_size || 50))})`,
-    );
     return response.data.results;
   }
 
   // Case 2: Direct array
   if (Array.isArray(response.data)) {
-    console.log(`📊 Direct array response: ${response.data.length} items`);
     return response.data;
   }
 
   // Case 3: Single object (wrap in array)
   if (response.data && typeof response.data === "object") {
-    console.log(`📊 Single object response, wrapping in array`);
     return [response.data];
   }
 
@@ -334,7 +295,6 @@ export const fetchAllPaginatedData = async (apiFunction, params = {}) => {
 
   while (hasMore) {
     try {
-      console.log(`📦 Fetching page ${page}...`);
       const response = await apiFunction(page, pageSize, params);
 
       if (response.data && response.data.length > 0) {
@@ -358,9 +318,6 @@ export const fetchAllPaginatedData = async (apiFunction, params = {}) => {
     }
   }
 
-  console.log(
-    `✅ Total ${allData.length} items fetched across ${page - 1} pages`,
-  );
   return allData;
 };
 /* -------------------------------------------------------------------------- */
@@ -372,12 +329,6 @@ export const debugAuth = () => {
   const mode = localStorage.getItem("mode");
   const permissions = localStorage.getItem("permissions");
 
-  console.log("AUTH DEBUG:", {
-    token: token ? "Present (length: " + token.length + ")" : "Missing",
-    username,
-    mode,
-    permissions: permissions ? "Present" : "Missing",
-  });
 
   return {
     token: !!token,
@@ -390,15 +341,8 @@ export const debugAuth = () => {
 
 export const checkAuthStatus = async () => {
   try {
-    console.log("🔍 Checking authentication status...");
     const token = localStorage.getItem("token");
 
-    console.log(
-      "Token in localStorage:",
-      token ? "✅ Yes (length: " + token.length + ")" : "❌ No",
-    );
-    console.log("Username:", localStorage.getItem("username"));
-    console.log("Employee ID:", localStorage.getItem("employee_id"));
 
     if (!token) {
       return {
@@ -410,7 +354,6 @@ export const checkAuthStatus = async () => {
 
     // Try a simple authenticated endpoint
     const response = await hrmsApi.get("debug_auth/");
-    console.log("✅ Auth check response:", response.data);
     return {
       authenticated: true,
       data: response.data,
@@ -440,7 +383,6 @@ export const loginUser = async (payload) => {
   const { username, password, employee_id, designation, department, email } =
     payload;
 
-  console.log("🔐 Attempting login for username:", username);
 
   const resp = await fetch(`${getBackendURL()}/users/login/`, {
     method: "POST",
@@ -466,11 +408,6 @@ export const loginUser = async (payload) => {
 
   const data = await resp.json();
 
-  console.log("✅ Login response data:", data);
-  console.log(
-    "🔑 Token received:",
-    data.token ? "✅ Yes (length: " + data.token.length + ")" : "❌ No",
-  );
 
   if (!data.token) {
     throw new Error("No token received from server");
@@ -482,7 +419,6 @@ export const loginUser = async (payload) => {
   const store = (k, v) => {
     if (v !== undefined && v !== null && v !== "") {
       localStorage.setItem(k, v.toString());
-      console.log(`💾 Stored ${k}:`, v);
     } else {
       console.warn(`⚠️ No value for ${k}`);
       localStorage.removeItem(k); // Remove if empty
@@ -495,6 +431,7 @@ export const loginUser = async (payload) => {
   store("employee_id", data.employee_id);
   store("employee_db_id", data.employee_db_id);
   store("employee_name", data.employee_name);
+  store("employee_image", data.employee_image);
   store("designation", data.designation);
   store("department", data.department);
   store("email", data.email || data.username);
@@ -502,15 +439,6 @@ export const loginUser = async (payload) => {
   store("permissions", JSON.stringify(data.permissions || {}));
   store("reporting_leader", data.reporting_leader);
 
-  console.log("📋 Final stored data:", {
-    employee_id: localStorage.getItem("employee_id"),
-    employee_db_id: localStorage.getItem("employee_db_id"),
-    employee_name: localStorage.getItem("employee_name"),
-    designation: localStorage.getItem("designation"),
-    department: localStorage.getItem("department"),
-    reporting_leader: localStorage.getItem("reporting_leader"),
-    token: localStorage.getItem("token") ? "Present" : "Missing",
-  });
 
   return data;
 };
@@ -569,7 +497,6 @@ export const getEmployees = async (page = 1, pageSize = 100, options = {}) => {
         }
       }
 
-      console.log(`✅ Fetched ${allEmployees.length} total employees`);
       return {
         data: allEmployees,
         pagination: {
@@ -644,8 +571,6 @@ export const deleteEmployee = async (id, terminationData) => {
 };
 
 export const updateEmployeeImage = (id, formData) => {
-  console.log("=== updateEmployeeImage DEBUG ===");
-  console.log("Employee ID:", id);
   return hrmsApi.patch(`employees/${id}/`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
@@ -665,7 +590,6 @@ export const updateEmployeeCustomers = (id, customerIds) => {
 
 export const addEmployeeLeave = async (data) => {
   try {
-    console.log("📝 Creating leave request with data:", data);
 
     const reportingLeader = localStorage.getItem("reporting_leader");
 
@@ -677,10 +601,8 @@ export const addEmployeeLeave = async (data) => {
       reporting_leader: reportingLeader || "",
     };
 
-    console.log("📦 Final API payload:", leaveData);
 
     const response = await hrmsApi.post("employee_leaves/", leaveData);
-    console.log("✅ Leave created successfully:", response.data);
     return response;
   } catch (error) {
     console.error("❌ Error creating leave:", error);
@@ -884,7 +806,6 @@ export const getPerformanceAppraisalsByEmployeeId = async (
   allPages = false,
 ) => {
   try {
-    console.log(`🔍 API: Fetching appraisals for employee ${employeeId}`);
 
     if (allPages) {
       let allAppraisals = [];
@@ -910,15 +831,11 @@ export const getPerformanceAppraisalsByEmployeeId = async (
         }
       }
 
-      console.log(
-        `📊 Found ${allAppraisals.length} total appraisals for employee ${employeeId}`,
-      );
       return { data: allAppraisals };
     } else {
       const response = await hrmsApi.get(
         `performance_appraisals/?employee_id=${employeeId}`,
       );
-      console.log(`📊 API Response for ${employeeId}:`, response.data);
       return {
         ...response,
         data: extractDataFromResponse(response),
@@ -932,12 +849,10 @@ export const getPerformanceAppraisalsByEmployeeId = async (
 
 export const approveIncrement = async (appraisalId) => {
   try {
-    console.log("📡 Approving increment for ID:", appraisalId);
     const response = await hrmsApi.post(
       `performance_appraisals/${appraisalId}/approve_increment/`,
       {},
     );
-    console.log("✅ API Response:", response.data);
     return response.data;
   } catch (error) {
     console.error("❌ API Error in approveIncrement:", error);
@@ -947,12 +862,10 @@ export const approveIncrement = async (appraisalId) => {
 
 export const approveDesignation = async (appraisalId) => {
   try {
-    console.log("📡 Approving designation for ID:", appraisalId);
     const response = await hrmsApi.post(
       `performance_appraisals/${appraisalId}/approve_designation/`,
       {},
     );
-    console.log("✅ API Response:", response.data);
     return response.data;
   } catch (error) {
     console.error("❌ API Error in approveDesignation:", error);
@@ -1096,8 +1009,6 @@ export const getEmployeeLeaveBalances = async (
   allPages = false,
 ) => {
   try {
-    console.log("🔍 Fetching leave balances. EmployeeId:", employeeId);
-    console.log("🔍 All pages mode:", allPages);
     
     // Determine if this is for a specific employee or all employees
     const isSpecificEmployee = employeeId && employeeId !== null && employeeId !== "null" && employeeId !== "";
@@ -1117,14 +1028,12 @@ export const getEmployeeLeaveBalances = async (
           url = `employee_leave_balances/?page=${currentPage}&page_size=${pageSize}`;
         }
         
-        console.log(`🌐 Fetching page ${currentPage} from: ${url}`);
         const response = await hrmsApi.get(url);
 
         if (response.data && response.data.results) {
           allBalances = [...allBalances, ...response.data.results];
           hasMore = !!response.data.next;
           currentPage++;
-          console.log(`📊 Page ${currentPage-1}: got ${response.data.results.length} records`);
         } else {
           const data = extractDataFromResponse(response);
           if (data && data.length > 0) {
@@ -1134,7 +1043,6 @@ export const getEmployeeLeaveBalances = async (
         }
       }
 
-      console.log(`✅ Total balances fetched: ${allBalances.length}`);
       return { data: allBalances };
     } else {
       // Single page fetch
@@ -1145,26 +1053,20 @@ export const getEmployeeLeaveBalances = async (
         url = `employee_leave_balances/`;
       }
       
-      console.log(`🌐 Fetching balances from: ${url}`);
       const response = await hrmsApi.get(url);
       
       let balancesData;
       if (response.data && response.data.results) {
         balancesData = response.data.results;
-        console.log(`📊 Got ${balancesData.length} balances from paginated response`);
       } else {
         balancesData = extractDataFromResponse(response);
-        console.log(`📊 Got ${balancesData.length} balances from direct response`);
       }
       
       // Log sample data for debugging
       if (balancesData.length > 0) {
-        console.log("📋 Sample balance record:", balancesData[0]);
-        console.log("📋 Available fields:", Object.keys(balancesData[0]));
         
         // Check if employee_name exists, if not, try to add it from employee object
         if (!balancesData[0].employee_name && balancesData[0].employee) {
-          console.log("🔄 Adding employee_name from employee object");
           balancesData = balancesData.map(b => ({
             ...b,
             employee_name: b.employee?.name || b.employee_name
@@ -1189,9 +1091,7 @@ export const getEmployeeLeaveBalances = async (
 
 export const getMyLeaveBalance = async () => {
   try {
-    console.log("🔍 Getting my leave balance (direct endpoint)...");
     const response = await hrmsApi.get("get_my_leave_balance/");
-    console.log("✅ My leave balance:", response.data);
     return response;
   } catch (error) {
     console.error("❌ Error getting my leave balance:", error);
@@ -1220,7 +1120,6 @@ export const getEmployeeLeaves = async (
   sortOrder = "asc",
 ) => {
   try {
-    console.log(`🔍 Getting leaves - Page: ${page}, Size: ${pageSize}`);
 
     const username = localStorage.getItem("username");
     const employeeId = localStorage.getItem("employee_id");
@@ -1245,7 +1144,7 @@ export const getEmployeeLeaves = async (
       let allLeaves = [];
       let currentPage = 1;
       let hasMore = true;
-      const fetchPageSize = 100;
+      const fetchPageSize = pageSize;
 
       while (hasMore) {
         let url = `employee_leaves/?page=${currentPage}&page_size=${fetchPageSize}`;
@@ -1266,7 +1165,6 @@ export const getEmployeeLeaves = async (
           url += `&${params.toString()}`;
         }
 
-        console.log(`🌐 Fetching all pages - Page ${currentPage}:`, url);
         const response = await hrmsApi.get(url);
 
         if (response.data && response.data.results) {
@@ -1282,7 +1180,6 @@ export const getEmployeeLeaves = async (
         }
       }
 
-      console.log(`📋 Found ${allLeaves.length} total leaves`);
       return { 
         data: allLeaves,
         pagination: {
@@ -1323,7 +1220,6 @@ export const getEmployeeLeaves = async (
       url += `&${params.toString()}`;
     }
 
-    console.log("🌐 API URL:", url);
 
     const response = await hrmsApi.get(url);
 
@@ -1333,7 +1229,6 @@ export const getEmployeeLeaves = async (
       const totalCount = response.data.count || 0;
       const totalPages = Math.ceil(totalCount / pageSize);
       
-      console.log(`📋 Page ${page}: ${leavesData.length} leaves, Total: ${totalCount}, Pages: ${totalPages}`);
 
       return {
         data: leavesData,
@@ -1350,7 +1245,6 @@ export const getEmployeeLeaves = async (
 
     // Fallback for non-paginated response
     const leavesData = extractDataFromResponse(response);
-    console.log(`📋 Found ${leavesData.length} leaves`);
 
     return {
       data: leavesData,
@@ -1381,7 +1275,6 @@ export const deleteEmployeeLeave = (id) =>
   hrmsApi.delete(`employee_leaves/${id}/`);
 
 export const updateEmployeeLeave = (id, data) => {
-  console.log("📤 Updating leave with ID:", id);
   return hrmsApi.patch(`employee_leaves/${id}/`, data);
 };
 
@@ -1397,7 +1290,6 @@ export const previewLeave = (params) =>
   hrmsApi.get("employee_leaves/preview/", { params });
 
 export const addTeamLeaderComment = (leaveId, comment) => {
-  console.log("💬 Adding team leader comment for leave:", leaveId);
   return hrmsApi.post(`employee_leaves/${leaveId}/add_team_comment/`, {
     teamleader: comment,
   });
@@ -1408,7 +1300,6 @@ export const addTeamLeaderComment = (leaveId, comment) => {
 /* -------------------------------------------------------------------------- */
 export const debugEmployeeLeaves = async () => {
   try {
-    console.log("🔍 DEBUG: Fetching all leaves for debugging...");
     const response = await hrmsApi.get("debug_all_leaves/");
     return {
       ...response,
@@ -1429,7 +1320,6 @@ export const checkUserEmployeeMapping = () =>
 
 export const debugCurrentUserLeaves = async () => {
   try {
-    console.log("🔍 DEBUG: Fetching current user leaves...");
     const response = await hrmsApi.get("api/debug_current_user_leaves/");
     return {
       ...response,
@@ -1784,7 +1674,6 @@ export const getTeamLeaves = async (
   allPages = false,
 ) => {
   try {
-    console.log("🔍 Getting team leaves via dedicated endpoint...");
 
     if (allPages) {
       let allLeaves = [];
@@ -1815,7 +1704,6 @@ export const getTeamLeaves = async (
         `team_leaves/?page=${page}&page_size=${pageSize}`,
       );
 
-      console.log("📡 Team leaves API response:", response.data);
 
       // Handle different response formats
       if (response.data && response.data.results) {
@@ -1852,7 +1740,6 @@ export const getTeamLeaves = async (
 
 export const sendSalaryChangeEmail = async (employeeId, salaryData) => {
   try {
-    console.log(`📧 Sending salary change email to employee ${employeeId}`);
     const response = await hrmsApi.post(`employees/${employeeId}/send-salary-email/`, salaryData);
     return response.data;
   } catch (error) {
@@ -1863,13 +1750,11 @@ export const sendSalaryChangeEmail = async (employeeId, salaryData) => {
 
 
 export const sendWelcomeEmail = (employeeId) => {
-  console.log("Sending welcome email for employee ID:", employeeId);
   return hrmsApi.post(`employees/${employeeId}/send-welcome-email/`);
 };
 
 export const getEmployeeDetailsByCode = async (employeeCode) => {
   try {
-    console.log("🔍 Fetching employee details for code:", employeeCode);
 
     // Make sure we have a valid employee code
     if (!employeeCode) {
@@ -1894,12 +1779,6 @@ export const getEmployeeDetailsByCode = async (employeeCode) => {
         );
 
         if (exactEmployee) {
-          console.log(
-            "🎯 Found exact employee:",
-            exactEmployee.name,
-            "-",
-            exactEmployee.designation,
-          );
           return exactEmployee;
         }
       }
@@ -1921,12 +1800,6 @@ export const getEmployeeDetailsByCode = async (employeeCode) => {
         );
 
         if (matchedEmployee) {
-          console.log(
-            "🎯 Found employee via search:",
-            matchedEmployee.name,
-            "-",
-            matchedEmployee.designation,
-          );
           return matchedEmployee;
         }
       }
@@ -1946,19 +1819,12 @@ export const getEmployeeDetailsByCode = async (employeeCode) => {
       );
 
       if (foundEmployee) {
-        console.log(
-          "🎯 Found employee in full list:",
-          foundEmployee.name,
-          "-",
-          foundEmployee.designation,
-        );
         return foundEmployee;
       }
     } catch (error) {
       console.warn("Method 3 failed:", error.message);
     }
 
-    console.log("❌ No employee found for code:", employeeCode);
     return null;
   } catch (error) {
     console.error("❌ Error in getEmployeeDetailsByCode:", error);
@@ -2087,7 +1953,6 @@ export const deleteAllAttendance = () =>
 
 export const deleteAttendanceByMonth = async (year, month) => {
   try {
-    console.log(`🗑️ Deleting attendance for ${year}-${month}`);
 
     // Option 1: Try the specific endpoint first
     try {
@@ -2097,16 +1962,11 @@ export const deleteAttendanceByMonth = async (year, month) => {
           month: month,
         },
       });
-      console.log("✅ Monthly attendance deleted via dedicated endpoint");
       return response.data;
     } catch (endpointError) {
-      console.log(
-        "⚠️ Dedicated endpoint not found, falling back to manual deletion",
-      );
     }
 
     // Option 2: Manual deletion by fetching and deleting each record
-    console.log("🔍 Fetching all attendance records...");
     const allAttendance = await getAttendance(1, 100, true);
 
     if (!allAttendance.data || !Array.isArray(allAttendance.data)) {
@@ -2126,9 +1986,6 @@ export const deleteAttendanceByMonth = async (year, month) => {
       return dateStr.startsWith(prefix);
     });
 
-    console.log(
-      `📊 Found ${recordsToDelete.length} records to delete for ${prefix}`,
-    );
 
     if (recordsToDelete.length === 0) {
       return {
@@ -2152,9 +2009,6 @@ export const deleteAttendanceByMonth = async (year, month) => {
           .delete(`attendance/${record.id}/`)
           .then(() => {
             deletedCount++;
-            console.log(
-              `✅ Deleted record ${record.id} (${deletedCount}/${recordsToDelete.length})`,
-            );
             return true;
           })
           .catch((error) => {
@@ -2175,9 +2029,6 @@ export const deleteAttendanceByMonth = async (year, month) => {
       }
     }
 
-    console.log(
-      `🎯 Deletion complete: ${deletedCount} successful, ${errors.length} failed`,
-    );
 
     return {
       success: true,
@@ -2315,7 +2166,6 @@ export const getCVs = async (page = 1, pageSize = 100, options = {}) => {
         });
 
         const url = `cvs/?${params.toString()}`;
-        console.log(`📡 Fetching CVs from: ${url}`);
 
         const response = await hrmsApi.get(url);
 
@@ -2332,7 +2182,6 @@ export const getCVs = async (page = 1, pageSize = 100, options = {}) => {
         }
       }
 
-      console.log(`✅ Total ${allCVs.length} CVs fetched`);
       return {
         data: allCVs,
         pagination: {
@@ -2348,14 +2197,10 @@ export const getCVs = async (page = 1, pageSize = 100, options = {}) => {
       });
 
       const url = `cvs/?${params.toString()}`;
-      console.log(`📡 Fetching CVs from: ${url}`);
 
       const response = await hrmsApi.get(url);
 
       if (response.data && response.data.results) {
-        console.log(
-          `📋 Page ${page}: ${response.data.results.length} CVs (Total: ${response.data.count})`,
-        );
 
         return {
           ...response,
@@ -2791,7 +2636,6 @@ export const updateInterviewOfferLetterStatus = (interviewId, email) =>
 
 export const debugCurrentUserData = async () => {
   try {
-    console.log("🔍 DEBUG CURRENT USER DATA:");
 
     const [leavesResponse, balancesResponse, debugResponse] =
       await Promise.allSettled([

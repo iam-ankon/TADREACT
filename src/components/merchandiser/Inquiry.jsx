@@ -321,7 +321,6 @@ const Inquiry = () => {
 
         formattedDepartments.sort((a, b) => a.name.localeCompare(b.name));
         setDepartmentOptions(formattedDepartments);
-        console.log("📋 Fetched departments:", formattedDepartments);
       } catch (error) {
         console.error("Error fetching departments:", error);
       }
@@ -347,7 +346,6 @@ const Inquiry = () => {
       const token = localStorage.getItem("token");
       const username = localStorage.getItem("username");
 
-      console.log("🔐 Auth Check:", { token: !!token, username });
 
       if (!token) {
         console.error("No token found! Redirecting to login...");
@@ -640,7 +638,6 @@ const Inquiry = () => {
       }
 
       const url = `/inquiry/?${params.toString()}`;
-      console.log("📦 Fetching with filters:", url);
 
       const response = await api.get(url);
 

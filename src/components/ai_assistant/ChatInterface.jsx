@@ -41,7 +41,6 @@ const ChatInterface = () => {
 
   const checkAuthAndFetchData = async () => {
     const token = localStorage.getItem("token");
-    console.log("Token from localStorage:", token ? "Present" : "Missing");
 
     if (!token) {
       setAuthError(true);
@@ -55,9 +54,7 @@ const ChatInterface = () => {
 
   const fetchConversations = async () => {
     try {
-      console.log("Fetching conversations...");
       const data = await chatService.getConversations();
-      console.log("Fetched conversations:", data);
       setConversations(Array.isArray(data) ? data : []);
       setAuthError(false);
       setApiError(null);
@@ -138,7 +135,6 @@ const ChatInterface = () => {
         currentConversation?.id, // Will be null for new conversations
       );
 
-      console.log("Message response:", response);
 
       const assistantMessage = {
         role: "assistant",

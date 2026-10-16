@@ -48,9 +48,7 @@ const ChatApp = () => {
         throw new Error("No authentication token found. Please log in.");
       }
 
-      console.log("Fetching conversations...");
       const data = await chatAPI.getConversations();
-      console.log("Conversations data:", data);
 
       setConversations(data);
       setError(null);
@@ -70,9 +68,7 @@ const ChatApp = () => {
         throw new Error("No authentication token found. Please log in.");
       }
 
-      console.log("Fetching users...");
       const data = await chatAPI.getUsers();
-      console.log("Users data:", data);
 
       setUsers(data);
     } catch (err) {
@@ -90,9 +86,7 @@ const ChatApp = () => {
         throw new Error("No authentication token found. Please log in.");
       }
 
-      console.log("📨 Fetching messages for conversation:", conversation.id);
       const data = await chatAPI.getMessages(conversation.id);
-      console.log("Messages data:", data);
       setMessages(data);
     } catch (err) {
       console.error("Error fetching messages:", err);
@@ -105,7 +99,6 @@ const ChatApp = () => {
     if (!newGroupName.trim() || selectedUsers.length === 0) return;
     try {
       const response = await chatAPI.createGroupConversation(newGroupName, selectedUsers);
-      console.log("Group chat created:", response);
       await fetchConversationsData();
       setSelectedConversation(response);
       localStorage.setItem("selectedConversationId", response.id);

@@ -142,7 +142,6 @@ const EmployeeDetailPage = () => {
         const employeeData = response.data;
         setEmployee(employeeData);
 
-        console.log("Full employee data:", employeeData);
 
         // PRIORITY: Use merchandising_department_names from serializer (already has names)
         if (
@@ -150,10 +149,6 @@ const EmployeeDetailPage = () => {
           Array.isArray(employeeData.merchandising_department_names) &&
           employeeData.merchandising_department_names.length > 0
         ) {
-          console.log(
-            "✅ Using merchandising_department_names:",
-            employeeData.merchandising_department_names,
-          );
           setMerchandisingDepartmentNames(
             employeeData.merchandising_department_names,
           );
@@ -192,15 +187,8 @@ const EmployeeDetailPage = () => {
           }
 
           if (deptNames.length > 0) {
-            console.log(
-              "✅ Extracted names from merchandising_department:",
-              deptNames,
-            );
             setMerchandisingDepartmentNames(deptNames);
           } else {
-            console.log(
-              "⚠️ No names found in merchandising_department, showing IDs as fallback",
-            );
             // If we only have IDs, show them as fallback
             const ids = [];
             if (Array.isArray(employeeData.merchandising_department)) {
@@ -1044,7 +1032,6 @@ const EmployeeDetailPage = () => {
         onClose={() => setShowSalaryEmailModal(false)}
         employee={employee}
         onSuccess={() => {
-          console.log("Salary email sent successfully");
           setEmailStatus("✅ Salary notification sent successfully!");
           setTimeout(() => {
             setEmailStatus("");

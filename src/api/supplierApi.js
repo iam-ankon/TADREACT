@@ -19,7 +19,6 @@ const getCsrfTokenFromCookie = () => {
   const name = "csrftoken";
   const cookieMatch = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
   if (cookieMatch && cookieMatch[2]) {
-    console.log("🍪 CSRF token found in cookies");
     return cookieMatch[2];
   }
   return null;
@@ -27,7 +26,6 @@ const getCsrfTokenFromCookie = () => {
 
 export const getCsrfToken = () => {
   if (_csrfToken) {
-    console.log("🔐 Using cached CSRF token");
     return _csrfToken;
   }
 
@@ -40,14 +38,12 @@ export const getCsrfToken = () => {
   const metaTag = document.querySelector('meta[name="csrf-token"]');
   if (metaTag) {
     _csrfToken = metaTag.getAttribute("content");
-    console.log("🏷️ CSRF token found in meta tag");
     return _csrfToken;
   }
 
   const tokenFromStorage = localStorage.getItem("csrftoken");
   if (tokenFromStorage) {
     _csrfToken = tokenFromStorage;
-    console.log("💾 CSRF token found in localStorage");
     return tokenFromStorage;
   }
 
@@ -57,12 +53,10 @@ export const getCsrfToken = () => {
 
 export const fetchCsrfToken = async (forceRefresh = false) => {
   if (_csrfToken && !forceRefresh) {
-    console.log("Using cached CSRF token");
     return _csrfToken;
   }
 
   if (_csrfFetchInProgress) {
-    console.log("CSRF fetch already in progress, waiting...");
     await new Promise((resolve) => setTimeout(resolve, 1000));
     if (_csrfToken) return _csrfToken;
   }
@@ -70,7 +64,6 @@ export const fetchCsrfToken = async (forceRefresh = false) => {
   _csrfFetchInProgress = true;
 
   try {
-    console.log("Fetching CSRF token...");
 
     const response = await fetch(`${getBackendURL()}/api/csrf/`, {
       method: "GET",
@@ -81,22 +74,18 @@ export const fetchCsrfToken = async (forceRefresh = false) => {
       },
     });
 
-    console.log("CSRF fetch response status:", response.status);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${await response.text()}`);
     }
 
     const data = await response.json();
-    console.log("CSRF response data:", data);
 
     if (data.csrfToken) {
       _csrfToken = data.csrfToken;
-      console.log("CSRF token from JSON:", _csrfToken);
     } else {
       _csrfToken = getCsrfTokenFromCookie();
       if (_csrfToken) {
-        console.log("CSRF token from cookie after fetch:", _csrfToken);
       }
     }
 
@@ -121,35 +110,29 @@ export const fetchCsrfToken = async (forceRefresh = false) => {
 // ==================== Tier 2 - ChainSupply ====================
 
 export const getChainSupplies = (params = {}) => {
-  console.log("📡 Fetching ChainSupply (Tier 2):", params);
   return supplierApi.get("chain-supply/", { params });
 };
 
 export const getChainSupplyById = (id) => {
-  console.log(`📡 Fetching ChainSupply (Tier 2) ID: ${id}`);
   return supplierApi.get(`chain-supply/${id}/`);
 };
 
 // Get single ChainSupply1 by ID (Tier 3)
 export const getChainSupplyById1 = (id) => {
-  console.log(`📡 Fetching ChainSupply1 (Tier 3) ID: ${id}`);
   return supplierApi.get(`chain-supply1/${id}/`);
 };
 
 // Delete ChainSupply (Tier 2)
 export const deleteChainSupply = (id) => {
-  console.log(`🗑️ Deleting ChainSupply (Tier 2) ID: ${id}`);
   return supplierApi.delete(`chain-supply/${id}/`);
 };
 
 // Delete ChainSupply1 (Tier 3)
 export const deleteChainSupply1 = (id) => {
-  console.log(`🗑️ Deleting ChainSupply1 (Tier 3) ID: ${id}`);
   return supplierApi.delete(`chain-supply1/${id}/`);
 };
 
 export const createChainSupply = async (data) => {
-  console.log("📝 Creating ChainSupply (Tier 2)");
   const isFormData = data instanceof FormData;
   return supplierApi.post("chain-supply/", data, {
     headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
@@ -158,7 +141,6 @@ export const createChainSupply = async (data) => {
 
 export const updateChainSupply = async (id, data) => {
   // ← This was missing in export
-  console.log(`📝 Updating ChainSupply (Tier 2) ID: ${id}`);
   const isFormData = data instanceof FormData;
   return supplierApi.patch(`chain-supply/${id}/`, data, {
     headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
@@ -168,12 +150,10 @@ export const updateChainSupply = async (id, data) => {
 // ==================== Tier 3 - ChainSupply1 ====================
 
 export const getChainSupplies1 = (params = {}) => {
-  console.log("📡 Fetching ChainSupply1 (Tier 3):", params);
   return supplierApi.get("chain-supply1/", { params });
 };
 
 export const createChainSupply1 = async (data) => {
-  console.log("📝 Creating ChainSupply1 (Tier 3)");
   const isFormData = data instanceof FormData;
   return supplierApi.post("chain-supply1/", data, {
     headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
@@ -182,7 +162,6 @@ export const createChainSupply1 = async (data) => {
 
 export const updateChainSupply1 = async (id, data) => {
   // ← Added for safety
-  console.log(`📝 Updating ChainSupply1 (Tier 3) ID: ${id}`);
   const isFormData = data instanceof FormData;
   return supplierApi.patch(`chain-supply1/${id}/`, data, {
     headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
@@ -251,11 +230,9 @@ const createSupplierInstance = () => {
 
       // Handle CSRF errors
       if (error.response?.status === 403 && error.config) {
-        console.log("🔄 Possible CSRF error, retrying with fresh token...");
         const newCsrfToken = await fetchCsrfToken(true);
         if (newCsrfToken) {
           error.config.headers["X-CSRFToken"] = newCsrfToken;
-          console.log("🔄 Retrying request with new CSRF token");
           return instance.request(error.config);
         }
       }
@@ -276,11 +253,14 @@ const createSupplierInstance = () => {
 const supplierApi = createSupplierInstance();
 
 export const exportSupplierToExcel = (supplierId) => {
-  console.log(`📊 Exporting supplier ID: ${supplierId} to Excel`);
   return supplierApi.get(`supplier/${supplierId}/export-excel/`, {
     responseType: "blob", // Important for file download
   });
 };
+
+// License / certification status workbook: { doc, status, ids: "1,2,3" }
+export const exportDocumentStatusExcel = (params) =>
+  supplierApi.get("supplier/document-status-excel/", { params, responseType: "blob" });
 
 /* -------------------------------------------------------------------------- */
 /*  4.  SUPPLIER API FUNCTIONS                                               */
@@ -288,7 +268,6 @@ export const exportSupplierToExcel = (supplierId) => {
 
 // Get all suppliers with optional filtering
 export const getSuppliers = (params = {}) => {
-  console.log("📡 Fetching suppliers with params:", params);
   return supplierApi.get("supplier/", { params });
 };
 
@@ -324,7 +303,6 @@ const formDataToObject = (formData) => {
 // In supplierApi.js - Update the createSupplier function:
 
 export const createSupplier = async (supplierData) => {
-  console.log("📝 Creating new supplier");
 
   try {
     const isFormData = supplierData instanceof FormData;
@@ -344,12 +322,9 @@ export const createSupplier = async (supplierData) => {
       }
 
       // Log what we're sending
-      console.log("📦 Sending FormData with fields:");
       for (let pair of formDataToSend.entries()) {
         if (pair[1] instanceof File) {
-          console.log(`  ${pair[0]}: File - ${pair[1].name}`);
         } else {
-          console.log(`  ${pair[0]}: ${pair[1]}`);
         }
       }
 
@@ -372,7 +347,6 @@ export const createSupplier = async (supplierData) => {
 
 // Update existing supplier
 export const updateSupplier = async (id, supplierData) => {
-  console.log(`📝 Updating supplier ID: ${id}`);
 
   try {
     // Check if supplierData is FormData
@@ -380,12 +354,9 @@ export const updateSupplier = async (id, supplierData) => {
 
     if (isFormData) {
       // Log FormData contents for debugging
-      console.log("📦 Sending FormData with fields:");
       for (let pair of supplierData.entries()) {
         if (pair[1] instanceof File) {
-          console.log(`  ${pair[0]}: File - ${pair[1].name}`);
         } else {
-          console.log(`  ${pair[0]}: ${pair[1]}`);
         }
       }
 
@@ -399,13 +370,10 @@ export const updateSupplier = async (id, supplierData) => {
           },
         },
       );
-      console.log("✅ Supplier updated successfully:", response.data);
       return response;
     } else {
       // Handle regular JSON data
-      console.log("📦 Sending JSON data:", supplierData);
       const response = await supplierApi.patch(`supplier/${id}/`, supplierData);
-      console.log("✅ Supplier updated successfully:", response.data);
       return response;
     }
   } catch (error) {
@@ -419,7 +387,6 @@ export const updateSupplier = async (id, supplierData) => {
 
 // Delete supplier
 export const deleteSupplier = (id) => {
-  console.log(`🗑️ Deleting supplier ID: ${id}`);
   return supplierApi.delete(`supplier/${id}/`);
 };
 
@@ -483,7 +450,6 @@ export const recalculateAllDays = () => {
 
 // Upload supplier attachment
 export const uploadSupplierAttachment = (supplierId, formData) => {
-  console.log(`📎 Uploading attachment for supplier: ${supplierId}`);
 
   // Add the supplier ID to the form data
   const fd = new FormData();
@@ -512,7 +478,6 @@ export const getSupplierAttachments = (supplierId) => {
 
 // Update agreement status
 export const updateAgreementStatus = (supplierId, status, data = {}) => {
-  console.log(`📄 Updating agreement status for ${supplierId} to ${status}`);
 
   return supplierApi.patch(`supplier/${supplierId}/update_agreement_status/`, {
     agreement_status: status,
@@ -528,7 +493,6 @@ export const getSuppliersByVendorType = (vendorType) => {
 };
 
 export const deleteMultipleFiles = (supplierId, fieldName, filePaths) => {
-  console.log(`🗑️ Deleting files from ${fieldName} for supplier ${supplierId}`);
   return supplierApi.post(`supplier/${supplierId}/delete-multiple-files/`, {
     field_name: fieldName,
     file_paths: filePaths,

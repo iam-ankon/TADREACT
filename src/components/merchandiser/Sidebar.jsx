@@ -77,6 +77,7 @@ const ALL_MENU_ITEMS = [
     icon: <FiTruck />,
     label: "On-Time Delivery",
   },
+  { section: "Reports", to: "/merchandiser/shipment-history", icon: <FiCalendar />, label: "Shipment History" },
 ];
 
 const SECTION_ORDER = ["Overview", "Partners", "Operations", "Reports"];
@@ -96,6 +97,7 @@ const RESTRICTED_LABELS = [
   "Agents",
   "Buyers",
   "Customers",
+  "Suppliers",
   "Inquiries",
   "Orders",
   "Courier Management",
@@ -104,6 +106,7 @@ const RESTRICTED_LABELS = [
   "Commissions",
   "Supplier Capacity",
   "On-Time Delivery",
+  "Shipment History",
 ];
 
 const Sidebar = () => {

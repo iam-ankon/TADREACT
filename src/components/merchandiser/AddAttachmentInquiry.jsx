@@ -27,7 +27,7 @@ const AddAttachmentInquiry = () => {
         const response = await axios.get(
           "http://119.148.51.38:8000/api/merchandiser/api/inquiry_attachment/"
         );
-        console.log(response.data); // Add this line
+         // Add this line
         setAttachments(response.data);
         setLoading(false);
       } catch (error) {

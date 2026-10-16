@@ -18,11 +18,10 @@ import LoginPage from "./components/hr/LoginPage";
 import HRWorkPage from "./components/hr/HRWorkPage";
 import EmployeeDetails from "./components/hr/EmployeeDetails";
 import EmployeeDetailPage from "./components/hr/EmployeeDetailPage";
-import EditEmployeePage from "./components/hr/EditEmployeePage";
+import EmployeeForm from "./components/hr/EmployeeForm";
 import Notifications from "./components/hr/Notifications";
 import Attendance from "./components/hr/Attendance";
 import EmailLog from "./components/hr/EmailLog";
-import AddEmployee from "./components/hr/AddEmployee";
 import Interviews from "./components/hr/Interviews";
 import InterviewDetailsPage from "./components/hr/Interviews";
 import PerformanseAppraisal from "./components/hr/PerformanseAppraisal";
@@ -68,6 +67,7 @@ import LeaveHistory from "./components/hr/regular_user/LeaveHistory.jsx";
 import DashboardPage from "./components/merchandiser/DashboardPage";
 import SupplierCapacityReport from "./components/merchandiser/SupplierCapacityReport";
 import ProductionPlanning from "./components/merchandiser/ProductionPlanning";
+import ShipmentHistory from "./components/merchandiser/ShipmentHistory";
 import OnTimeDeliveryScorecard from "./components/merchandiser/OnTimeDeliveryScorecard";
 import CustomerPage from "./components/merchandiser/CustomerPage";
 import BuyerPage from "./components/merchandiser/BuyerPage";
@@ -148,6 +148,15 @@ import CompanyDocsDashboard from "./components/company_docs/CompanyDocsDashboard
 import { CompanyDocsLayout } from "./components/company_docs/CompanyDocsSidebar.jsx";
 import CompanyDetail from "./components/company_docs/CompanyDetail.jsx";
 
+// Front Desk
+import { FrontDeskLayout } from "./components/front_desk/FrontDeskSidebar.jsx";
+import FrontDeskDashboard from "./components/front_desk/FrontDeskDashboard.jsx";
+import CourierPage from "./components/front_desk/CourierPage.jsx";
+import SampleRoutingPage from "./components/front_desk/SampleRoutingPage.jsx";
+import VendorReceiptPage from "./components/front_desk/VendorReceiptPage.jsx";
+import VisitorLogPage from "./components/front_desk/VisitorLogPage.jsx";
+import MeetingRoomPage from "./components/front_desk/MeetingRoomPage.jsx";
+
 // Password Vault
 import VaultDashboard from "./components/vault/VaultDashboard.jsx";
 import VaultAuditLog from "./components/vault/VaultAuditLog.jsx";
@@ -209,7 +218,7 @@ const AppContent = () => {
             path="/edit-employee/:id"
             element={
               <ProtectedRoute>
-                <EditEmployeePage />
+                <EmployeeForm />
               </ProtectedRoute>
             }
           />
@@ -329,7 +338,7 @@ const AppContent = () => {
             path="/add-employee"
             element={
               <ProtectedRoute>
-                <AddEmployee />
+                <EmployeeForm />
               </ProtectedRoute>
             }
           />
@@ -654,6 +663,14 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <ProductionPlanning />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/merchandiser/shipment-history"
+            element={
+              <ProtectedRoute>
+                <ShipmentHistory />
               </ProtectedRoute>
             }
           />
@@ -1134,6 +1151,68 @@ const AppContent = () => {
                 <CompanyDocsLayout>
                   <CompanyDetail />
                 </CompanyDocsLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Front Desk */}
+          <Route
+            path="/front-desk"
+            element={
+              <ProtectedRoute>
+                <FrontDeskLayout>
+                  <FrontDeskDashboard />
+                </FrontDeskLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/front-desk/couriers"
+            element={
+              <ProtectedRoute>
+                <FrontDeskLayout>
+                  <CourierPage />
+                </FrontDeskLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/front-desk/sample-routing"
+            element={
+              <ProtectedRoute>
+                <FrontDeskLayout>
+                  <SampleRoutingPage />
+                </FrontDeskLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/front-desk/vendor-receipts"
+            element={
+              <ProtectedRoute>
+                <FrontDeskLayout>
+                  <VendorReceiptPage />
+                </FrontDeskLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/front-desk/visitors"
+            element={
+              <ProtectedRoute>
+                <FrontDeskLayout>
+                  <VisitorLogPage />
+                </FrontDeskLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/front-desk/meeting-rooms"
+            element={
+              <ProtectedRoute>
+                <FrontDeskLayout>
+                  <MeetingRoomPage />
+                </FrontDeskLayout>
               </ProtectedRoute>
             }
           />

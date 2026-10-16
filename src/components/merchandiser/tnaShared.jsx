@@ -41,10 +41,9 @@ export const MILESTONES = [
   { key: "lab_dip_date", label: "Lab Dip", group: "samples", stage: "lab_dip_status", rule: "Order booking + 15 days" },
   { key: "fit_sample_date", label: "Fit Sample", group: "samples", stage: "fit_sample_status", rule: "Order booking + 15 days" },
   { key: "fabric_lc_date", label: "Fabric LC", group: "fabric", rule: "Fabric booking + 10 days" },
-  { key: "bulk_fabric_approve_date", label: "Bulk Fabric Approval", group: "fabric", rule: "Fabric booking + 30 days" },
   { key: "pp_sample_yardage_china_date", label: "PP Sample Yardage (China)", group: "samples", stage: "pp_sample_status", rule: "Fabric ETD − 7 days (imported)" },
   { key: "pps_date", label: "PP Sample", group: "samples", stage: "pp_sample_status", rule: "Yardage + 12 days (imported) / Fabric booking + 20 days (local)" },
-  { key: "fabric_etd", label: "Fabric ETD", group: "fabric", rule: "Bulk approval + 35 days" },
+  { key: "fabric_etd", label: "Fabric ETD", group: "fabric", rule: "Fabric booking + 65 days" },
   { key: "fabric_eta", label: "Fabric ETA", group: "fabric", rule: "Fabric ETD + 15 days" },
   { key: "fabric_approved_date", label: "Fabric Approved", group: "fabric", stage: "fabric_status", rule: "Shipment − 120 days (imported) / − 90 (local)" },
   { key: "fabric_inhouse_date", label: "Fabric In-house", group: "fabric", rule: "Fabric ETA + 10 days" },
@@ -108,7 +107,30 @@ export const relDays = (days) => {
   if (days === 0) return "today";
   if (days === 1) return "tomorrow";
   if (days === -1) return "yesterday";
-  return days > 0 ? `in ${days} days` : `${-days} days ago`;
+
+  // Calendar-accurate y/m/d breakdown (not days/365.25) so a span like
+  // 401 days reads as "1y 1m 6d ago" instead of a raw day count.
+  const today = new Date();
+  const from = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const to = new Date(from.getTime() + days * 86400000);
+  const [early, late] = days > 0 ? [from, to] : [to, from];
+  let y = late.getUTCFullYear() - early.getUTCFullYear();
+  let m = late.getUTCMonth() - early.getUTCMonth();
+  let d = late.getUTCDate() - early.getUTCDate();
+  if (d < 0) {
+    m -= 1;
+    d += new Date(Date.UTC(late.getUTCFullYear(), late.getUTCMonth(), 0)).getUTCDate();
+  }
+  if (m < 0) {
+    y -= 1;
+    m += 12;
+  }
+  const parts = [];
+  if (y) parts.push(`${y}y`);
+  if (m) parts.push(`${m}m`);
+  if (d || parts.length === 0) parts.push(`${d}d`);
+  const label = parts.join(" ");
+  return days > 0 ? `in ${label}` : `${label} ago`;
 };
 
 /** Shipment-based status (same buckets as the API's status filter). */
@@ -318,9 +340,10 @@ button.tna-kpi.active { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,
 .tna-stage-meta { font-size: 12px; color: var(--c-muted); }
 
 .tna-timeline { list-style: none; margin: 0; padding: 0; }
-.tna-timeline li { display: grid; grid-template-columns: 18px 1fr auto; gap: 12px; align-items: start; padding: 0 0 14px; position: relative; }
-.tna-timeline li::before { content: ""; position: absolute; left: 8px; top: 18px; bottom: 0; width: 2px; background: var(--c-border); }
+.tna-timeline li { display: grid; grid-template-columns: 18px 1fr auto; gap: 12px; align-items: start; padding: 0 0 14px; position: relative; border-bottom: 1px solid #e2e8f0; }
+.tna-timeline li::before { content: ""; position: absolute; left: 8px; top: 18px; bottom: 0; width: 2px; background: #cbd5e1; }
 .tna-timeline li:last-child::before { display: none; }
+.tna-timeline li:last-child { border-bottom: none; }
 .tna-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #c7d2e0; background: #fff; margin-top: 1px; display: grid; place-items: center; font-size: 10px; color: #fff; z-index: 1; }
 .tna-timeline li.done .tna-dot { background: #15803d; border-color: #15803d; }
 .tna-timeline li.overdue .tna-dot { background: #b91c1c; border-color: #b91c1c; }

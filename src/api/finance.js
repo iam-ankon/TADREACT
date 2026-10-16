@@ -21,7 +21,6 @@ const getAuthToken = () => {
     sessionStorage.getItem("token") ||
     localStorage.getItem("authToken");
 
-  console.log("🔑 Finance API - Token found:", !!token);
   return token;
 };
 
@@ -63,9 +62,6 @@ apiClient.interceptors.request.use(
   (config) => {
     // Don't log for blob responses as they can be large
     if (config.responseType !== "blob") {
-      console.log(
-        `🚀 Finance API - ${config.method?.toUpperCase()} to: ${config.url}`,
-      );
     }
 
     const authToken = getAuthToken();
@@ -95,13 +91,8 @@ apiClient.interceptors.response.use(
   (response) => {
     // For blob responses (file downloads), don't try to parse as JSON
     if (response.config.responseType === "blob") {
-      console.log(`✅ File download response received`);
       return response;
     }
-    console.log(
-      `✅ Finance API - ${response.config.method?.toUpperCase()} ${response.config.url} success:`,
-      response.status,
-    );
     return response;
   },
   (error) => {
@@ -131,7 +122,6 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 403 && error.config) {
-      console.log("🔄 Possible CSRF error, refreshing CSRF token...");
       const refreshCsrfToken = async () => {
         try {
           const response = await fetch(
@@ -406,7 +396,6 @@ export const salaryAPI = {
 // Salary Records APIs
 export const salaryRecordsAPI = {
   getAllRecords: (params = {}) => {
-    console.log("📡 Finance API - Getting salary records with params:", params);
     const queryString = Object.keys(params)
       .map(
         (key) =>
@@ -477,7 +466,6 @@ export const salaryRecordsAPI = {
       month: Number(data.month),
       year: Number(data.year),
     };
-    console.log("📤 Sending pay slip request:", cleanData);
     return apiClient.post("/generate-pay-slip-for-company/", cleanData, {
       responseType: "blob",
       headers: {
@@ -499,7 +487,6 @@ export const salaryRecordsAPI = {
       month: Number(data.month),
       year: Number(data.year),
     };
-    console.log("📤 Sending all pay slips request:", cleanData);
     return apiClient.post("/generate-all-pay-slips-excel/", cleanData, {
       responseType: "blob",
       headers: {
@@ -838,13 +825,11 @@ export const setupCrossTabSync = (callback) => {
       e.key === "rpfMonthly" ||
       e.key === "sourceTaxMinimum"
     ) {
-      console.log("Storage changed in another tab:", e.key);
       if (callback) callback();
     }
   };
 
   const handleCustomEvent = (e) => {
-    console.log("Custom event received:", e.detail.type);
     if (callback) callback(e);
   };
 

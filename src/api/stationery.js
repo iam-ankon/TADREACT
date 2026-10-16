@@ -33,12 +33,6 @@ const getCSRFToken = () => {
 
 // DEBUG FUNCTION: Log API calls
 const debugLog = (operation, url, params = {}, data = null) => {
-  console.log(`🔍 ${operation}:`, {
-    url,
-    params,
-    data,
-    timestamp: new Date().toISOString(),
-  });
 };
 
 const fetchAllPages = async (url, params = {}) => {
@@ -47,7 +41,6 @@ const fetchAllPages = async (url, params = {}) => {
   let page = 1;
 
   while (next) {
-    console.log(`Fetching page ${page} → ${next}`);
     const response = await axios.get(next, {
       headers: getAuthHeaders(),
       params: next === url ? { ...params, _t: Date.now() } : undefined,
@@ -65,7 +58,6 @@ const fetchAllPages = async (url, params = {}) => {
     page++;
   }
 
-  console.log(`Total fetched: ${allData.length} records`);
   return allData;
 };
 
@@ -119,7 +111,6 @@ export const stationeryAPI = {
         `${API_BASE}stationery_items/${itemId}/`,
         { headers: getAuthHeaders() },
       );
-      console.log("✅ Item deleted:", response.data);
       return response.data;
     } catch (error) {
       console.error("Error deleting stationery item:", error);
@@ -129,11 +120,6 @@ export const stationeryAPI = {
 
   // ========== USAGE ==========
   fetchUsage: async (employeeId = null) => {
-    console.log(
-      employeeId
-        ? `🔍 Fetching usage for employee ${employeeId}`
-        : "🔍 Fetching ALL usage (admin mode)",
-    );
 
     const params = employeeId ? { employee: employeeId } : {};
 
@@ -143,35 +129,11 @@ export const stationeryAPI = {
         params: params,
       });
 
-      console.log("📥 API Response:", {
-        url: `${API_BASE}stationery_usage/`,
-        status: response.status,
-        dataCount: Array.isArray(response.data)
-          ? response.data.length
-          : response.data.results
-            ? response.data.results.length
-            : 0,
-        dataSample: Array.isArray(response.data)
-          ? response.data.slice(0, 3)
-          : response.data.results
-            ? response.data.results.slice(0, 3)
-            : response.data,
-      });
 
       const data = response.data.results || response.data || [];
 
       // Debug each record
       data.forEach((record, index) => {
-        console.log(`📝 Record ${index + 1}:`, {
-          id: record.id,
-          employee: record.employee,
-          employee_object: record.employee,
-          stationery_item: record.stationery_item,
-          item_object: record.stationery_item,
-          quantity: record.quantity,
-          purpose: record.purpose,
-          status: record.status,
-        });
       });
 
       return data;
@@ -189,7 +151,6 @@ export const stationeryAPI = {
         usageData,
         { headers: getAuthHeaders() },
       );
-      console.log("✅ Usage added:", response.data);
       return response.data;
     } catch (error) {
       console.error("Error adding usage request:", error);

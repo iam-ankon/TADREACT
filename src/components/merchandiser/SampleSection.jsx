@@ -441,7 +441,7 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
       sample_type: sample.sample_type || "fit",
       other_type_description: sample.other_type_description || "",
       sample_name: sample.sample_name || "",
-      tna: sample.tna || "",
+      tna: sample.tna || tnaFromOrder(sample.sample_type),
       supplier_plan: sample.supplier_plan || "",
       supplier_plan_date: sample.supplier_plan_date || "",
       supplier_feedback: sample.supplier_feedback || "",
@@ -674,7 +674,6 @@ const SampleSection = ({ orderId, supplierName, orderLabel, onApprovalChange }) 
         : await approveSample(sample.id);
       // TEMP DEBUG - remove once the progress bar color issue is
       // confirmed fixed.
-      console.log("[Sample Approve]", sample.id, sample.sample_type, "->", res?.data);
       const updated = res?.data?.sample;
       if (updated) {
         setSamples((prev) => prev.map((s) => (s.id === sample.id ? updated : s)));

@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FiChevronLeft, FiChevronRight, FiLogOut } from "react-icons/fi";
+import { useEmployeeImage } from "./useEmployeeImage";
 import "../../styles/sidebar.css";
 
 const readOpen = (storageKey) => {
@@ -63,6 +64,7 @@ const DeptSidebar = ({
 
   const name = localStorage.getItem("employee_name") || localStorage.getItem("username") || "";
   const role = userRole || localStorage.getItem("designation") || "";
+  const image = useEmployeeImage();
 
   return (
     <div className="tad-sb-wrap">
@@ -109,7 +111,11 @@ const DeptSidebar = ({
         {name && (
           <div className="tad-sb-footer">
             <div className="tad-sb-user" title={isOpen ? undefined : `${name}${role ? ` — ${role}` : ""}`}>
-              <span className="tad-sb-avatar">{initialsOf(name)}</span>
+              {image ? (
+                <img className="tad-sb-avatar tad-sb-avatar-img" src={image} alt={name} />
+              ) : (
+                <span className="tad-sb-avatar">{initialsOf(name)}</span>
+              )}
               {isOpen && (
                 <div className="tad-sb-user-text">
                   <div className="tad-sb-user-name">{name}</div>

@@ -83,14 +83,12 @@ const EmployeeLeave = () => {
       setLoading(true);
       setError(null);
 
-      console.log("📥 Fetching ALL leaves...");
 
       // Fetch all leaves with a large page size to get all records
       const response = await getEmployeeLeaves(1, 10000, {
         allPages: true, // This tells the API to fetch all pages
       });
 
-      console.log("📊 API Response:", response);
 
       let leavesData = [];
 
@@ -105,7 +103,6 @@ const EmployeeLeave = () => {
         leavesData = response.data.data;
       }
 
-      console.log(`✅ Loaded ${leavesData.length} total leaves`);
 
       // Remove duplicates by ID
       const uniqueLeaves = [];
@@ -120,7 +117,6 @@ const EmployeeLeave = () => {
       // Sort: Pending first, then by date (newest first)
       const sortedLeaves = sortLeaves(uniqueLeaves);
 
-      console.log(`✅ Sorted ${sortedLeaves.length} leaves with pending on top`);
 
       setAllLeaves(sortedLeaves);
       setFilteredLeaves(sortedLeaves);

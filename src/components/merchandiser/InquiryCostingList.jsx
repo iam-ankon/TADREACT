@@ -110,18 +110,9 @@ const InquiryCostingList = () => {
         }
       }
 
-      console.log(`✅ Fetched ${allInquiries.length} inquiries`);
       
       // Debug: Log first inquiry to see structure
       if (allInquiries.length > 0) {
-        console.log("Sample inquiry data:", {
-          id: allInquiries[0].id,
-          inquiry_no: allInquiries[0].inquiry_no,
-          customer_name: allInquiries[0].customer_name,
-          buyer_name: allInquiries[0].buyer_name,
-          customer: allInquiries[0].customer,
-          buyer: allInquiries[0].buyer
-        });
       }
       
       return allInquiries;
@@ -183,7 +174,6 @@ const InquiryCostingList = () => {
       // 1. Fetch all inquiries with pagination handling
       const inquiries = await fetchAllInquiries();
 
-      console.log(`Found ${inquiries.length} total inquiries`);
 
       if (inquiries.length === 0) {
         setCostings([]);
@@ -231,14 +221,8 @@ const InquiryCostingList = () => {
           }
         }
 
-        console.log(
-          `Processed ${Math.min(i + BATCH_SIZE, inquiryIds.length)}/${inquiryIds.length} inquiries...`,
-        );
       }
 
-      console.log(
-        `✅ Loaded costing for ${Object.keys(costingMap).length} inquiries`,
-      );
 
       // 4. Combine inquiry and costing data
       const combinedCostings = [];
@@ -288,10 +272,6 @@ const InquiryCostingList = () => {
         }
       }
 
-      console.log(
-        `✅ Found ${combinedCostings.length} inquiries with costing data`,
-      );
-      console.log("Sample combined costing:", combinedCostings[0]);
 
       setCostings(combinedCostings);
       setFilteredCostings(combinedCostings);

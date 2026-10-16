@@ -152,15 +152,6 @@ const PerformanceAppraisal = () => {
       const hasFullAccess = permissions.full_access === true;
       const mode = localStorage.getItem("mode") || "";
 
-      console.log("=".repeat(60));
-      console.log("🔍 FETCHING APPRAISALS");
-      console.log("👤 Username:", currentUsername);
-      console.log("👤 Employee ID:", currentUserEmployeeId);
-      console.log("👤 Employee Name:", currentUserName);
-      console.log("🔐 Has Full Access:", hasFullAccess);
-      console.log("📊 Total Appraisals:", allAppraisals.length);
-      console.log("📊 Total Employees:", allEmployees.length);
-      console.log("=".repeat(60));
 
       let filteredAppraisals = [];
 
@@ -181,7 +172,6 @@ const PerformanceAppraisal = () => {
         hasFullAccess ||
         mode === "full_access"
       ) {
-        console.log("👑 Full access user - showing all appraisals");
         filteredAppraisals = allAppraisals;
       } else {
         // Team leaders: the server already limits the list to the leader's
@@ -190,9 +180,6 @@ const PerformanceAppraisal = () => {
         // spelled differently from the leader's name (e.g. "Mr. Abu Bakkar
         // Siddik" vs ABO BAKAR SIDDIK).
         filteredAppraisals = allAppraisals;
-        console.log(
-          `📊 Found ${filteredAppraisals.length} appraisals for team`,
-        );
       }
 
       setAppraisals(filteredAppraisals);
@@ -215,11 +202,6 @@ const PerformanceAppraisal = () => {
       );
       const hasFullAccess = permissions.full_access === true;
 
-      console.log("=".repeat(60));
-      console.log("🔍 FETCHING EMPLOYEES");
-      console.log("👤 Username:", currentUsername);
-      console.log("👤 Current User Employee ID:", currentUserEmployeeId);
-      console.log("=".repeat(60));
 
       const response = await getEmployees(1, 500, false);
 
@@ -230,7 +212,6 @@ const PerformanceAppraisal = () => {
         allEmployees = response.data.results;
       }
 
-      console.log(`📊 Total employees from API: ${allEmployees.length}`);
 
       // Check if current user is in the list
       const currentUserInList = allEmployees.find(
@@ -245,7 +226,6 @@ const PerformanceAppraisal = () => {
           );
           if (currentUserResponse.data) {
             allEmployees.push(currentUserResponse.data);
-            console.log("✅ Added current user to employees list");
           }
         } catch (err) {
           console.error("Could not fetch current user:", err);
@@ -269,13 +249,6 @@ const PerformanceAppraisal = () => {
     const hasFullAccess = permissions.full_access === true;
     const mode = localStorage.getItem("mode") || "";
 
-    console.log("🔍 FILTERING EMPLOYEES FOR APPRAISAL");
-    console.log("Current Username:", currentUsername);
-    console.log("Current Employee ID:", currentUserEmployeeId);
-    console.log("Current Name:", currentUserName);
-    console.log("Has Full Access:", hasFullAccess);
-    console.log("Mode:", mode);
-    console.log("Search term:", employeeSearch || "(empty - showing all)");
 
     // FULL ACCESS USERS - can see all employees (including themselves if needed)
     const fullAccessUsers = [
@@ -293,7 +266,6 @@ const PerformanceAppraisal = () => {
       hasFullAccess ||
       mode === "full_access"
     ) {
-      console.log("👑 Full access - showing all employees");
 
       // If search term exists, filter, otherwise show all
       let filtered = employees;
@@ -308,15 +280,11 @@ const PerformanceAppraisal = () => {
         });
       }
 
-      console.log(`Found ${filtered.length} employees`);
       return filtered;
     }
 
     // ZOHAER - only see team members (Mr. Morshed's team), NOT himself
     if (currentUsername === "ZOHAER") {
-      console.log(
-        "🔍 ZOHAER - showing Mr. Morshed's team only (excluding self)",
-      );
 
       // Get all team members first
       let teamMembers = employees.filter((emp) => {
@@ -344,17 +312,12 @@ const PerformanceAppraisal = () => {
         });
       }
 
-      console.log(`🔍 ZOHAER - Found ${teamMembers.length} team members`);
       teamMembers.forEach((emp) => {
-        console.log(
-          `  - ${emp.name} (${emp.employee_id}) - Reports to: ${emp.reporting_leader}`,
-        );
       });
       return teamMembers;
     }
 
     // TEAM LEADERS - only see team members, NOT themselves
-    console.log("🔍 Team Leader - showing team members only (excluding self)");
 
     // The server's employee list for a team leader is already just their
     // team plus themselves (see fetchAppraisals) - drop self.
@@ -375,10 +338,6 @@ const PerformanceAppraisal = () => {
       });
     }
 
-    console.log(
-      `🔍 Team Leader - Found ${filtered.length} team members matching`,
-    );
-    console.log(`📊 Total team members: ${uniqueTeamMembers.length}`);
 
     return filtered;
   }, [employees, employeeSearch]);
@@ -386,7 +345,6 @@ const PerformanceAppraisal = () => {
   const handleEmployeeSelect = (employeeId, employee) => {
     if (!employeeId) return;
 
-    console.log("📝 Selected employee:", employee);
 
     // Find the complete employee data
     const selectedEmployee = employees.find(

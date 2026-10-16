@@ -2860,3 +2860,6 @@ export const updateProductionLine = (id, data) =>
   merchandiserApi.patch(`production-lines/${id}/`, data);
 export const deleteProductionLine = (id) =>
   merchandiserApi.delete(`production-lines/${id}/`);
+
+export const getShipmentHistory = (params = {}) =>
+  merchandiserApi.get("reports/shipment-history/", { params });

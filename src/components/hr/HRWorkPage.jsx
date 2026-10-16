@@ -291,19 +291,19 @@ const HRWorkPage = () => {
   }, []);
 
   // Load data progressively with caching
+  // All sections load in parallel, once on mount. (Was 4 sequential phases,
+  // each re-fired as loadingStates changed, so every request went out twice.)
   useEffect(() => {
     let isMounted = true;
+    const initial = loadingStates;
 
-    const loadDataProgressively = async () => {
-      try {
-        // PHASE 1: Load quick stats (Leaves, CVs, Interviews) - fetch ALL pages
-        if (loadingStates.quickStats) {
-          console.log("Phase 1: Loading all quick stats data...");
+    const quickStats = async () => {
+        if (initial.quickStats) {
 
           const [leavesRes, cvsRes, interviewsRes] = await Promise.allSettled([
-            getEmployeeLeaves(1, 100, true),
-            getCVs(1, 100, true),
-            getInterviews(1, 100, true),
+            getEmployeeLeaves(1, 1000, true),
+            getCVs(1, 1000, true),
+            getInterviews(1, 1000, true),
           ]);
 
           if (!isMounted) return;
@@ -364,10 +364,11 @@ const HRWorkPage = () => {
           setLoadingStates((prev) => ({ ...prev, quickStats: false }));
         }
 
-        // PHASE 2: Load employee data
-        if (loadingStates.employees) {
-          console.log("Phase 2: Loading all employee data...");
-          const employeesRes = await getEmployees(1, 100, true);
+    };
+
+    const employees = async () => {
+        if (initial.employees) {
+          const employeesRes = await getEmployees(1, 1000, true);
 
           if (!isMounted) return;
 
@@ -385,9 +386,10 @@ const HRWorkPage = () => {
           setLoadingStates((prev) => ({ ...prev, employees: false }));
         }
 
-        // PHASE 3: Load weekly stats from API (ACCURATE DATA including today)
-        if (loadingStates.weeklyStats) {
-          console.log("Phase 3: Loading weekly attendance stats from API...");
+    };
+
+    const weeklyStats = async () => {
+        if (initial.weeklyStats) {
 
           try {
             const endDate = new Date();
@@ -405,7 +407,6 @@ const HRWorkPage = () => {
             if (response.data && response.data.daily_stats) {
               setCachedData(CACHE_KEYS.WEEKLY_STATS, response.data);
               setWeeklyStatsData(response.data);
-              console.log("✅ Weekly stats loaded from API:", response.data);
             }
           } catch (error) {
             console.error("Error loading weekly stats:", error);
@@ -414,10 +415,15 @@ const HRWorkPage = () => {
           setLoadingStates((prev) => ({ ...prev, weeklyStats: false }));
         }
 
-        // PHASE 4: Load attendance data (for today's list view only)
-        if (loadingStates.attendance) {
-          console.log("Phase 4: Loading all attendance data...");
-          const attendanceRes = await getAttendance(1, 100, true);
+    };
+
+    const attendance = async () => {
+        if (initial.attendance) {
+          // Only today's rows are shown — fetching every page took ~37 sequential requests.
+          const attendanceRes = await getAttendance(1, 500, {
+            allPages: true,
+            filters: { date: new Date().toLocaleDateString("en-CA") },
+          });
 
           if (!isMounted) return;
 
@@ -428,7 +434,6 @@ const HRWorkPage = () => {
             attendance = attendanceRes.data.results;
           }
 
-          console.log(`✅ Loaded ${attendance.length} attendance records`);
           setCachedData(CACHE_KEYS.ATTENDANCE, attendance);
           setAttendanceData(attendance);
 
@@ -438,29 +443,22 @@ const HRWorkPage = () => {
             details: false,
           }));
         }
-      } catch (error) {
-        console.error("Error loading data:", error);
-        setLoadingStates({
-          quickStats: false,
-          employees: false,
-          attendance: false,
-          weeklyStats: false,
-          details: false,
-        });
-      }
     };
 
-    loadDataProgressively();
+    Promise.all(
+      [quickStats, employees, weeklyStats, attendance].map((load) =>
+        load().catch((error) => console.error("Error loading data:", error)),
+      ),
+    ).finally(() => {
+      if (isMounted)
+        setLoadingStates({ quickStats: false, employees: false, attendance: false, weeklyStats: false, details: false });
+    });
 
     return () => {
       isMounted = false;
     };
-  }, [
-    loadingStates.quickStats,
-    loadingStates.employees,
-    loadingStates.attendance,
-    loadingStates.weeklyStats,
-  ]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once on mount
+
 
   const today = new Date();
   const formattedDate = today.toLocaleDateString("en-US", {
@@ -537,12 +535,11 @@ const HRWorkPage = () => {
       };
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    const todayAttendance = attendanceData.filter((record) => {
-      if (!record.date) return false;
-      const recordDate = new Date(record.date).toISOString().split("T")[0];
-      return recordDate === today;
-    });
+    // Local date (Dhaka), not UTC — UTC is still "yesterday" before 6 am.
+    const today = new Date().toLocaleDateString("en-CA");
+    const todayAttendance = attendanceData.filter(
+      (record) => String(record.date || "").slice(0, 10) === today,
+    );
 
     // For the pie chart, we use API data for accuracy if available
     let onTime = todaysApiData?.onTimeCount || 0;

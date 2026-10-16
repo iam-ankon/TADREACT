@@ -17,7 +17,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { FiAlertTriangle, FiArrowLeft, FiSave, FiSearch, FiX } from "react-icons/fi";
 import Sidebar from "./Sidebar.jsx";
 import QuickDateInput from "./QuickDateInput";
-import { GROUP_LABEL, MILESTONES, TNA_CSS, apiError, calculatePlan, fmtDate, relDays, daysFromToday, tnaApi } from "./tnaShared";
+import { GROUP_LABEL, MILESTONES, TNA_CSS, apiError, calculatePlan, fmtDate, daysFromToday, relDays, tnaApi } from "./tnaShared";
 
 const EMPTY = {
   order: null,

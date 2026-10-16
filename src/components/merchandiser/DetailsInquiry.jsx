@@ -51,21 +51,10 @@ const DetailsInquiry = () => {
   useEffect(() => {
     const fetchInquiry = async () => {
       try {
-        console.log(`Fetching inquiry for ID: ${id}`);
         const response = await axios.get(
           `http://119.148.51.38:8000/api/merchandiser/api/inquiry/${id}/`,
         );
-        console.log("Inquiry API Response:", response.data);
-        console.log(
-          "Multiple Attachments:",
-          response.data.multiple_attachments,
-        );
-        console.log("Multiple Images:", response.data.multiple_images);
-        console.log("Suppliers:", response.data.suppliers);
-        console.log("Customer:", response.data.customer);
-        console.log("Buyer:", response.data.buyer);
         // ========== NEW: Log department ==========
-        console.log("Department:", response.data.department);
         setInquiry(response.data);
         setLoading(false);
         setFromEmail("");

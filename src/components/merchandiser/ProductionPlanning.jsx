@@ -625,6 +625,22 @@ const Cmp = ({ bh, mf, delta, fmt = (v) => v ?? "—", unit = "", bad = 1 }) => 
   );
 };
 
+/** Line names BH → MF, with added (+) / removed (−) line names under them. */
+const LineDiff = ({ bh, mf }) => {
+  const added = mf.filter((n) => !bh.includes(n));
+  const removed = bh.filter((n) => !mf.includes(n));
+  return (
+    <div className="pp-cmp">
+      <div className="v">{bh.join(", ") || "—"} → <b>{mf.join(", ") || "—"}</b></div>
+      <div className="d">
+        {added.length > 0 && <span style={{ color: "#0b7a4b" }}>+ {added.join(", ")} </span>}
+        {removed.length > 0 && <span style={{ color: "#b42318" }}>− {removed.join(", ")}</span>}
+        {!added.length && !removed.length && <span style={{ color: C.muted }}>same</span>}
+      </div>
+    </div>
+  );
+};
+
 const CompareTable = ({ rows, loading }) => (
   <div style={{ overflow: "auto", maxHeight: "calc(100vh - 230px)" }}>
     <table className="pp-table" style={{ minWidth: 1500 }}>
@@ -655,7 +671,7 @@ const CompareTable = ({ rows, loading }) => (
               <td className="r">{fmtInt(r.qty)}</td>
               <td>{fmtDate(r.shipment_date)}</td>
               <td title={`BH: ${(bh.line_names || []).join(", ") || "—"}\nMF: ${(mf.line_names || []).join(", ") || "—"}`}>
-                <Cmp bh={bh.no_of_lines} mf={mf.no_of_lines} delta={v.lines} bad={-1} />
+                <LineDiff bh={bh.line_names || []} mf={mf.line_names || []} />
               </td>
               <td><Cmp bh={bh.per_line_output} mf={mf.per_line_output} delta={v.per_line_output} fmt={fmtInt} bad={-1} /></td>
               <td><Cmp bh={bh.total_output} mf={mf.total_output} delta={v.total_output} fmt={fmtInt} bad={-1} /></td>

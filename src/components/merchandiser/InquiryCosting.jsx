@@ -644,7 +644,6 @@ const InquiryCosting = () => {
           }
         }
       } catch (e) {
-        console.log("No existing costing found, using defaults");
       }
     } catch (error) {
       console.error("Error fetching data:", error);

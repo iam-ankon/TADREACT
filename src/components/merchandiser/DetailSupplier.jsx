@@ -32,6 +32,7 @@ import Sidebar from "./Sidebar.jsx";
 import SupplierDeleteModal from "./SupplierDeleteModal.jsx";
 import { exportSupplierToExcel } from "../../api/supplierApi";
 import { AGENT_CSS, initialsOf } from "./agentTheme";
+import { canManageSuppliers } from "../../utils/routeAccess";
 
 const API = "http://119.148.51.38:8000/api/csr/api/supplier/";
 const BACKEND = "http://119.148.51.38:8000";
@@ -118,6 +119,7 @@ const Section = ({ icon, title, children, right }) => (
 export default function DetailSupplier() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const canManage = canManageSuppliers();
   const [supplier, setSupplier] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -261,12 +263,16 @@ export default function DetailSupplier() {
           <button type="button" className="ag-btn ghost" onClick={handleExport} disabled={exporting}>
             {exporting ? <span className="ag-spinner sm" /> : <FiDownload />} Excel
           </button>
-          <button type="button" className="ag-btn danger-ghost" onClick={() => setDeleting(true)}>
-            <FiTrash2 /> Delete
-          </button>
-          <button type="button" className="ag-btn primary" onClick={() => navigate(`/edit/suppliers/${s.id}`)}>
-            <FiEdit2 /> Edit
-          </button>
+          {canManage && (
+            <>
+              <button type="button" className="ag-btn danger-ghost" onClick={() => setDeleting(true)}>
+                <FiTrash2 /> Delete
+              </button>
+              <button type="button" className="ag-btn primary" onClick={() => navigate(`/edit/suppliers/${s.id}`)}>
+                <FiEdit2 /> Edit
+              </button>
+            </>
+          )}
         </div>
       </header>
 

@@ -309,6 +309,11 @@
   text-transform: uppercase;
 }
 
+.tad-sb-avatar-img {
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
 .tad-sb-user-text {
   min-width: 0;
   flex: 1;

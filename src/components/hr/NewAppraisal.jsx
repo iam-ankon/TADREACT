@@ -150,7 +150,7 @@ const NewAppraisal = () => {
       ),
     };
 
-    console.log("Submitting data:", cleanFormData); // Debug log
+     // Debug log
 
     try {
       await addPerformanceAppraisal(cleanFormData);

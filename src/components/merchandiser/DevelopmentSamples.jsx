@@ -77,7 +77,6 @@ const DevelopmentSamples = () => {
         },
       });
       
-      console.log("Fetched inquiries:", response.data);
       
       let inquiriesData = [];
       if (response.data && response.data.results) {
@@ -88,15 +87,9 @@ const DevelopmentSamples = () => {
         inquiriesData = [];
       }
       
-      console.log("Processed inquiries:", inquiriesData.length);
       
       // Log customer data for debugging
       if (inquiriesData.length > 0) {
-        console.log("Sample inquiry customer data:", {
-          customer_name: inquiriesData[0].customer_name,
-          customer: inquiriesData[0].customer,
-          buyer: inquiriesData[0].buyer
-        });
       }
       
       setInquiries(inquiriesData);

@@ -125,6 +125,8 @@ export default function TNADashboard() {
   const [statuses, setStatuses] = useState(() => store.get("statuses", []));
   const [fabrics, setFabrics] = useState(() => store.get("fabrics", []));
   const [suppliers, setSuppliers] = useState(() => store.get("suppliers", []));
+  const [customers, setCustomers] = useState(() => store.get("customers", []));
+  const [customerOptions, setCustomerOptions] = useState([]);
   const [years, setYears] = useState(() => store.get("years", []));
   const [months, setMonths] = useState(() => store.get("months", []));
   const [sort, setSort] = useState(() => store.get("sort", { field: "shipment_date", dir: "asc" }));
@@ -154,12 +156,13 @@ export default function TNADashboard() {
     store.set("statuses", statuses);
     store.set("fabrics", fabrics);
     store.set("suppliers", suppliers);
+    store.set("customers", customers);
     store.set("years", years);
     store.set("months", months);
     store.set("sort", sort);
     store.set("pageSize", pageSize);
     store.set("columns", visible);
-  }, [search, statuses, fabrics, suppliers, years, months, sort, pageSize, visible]);
+  }, [search, statuses, fabrics, suppliers, customers, years, months, sort, pageSize, visible]);
 
   useEffect(() => {
     if (location.state?.flash) {
@@ -183,10 +186,11 @@ export default function TNADashboard() {
     if (statuses.length) p.status = statuses.join("|");
     if (fabrics.length) p.fabric_type = fabrics.join("|");
     if (suppliers.length) p.supplier = suppliers.join("|");
+    if (customers.length) p.customer = customers.join("|");
     if (years.length) p.shipment_year = years.join("|");
     if (months.length) p.shipment_month = months.map((m) => MONTHS.indexOf(m) + 1).join("|");
     return p;
-  }, [search, statuses, fabrics, suppliers, years, months, sort]);
+  }, [search, statuses, fabrics, suppliers, customers, years, months, sort]);
 
   const load = useCallback(
     async (pageNo) => {
@@ -233,6 +237,12 @@ export default function TNADashboard() {
   useEffect(() => {
     loadStats();
     tnaApi.get("tna/reminders/count/").then((r) => setReminderCount(r.data.total)).catch(() => {});
+    tnaApi.get("customer/")
+      .then((r) => {
+        const list = (Array.isArray(r.data) ? r.data : r.data?.results || []).map((c) => c.customer_name).filter(Boolean);
+        setCustomerOptions([...new Set(list)].sort().map((n) => ({ value: n, label: n })));
+      })
+      .catch(() => {});
     getSuppliers(1, 500, false)
       .then((r) => {
         const list = (Array.isArray(r?.data) ? r.data : r?.data?.results || [])
@@ -251,12 +261,13 @@ export default function TNADashboard() {
     return out;
   })();
 
-  const filtersOn = search || statuses.length || fabrics.length || suppliers.length || years.length || months.length;
+  const filtersOn = search || statuses.length || fabrics.length || suppliers.length || customers.length || years.length || months.length;
   const clearAll = () => {
     setSearch("");
     setStatuses([]);
     setFabrics([]);
     setSuppliers([]);
+    setCustomers([]);
     setYears([]);
     setMonths([]);
   };
@@ -477,6 +488,7 @@ export default function TNADashboard() {
               </div>
               <MultiSelect label="Status" options={STATUS_OPTIONS} selected={statuses} onChange={setStatuses} />
               <MultiSelect label="Fabric" options={FABRIC_OPTIONS} selected={fabrics} onChange={setFabrics} />
+              <MultiSelect label="Customer" options={customerOptions} selected={customers} onChange={setCustomers} searchable />
               <MultiSelect label="Supplier" options={supplierOptions} selected={suppliers} onChange={setSuppliers} searchable />
               <MultiSelect label="Ship year" options={yearOptions} selected={years} onChange={setYears} />
               <MultiSelect label="Ship month" options={MONTHS.map((m) => ({ value: m, label: m }))} selected={months} onChange={setMonths} />

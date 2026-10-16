@@ -17,7 +17,6 @@ chatApi.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Token ${token}`;
-      console.log('Token added to request');
     }
     return config;
   },
@@ -51,9 +50,7 @@ export const chatService = {
   // Conversations
   getConversations: async () => {
     try {
-      console.log('Fetching conversations from:', `${API_BASE_URL}/api/chat-history/conversations/`);
       const response = await chatApi.get('/api/chat-history/conversations/');
-      console.log('Conversations response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in getConversations:', error);
@@ -63,7 +60,6 @@ export const chatService = {
 
   createConversation: async () => {
     try {
-      console.log('Creating conversation at:', `${API_BASE_URL}/api/chat-history/conversations/create/`);
       const response = await chatApi.post('/api/chat-history/conversations/create/', {});
       return response.data;
     } catch (error) {
@@ -74,7 +70,6 @@ export const chatService = {
 
   getConversation: async (conversationId) => {
     try {
-      console.log('Fetching conversation:', `${API_BASE_URL}/api/chat-history/conversations/${conversationId}/`);
       const response = await chatApi.get(`/api/chat-history/conversations/${conversationId}/`);
       return response.data;
     } catch (error) {
@@ -85,7 +80,6 @@ export const chatService = {
 
   updateConversation: async (conversationId, data) => {
     try {
-      console.log('Updating conversation:', `${API_BASE_URL}/api/chat-history/conversations/${conversationId}/update/`);
       const response = await chatApi.put(`/api/chat-history/conversations/${conversationId}/update/`, data);
       return response.data;
     } catch (error) {
@@ -96,7 +90,6 @@ export const chatService = {
 
   deleteConversation: async (conversationId) => {
     try {
-      console.log('Deleting conversation:', `${API_BASE_URL}/api/chat-history/conversations/${conversationId}/delete/`);
       const response = await chatApi.delete(`/api/chat-history/conversations/${conversationId}/delete/`);
       return response.data;
     } catch (error) {
@@ -108,7 +101,6 @@ export const chatService = {
   // Messages
   getConversationMessages: async (conversationId) => {
     try {
-      console.log('Fetching messages:', `${API_BASE_URL}/api/chat-history/conversations/${conversationId}/messages/`);
       const response = await chatApi.get(`/api/chat-history/conversations/${conversationId}/messages/`);
       return response.data;
     } catch (error) {
@@ -121,18 +113,15 @@ export const chatService = {
   sendMessage: async (message, conversationId = null) => {
     try {
       const url = '/api/chat-history/message/';
-      console.log('Sending message to:', `${API_BASE_URL}${url}`);
       
       const payload = { message: message };
       if (conversationId) {
         payload.conversation_id = conversationId;
       }
       
-      console.log('Request payload:', payload);
       
       const response = await chatApi.post(url, payload);
       
-      console.log('Send message response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in sendMessage:', error);
@@ -146,7 +135,6 @@ export const chatService = {
   // Only use this for manual message addition (not for AI chat)
   addManualMessage: async (conversationId, message, role = 'user') => {
     try {
-      console.log('Adding manual message to conversation:', `${API_BASE_URL}/api/chat-history/conversations/${conversationId}/messages/add/`);
       const response = await chatApi.post(`/api/chat-history/conversations/${conversationId}/messages/add/`, {
         content: message,
         role: role

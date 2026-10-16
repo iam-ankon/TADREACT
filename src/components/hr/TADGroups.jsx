@@ -12,12 +12,9 @@ const TADGroups = () => {
     const fetchTadGroups = async () => {
       try {
         setLoading(true);
-        console.log("🔄 Fetching TAD groups...");
         
         // The API returns an Axios response object, we need the data property
         const response = await getCompanies();
-        console.log("📦 Full response:", response);
-        console.log("📊 Response data:", response.data);
         
         // Extract the data array from the response
         const companiesData = response.data;
