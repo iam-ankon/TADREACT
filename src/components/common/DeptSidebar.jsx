@@ -16,6 +16,15 @@ const readOpen = (storageKey) => {
   }
 };
 
+const readOffSections = (storageKey) => {
+  try {
+    const stored = localStorage.getItem(`${storageKey}_offSections`);
+    return stored !== null ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
 const initialsOf = (name) =>
   (name || "")
     .split(" ")
@@ -30,6 +39,9 @@ const initialsOf = (name) =>
  *   exact: active only on the exact path (default: also on sub-paths)
  * storageKey: localStorage key for the open/closed state
  * onLogout: when given, the user card shows a logout button
+ * collapsibleSections: when true, each section gets an on/off switch next
+ *   to its label so the user can hide sections they don't use. State
+ *   persists per-department under `${storageKey}_offSections`.
  */
 const DeptSidebar = ({
   title,
@@ -39,14 +51,23 @@ const DeptSidebar = ({
   storageKey = "sidebarsOpenState",
   userRole,
   onLogout,
+  collapsibleSections = false,
 }) => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(() => readOpen(storageKey));
+  const [offSections, setOffSections] = useState(() => readOffSections(storageKey));
 
   const toggle = () =>
     setIsOpen((prev) => {
       const next = !prev;
       localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+
+  const toggleSection = (label) =>
+    setOffSections((prev) => {
+      const next = prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label];
+      localStorage.setItem(`${storageKey}_offSections`, JSON.stringify(next));
       return next;
     });
 
@@ -82,9 +103,27 @@ const DeptSidebar = ({
         <nav className="tad-sb-nav">
           {sections
             .filter((section) => section.items.length > 0)
-            .map((section) => (
+            .map((section) => {
+              const sectionOff = collapsibleSections && offSections.includes(section.label);
+              return (
               <div className="tad-sb-section" key={section.label || "main"}>
-                {section.label && <div className="tad-sb-section-label">{section.label}</div>}
+                {section.label && (
+                  <div className="tad-sb-section-label">
+                    <span>{section.label}</span>
+                    {collapsibleSections && isOpen && (
+                      <button
+                        type="button"
+                        className={`tad-sb-section-switch ${sectionOff ? "" : "on"}`}
+                        onClick={() => toggleSection(section.label)}
+                        aria-pressed={!sectionOff}
+                        title={sectionOff ? `Show ${section.label}` : `Hide ${section.label}`}
+                      >
+                        <span className="tad-sb-section-switch-knob" />
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!sectionOff && (
                 <ul className="tad-sb-list">
                   {section.items.map((item) => (
                     <li key={item.to + item.label}>
@@ -104,8 +143,10 @@ const DeptSidebar = ({
                     </li>
                   ))}
                 </ul>
+                )}
               </div>
-            ))}
+              );
+            })}
         </nav>
 
         {name && (

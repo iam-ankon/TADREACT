@@ -480,7 +480,7 @@ const Sidebar = () => {
           {
             to: "/csr-dashboard",
             icon: <FiUsers />,
-            label: "Corporate Social Responsibility",
+            label: "CSR",
             badge: null,
           },
         ]
@@ -547,7 +547,7 @@ const Sidebar = () => {
     if (departmentPermissions.isAdminDepartment) return "Admin Department";
     if (departmentPermissions.isHr) return "Human Resources";
     if (departmentPermissions.isQA) return "Quality Assurance";
-    if (departmentPermissions.isCSR) return "Corporate Social Responsibility";
+    if (departmentPermissions.isCSR) return "CSR";
     if (departmentPermissions.isRnD) return "Research & Development";
     if (departmentPermissions.isProduction) return "Production";
     if (departmentPermissions.isSampleSection) return "Sample Section";

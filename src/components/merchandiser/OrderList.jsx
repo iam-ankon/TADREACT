@@ -728,15 +728,19 @@ const OrderList = () => {
     } catch (e) {}
     return [];
   });
-  const [selectedShipmentMonths, setSelectedShipmentMonths] = useState(() => {
+  // Months selected per year (e.g. { "2026": ["February", "March"] }) - kept
+  // per-year so picking Feb/Mar for 2026 doesn't also check them for 2027.
+  const [selectedMonthsByYear, setSelectedMonthsByYear] = useState(() => {
     try {
-      const saved = localStorage.getItem("selectedShipmentMonths");
+      const saved = localStorage.getItem("selectedMonthsByYear");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed;
+        }
       }
     } catch (e) {}
-    return [];
+    return {};
   });
   const [minValueFilter, setMinValueFilter] = useState("");
   const [maxValueFilter, setMaxValueFilter] = useState("");
@@ -840,10 +844,17 @@ const OrderList = () => {
     if (selectedGarments.length) filters.garment = selectedGarments.join("|");
     if (selectedDepartments.length)
       filters.department = selectedDepartments.join("|");
-    if (selectedShipmentYears.length)
+    if (selectedShipmentYears.length) {
       filters.shipment_year = selectedShipmentYears.join("|");
-    if (selectedShipmentMonths.length)
-      filters.shipment_month = selectedShipmentMonths.join("|");
+      filters.shipment_year_month = selectedShipmentYears
+        .map((y) => {
+          const monthNums = (selectedMonthsByYear[y] || [])
+            .map((m) => months.indexOf(m) + 1)
+            .filter((n) => n > 0);
+          return monthNums.length ? `${y}:${monthNums.join(",")}` : `${y}`;
+        })
+        .join("|");
+    }
     if (minValueFilter) filters.min_value = minValueFilter;
     if (maxValueFilter) filters.max_value = maxValueFilter;
 
@@ -863,7 +874,7 @@ const OrderList = () => {
     selectedGarments,
     selectedDepartments,
     selectedShipmentYears,
-    selectedShipmentMonths,
+    selectedMonthsByYear,
     minValueFilter,
     maxValueFilter,
     sortConfig,
@@ -1085,7 +1096,7 @@ const fetchStats = useCallback(async () => {
     selectedGarments,
     selectedDepartments,
     selectedShipmentYears,
-    selectedShipmentMonths,
+    selectedMonthsByYear,
     minValueFilter,
     maxValueFilter,
     sortConfig,
@@ -1169,7 +1180,7 @@ const fetchStats = useCallback(async () => {
     if (savedDepartmentFilter && savedDepartmentFilter !== "") {
       setSelectedDepartments(savedDepartmentFilter.split(",").filter((d) => d));
     }
-    // selectedShipmentYears and selectedShipmentMonths are restored directly
+    // selectedShipmentYears and selectedMonthsByYear are restored directly
     // in useState initializers above, so no need to set them here again.
     if (savedMinValue) setMinValueFilter(savedMinValue);
     if (savedMaxValue) setMaxValueFilter(savedMaxValue);
@@ -1197,8 +1208,8 @@ const fetchStats = useCallback(async () => {
       JSON.stringify(selectedShipmentYears),
     );
     localStorage.setItem(
-      "selectedShipmentMonths",
-      JSON.stringify(selectedShipmentMonths),
+      "selectedMonthsByYear",
+      JSON.stringify(selectedMonthsByYear),
     );
     localStorage.setItem("orderMinValue", minValueFilter);
     localStorage.setItem("orderMaxValue", maxValueFilter);
@@ -1213,7 +1224,7 @@ const fetchStats = useCallback(async () => {
     selectedGarments,
     selectedDepartments,
     selectedShipmentYears,
-    selectedShipmentMonths,
+    selectedMonthsByYear,
     minValueFilter,
     maxValueFilter,
     itemsPerPage,
@@ -1668,15 +1679,23 @@ const fetchStats = useCallback(async () => {
     );
   };
 
-  const toggleMonthForYear = (month) => {
-    setSelectedShipmentMonths((prev) =>
-      prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month],
-    );
+  const toggleMonthForYear = (year, month) => {
+    const yearStr = year.toString();
+    setSelectedMonthsByYear((prev) => {
+      const current = prev[yearStr] || [];
+      const updated = current.includes(month)
+        ? current.filter((m) => m !== month)
+        : [...current, month];
+      const next = { ...prev };
+      if (updated.length) next[yearStr] = updated;
+      else delete next[yearStr];
+      return next;
+    });
   };
 
   const clearAllYearsAndMonths = () => {
     setSelectedShipmentYears([]);
-    setSelectedShipmentMonths([]);
+    setSelectedMonthsByYear({});
   };
 
   const toggleYearExpansion = (year, e) => {
@@ -1684,29 +1703,19 @@ const fetchStats = useCallback(async () => {
     setExpandedYears((prev) => ({ ...prev, [year]: !prev[year] }));
   };
 
+  const totalSelectedMonths = selectedShipmentYears.reduce(
+    (sum, y) => sum + (selectedMonthsByYear[y]?.length || 0),
+    0,
+  );
+
   const getDisplayText = () => {
-    if (
-      selectedShipmentYears.length === 0 &&
-      selectedShipmentMonths.length === 0
-    )
-      return "Shipment Date";
-    if (
-      selectedShipmentYears.length > 0 &&
-      selectedShipmentMonths.length === 0
-    ) {
+    if (selectedShipmentYears.length === 0) return "Shipment Date";
+    if (totalSelectedMonths === 0) {
       if (selectedShipmentYears.length === 1)
         return `${selectedShipmentYears[0]}`;
       return `${selectedShipmentYears.length} years selected`;
     }
-    if (
-      selectedShipmentYears.length === 0 &&
-      selectedShipmentMonths.length > 0
-    ) {
-      if (selectedShipmentMonths.length === 1)
-        return `${selectedShipmentMonths[0]}`;
-      return `${selectedShipmentMonths.length} months selected`;
-    }
-    return `${selectedShipmentYears.length} year(s), ${selectedShipmentMonths.length} month(s)`;
+    return `${selectedShipmentYears.length} year(s), ${totalSelectedMonths} month(s)`;
   };
 
   const filteredStatuses = useMemo(
@@ -1845,7 +1854,7 @@ const fetchStats = useCallback(async () => {
     minValueFilter,
     maxValueFilter,
     selectedShipmentYears.length,
-    selectedShipmentMonths.length,
+    totalSelectedMonths,
     searchInputValue,
   ].filter(Boolean).length;
 
@@ -3373,16 +3382,14 @@ const fetchStats = useCallback(async () => {
                       />
                       <span
                         style={
-                          selectedShipmentYears.length > 0 ||
-                          selectedShipmentMonths.length > 0
+                          selectedShipmentYears.length > 0
                             ? {}
                             : styles.placeholder
                         }
                       >
                         {getDisplayText()}
                       </span>
-                      {(selectedShipmentYears.length > 0 ||
-                        selectedShipmentMonths.length > 0) && (
+                      {selectedShipmentYears.length > 0 && (
                         <FaTimes
                           style={styles.clearIcon}
                           onClick={(e) => {
@@ -3456,16 +3463,18 @@ const fetchStats = useCallback(async () => {
                                   <div style={styles.monthsContainer}>
                                     <div style={styles.monthsGrid}>
                                       {months.map((month) => {
-                                        const isMonthSelected =
-                                          selectedShipmentMonths.includes(
-                                            month,
-                                          );
+                                        const isMonthSelected = (
+                                          selectedMonthsByYear[yearStr] || []
+                                        ).includes(month);
                                         return (
                                           <div
                                             key={month}
                                             style={styles.monthItem}
                                             onClick={() =>
-                                              toggleMonthForYear(month)
+                                              toggleMonthForYear(
+                                                yearStr,
+                                                month,
+                                              )
                                             }
                                           >
                                             <div
@@ -3992,17 +4001,19 @@ const fetchStats = useCallback(async () => {
                         </button>
                       </span>
                     ))}
-                    {selectedShipmentMonths.map((month) => (
-                      <span key={month} style={styles.filterTag}>
-                        Month: {month}
-                        <button
-                          style={styles.filterTagButton}
-                          onClick={() => toggleMonthForYear(month)}
-                        >
-                          <FaTimes />
-                        </button>
-                      </span>
-                    ))}
+                    {selectedShipmentYears.flatMap((year) =>
+                      (selectedMonthsByYear[year] || []).map((month) => (
+                        <span key={`${year}-${month}`} style={styles.filterTag}>
+                          Month: {month} ({year})
+                          <button
+                            style={styles.filterTagButton}
+                            onClick={() => toggleMonthForYear(year, month)}
+                          >
+                            <FaTimes />
+                          </button>
+                        </span>
+                      )),
+                    )}
                     {(minValueFilter || maxValueFilter) && (
                       <span style={styles.filterTag}>
                         Value: {minValueFilter || "0"} - {maxValueFilter || "∞"}

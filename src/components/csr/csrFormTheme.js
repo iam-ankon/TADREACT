@@ -47,7 +47,7 @@ const field = {
   borderRadius: "9px",
   fontSize: "14px",
   color: C.text,
-  background: C.surface,
+  backgroundColor: C.surface,
   fontFamily: "inherit",
   outline: "none",
 };

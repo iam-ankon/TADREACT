@@ -154,6 +154,7 @@ const Sidebar = () => {
       subtitle={isLabQcOnly ? "Lab / QC" : "Orders & Suppliers"}
       icon={<FiPackage />}
       sections={sections}
+      collapsibleSections
     />
   );
 };
